@@ -1,0 +1,1188 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>🐱 貓狗大戰 🐶</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700;900&display=swap');
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+        }
+        
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            overflow: hidden;
+            touch-action: none;
+        }
+        
+        .game-container {
+            width: 100vw;
+            height: 100vh;
+            background: linear-gradient(180deg, #87CEEB 0%, #E0F6FF 50%, #90EE90 80%, #228B22 100%);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        /* 雲朵 */
+        .cloud {
+            position: absolute;
+            background: white;
+            border-radius: 50px;
+            opacity: 0.9;
+            filter: drop-shadow(0 5px 15px rgba(0,0,0,0.1));
+        }
+        
+        /* 角色基礎樣式 */
+        .character {
+            position: absolute;
+            bottom: 15%;
+            width: 120px;
+            height: 140px;
+            cursor: pointer;
+            transition: transform 0.1s;
+            z-index: 10;
+        }
+        
+        .character:active {
+            transform: scale(0.95);
+        }
+        
+        .character.hit {
+            animation: hitShake 0.08s ease-in-out 12;
+        }
+        
+        @keyframes hitShake {
+            0%, 100% { transform: translateX(0) rotate(0deg); }
+            25% { transform: translateX(-10px) rotate(-6deg); }
+            75% { transform: translateX(10px) rotate(6deg); }
+        }
+        
+        .cat-container {
+            left: 8%;
+        }
+        
+        .dog-container {
+            right: 8%;
+        }
+        
+        /* 蓄力條 */
+        .power-bar-container {
+            position: absolute;
+            bottom: 5%;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 80%;
+            max-width: 350px;
+            height: 50px;
+            background: rgba(0,0,0,0.3);
+            border-radius: 25px;
+            padding: 8px;
+            backdrop-filter: blur(10px);
+            border: 3px solid rgba(255,255,255,0.5);
+            z-index: 100;
+        }
+        
+        .power-bar-bg {
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, #1a1a2e, #16213e);
+            border-radius: 20px;
+            overflow: hidden;
+            position: relative;
+        }
+        
+        .power-bar-fill {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, #00ff88, #00cc6a 30%, #ffdd00 50%, #ff8800 70%, #ff3333 100%);
+            border-radius: 20px;
+            transition: width 0.05s linear;
+            box-shadow: 0 0 20px rgba(0,255,136,0.5);
+        }
+        
+        .power-marker {
+            position: absolute;
+            left: 50%;
+            top: -25px;
+            transform: translateX(-50%);
+            color: white;
+            font-size: 18px;
+            font-weight: bold;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+            z-index: 5;
+        }
+        
+        .power-marker-line {
+            position: absolute;
+            left: 50%;
+            top: 0;
+            bottom: 0;
+            width: 3px;
+            background: white;
+            transform: translateX(-50%);
+            z-index: 5;
+            box-shadow: 0 0 8px rgba(255,255,255,0.8);
+        }
+        
+        /* 風力指示器 */
+        .wind-indicator {
+            position: absolute;
+            top: 15%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(255,255,255,0.95);
+            padding: 12px 25px;
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+            border: 3px solid #4A90D9;
+            z-index: 100;
+        }
+        
+        .wind-arrow {
+            font-size: 28px;
+            transition: transform 0.3s;
+        }
+        
+        /* 投射物 */
+        .projectile {
+            position: absolute;
+            z-index: 50;
+            pointer-events: none;
+            font-size: 30px;
+        }
+        
+        .cat-projectile {
+            filter: drop-shadow(0 0 10px #FF69B4);
+        }
+        
+        .dog-projectile {
+            filter: drop-shadow(0 0 10px #4169E1);
+        }
+        
+        /* 生命值條 */
+        .health-bar {
+            position: absolute;
+            width: 100px;
+            height: 14px;
+            background: #333;
+            border-radius: 7px;
+            overflow: hidden;
+            top: -30px;
+            left: 50%;
+            transform: translateX(-50%);
+            border: 2px solid white;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+        }
+        
+        .health-fill {
+            height: 100%;
+            background: linear-gradient(180deg, #4ADE80, #22C55E);
+            transition: width 0.5s ease-out;
+            border-radius: 5px;
+        }
+        
+        .health-fill.low {
+            background: linear-gradient(180deg, #FBBF24, #F59E0B);
+        }
+        
+        .health-fill.critical {
+            background: linear-gradient(180deg, #F87171, #EF4444);
+        }
+        
+        /* 回合指示 */
+        .turn-indicator {
+            position: absolute;
+            top: 5%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 10px 30px;
+            border-radius: 30px;
+            font-size: 20px;
+            font-weight: bold;
+            box-shadow: 0 8px 32px rgba(102, 126, 234, 0.4);
+            border: 3px solid rgba(255,255,255,0.3);
+            z-index: 100;
+        }
+        
+        /* 分數顯示 */
+        .score-display {
+            position: absolute;
+            top: 5%;
+            padding: 8px 20px;
+            background: rgba(255,255,255,0.95);
+            border-radius: 15px;
+            font-weight: bold;
+            font-size: 16px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            z-index: 100;
+        }
+        
+        .cat-score {
+            left: 5%;
+            border: 3px solid #FF69B4;
+            color: #FF69B4;
+        }
+        
+        .dog-score {
+            right: 5%;
+            border: 3px solid #4169E1;
+            color: #4169E1;
+        }
+        
+        /* 道具欄 */
+        .items-container {
+            position: absolute;
+            bottom: 14%;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 12px;
+            z-index: 100;
+        }
+        
+        .item-btn {
+            width: 70px;
+            height: 70px;
+            border-radius: 15px;
+            border: 3px solid rgba(255,255,255,0.8);
+            background: linear-gradient(135deg, rgba(255,255,255,0.9), rgba(255,255,255,0.7));
+            backdrop-filter: blur(10px);
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.2);
+            font-family: 'Noto Sans TC', sans-serif;
+        }
+        
+        .item-btn:hover:not(.disabled) {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+        
+        .item-btn:active:not(.disabled) {
+            transform: scale(0.95);
+        }
+        
+        .item-btn.disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+            filter: grayscale(100%);
+        }
+        
+        .item-btn .icon {
+            font-size: 28px;
+        }
+        
+        .item-btn .label {
+            font-size: 10px;
+            font-weight: bold;
+            color: #333;
+            margin-top: 2px;
+        }
+        
+        .item-btn.item-power {
+            border-color: #FF6B6B;
+            background: linear-gradient(135deg, #FFE0E0, #FFB8B8);
+        }
+        
+        .item-btn.item-heal {
+            border-color: #4ADE80;
+            background: linear-gradient(135deg, #E0FFE8, #B8FFD0);
+        }
+        
+        .item-btn.item-wind {
+            border-color: #60A5FA;
+            background: linear-gradient(135deg, #E0F0FF, #B8DFFF);
+        }
+        
+        /* 遊戲結束畫面 */
+        .game-over {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.85);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            backdrop-filter: blur(10px);
+        }
+        
+        .game-over-content {
+            text-align: center;
+            color: white;
+            animation: popIn 0.5s ease-out;
+        }
+        
+        @keyframes popIn {
+            0% { transform: scale(0.5); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        
+        .winner-text {
+            font-size: 48px;
+            font-weight: 900;
+            margin-bottom: 20px;
+            text-shadow: 0 0 30px currentColor;
+        }
+        
+        .restart-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 18px 50px;
+            font-size: 22px;
+            font-weight: bold;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: all 0.3s;
+            box-shadow: 0 10px 40px rgba(102, 126, 234, 0.5);
+            font-family: 'Noto Sans TC', sans-serif;
+        }
+        
+        .restart-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 15px 50px rgba(102, 126, 234, 0.7);
+        }
+        
+        /* 草地 */
+        .grass {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 20%;
+            background: linear-gradient(180deg, #4ADE80 0%, #22C55E 50%, #16A34A 100%);
+            z-index: 1;
+        }
+        
+        .grass::before {
+            content: '';
+            position: absolute;
+            top: -20px;
+            left: 0;
+            right: 0;
+            height: 40px;
+            background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 20'%3E%3Cpath fill='%234ADE80' d='M0,20 Q25,0 50,20 Q75,0 100,20 L100,20 L0,20 Z'/%3E%3C/svg%3E");
+            background-size: 100px 20px;
+        }
+        
+        /* 平台 */
+        .platform {
+            position: absolute;
+            bottom: 12%;
+            width: 140px;
+            height: 25px;
+            border-radius: 15px;
+            z-index: 5;
+        }
+        
+        .cat-platform {
+            left: 5%;
+            background: linear-gradient(180deg, #FFB6C1, #FF69B4);
+            box-shadow: 0 8px 0 #DB7093, 0 12px 20px rgba(0,0,0,0.3);
+        }
+        
+        .dog-platform {
+            right: 5%;
+            background: linear-gradient(180deg, #87CEEB, #4169E1);
+            box-shadow: 0 8px 0 #1E40AF, 0 12px 20px rgba(0,0,0,0.3);
+        }
+        
+        /* 傷害數字 */
+        .damage-number {
+            position: absolute;
+            font-size: 36px;
+            font-weight: 900;
+            color: #FF4444;
+            text-shadow: 0 0 10px #FF0000, 2px 2px 0 #000;
+            pointer-events: none;
+            animation: damageFloat 1s ease-out forwards;
+            z-index: 200;
+        }
+        
+        .damage-number.heal {
+            color: #4ADE80;
+            text-shadow: 0 0 10px #22C55E, 2px 2px 0 #000;
+        }
+        
+        @keyframes damageFloat {
+            0% { transform: translateY(0) scale(0.5); opacity: 1; }
+            50% { transform: translateY(-30px) scale(1.2); }
+            100% { transform: translateY(-60px) scale(1); opacity: 0; }
+        }
+        
+        /* 說明提示 */
+        .instruction {
+            position: absolute;
+            bottom: 22%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.7);
+            color: white;
+            padding: 8px 20px;
+            border-radius: 20px;
+            font-size: 14px;
+            white-space: nowrap;
+            z-index: 100;
+        }
+        
+        /* 表情變化 */
+        .expression-normal { display: block; }
+        .expression-hurt { display: none; }
+        
+        .character.hurt .expression-normal { display: none; }
+        .character.hurt .expression-hurt { display: block; }
+        
+        /* 道具使用提示 */
+        .item-toast {
+            position: absolute;
+            top: 25%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            padding: 15px 30px;
+            border-radius: 20px;
+            font-size: 20px;
+            font-weight: bold;
+            z-index: 300;
+            animation: toastIn 0.5s ease-out;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+        }
+        
+        @keyframes toastIn {
+            0% { transform: translateX(-50%) translateY(-20px); opacity: 0; }
+            100% { transform: translateX(-50%) translateY(0); opacity: 1; }
+        }
+        
+        /* 極端風力警告 */
+        .extreme-wind {
+            animation: windPulse 0.5s ease-in-out infinite alternate;
+        }
+        
+        @keyframes windPulse {
+            0% { color: #4A90D9; }
+            100% { color: #EF4444; }
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container" id="gameContainer">
+        <!-- 雲朵裝飾 -->
+        <div class="cloud" style="width: 100px; height: 40px; top: 8%; left: 10%;"></div>
+        <div class="cloud" style="width: 80px; height: 35px; top: 12%; right: 15%;"></div>
+        <div class="cloud" style="width: 120px; height: 45px; top: 6%; left: 60%;"></div>
+        
+        <!-- 草地 -->
+        <div class="grass"></div>
+        
+        <!-- 分數顯示 -->
+        <div class="score-display cat-score">🐱 <span id="catWins">0</span> 勝</div>
+        <div class="score-display dog-score">🐶 <span id="dogWins">0</span> 勝</div>
+        
+        <!-- 回合指示 -->
+        <div class="turn-indicator" id="turnIndicator">🐱 貓咪回合</div>
+        
+        <!-- 風力指示器 -->
+        <div class="wind-indicator">
+            <span style="font-size: 16px; color: #333; font-weight: bold;">🌬️ 風力</span>
+            <span class="wind-arrow" id="windArrow">➡️</span>
+            <span id="windValue" style="font-size: 18px; font-weight: bold; color: #4A90D9;">0</span>
+        </div>
+        
+        <!-- 平台 -->
+        <div class="platform cat-platform"></div>
+        <div class="platform dog-platform"></div>
+        
+        <!-- 貓咪角色 -->
+        <div class="character cat-container" id="cat">
+            <div class="health-bar">
+                <div class="health-fill" id="catHealth" style="width: 100%;"></div>
+            </div>
+            <svg class="cat-body" viewBox="0 0 120 140">
+                <ellipse cx="60" cy="100" rx="40" ry="35" fill="url(#catBodyGrad)"/>
+                <circle cx="60" cy="55" r="38" fill="url(#catHeadGrad)"/>
+                <polygon points="30,35 22,5 45,25" fill="url(#catEarGrad)"/>
+                <polygon points="90,35 98,5 75,25" fill="url(#catEarGrad)"/>
+                <polygon points="32,32 26,12 43,26" fill="#FFB6C1"/>
+                <polygon points="88,32 94,12 77,26" fill="#FFB6C1"/>
+                <g class="expression-normal">
+                    <ellipse cx="45" cy="50" rx="8" ry="10" fill="white"/>
+                    <ellipse cx="75" cy="50" rx="8" ry="10" fill="white"/>
+                    <circle cx="46" cy="52" r="5" fill="#333"/>
+                    <circle cx="76" cy="52" r="5" fill="#333"/>
+                    <circle cx="48" cy="50" r="2" fill="white"/>
+                    <circle cx="78" cy="50" r="2" fill="white"/>
+                    <ellipse cx="60" cy="68" rx="5" ry="4" fill="#FF69B4"/>
+                    <path d="M50,75 Q60,82 70,75" stroke="#333" stroke-width="2" fill="none"/>
+                    <path d="M55,75 Q60,80 65,75" stroke="#333" stroke-width="2" fill="none"/>
+                </g>
+                <g class="expression-hurt">
+                    <line x1="38" y1="45" x2="52" y2="55" stroke="#333" stroke-width="3" stroke-linecap="round"/>
+                    <line x1="52" y1="45" x2="38" y2="55" stroke="#333" stroke-width="3" stroke-linecap="round"/>
+                    <line x1="68" y1="45" x2="82" y2="55" stroke="#333" stroke-width="3" stroke-linecap="round"/>
+                    <line x1="82" y1="45" x2="68" y2="55" stroke="#333" stroke-width="3" stroke-linecap="round"/>
+                    <ellipse cx="60" cy="68" rx="5" ry="4" fill="#FF69B4"/>
+                    <ellipse cx="60" cy="80" rx="10" ry="8" fill="#333"/>
+                    <path d="M25,62 Q30,58 35,62" stroke="#87CEEB" stroke-width="2" fill="none"/>
+                    <path d="M85,62 Q90,58 95,62" stroke="#87CEEB" stroke-width="2" fill="none"/>
+                </g>
+                <line x1="20" y1="65" x2="40" y2="68" stroke="#333" stroke-width="1.5"/>
+                <line x1="18" y1="72" x2="38" y2="72" stroke="#333" stroke-width="1.5"/>
+                <line x1="80" y1="68" x2="100" y2="65" stroke="#333" stroke-width="1.5"/>
+                <line x1="82" y1="72" x2="102" y2="72" stroke="#333" stroke-width="1.5"/>
+                <ellipse cx="32" cy="65" rx="8" ry="5" fill="#FFB6C1" opacity="0.6"/>
+                <ellipse cx="88" cy="65" rx="8" ry="5" fill="#FFB6C1" opacity="0.6"/>
+                <ellipse cx="40" cy="130" rx="12" ry="8" fill="url(#catBodyGrad)"/>
+                <ellipse cx="80" cy="130" rx="12" ry="8" fill="url(#catBodyGrad)"/>
+                <defs>
+                    <radialGradient id="catBodyGrad" cx="30%" cy="30%">
+                        <stop offset="0%" stop-color="#FFF5EE"/>
+                        <stop offset="100%" stop-color="#FFE4C4"/>
+                    </radialGradient>
+                    <radialGradient id="catHeadGrad" cx="30%" cy="30%">
+                        <stop offset="0%" stop-color="#FFFAF0"/>
+                        <stop offset="100%" stop-color="#FFE4C4"/>
+                    </radialGradient>
+                    <linearGradient id="catEarGrad" x1="0%" y1="100%" x2="0%" y2="0%">
+                        <stop offset="0%" stop-color="#FFE4C4"/>
+                        <stop offset="100%" stop-color="#FFDAB9"/>
+                    </linearGradient>
+                </defs>
+            </svg>
+        </div>
+        
+        <!-- 狗狗角色 -->
+        <div class="character dog-container" id="dog">
+            <div class="health-bar">
+                <div class="health-fill" id="dogHealth" style="width: 100%;"></div>
+            </div>
+            <svg class="dog-body" viewBox="0 0 120 140">
+                <ellipse cx="60" cy="100" rx="42" ry="35" fill="url(#dogBodyGrad)"/>
+                <circle cx="60" cy="55" r="40" fill="url(#dogHeadGrad)"/>
+                <ellipse cx="25" cy="45" rx="15" ry="30" fill="url(#dogEarGrad)" transform="rotate(-15, 25, 45)"/>
+                <ellipse cx="95" cy="45" rx="15" ry="30" fill="url(#dogEarGrad)" transform="rotate(15, 95, 45)"/>
+                <g class="expression-normal">
+                    <ellipse cx="45" cy="48" rx="10" ry="12" fill="white"/>
+                    <ellipse cx="75" cy="48" rx="10" ry="12" fill="white"/>
+                    <circle cx="47" cy="50" r="6" fill="#4A3728"/>
+                    <circle cx="77" cy="50" r="6" fill="#4A3728"/>
+                    <circle cx="49" cy="48" r="2.5" fill="white"/>
+                    <circle cx="79" cy="48" r="2.5" fill="white"/>
+                    <ellipse cx="60" cy="70" rx="8" ry="6" fill="#333"/>
+                    <ellipse cx="60" cy="68" rx="3" ry="2" fill="#666"/>
+                    <path d="M45,80 Q60,92 75,80" stroke="#4A3728" stroke-width="3" fill="none" stroke-linecap="round"/>
+                    <ellipse cx="60" cy="88" rx="8" ry="4" fill="#FF6B8A" opacity="0.8"/>
+                </g>
+                <g class="expression-hurt">
+                    <line x1="37" y1="43" x2="53" y2="55" stroke="#4A3728" stroke-width="3" stroke-linecap="round"/>
+                    <line x1="53" y1="43" x2="37" y2="55" stroke="#4A3728" stroke-width="3" stroke-linecap="round"/>
+                    <line x1="67" y1="43" x2="83" y2="55" stroke="#4A3728" stroke-width="3" stroke-linecap="round"/>
+                    <line x1="83" y1="43" x2="67" y2="55" stroke="#4A3728" stroke-width="3" stroke-linecap="round"/>
+                    <ellipse cx="60" cy="70" rx="8" ry="6" fill="#333"/>
+                    <ellipse cx="60" cy="85" rx="12" ry="10" fill="#4A3728"/>
+                    <path d="M22,55 Q27,50 32,55" stroke="#87CEEB" stroke-width="2" fill="none"/>
+                    <path d="M88,55 Q93,50 98,55" stroke="#87CEEB" stroke-width="2" fill="none"/>
+                </g>
+                <ellipse cx="30" cy="65" rx="10" ry="6" fill="#FFCBA4" opacity="0.5"/>
+                <ellipse cx="90" cy="65" rx="10" ry="6" fill="#FFCBA4" opacity="0.5"/>
+                <ellipse cx="38" cy="130" rx="14" ry="10" fill="url(#dogBodyGrad)"/>
+                <ellipse cx="82" cy="130" rx="14" ry="10" fill="url(#dogBodyGrad)"/>
+                <path d="M100,95 Q120,85 115,70" stroke="url(#dogBodyGrad)" stroke-width="12" fill="none" stroke-linecap="round"/>
+                <defs>
+                    <radialGradient id="dogBodyGrad" cx="30%" cy="30%">
+                        <stop offset="0%" stop-color="#F5DEB3"/>
+                        <stop offset="100%" stop-color="#D2B48C"/>
+                    </radialGradient>
+                    <radialGradient id="dogHeadGrad" cx="30%" cy="30%">
+                        <stop offset="0%" stop-color="#FAEBD7"/>
+                        <stop offset="100%" stop-color="#D2B48C"/>
+                    </radialGradient>
+                    <linearGradient id="dogEarGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+                        <stop offset="0%" stop-color="#C4A574"/>
+                        <stop offset="100%" stop-color="#8B7355"/>
+                    </linearGradient>
+                </defs>
+            </svg>
+        </div>
+        
+        <!-- 說明提示 -->
+        <div class="instruction" id="instruction">👆 長按角色蓄力，放開發射！</div>
+        
+        <!-- 道具欄 -->
+        <div class="items-container" id="itemsContainer">
+            <button class="item-btn item-power" id="itemPower" onclick="useItem('power')">
+                <span class="icon">💥</span>
+                <span class="label">事半功倍</span>
+            </button>
+            <button class="item-btn item-heal" id="itemHeal" onclick="useItem('heal')">
+                <span class="icon">💚</span>
+                <span class="label">生機勃勃</span>
+            </button>
+            <button class="item-btn item-wind" id="itemWind" onclick="useItem('wind')">
+                <span class="icon">🌪️</span>
+                <span class="label">呼風喚雨</span>
+            </button>
+        </div>
+        
+        <!-- 蓄力條 -->
+        <div class="power-bar-container" id="powerBarContainer" style="display: none;">
+            <div class="power-marker">▲ 50%</div>
+            <div class="power-bar-bg">
+                <div class="power-marker-line"></div>
+                <div class="power-bar-fill" id="powerBar"></div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 遊戲結束畫面 -->
+    <div class="game-over" id="gameOver">
+        <div class="game-over-content">
+            <div class="winner-text" id="winnerText">🐱 貓咪獲勝！</div>
+            <button class="restart-btn" onclick="restartGame()">🔄 再來一局</button>
+        </div>
+    </div>
+    
+    <script>
+        // 遊戲狀態
+        const gameState = {
+            currentTurn: 'cat',
+            catHealth: 100,
+            dogHealth: 100,
+            catWins: 0,
+            dogWins: 0,
+            wind: 0,
+            isCharging: false,
+            power: 0,
+            canShoot: true,
+            maxHealth: 100,
+            damage: 25,
+            // 道具狀態
+            catItemUsed: false,
+            dogItemUsed: false,
+            // 當前回合道具效果
+            currentDamageMultiplier: 1,
+            useSpecialProjectile: false,
+            // 下回合隱藏風力顯示
+            hideNextWind: false
+        };
+        
+        // DOM 元素
+        const cat = document.getElementById('cat');
+        const dog = document.getElementById('dog');
+        const powerBar = document.getElementById('powerBar');
+        const powerBarContainer = document.getElementById('powerBarContainer');
+        const windArrow = document.getElementById('windArrow');
+        const windValue = document.getElementById('windValue');
+        const turnIndicator = document.getElementById('turnIndicator');
+        const catHealthBar = document.getElementById('catHealth');
+        const dogHealthBar = document.getElementById('dogHealth');
+        const gameContainer = document.getElementById('gameContainer');
+        const gameOverScreen = document.getElementById('gameOver');
+        const winnerText = document.getElementById('winnerText');
+        const instruction = document.getElementById('instruction');
+        const itemsContainer = document.getElementById('itemsContainer');
+        
+        let chargeInterval;
+        let chargeDirection = 1;
+        
+        // 初始化遊戲
+        function initGame() {
+            generateWind();
+            updateUI();
+            updateItemButtons();
+            setupEventListeners();
+        }
+        
+        // 生成風力 (-10 到 10)
+        function generateWind() {
+            // 正常隨機生成風力
+            gameState.wind = Math.floor(Math.random() * 21) - 10;
+            updateWindDisplay();
+        }
+        
+        // 更新風力顯示
+        function updateWindDisplay() {
+            const wind = gameState.wind;
+            const windValueEl = document.getElementById('windValue');
+            
+            // 檢查是否需要隱藏風力顯示
+            if (gameState.hideNextWind) {
+                windArrow.textContent = '❓';
+                windValueEl.textContent = '？';
+                windValueEl.classList.remove('extreme-wind');
+                windValueEl.style.color = '#9333EA';
+                gameState.hideNextWind = false; // 重置狀態
+                return;
+            }
+            
+            if (wind === 0) {
+                windArrow.textContent = '⬆️';
+            } else if (wind > 0) {
+                windArrow.textContent = '➡️';
+            } else {
+                windArrow.textContent = '⬅️';
+            }
+            
+            windValueEl.textContent = Math.abs(wind);
+            
+            // 極端風力警告
+            if (Math.abs(wind) >= 8) {
+                windValueEl.classList.add('extreme-wind');
+            } else {
+                windValueEl.classList.remove('extreme-wind');
+            }
+            
+            windValueEl.style.color = wind === 0 ? '#22C55E' : '#4A90D9';
+        }
+        
+        // 更新道具按鈕狀態
+        function updateItemButtons() {
+            const isCat = gameState.currentTurn === 'cat';
+            const itemUsed = isCat ? gameState.catItemUsed : gameState.dogItemUsed;
+            
+            const itemPower = document.getElementById('itemPower');
+            const itemHeal = document.getElementById('itemHeal');
+            const itemWind = document.getElementById('itemWind');
+            
+            if (itemUsed || !gameState.canShoot) {
+                itemPower.classList.add('disabled');
+                itemHeal.classList.add('disabled');
+                itemWind.classList.add('disabled');
+            } else {
+                itemPower.classList.remove('disabled');
+                itemHeal.classList.remove('disabled');
+                itemWind.classList.remove('disabled');
+            }
+        }
+        
+        // 使用道具
+        function useItem(type) {
+            const isCat = gameState.currentTurn === 'cat';
+            const itemUsed = isCat ? gameState.catItemUsed : gameState.dogItemUsed;
+            
+            if (itemUsed || !gameState.canShoot) return;
+            
+            // 標記已使用道具
+            if (isCat) {
+                gameState.catItemUsed = true;
+            } else {
+                gameState.dogItemUsed = true;
+            }
+            
+            switch (type) {
+                case 'power':
+                    // 事半功倍：傷害x2，使用特殊投射物
+                    gameState.currentDamageMultiplier = 2;
+                    gameState.useSpecialProjectile = true;
+                    showItemToast('💥 事半功倍！傷害翻倍！');
+                    updateItemButtons();
+                    break;
+                    
+                case 'heal':
+                    // 生機勃勃：回滿血，跳過回合
+                    if (isCat) {
+                        const oldHealth = gameState.catHealth;
+                        gameState.catHealth = 100;
+                        catHealthBar.style.width = '100%';
+                        catHealthBar.classList.remove('low', 'critical');
+                        showHealNumber(cat, 100 - oldHealth);
+                    } else {
+                        const oldHealth = gameState.dogHealth;
+                        gameState.dogHealth = 100;
+                        dogHealthBar.style.width = '100%';
+                        dogHealthBar.classList.remove('low', 'critical');
+                        showHealNumber(dog, 100 - oldHealth);
+                    }
+                    showItemToast('💚 生機勃勃！生命值回滿！');
+                    gameState.canShoot = false;
+                    updateItemButtons();
+                    setTimeout(() => nextTurn(), 1500);
+                    break;
+                    
+                case 'wind':
+                    // 呼風喚雨：本回合風力為0，對方下回合風力顯示為「？」
+                    gameState.wind = 0;
+                    updateWindDisplay();
+                    gameState.hideNextWind = true; // 對方下回合隱藏風力
+                    showItemToast('🌪️ 呼風喚雨！風力歸零！對方將無法看見風力！');
+                    updateItemButtons();
+                    break;
+            }
+        }
+        
+        // 顯示道具使用提示
+        function showItemToast(text) {
+            const toast = document.createElement('div');
+            toast.className = 'item-toast';
+            toast.textContent = text;
+            gameContainer.appendChild(toast);
+            
+            setTimeout(() => toast.remove(), 1500);
+        }
+        
+        // 顯示回血數字
+        function showHealNumber(targetEl, amount) {
+            if (amount <= 0) return;
+            
+            const healNum = document.createElement('div');
+            healNum.className = 'damage-number heal';
+            healNum.textContent = `+${amount}`;
+            
+            const rect = targetEl.getBoundingClientRect();
+            const containerRect = gameContainer.getBoundingClientRect();
+            
+            healNum.style.left = (rect.left - containerRect.left + rect.width / 2 - 20) + 'px';
+            healNum.style.top = (rect.top - containerRect.top) + 'px';
+            
+            gameContainer.appendChild(healNum);
+            
+            setTimeout(() => healNum.remove(), 1000);
+        }
+        
+        // 設置事件監聽
+        function setupEventListeners() {
+            cat.addEventListener('mousedown', (e) => startCharge('cat', e));
+            cat.addEventListener('touchstart', (e) => startCharge('cat', e));
+            cat.addEventListener('mouseup', () => releaseCharge('cat'));
+            cat.addEventListener('touchend', () => releaseCharge('cat'));
+            cat.addEventListener('mouseleave', () => cancelCharge());
+            cat.addEventListener('touchcancel', () => cancelCharge());
+            
+            dog.addEventListener('mousedown', (e) => startCharge('dog', e));
+            dog.addEventListener('touchstart', (e) => startCharge('dog', e));
+            dog.addEventListener('mouseup', () => releaseCharge('dog'));
+            dog.addEventListener('touchend', () => releaseCharge('dog'));
+            dog.addEventListener('mouseleave', () => cancelCharge());
+            dog.addEventListener('touchcancel', () => cancelCharge());
+        }
+        
+        // 開始蓄力
+        function startCharge(character, e) {
+            e.preventDefault();
+            
+            if (!gameState.canShoot) return;
+            if (gameState.currentTurn !== character) {
+                showMessage(`現在是${gameState.currentTurn === 'cat' ? '貓咪' : '狗狗'}的回合！`);
+                return;
+            }
+            
+            gameState.isCharging = true;
+            gameState.power = 0;
+            chargeDirection = 1;
+            powerBarContainer.style.display = 'block';
+            instruction.style.display = 'none';
+            
+            chargeInterval = setInterval(() => {
+                gameState.power += chargeDirection * 2;
+                
+                if (gameState.power >= 100) {
+                    gameState.power = 100;
+                    chargeDirection = -1;
+                } else if (gameState.power <= 0) {
+                    gameState.power = 0;
+                    chargeDirection = 1;
+                }
+                
+                powerBar.style.width = gameState.power + '%';
+            }, 30);
+        }
+        
+        // 釋放蓄力（發射）
+        function releaseCharge(character) {
+            if (!gameState.isCharging || gameState.currentTurn !== character) return;
+            
+            clearInterval(chargeInterval);
+            gameState.isCharging = false;
+            gameState.canShoot = false;
+            
+            const power = gameState.power;
+            powerBarContainer.style.display = 'none';
+            
+            fireProjectile(character, power);
+        }
+        
+        // 取消蓄力
+        function cancelCharge() {
+            if (gameState.isCharging) {
+                clearInterval(chargeInterval);
+                gameState.isCharging = false;
+                powerBarContainer.style.display = 'none';
+                gameState.power = 0;
+                powerBar.style.width = '0%';
+            }
+        }
+        
+        // 發射投射物
+        function fireProjectile(shooter, power) {
+            const projectile = document.createElement('div');
+            projectile.className = `projectile ${shooter}-projectile`;
+            
+            // 根據角色和是否使用道具決定投射物外觀
+            if (gameState.useSpecialProjectile) {
+                projectile.textContent = shooter === 'cat' ? '🐟' : '🦴';
+                projectile.style.fontSize = '40px';
+            } else {
+                projectile.textContent = shooter === 'cat' ? '💗' : '💙';
+            }
+            
+            gameContainer.appendChild(projectile);
+            
+            const shooterEl = shooter === 'cat' ? cat : dog;
+            const targetEl = shooter === 'cat' ? dog : cat;
+            
+            const shooterRect = shooterEl.getBoundingClientRect();
+            const targetRect = targetEl.getBoundingClientRect();
+            const containerRect = gameContainer.getBoundingClientRect();
+            
+            let startX = shooterRect.left - containerRect.left + shooterRect.width / 2;
+            let startY = shooterRect.top - containerRect.top + 20;
+            
+            const targetX = targetRect.left - containerRect.left + targetRect.width / 2;
+            const targetY = targetRect.top - containerRect.top + targetRect.height / 2;
+            
+            const direction = shooter === 'cat' ? 1 : -1;
+            const totalDistance = Math.abs(targetX - startX);
+            
+            // 風力影響計算（-10 到 10 範圍）
+            const basePower = 50;
+            const windEffect = gameState.wind * 2.5 * direction;
+            const effectivePower = power + windEffect;
+            
+            const distanceRatio = effectivePower / basePower;
+            const actualDistance = totalDistance * distanceRatio;
+            
+            const maxHeight = 150;
+            const duration = 1200;
+            const startTime = Date.now();
+            
+            projectile.style.left = startX + 'px';
+            projectile.style.top = startY + 'px';
+            
+            function animate() {
+                const elapsed = Date.now() - startTime;
+                const progress = Math.min(elapsed / duration, 1);
+                
+                const currentX = startX + (actualDistance * direction * progress);
+                const heightProgress = Math.sin(progress * Math.PI);
+                const currentY = startY - (maxHeight * heightProgress);
+                
+                projectile.style.left = currentX + 'px';
+                projectile.style.top = currentY + 'px';
+                projectile.style.transform = `rotate(${progress * 720}deg)`;
+                
+                if (progress < 1) {
+                    requestAnimationFrame(animate);
+                } else {
+                    const finalX = currentX;
+                    const hitRange = 60;
+                    
+                    const hitDistance = Math.abs(finalX - targetX);
+                    const isHit = hitDistance < hitRange && currentY > targetY - 80;
+                    
+                    projectile.remove();
+                    
+                    if (isHit) {
+                        handleHit(shooter);
+                    } else {
+                        handleMiss(shooter);
+                    }
+                }
+            }
+            
+            requestAnimationFrame(animate);
+        }
+        
+        // 處理命中
+        function handleHit(shooter) {
+            const target = shooter === 'cat' ? 'dog' : 'cat';
+            const targetEl = target === 'cat' ? cat : dog;
+            const healthBar = target === 'cat' ? catHealthBar : dogHealthBar;
+            
+            // 計算傷害（考慮道具加成）
+            const damage = gameState.damage * gameState.currentDamageMultiplier;
+            
+            // 扣血
+            if (target === 'cat') {
+                gameState.catHealth = Math.max(0, gameState.catHealth - damage);
+            } else {
+                gameState.dogHealth = Math.max(0, gameState.dogHealth - damage);
+            }
+            
+            const health = target === 'cat' ? gameState.catHealth : gameState.dogHealth;
+            healthBar.style.width = health + '%';
+            
+            healthBar.classList.remove('low', 'critical');
+            if (health <= 30) {
+                healthBar.classList.add('critical');
+            } else if (health <= 60) {
+                healthBar.classList.add('low');
+            }
+            
+            // 受傷效果（1秒）
+            targetEl.classList.add('hit', 'hurt');
+            targetEl.style.filter = 'brightness(1.5) saturate(0.5)';
+            
+            showDamageNumber(targetEl, damage);
+            
+            setTimeout(() => {
+                targetEl.classList.remove('hit', 'hurt');
+                targetEl.style.filter = '';
+            }, 1000);
+            
+            // 重置道具效果
+            gameState.currentDamageMultiplier = 1;
+            gameState.useSpecialProjectile = false;
+            
+            if (health <= 0) {
+                setTimeout(() => endGame(shooter), 800);
+            } else {
+                setTimeout(() => nextTurn(), 1200);
+            }
+        }
+        
+        // 顯示傷害數字
+        function showDamageNumber(targetEl, damage) {
+            const damageNum = document.createElement('div');
+            damageNum.className = 'damage-number';
+            damageNum.textContent = `-${damage}`;
+            
+            const rect = targetEl.getBoundingClientRect();
+            const containerRect = gameContainer.getBoundingClientRect();
+            
+            damageNum.style.left = (rect.left - containerRect.left + rect.width / 2 - 20) + 'px';
+            damageNum.style.top = (rect.top - containerRect.top) + 'px';
+            
+            gameContainer.appendChild(damageNum);
+            
+            setTimeout(() => damageNum.remove(), 1000);
+        }
+        
+        // 處理未命中
+        function handleMiss(shooter) {
+            // 重置道具效果
+            gameState.currentDamageMultiplier = 1;
+            gameState.useSpecialProjectile = false;
+            
+            showMessage('未命中！💨');
+            setTimeout(() => nextTurn(), 800);
+        }
+        
+        // 顯示訊息
+        function showMessage(text) {
+            const msg = document.createElement('div');
+            msg.style.cssText = `
+                position: absolute;
+                top: 40%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                background: rgba(0,0,0,0.8);
+                color: white;
+                padding: 15px 30px;
+                border-radius: 15px;
+                font-size: 20px;
+                font-weight: bold;
+                z-index: 200;
+                animation: popIn 0.3s ease-out;
+            `;
+            msg.textContent = text;
+            gameContainer.appendChild(msg);
+            
+            setTimeout(() => msg.remove(), 1000);
+        }
+        
+        // 下一回合
+        function nextTurn() {
+            gameState.currentTurn = gameState.currentTurn === 'cat' ? 'dog' : 'cat';
+            gameState.canShoot = true;
+            generateWind();
+            updateUI();
+            updateItemButtons();
+            instruction.style.display = 'block';
+        }
+        
+        // 更新 UI
+        function updateUI() {
+            const isCat = gameState.currentTurn === 'cat';
+            turnIndicator.textContent = isCat ? '🐱 貓咪回合' : '🐶 狗狗回合';
+            turnIndicator.style.background = isCat 
+                ? 'linear-gradient(135deg, #FF69B4 0%, #FF1493 100%)'
+                : 'linear-gradient(135deg, #4169E1 0%, #1E40AF 100%)';
+            
+            document.getElementById('catWins').textContent = gameState.catWins;
+            document.getElementById('dogWins').textContent = gameState.dogWins;
+        }
+        
+        // 遊戲結束
+        function endGame(winner) {
+            if (winner === 'cat') {
+                gameState.catWins++;
+                winnerText.textContent = '🐱 貓咪獲勝！';
+                winnerText.style.color = '#FF69B4';
+            } else {
+                gameState.dogWins++;
+                winnerText.textContent = '🐶 狗狗獲勝！';
+                winnerText.style.color = '#4169E1';
+            }
+            
+            gameOverScreen.style.display = 'flex';
+        }
+        
+        // 重新開始
+        function restartGame() {
+            gameState.catHealth = 100;
+            gameState.dogHealth = 100;
+            gameState.currentTurn = 'cat';
+            gameState.canShoot = true;
+            gameState.power = 0;
+            gameState.currentDamageMultiplier = 1;
+            gameState.useSpecialProjectile = false;
+            gameState.hideNextWind = false;
+            
+            // 重置道具使用狀態
+            gameState.catItemUsed = false;
+            gameState.dogItemUsed = false;
+            
+            catHealthBar.style.width = '100%';
+            dogHealthBar.style.width = '100%';
+            catHealthBar.classList.remove('low', 'critical');
+            dogHealthBar.classList.remove('low', 'critical');
+            
+            cat.classList.remove('hit', 'hurt');
+            dog.classList.remove('hit', 'hurt');
+            cat.style.filter = '';
+            dog.style.filter = '';
+            
+            powerBar.style.width = '0%';
+            
+            gameOverScreen.style.display = 'none';
+            instruction.style.display = 'block';
+            
+            generateWind();
+            updateUI();
+            updateItemButtons();
+        }
+        
+        // 啟動遊戲
+        initGame();
+    </script>
+</body>
+</html>

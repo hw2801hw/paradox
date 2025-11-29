@@ -1,0 +1,2929 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>塔防王國！(優化版)</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.min.js"></script>
+<style>
+  /* --- 全局樣式 --- */
+  body, html { 
+    margin:0; padding:0; overflow:hidden; background:#333; 
+    font-family:Arial, sans-serif; touch-action:manipulation;
+    user-select:none;
+    height: 100%; 
+    height: -webkit-fill-available;
+  }
+  
+  /* --- 主選單容器 --- */
+  #mainMenu {
+    position:relative;
+    width:100vw;
+    height: 100%;
+    height: -webkit-fill-available;
+    box-sizing: border-box;
+    display:flex; 
+    flex-direction:column;
+    justify-content:center;
+    align-items:center;
+    background:linear-gradient(145deg, #1a1a2e, #16213e);
+    color:white;
+  }
+  
+  /* --- 遊戲容器 (預設隱藏) --- */
+  #game { 
+    position:relative; width:100vw; height:100vh; 
+    display:none; 
+    justify-content:center; align-items:center;
+    background:#5c94fc;
+  }
+
+  /* --- 介面切換容器 --- */
+  #screenContainer {
+    flex-grow:1;
+    width:100%;
+    max-width:450px;
+    position:relative;
+    overflow:hidden;
+  }
+  
+  /* --- 三個主介面 --- */
+  .screen {
+    position:absolute;
+    top:0; left:0; width:100%; height:100%;
+    padding:20px;
+    box-sizing:border-box;
+    display:none;
+    flex-direction:column;
+    align-items:center;
+    overflow-y:auto;
+  }
+  #homeScreen { display:flex; justify-content:center; }
+  #deckScreen { display:none; }
+  #tacticsScreen { display:none; }
+
+  /* --- 底部導航 --- */
+  #bottomNav {
+    width:100%;
+    max-width:450px;
+    display:flex;
+    justify-content:space-around;
+    background:rgba(0,0,0,0.3);
+    padding: 10px 0;
+    padding-bottom: max(15px, env(safe-area-inset-bottom));
+    box-shadow:0 -5px 15px rgba(0,0,0,0.3);
+  }
+  .navBtn {
+    font-size:34px;
+    padding:8px 20px;
+    border-radius:15px;
+    cursor:pointer;
+    transition:all 0.2s;
+    background:transparent;
+    border:3px solid transparent;
+  }
+  .navBtn.active {
+    background:rgba(255,255,255,0.15);
+    border-color: #ff6b35;
+  }
+  .navBtn:active {
+    transform:scale(0.9);
+  }
+
+  /* --- 主頁 (Home) --- */
+  #startGameBtn {
+    font-size:28px;
+    font-weight:bold;
+    color:white;
+    background:linear-gradient(145deg, #4CAF50, #45a049);
+    border:none;
+    padding:25px 50px;
+    border-radius:20px;
+    box-shadow:0 8px 25px rgba(0,0,0,0.5);
+    cursor:pointer;
+    transition:all 0.2s;
+  }
+  #startGameBtn:active {
+    transform:scale(0.95);
+  }
+
+  /* --- 卡牌 (Deck) --- */
+  .deck-title {
+    font-size:22px;
+    font-weight:bold;
+    margin-bottom:15px;
+    text-shadow:0 0 5px #fff;
+  }
+  .deck-container {
+    display:grid;
+    grid-template-columns:repeat(4, 1fr);
+    gap:10px;
+    width:100%;
+    background:rgba(0,0,0,0.2);
+    padding:15px;
+    border-radius:15px;
+    margin-bottom:20px;
+  }
+  
+  .deck-slot, .deck-card {
+    aspect-ratio:0.75;
+    border-radius:10px;
+    box-sizing:border-box;
+    transition:all 0.2s;
+  }
+
+  .deck-card {
+    background:linear-gradient(145deg, #444, #222);
+    border:3px solid #777;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:space-between;
+    padding:8px 5px;
+    cursor:grab;
+  }
+  
+  .deck-slot {
+    background:rgba(0,0,0,0.3);
+    border:3px dashed #888;
+    cursor:default;
+    display:flex; 
+    padding: 0;
+  }
+
+  .deck-slot > .deck-card {
+    width: 100%;
+    height: 100%;
+    cursor: default;
+  }
+
+  .deck-slot.drag-over {
+    background:rgba(255,255,255,0.2);
+    border-color:#fff;
+  }
+
+  .deck-card:active {
+    cursor:grabbing;
+    transform:scale(1.05);
+    border-color:#ffc107;
+  }
+  
+  .card-power {
+    position:relative;
+    background:linear-gradient(145deg, #4169E1, #2a48a3);
+    border:2px solid #fff;
+    border-radius:50%;
+    width:30px;
+    height:30px;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    font-size:16px;
+    font-weight:bold;
+    color:white;
+    box-shadow:0 0 8px rgba(0,0,0,0.7);
+    margin-bottom:5px;
+  }
+  .card-power.life {
+    background:linear-gradient(145deg, #FF69B4, #d64f90);
+    font-size: 12px; 
+  }
+  .card-power.encourage {
+    background:linear-gradient(145deg, #FFB6C1, #e0a0b0);
+  }
+  .card-power.gold {
+    background:linear-gradient(145deg, #FFD700, #DAA520);
+    color: #000;
+    font-size: 12px;
+  }
+
+  .card-emoji {
+    font-size:28px;
+    flex-grow:1;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+  }
+  .card-name {
+    font-size:12px;
+    font-weight:bold;
+    text-align:center;
+    width:100%;
+  }
+
+  /* --- 戰術 (Tactics) --- */
+  #tacticsScreen h2 {
+    font-size:22px;
+    margin-bottom:20px;
+  }
+  .tactic-card {
+    width:100%;
+    background:linear-gradient(145deg, #333, #555);
+    border:3px solid #888;
+    border-radius:15px;
+    padding:18px;
+    margin-bottom:15px;
+    box-sizing:border-box;
+    cursor:pointer;
+    transition:all 0.2s;
+  }
+  .tactic-card:hover {
+    transform:translateY(-3px);
+  }
+  .tactic-card.selected {
+    background:linear-gradient(145deg, #ff6b35, #f7931e);
+    border-color:#fff;
+    box-shadow:0 0 15px #f7931e;
+  }
+  .tactic-card h3 {
+    margin:0 0 8px 0;
+    font-size:18px;
+  }
+  .tactic-card p {
+    margin:0;
+    font-size:14px;
+    color:#ddd;
+  }
+  
+  /* --- 選單訊息 --- */
+  #menuMessage {
+    position:absolute;
+    bottom:100px;
+    left:50%;
+    transform:translateX(-50%);
+    background:rgba(255,0,0,0.8);
+    color:white;
+    padding:15px 25px;
+    border-radius:10px;
+    z-index:200;
+    display:none;
+    font-weight:bold;
+  }
+
+  /* --- 遊戲畫面樣式 --- */
+  #canvasContainer {
+    width:90vmin; 
+    aspect-ratio:9/16;
+    max-width:414px; max-height:736px;
+    position:relative; background:rgba(0,0,0,0.15);
+    border-radius:18px; box-shadow:0 0 40px rgba(0,0,0,0.6);
+    overflow:hidden;
+  }
+  canvas { 
+    display:block; width:100%; height:100%; 
+    border-radius:18px; touch-action:none;
+  }
+  #ui {
+    position:absolute; top:15px; left:15px; color:white; font-weight:bold;
+    text-shadow:0 0 6px black; font-size:18px; z-index:10;
+  }
+  #speedBtn {
+    position:absolute; 
+    top: 85px; 
+    right: 15px;
+    width:60px; height:60px; background:linear-gradient(145deg, #ff4444, #cc3333);
+    border:none; border-radius:50%; color:white; font-size:20px; font-weight:bold;
+    box-shadow:0 6px 18px rgba(0,0,0,0.5); cursor:pointer;
+    touch-action:manipulation; z-index:20;
+  }
+  #speedBtn:active { transform:scale(0.93); }
+
+  #settingsBtn {
+    position:absolute; top: 15px; right: 15px;
+    width:60px; height:60px; background:linear-gradient(145deg, #888, #666);
+    border:none; border-radius:50%; color:white; font-size:30px; font-weight:bold;
+    box-shadow:0 6px 18px rgba(0,0,0,0.5); cursor:pointer;
+    touch-action:manipulation; z-index:20;
+  }
+  #settingsBtn:active { transform:scale(0.93); }
+
+  #bottomControls {
+    position:absolute;
+    left:0; right:0;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:22px;
+    z-index:25;
+    pointer-events:none;
+  }
+  #skillBtn, #placeBtn, #castleBtn {
+    pointer-events:auto;
+    width:68px; height:68px; border:none; border-radius:50%;
+    color:white; font-size:14px; font-weight:bold;
+    box-shadow:0 8px 20px rgba(0,0,0,0.5); cursor:pointer;
+    touch-action:manipulation; transition:all 0.2s;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    padding:6px; line-height:1.1;
+  }
+  #skillBtn { background:linear-gradient(145deg, #4CAF50, #45a049); }
+  #castleBtn { background:linear-gradient(145deg, #DAA520, #B8860B); font-size:34px; }
+  #placeBtn { background:linear-gradient(145deg, #ff6b35, #f7931e); }
+  #skillBtn:active, #castleBtn:active, #placeBtn:active { transform:scale(0.93); box-shadow:0 4px 15px rgba(0,0,0,0.5); }
+
+  .costBubble {
+    position:absolute;
+    background:rgba(0,0,0,0.6);
+    color:#fff;
+    font-size:12px;
+    padding:4px 8px;
+    border-radius:10px;
+    text-shadow:0 0 3px #000;
+    z-index:30;
+    pointer-events:none;
+  }
+
+  #skillModal, #castleModal, #towerInfoModal, #settingsModal {
+    position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+    background:linear-gradient(145deg, #1a1a2e, #16213e); 
+    color:#fff; padding:35px; border-radius:25px; border:4px solid #ff6b35;
+    text-align:center; display:none; max-width:92vw; max-height:75vh;
+    overflow-y:auto; box-shadow:0 20px 60px rgba(0,0,0,0.95); z-index:100;
+  }
+  #castleModal { border-color:#DAA520; }
+  #towerInfoModal { border-color:#00FF00; }
+  #settingsModal { border-color:#aaa; }
+
+  #skillTitle, #castleTitle, #towerInfoTitle {
+    margin:0 0 25px 0; font-size:22px; text-shadow:0 0 6px #ff6b35;
+  }
+  #castleTitle { text-shadow:0 0 6px #DAA520; }
+  #towerInfoTitle { text-shadow:0 0 6px #00FF00; }
+
+  #skillOptions, #castleOptions {
+    display:flex; justify-content:center; gap:18px; margin:30px 0;
+    flex-wrap:wrap;
+  }
+  .skillOpt, .castleOpt {
+    flex:1; min-width:110px; max-width:150px; padding:20px 15px; 
+    background:linear-gradient(145deg, #333, #555); border:3px solid #888;
+    border-radius:18px; cursor:pointer; font-size:16px; transition:all 0.3s;
+    box-shadow:0 5px 15px rgba(0,0,0,0.4);
+  }
+  .skillOpt:hover, .castleOpt:hover { 
+    background:linear-gradient(145deg, #555, #777); 
+    border-color:#ffcc00; transform:translateY(-4px); box-shadow:0 10px 25px rgba(0,0,0,0.6);
+  }
+
+  #towerInfoContent {
+    text-align:left; background:rgba(0,0,0,0.3); padding:20px; border-radius:15px; margin:20px 0;
+  }
+  #towerInfoContent p {
+    margin:10px 0; font-size:16px; line-height:1.8;
+  }
+  #towerInfoContent strong {
+    color:#00FF00;
+  }
+  #towerInfoContent.life-tower strong { color: #FF69B4; }
+  #towerInfoTitle.life-tower { text-shadow: 0 0 6px #FF69B4; }
+  #towerInfoModal.life-tower { border-color: #FF69B4; }
+
+  #towerInfoContent.encourage-tower strong { color: #FFB6C1; }
+  #towerInfoTitle.encourage-tower { text-shadow: 0 0 6px #FFB6C1; }
+  #towerInfoModal.encourage-tower { border-color: #FFB6C1; }
+  
+  #towerInfoContent.gold-tower strong { color: #FFD700; }
+  #towerInfoTitle.gold-tower { text-shadow: 0 0 6px #FFD700; }
+  #towerInfoModal.gold-tower { border-color: #FFD700; }
+  
+  #towerInfoContent.win-tower strong { color: #C0C0C0; }
+  #towerInfoTitle.win-tower { text-shadow: 0 0 6px #C0C0C0; }
+  #towerInfoModal.win-tower { border-color: #C0C0C0; }
+
+  #settingsModal h3 {
+    margin:0 0 20px 0; font-size:22px; color:white;
+  }
+  #settingsModal p {
+    font-size: 16px; margin-bottom: 25px;
+  }
+  .settingsOptions {
+    display:flex; justify-content:center; gap:20px;
+  }
+
+  #info {
+    position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+    background:linear-gradient(145deg, #1a1a2e, #16213e); color:#fff; 
+    padding:45px; border-radius:25px; border:4px solid #ff4444;
+    text-align:center; display:none; max-width:88vw; z-index:100;
+  }
+  #info.victory { border-color:#FFD700; }
+  #info button, #skillModal button, #castleModal button, #towerInfoModal button, #settingsModal button { 
+    background:linear-gradient(145deg, #4CAF50, #45a049); 
+    color:white; border:none; padding:18px 35px; border-radius:15px; 
+    font-size:20px; margin-top:25px; cursor:pointer; box-shadow:0 6px 18px rgba(0,0,0,0.4);
+  }
+
+  #settingsModal button {
+    margin-top:0;
+    padding:15px 30px;
+    font-size:18px;
+  }
+  #confirmExitBtn { background:linear-gradient(145deg, #ff4444, #cc3333); }
+  #cancelExitBtn { background:linear-gradient(145deg, #777, #555); }
+</style>
+</head>
+<body>
+
+<!-- --- 主選單 --- -->
+<div id="mainMenu">
+  <div id="screenContainer">
+    
+    <!-- 卡牌介面 (左) -->
+    <div id="deckScreen" class="screen">
+      <div class="deck-title">出戰牌組 (拖放 4 個)</div>
+      <div id="battleDeck" class="deck-container">
+        <div class="deck-slot" data-slot="0"></div>
+        <div class="deck-slot" data-slot="1"></div>
+        <div class="deck-slot" data-slot="2"></div>
+        <div class="deck-slot" data-slot="3"></div>
+      </div>
+
+      <div class="deck-title">可用塔 (拖曳上方)</div>
+      <div id="availableTowers" class="deck-container"></div>
+    </div>
+    
+    <!-- 主介面 (中) -->
+    <div id="homeScreen" class="screen">
+      <button id="startGameBtn">⚔️ 開始戰鬥 ⚔️</button>
+    </div>
+    
+    <!-- 戰術介面 (右) -->
+    <div id="tacticsScreen" class="screen">
+      <h2>選擇戰術 (1 種)</h2>
+      <div id="tacticList"></div>
+    </div>
+
+  </div>
+  
+  <div id="menuMessage"></div>
+
+  <div id="bottomNav">
+    <button class="navBtn" data-screen="deckScreen">🧩</button>
+    <button class="navBtn active" data-screen="homeScreen">⚔️</button>
+    <button class="navBtn" data-screen="tacticsScreen">🧠</button>
+  </div>
+</div>
+
+<!-- --- 遊戲畫面 --- -->
+<div id="game">
+  <div id="canvasContainer">
+    <canvas id="canvas"></canvas>
+    <div id="ui">
+      <div>金幣: $<span id="gold">5001</span></div>
+      <div>國王血量: <span id="hp">30/30</span></div>
+      <div>波次: <span id="wave">1</span></div>
+    </div>
+    <button id="settingsBtn" onclick="openSettings()">⚙️</button>
+    <button id="speedBtn" onclick="toggleSpeed()">1x</button>
+
+    <div id="bottomControls">
+      <button id="skillBtn" onclick="openSkill()">技能</button>
+      <button id="castleBtn" onclick="openCastle()">🏰</button>
+      <button id="placeBtn" onclick="placeTower()">放置</button>
+    </div>
+
+    <div id="skillCostBubble" class="costBubble">$500</div>
+    <div id="placeCostBubble" class="costBubble">$1</div>
+    <div id="castleCostBubble" class="costBubble">$2000</div>
+
+    <div id="skillModal">
+      <h3 id="skillTitle">技能選擇</h3>
+      <div id="skillOptions"></div>
+      <button onclick="closeSkill()">取消</button>
+    </div>
+
+    <div id="castleModal">
+      <h3 id="castleTitle">城堡技能</h3>
+      <div id="castleOptions"></div>
+      <button onclick="closeCastle()">取消</button>
+    </div>
+
+    <div id="towerInfoModal">
+      <h3 id="towerInfoTitle">塔詳細資訊</h3>
+      <div id="towerInfoContent"></div>
+      <button onclick="closeTowerInfo()">關閉</button>
+    </div>
+
+    <div id="settingsModal">
+      <h3>退出戰鬥？</h3>
+      <p>您確定要退出當前戰鬥並返回主選單嗎？</p>
+      <div class="settingsOptions">
+        <button id="confirmExitBtn" onclick="resetGame()">是，退出</button>
+        <button id="cancelExitBtn" onclick="closeSettings()">否，繼續</button>
+      </div>
+    </div>
+
+    <div id="info">
+      <h2 id="infoTitle"></h2>
+      <p id="infoText"></p>
+      <button onclick="closeInfo()">返回主選單</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ==============================================
+ * 遊戲核心邏輯
+ * ============================================== */
+
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+const container = document.getElementById('canvasContainer');
+const ui = { wave: document.getElementById('wave'), gold: document.getElementById('gold'), hp: document.getElementById('hp') };
+const skillModal = document.getElementById('skillModal');
+const castleModal = document.getElementById('castleModal');
+const towerInfoModal = document.getElementById('towerInfoModal');
+const settingsModal = document.getElementById('settingsModal');
+const speedBtn = document.getElementById('speedBtn');
+const infoModal = document.getElementById('info');
+const bottomControls = document.getElementById('bottomControls');
+const skillBtn = document.getElementById('skillBtn');
+const placeBtn = document.getElementById('placeBtn');
+const castleBtn = document.getElementById('castleBtn');
+const skillCostBubble = document.getElementById('skillCostBubble');
+const placeCostBubble = document.getElementById('placeCostBubble');
+const castleCostBubble = document.getElementById('castleCostBubble');
+
+// --- 遊戲迴圈控制 ---
+let gameLoopId = null; 
+
+// --- 音效設定 ---
+let synth = null;
+let audioInitialized = false;
+
+async function initAudio() {
+    if (audioInitialized) return;
+    try {
+        await Tone.start();
+        synth = new Tone.PolySynth(Tone.Synth, {
+            oscillator: { type: "sine" },
+            envelope: { attack: 0.005, decay: 0.08, sustain: 0.01, release: 0.1 }
+        }).toDestination();
+        audioInitialized = true;
+    } catch (e) { console.error(e); }
+}
+function playShotSound() {
+    if (synth && audioInitialized) {
+        const pitches = ['C5', 'D5', 'E5'];
+        synth.triggerAttackRelease(pitches[Math.floor(Math.random() * pitches.length)], "16n");
+    }
+}
+function playHealSound() {
+    if (synth && audioInitialized) synth.triggerAttackRelease("G5", "8n");
+}
+
+// --- 遊戲設定 ---
+let TILE;
+let cols, rows, gameWidth, gameHeight;
+const BASELINE_Y = 0.82;
+let gameSpeed = 1;
+let castleY;
+let maxHp = 30;
+let gameTime = 0; 
+let lastRealTime = 0; 
+
+let nextBossStunTime = 0;
+let towersStunnedUntil = 0;
+const bossStunInterval = 10000;
+const bossStunDuration = 2000;
+
+let slots = [];
+let mouse = { x: 0, y: 0 };
+let potentialDrag = null;
+let draggingTower = null;
+let dragging = false;
+let dragStart = { x: 0, y: 0 };
+let offsetX = 0, offsetY = 0;
+let selectedTower = null;
+let placeIndex = 0, skillIndex = 0;
+
+let learnedSkillsRegistry = new Map();
+let lastLightningSpeedCheck = 0;
+let lightningSpeedBuffActiveUntil = 0;
+let previousGameSpeed = 1;
+let skillPausedSpeed = 1; 
+let guaranteedFirstTowerType = null;
+let castleCostTacticApplied = false;
+let freeCastleCharges = 0;
+
+let kingRegenPerWave = 0;
+let enemyHpDebuff = 0;
+let kingShieldCharges = 0;
+let hasKingShield = false;
+
+// 隨機鼓舞相關 (更新)
+let inspiredBuffs = []; // { slot: index, expire: time }
+let nextInspireTime = 0;
+const inspireInterval = 15000; // 每15秒
+const inspireDuration = 20000; // 持續20秒
+
+let globalBuffs = { atkBuff: 0, rangeBuff: 0, splashBuff: 0, speedBuff1Star: 0 };
+
+let fixedCostActive = false; 
+
+// 必勝塔相關變數
+let victoryInstant3StarCharges = 0; // 接下來多少個塔變3星
+let blackHoles = []; // 戰場上的黑洞
+let bossHpOverride = 0; // Boss血量覆蓋
+
+// --- 費用計算 ---
+function calculatePlaceCost(n) {
+  if (fixedCostActive) return 2000;
+
+  if (n === 0) return 1;
+  let a = 1, b = 2;
+  if (n === 1) return b;
+  for (let i = 2; i <= n; i++) {
+    let c = a + b; a = b; b = c;
+  }
+  return Math.min(b, 5000);
+}
+function calculateSkillCost(n) {
+  if (fixedCostActive) return 2000;
+
+  if (n === 0) return 500;
+  let a = 500, b = 1000;
+  if (n === 1) return b;
+  for (let i = 2; i <= n; i++) {
+    let c = a + b; a = b; b = c;
+  }
+  return Math.min(b, 10000);
+}
+
+function getCastleCost() {
+    if (freeCastleCharges > 0) return 0;
+    if (window.castleCostTacticApplied) return 1000;
+    return 2000;
+}
+
+const castleSkills = [
+  {name:'怪物倒退', desc:'所有怪物倒退回起點1秒', effect:1},
+  {name:'擊敗兩怪', desc:'隨機擊敗兩隻怪物', effect:2},
+  {name:'怪物停止', desc:'所有怪物停止3秒', effect:3},
+  {name:'回復血量', desc:'國王回復4點血量', effect:4},
+  {name:'半血怪物', desc:'接下來5隻怪物半血', effect:5}
+];
+let nextMonstersHalfHp = 0;
+let monsterStunTime = 0;
+
+let gold = 5001, wave = 1, hp = 30;
+let towers = [], enemies = [], projectiles = [];
+
+// --- 塔類型 ---
+window.towerTypes = [
+  {name:'🏹弓箭塔', emoji:'🏹', color:'#8B4513', proj:'🏹', baseRange:8, baseDmg:10, baseRate:60000, 
+   skills:[
+     {name:'雙重射擊', desc:'🏹同時攻擊2個目標', effect:'multi', value:2},
+     {name:'破魔矢', desc:'➤對Boss造成5倍傷害', effect:'boss_dmg', value:5},
+     {name:'暴擊機率', desc:'💥60%機率3倍傷害', effect:'crit', value:0.6},
+     {name:'神話箭', desc:'⭐>1星弓箭塔攻速變為0.1秒', effect:'mythic_arrow', value:0.1}
+   ]},
+  {name:'✨魔法塔', emoji:'✨', color:'#4169E1', proj:'✨', baseRange:7, baseDmg:20, baseRate:1000, 
+   skills:[
+     {name:'連鎖閃電', desc:'✦攻擊同類型所有敵人(60%傷害)', effect:'chain', value:0.6},
+     {name:'減速領域', desc:'🌫️主目標減速90%', effect:'slow', value:0.90},
+     {name:'魔力燃燒', desc:'🔥主目標持續燃燒(塔50%傷害/0.2s)', effect:'burn', value:0.5}, 
+     {name:'奧術強化', desc:'✨使所有非魔法塔攻擊力+20%', effect:'global_amp', value:0.2}
+   ]},
+  {name:'💣炮塔', emoji:'💣', color:'#B22222', proj:'💣', baseRange:5, baseDmg:50, baseRate:3000, splash:3, 
+   skills:[
+     {name:'範圍擴張', desc:'💥爆炸範圍+100%', effect:'splash', value:2},
+     {name:'重型炮彈', desc:'💣傷害永久+100%', effect:'dmg', value:2},
+     {name:'震懾炮波', desc:'⚡擊中眩暈0.5秒', effect:'stun', value:500},
+     {name:'集中火力', desc:'🎯對主目標額外+150傷害', effect:'focus_fire', value:150}
+   ]},
+  {name:'⚡雷塔', emoji:'⚡', color:'#FF8C00', proj:'⚡', baseRange:6, baseDmg:5, baseRate:100000,
+   skills:[
+     {name:'群體攻擊', desc:'⚡一次攻擊5個目標', effect:'multi', value:5},
+     {name:'超速放電', desc:'⚡每7秒必定使全雷塔攻速變為0.05秒 (持續3秒)', effect:'super_charge', value:50}, 
+     {name:'極遠射程', desc:'🌩️射程增加100%', effect:'range', value:2},
+     {name:'閃電過載', desc:'⚡每10秒對全體敵人50倍傷害', effect:'global_overload', value:10000}
+   ]},
+  {name:'💰金幣塔', emoji:'💰', color:'#FFD700', proj:'💰', baseRange:0, baseDmg:0, baseRate:0,
+   skills:[
+     {name:'鉅額財富', desc:'🪙立即獲得20000金幣', effect:'grant_gold', value: 20000},
+     {name:'利息生財', desc:'📈每5秒自動加目前金幣量的1%', effect:'interest', value: 0.01},
+     {name:'市場壟斷', desc:'⚖️使放置和技能的費用在本局中永久為$2000', effect:'fixed_cost', value: 2000},
+     {name:'財富暴擊', desc:'✖️使目前的金幣數量乘十', effect:'multiply_gold', value: 10}
+   ]},
+  {name:'✌️必勝塔', emoji:'✌️', color:'#C0C0C0', proj:'✌️', baseRange:0, baseDmg:0, baseRate:0, 
+   skills:[
+     {name:'虛空黑洞', desc:'⚫戰場正中召喚巨型黑洞，敵人進入扣50%最大血量且無法被治療', effect:'black_hole', value:2000000},
+     {name:'星級躍遷', desc:'🌟接下來5次放置的塔直接變為3星', effect:'instant_3_star', value:5},
+     {name:'神之加冕', desc:'👑立即將所有塔(除✌️外)升至5星', effect:'all_5_star', value:1},
+     {name:'終局降臨', desc:'💀立即進入第10關，Boss以12345的血量登場', effect:'skip_to_wave_10', value:1}
+   ]},
+  {name:'❤️生命塔', emoji:'❤️', color:'#FF69B4', proj:'❤️', baseRange:1, baseDmg:-1000, baseRate:10000, 
+   skills:[
+     {name:'國王祝福', desc:'🩸每波自動為國王+5點血量', effect:'king_regen', value:5},
+     {name:'生命限界', desc:'👑使國王血量上限為50', effect:'king_max_hp', value:50},
+     {name:'生命凋零', desc:'💯使所有怪物每波登場時都少10%血', effect:'enemy_hp_debuff', value:0.1},
+     {name:'神聖庇護', desc:'🛡️使國王每波都能免疫3次傷害', effect:'king_shield', value:3}
+   ]},
+  {name:'👏鼓勵塔', emoji:'👏', color:'#FFB6C1', proj:'👏', baseRange:0, baseDmg:0, baseRate:0, 
+   skills:[
+     {name:'士氣高漲', desc:'每存在1個👏塔，其他1星塔+20攻', effect:'global_atk_buff', value:20},
+     {name:'視野擴展', desc:'每存在1個👏鼓勵塔，其他1星塔的攻速+80%', effect:'global_speed_buff_1star', value:0.8},
+     {name:'特殊塔槽', desc:'🔲生成一個能容納4個塔的塔槽', effect:'special_slot', value:1},
+     {name:'隨機鼓舞', desc:'每15秒鼓舞2個非鼓勵塔的塔槽，攻速、攻擊、射程+50%，持續20秒', effect:'inspire_slot', value:1}
+   ]}
+];
+
+// --- 敵人 ---
+const enemyTypes = [
+  {hp:50, speed:1, gold:500, emoji:'👹', isBoss: false}, 
+  {hp:25, speed:2, gold:500, emoji:'🦇', isBoss: false}, 
+  {hp:200, speed:0.5, gold:500, emoji:'🐲', isBoss: false}, 
+  {hp:100,speed:1, gold:500, emoji:'🤖', isBoss: false, isRanged: true},
+  {hp:2000, speed:0.5, gold:50000, emoji:'👺', isBoss: true}, 
+  {hp:99999, speed:3, gold:50000, emoji:'😈', isBoss: true, isFinalBoss: true}, 
+  {hp:999, speed:1, gold:-1000, emoji:'👻', isBoss: false, isRanged: true},
+  {hp:30, speed:0.5, gold:500, emoji:'👽', isBoss: false, isHealer: true}, 
+  {hp:30, speed:0.5, gold:0, emoji:'☠️', isBoss: false, revivesTo: 9}, 
+  {hp:5, speed:4, gold:500, emoji:'💀', isBoss: false} 
+];
+
+// --- 黑洞類別 ---
+class BlackHole {
+    constructor(x, y, duration) {
+        this.x = x;
+        this.y = y;
+        this.radius = TILE * 4; // 巨型圓狀
+        this.expiresAt = gameTime + duration;
+        this.hitList = new Set(); // 記錄已經被此黑洞扣血的怪物ID
+    }
+    
+    update() {
+        if (gameTime > this.expiresAt) return true; // 結束
+        
+        enemies.forEach(e => {
+            if (e.hp <= 0) return;
+            const d = Math.hypot(e.x - this.x, e.y - this.y);
+            
+            if (d < this.radius) {
+                // 進入黑洞效果
+                e.hasVoidDebuff = true; // 永久無法受治療
+                
+                // 扣50%血量 (僅一次)
+                if (!this.hitList.has(e)) {
+                    const dmg = e.maxHp * 0.5;
+                    e.hp -= dmg;
+                    this.hitList.add(e);
+                    if (e.hp <= 0) onEnemyDeath(e);
+                    updateUI();
+                }
+            }
+        });
+        return false;
+    }
+    
+    draw() {
+        ctx.save();
+        // 黑洞視覺效果
+        const grad = ctx.createRadialGradient(this.x, this.y, this.radius * 0.2, this.x, this.y, this.radius);
+        grad.addColorStop(0, 'black');
+        grad.addColorStop(0.5, 'rgba(50, 0, 80, 0.8)');
+        grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // 旋轉粒子
+        const angle = (gameTime / 500) % (Math.PI * 2);
+        ctx.strokeStyle = 'rgba(138, 43, 226, 0.5)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.radius * 0.7, angle, angle + Math.PI);
+        ctx.stroke();
+        ctx.restore();
+    }
+}
+
+// --- 波次控制 ---
+let waveEnemies = 0, waveSpawned = 0, waveDelay = 0;
+let spawnIntervalBase = 900;
+let nextSpawnAt = 0;
+let currentEnemyTypes = []; 
+let lastMinionSpawn = 0; 
+
+function startWave() {
+  if (wave > 10) { gameOver(true); return; }
+  
+  hp = Math.min(maxHp, hp + kingRegenPerWave);
+  if (hasKingShield) { kingShieldCharges = 1; }
+
+  if (window.activeTactic && window.activeTactic.id === 'gold_rush') {
+      const goldTowers = towers.filter(t => t.type.name === '💰金幣塔' && t.stars === 1).length;
+      if (goldTowers > 0) {
+          gold += goldTowers * 1;
+      }
+  }
+
+  let enemyTypeIndices = [];
+  if (wave === 5) {
+    waveEnemies = 1; enemyTypeIndices = [4]; spawnIntervalBase = 100; 
+  } else if (wave === 10) {
+    waveEnemies = 1; enemyTypeIndices = [5]; spawnIntervalBase = 100;
+  } else {
+    waveEnemies = 3 + wave * 6;
+    const standardEnemyIndices = [0, 1, 2, 3, 7, 8]; 
+    let indices = new Set();
+    while(indices.size < 3) {
+        indices.add(standardEnemyIndices[Math.floor(Math.random() * standardEnemyIndices.length)]);
+    }
+    enemyTypeIndices = Array.from(indices); 
+    spawnIntervalBase = 900;
+  }
+  currentEnemyTypes = enemyTypeIndices; 
+  waveSpawned = 0;
+  waveDelay = 500;
+  nextSpawnAt = gameTime + waveDelay;
+  ui.wave.textContent = wave;
+  lastMinionSpawn = gameTime; 
+  
+  updateUI(); 
+}
+function spawnEnemy() {
+    const randomTypeIdx = currentEnemyTypes[Math.floor(Math.random() * currentEnemyTypes.length)];
+    enemies.push(new Enemy(randomTypeIdx));
+    waveSpawned++;
+}
+function spawnMinion() { enemies.push(new Enemy(6)); }
+
+// --- 城堡和塔槽 ---
+function getCastleSlots() { return slots; }
+function initSlots() {
+  slots = [];
+  const initialY = Math.max(0, Math.floor(rows * BASELINE_Y) - 1);
+  for (let i = 0; i < 7; i++) {
+    slots.push({ x: i, y: initialY, w: 1, isSpecial: false });
+  }
+}
+function addNewSlot() {
+  let possible = [];
+  for (const sl of slots) {
+    const candidates = [{x: sl.x - 1, y: sl.y}, {x: sl.x + 1, y: sl.y}, {x: sl.x, y: sl.y - 1}, {x: sl.x, y: sl.y + 1}];
+    for (const c of candidates) {
+      if (c.x >= 0 && c.x < cols && c.y >= 0 && c.y <= castleY && !slots.some(s => s.x === c.x && s.y === c.y)) {
+        possible.push(c);
+      }
+    }
+  }
+  if (possible.length > 0) {
+    const rand = possible[Math.floor(Math.random() * possible.length)];
+    slots.push({ x: rand.x, y: rand.y, w: 1, isSpecial: false });
+    return slots.length - 1; 
+  }
+  return -1;
+}
+
+function drawCastle() {
+  const currentSlots = getCastleSlots();
+  const slotPixelY = currentSlots.length > 0 ? currentSlots[0].y * TILE : (gameHeight * BASELINE_Y);
+  
+  ctx.fillStyle = '#654321';
+  ctx.fillRect(0, slotPixelY, gameWidth, gameHeight - slotPixelY);
+  
+  currentSlots.forEach((slot, i) => {
+    // 檢查此槽位是否有被鼓舞
+    const inspired = inspiredBuffs.find(b => b.slot === i && b.expire > gameTime);
+    if (inspired) {
+        ctx.fillStyle = 'rgba(255, 223, 0, 0.5)'; 
+        const glowPad = TILE * 0.15;
+        ctx.fillRect((slot.x * TILE) - glowPad, (slot.y * TILE) - glowPad, (slot.w * TILE) + (glowPad * 2), TILE + (glowPad * 2));
+    }
+    
+    const slotWidth = slot.w * TILE;
+    const slotX = slot.x * TILE;
+    const slotY = slot.y * TILE;
+
+    if (slot.isSpecial) {
+        ctx.fillStyle = 'rgba(255, 215, 0, 0.2)'; 
+        ctx.fillRect(slotX, slotY, slotWidth, TILE);
+        ctx.strokeStyle = '#FFD700'; 
+        ctx.lineWidth = 3;
+        ctx.strokeRect(slotX, slotY, slotWidth, TILE);
+        const subSize = TILE / 2;
+        ctx.strokeStyle = 'rgba(255, 215, 0, 0.5)';
+        ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(slotX + subSize, slotY); ctx.lineTo(slotX + subSize, slotY + TILE); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(slotX, slotY + subSize); ctx.lineTo(slotX + TILE, slotY + subSize); ctx.stroke();
+    } else {
+        const occupied = towers.some(t => t.slot === i);
+        ctx.fillStyle = occupied ? 'rgba(0,200,100,0.3)' : '#FFFFFF';
+        ctx.fillRect(slotX, slotY, slotWidth, TILE);
+        ctx.strokeStyle = '#333333'; 
+        ctx.lineWidth = 3;
+        ctx.strokeRect(slotX, slotY, slotWidth, TILE);
+    }
+  });
+  positionBottomControls(slotPixelY, gameHeight - slotPixelY);
+}
+function drawGrid() {
+  ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+  ctx.lineWidth = 1;
+  for(let x=0; x<=cols; x++) { ctx.beginPath(); ctx.moveTo(x*TILE, 0); ctx.lineTo(x*TILE, gameHeight); ctx.stroke(); }
+  for(let y=0; y<=rows; y++) { ctx.beginPath(); ctx.moveTo(0, y*TILE); ctx.lineTo(gameWidth, y*TILE); ctx.stroke(); }
+}
+function drawTowerRange(tower) {
+  if (!tower) return;
+  ctx.save();
+  ctx.beginPath();
+  
+  let centerX, centerY, drawSize;
+  if (tower.subSlot !== null) {
+      drawSize = TILE / 2;
+      centerX = (tower.x * TILE) + (drawSize / 2);
+      centerY = (tower.y * TILE) + (drawSize / 2);
+  } else {
+      drawSize = TILE;
+      centerX = (tower.x * TILE) + (drawSize / 2);
+      centerY = (tower.y * TILE) + (drawSize / 2);
+  }
+
+  // 顯示範圍時考慮鼓舞效果
+  let displayRange = tower.range;
+  const isInspired = inspiredBuffs.some(b => b.slot === tower.slot && b.expire > gameTime);
+  
+  // 注意: update() 裡面已經設定了 tower.range 包含了 buff，但如果暫停時重繪可能會有誤差
+  // 此處我們直接取 tower.range，確保 update() 邏輯正確即可
+  // 但 drawTowerRange 可能在 update 前呼叫，保險起見這裡不重複計算，依賴 update 更新後的數值
+
+  ctx.arc(centerX, centerY, displayRange, 0, 2 * Math.PI); 
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.15)'; ctx.fill();
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.7)'; ctx.lineWidth = 2; ctx.stroke();
+  ctx.restore();
+}
+
+function getNewMergedTowerType(originalTowerType) {
+  if (window.selectedDeckTypes && window.selectedDeckTypes.length > 1 && Math.random() < 0.4) { 
+    const deckOtherTypes = window.selectedDeckTypes.filter(t => t !== originalTowerType);
+    if (deckOtherTypes.length > 0) return deckOtherTypes[Math.floor(Math.random() * deckOtherTypes.length)];
+  }
+  return originalTowerType; 
+}
+
+// --- Tower 類別 ---
+class Tower {
+  constructor(slotIndex, type, stars = 1, subSlotIndex = null) {
+    const slot = slots[slotIndex];
+    this.slot = slotIndex;
+    this.subSlot = subSlotIndex;
+    
+    if (this.subSlot !== null) {
+        this.x = slot.x + (this.subSlot % 2) * 0.5;
+        this.y = slot.y + Math.floor(this.subSlot / 2) * 0.5;
+    } else {
+        this.x = slot.x; 
+        this.y = slot.y; 
+    }
+
+    this.type = type;
+    this.stars = stars;
+    this.baseRangeTiles = type.baseRange; 
+    
+    if (this.type.name === '❤️生命塔' || this.type.name === '👏鼓勵塔' || this.type.name === '💰金幣塔') {
+      this.range = this.baseRangeTiles * TILE; 
+    } else {
+      this.range = this.baseRangeTiles * TILE; 
+    }
+    
+    const dmgMultiplier = Math.pow(2, stars - 1);
+    this.dmg = type.baseDmg * dmgMultiplier; 
+    
+    this.rate = type.baseRate; 
+    
+    if (this.type.name === '❤️生命塔') {
+        this.rate = 10000 + (stars - 1) * 5000;
+    }
+
+    // --- 應用戰術 ---
+    if (window.activeTactic && this.stars === 1) {
+        const tactic = window.activeTactic;
+        if (tactic.id === 'magic_buff' && this.type.name === '✨魔法塔') {
+            this.dmg *= 1.7;
+            this.rate *= 0.3; 
+        } else if (tactic.id === 'cannon_kill' && this.type.name === '💣炮塔') {
+            this.dmg *= (1 + (window.tacticCannonKills * 0.03)); 
+        } else if (tactic.id === 'lightning_speed' && this.type.name === '⚡雷塔') {
+            this.rate = 200; 
+        } else if (tactic.id === 'confidence' && this.type.name === '✌️必勝塔') {
+            this.dmg = 0; 
+            this.rate = 2000; 
+            this.range = 2 * TILE; 
+            this.isConfidenceActive = true; 
+        }
+    }
+
+    this.color = type.color;
+    this.emoji = type.emoji;
+    this.proj = type.proj;
+    this.splash = type.splash || 0;
+    this.lastShot = 0;
+    this.multiTarget = 1;
+    this.appliedSkills = []; 
+    this.isConfidenceActive = this.isConfidenceActive || false;
+    
+    this.lastInterestTime = gameTime;
+
+    const globallyLearned = learnedSkillsRegistry.get(type.name);
+    if (globallyLearned) {
+        globallyLearned.forEach(skillName => {
+            const skill = type.skills.find(s => s.name === skillName);
+            if (skill) this.applySkill(skill); 
+        });
+    }
+    
+    this.appliedSkills.forEach(skill => {
+        if (skill.effect === 'rate_decrease') this.rate -= skill.value;
+    });
+    
+    this.lastGlobalOverload = 0; 
+  }
+
+  update() {
+    const now = gameTime;
+    const { atkBuff, rangeBuff, splashBuff, speedBuff1Star } = globalBuffs; 
+
+    if (this.type.name === '💰金幣塔') {
+        const interestSkill = this.appliedSkills.find(s => s.effect === 'interest');
+        if (interestSkill) {
+            if (now - this.lastInterestTime >= 5000) { 
+                this.lastInterestTime = now;
+                const interest = Math.floor(gold * interestSkill.value);
+                if (interest > 0) {
+                    gold += interest;
+                    updateUI();
+                }
+            }
+        }
+        return; 
+    }
+    
+    const globalOverloadSkill = this.appliedSkills.find(s => s.effect === 'global_overload');
+    if (globalOverloadSkill && (now - this.lastGlobalOverload > globalOverloadSkill.value)) {
+        this.lastGlobalOverload = now;
+        const overloadDmg = this.dmg * 50; 
+        enemies.forEach(e => {
+            if (e.hp > 0) {
+                let finalOverloadDmg = overloadDmg;
+                if (e.type.emoji === '🐲') { finalOverloadDmg *= 0.95; }
+                e.hp -= finalOverloadDmg;
+                if (e.hp <= 0) onEnemyDeath(e);
+            }
+        });
+        updateUI(); 
+    }
+
+    let effectiveRate = this.rate; 
+    let effectiveDmg = this.dmg;
+    
+    // 基礎射程重置，以便應用動態Buff (如鼓舞)
+    let currentRange = this.range; // 這是已經包含靜態技能Range的數值
+
+    // 檢查是否被鼓舞 (隨機鼓舞)
+    const inspireBuff = inspiredBuffs.find(b => b.slot === this.slot && b.expire > now);
+    
+    if (this.type.name === '❤️生命塔') {
+        effectiveRate = 10000 + (this.stars - 1) * 5000;
+    }
+    else if (this.isConfidenceActive) {
+        effectiveRate = 2000;
+    } else {
+        this.appliedSkills.forEach(skill => {
+            if (skill.effect === 'rate') effectiveRate *= (1 - skill.value);
+        });
+
+        // 應用 "視野擴展" 的攻速Buff
+        if (this.stars === 1 && speedBuff1Star > 0) {
+             effectiveRate /= (1 + speedBuff1Star);
+        }
+
+        if (this.type.name === '⚡雷塔' && now < lightningSpeedBuffActiveUntil) {
+            const lightningType = window.towerTypes.find(t => t.name === '⚡雷塔');
+            const superChargeSkill = lightningType.skills.find(s => s.name === '超速放電');
+            const skillValue = superChargeSkill ? superChargeSkill.value : 50;
+            effectiveRate = skillValue; 
+        }
+
+        const mythicSkill = this.appliedSkills.find(s => s.effect === 'mythic_arrow');
+        if (mythicSkill && this.type.name === '🏹弓箭塔' && this.stars > 1) {
+            effectiveRate = mythicSkill.value * 1000;
+        }
+    }
+    
+    // 應用隨機鼓舞 Buff
+    if (inspireBuff) {
+        // 攻速 +50% -> 延遲 / 1.5
+        effectiveRate /= 1.5;
+        // 攻擊 +50%
+        effectiveDmg *= 1.5;
+        // 射程 +50%
+        currentRange *= 1.5;
+    }
+    
+    // 更新當前射程以供繪製和判斷
+    this.currentDisplayRange = currentRange; // 暫存給 draw 使用
+
+    if (effectiveRate <= 0) return; 
+    if (now - this.lastShot < effectiveRate) return;
+    
+    let centerX, centerY, drawSize;
+    if (this.subSlot !== null) {
+        drawSize = TILE / 2;
+        centerX = (this.x * TILE) + (drawSize / 2);
+        centerY = (this.y * TILE) + (drawSize / 2);
+    } else {
+        drawSize = TILE;
+        centerX = (this.x * TILE) + (drawSize / 2);
+        centerY = (this.y * TILE) + (drawSize / 2);
+    }
+
+    if (this.type.baseRange > 0) { 
+        currentRange += rangeBuff;
+    }
+
+    let targets = [];
+    for (const e of enemies) {
+      if (e.hp <= 0) continue; 
+      const d = Math.hypot(e.x - centerX, e.y - centerY); 
+      if (d <= currentRange + 5) targets.push({ e, d }); 
+    }
+    
+    if (targets.length === 0) return;
+    targets.sort((a, b) => a.d - b.d);
+    
+    const shootCount = Math.min(targets.length, this.multiTarget);
+    this.lastShot = now;
+    
+    if (this.type.name === '❤️生命塔') { playHealSound(); } else { playShotSound(); }
+
+    let globalBuff = 0;
+    if (this.type.name !== '✨魔法塔') {
+        towers.forEach(t => {
+            if (t && t.type && t.type.name === '✨魔法塔' && t.appliedSkills.some(s => s.effect === 'global_amp')) {
+                const ampSkill = t.appliedSkills.find(s => s.effect === 'global_amp');
+                if (ampSkill) globalBuff += ampSkill.value; 
+            }
+        });
+    }
+
+    for (let i = 0; i < shootCount; i++) {
+      // 使用經過 Buff 計算後的 effectiveDmg
+      let finalDmg = effectiveDmg;
+      
+      if (this.type.name !== '❤️生命塔') { finalDmg *= (1 + globalBuff); }
+      
+      let isCrit = false;
+      
+      let confidenceDmg = 0;
+      if (this.isConfidenceActive) {
+          confidenceDmg = targets[i].e.maxHp * 0.05;
+          finalDmg = 0; 
+      }
+      
+      const bossDmgSkill = this.appliedSkills.find(s => s.effect === 'boss_dmg');
+      if (bossDmgSkill && targets[i].e.type.isBoss) finalDmg *= bossDmgSkill.value;
+
+      const critSkill = this.appliedSkills.find(s => s.effect === 'crit');
+      if (critSkill && Math.random() < critSkill.value) { finalDmg *= 3; isCrit = true; }
+      
+      if (this.stars === 1 && this.type.baseDmg > 0) {
+          finalDmg += atkBuff;
+      }
+      
+      projectiles.push(new Projectile(
+        centerX, centerY, 
+        targets[i].e, finalDmg, this.proj, this.color, 
+        this.splash + splashBuff, 
+        isCrit, 
+        this.appliedSkills, this.stars,
+        confidenceDmg 
+      ));
+    }
+  }
+
+  draw(inset = true) {
+    let drawX, drawY, drawSize;
+    let centerX, centerY;
+    
+    if (this.subSlot !== null) {
+        drawSize = TILE / 2;
+        drawX = this.x * TILE; 
+        drawY = this.y * TILE; 
+        centerX = drawX + drawSize / 2;
+        centerY = drawY + drawSize / 2;
+    } else {
+        drawSize = TILE;
+        drawX = this.x * TILE;
+        drawY = this.y * TILE;
+        centerX = drawX + drawSize / 2;
+        centerY = drawY + drawSize / 2;
+    }
+
+    ctx.fillStyle = this.color;
+    
+    if (inset) {
+      const ins = 3;
+      ctx.fillRect(drawX + ins, drawY + ins, drawSize - 2 * ins, drawSize - 2 * ins);
+    } else {
+      ctx.fillRect(drawX, drawY, drawSize, drawSize);
+    }
+
+    const fontSize = drawSize * Math.max(0.3, 0.8 - this.stars * 0.1);
+    ctx.font = `${fontSize}px Arial`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillStyle = (this.type.name === '💰金幣塔') ? '#000000' : '#FFFFFF'; 
+    const padding = drawSize * 0.1; 
+    ctx.fillText(this.emoji.repeat(this.stars), centerX, centerY, drawSize - padding);
+  }
+
+  applySkill(skill) {
+    if (!this.appliedSkills.some(s => s.name === skill.name)) {
+        this.appliedSkills.push(skill);
+        if (skill.effect === 'multi') this.multiTarget = skill.value;
+        
+        if (skill.effect === 'range' && !['❤️生命塔','👏鼓勵塔','💰金幣塔'].includes(this.type.name)) { 
+          this.range = this.baseRangeTiles * TILE; 
+          this.range *= skill.value;
+        }
+        if (skill.effect === 'range_add' && !['❤️生命塔','👏鼓勵塔','💰金幣塔'].includes(this.type.name)) { 
+             this.range += skill.value * TILE;
+        }
+
+        if (skill.effect === 'dmg') this.dmg *= skill.value;
+        if (skill.effect === 'splash') this.splash *= skill.value;
+        if (skill.effect === 'rate_decrease') this.rate -= skill.value;
+    }
+  }
+
+  getInfo() {
+    const { atkBuff, rangeBuff, splashBuff, speedBuff1Star } = globalBuffs; 
+    const inspireBuff = inspiredBuffs.find(b => b.slot === this.slot && b.expire > gameTime);
+
+    // --- 計算範圍 ---
+    let baseDisplayRange = this.range; // 靜態技能後的範圍
+    if (this.type.baseRange > 0) {
+        baseDisplayRange += rangeBuff;
+    }
+    let finalRange = baseDisplayRange;
+    if (inspireBuff) finalRange *= 1.5; // 鼓舞 +50%
+
+    let rangeInTiles = TILE > 0 ? (finalRange / TILE).toFixed(1) : this.baseRangeTiles.toFixed(1);
+    if (inspireBuff) {
+        const diff = (finalRange - baseDisplayRange) / TILE;
+        const remaining = Math.ceil((inspireBuff.expire - gameTime) / 1000);
+        rangeInTiles = `${rangeInTiles} (+${diff.toFixed(1)}) 格，持續${remaining}秒`;
+    } else {
+        rangeInTiles += " 格";
+    }
+    
+    // --- 計算攻速 ---
+    let effectiveRate = this.rate; 
+    
+    if (this.type.name === '❤️生命塔') {
+        effectiveRate = 10000 + (this.stars - 1) * 5000;
+    }
+    else if (this.isConfidenceActive) {
+        effectiveRate = 2000;
+    } else {
+        const rateSkill = this.appliedSkills.find(s => s.effect === 'rate');
+        if (rateSkill) effectiveRate *= (1 - rateSkill.value);
+        
+        if (this.stars === 1 && speedBuff1Star > 0) {
+            effectiveRate /= (1 + speedBuff1Star);
+        }
+
+        const mythicSkill = this.appliedSkills.find(s => s.effect === 'mythic_arrow');
+        if (mythicSkill && this.stars > 1) effectiveRate = mythicSkill.value * 1000;
+    }
+
+    let finalRate = effectiveRate;
+    if (inspireBuff) finalRate /= 1.5; // 鼓舞 攻速+50% (延遲 / 1.5)
+
+    let secondsPerAttack = finalRate > 0 ? (finalRate / 1000).toFixed(2) : "N/A"; 
+    
+    if (inspireBuff && finalRate > 0) {
+        const baseSec = effectiveRate / 1000;
+        const finalSec = finalRate / 1000;
+        const diff = finalSec - baseSec; // 應該是負值
+        const remaining = Math.ceil((inspireBuff.expire - gameTime) / 1000);
+        secondsPerAttack = `${secondsPerAttack} (${diff.toFixed(2)}) 秒/次，持續${remaining}秒`;
+    } else {
+        secondsPerAttack += " 秒/次";
+    }
+
+    // --- 計算傷害 ---
+    let globalBuff = 0;
+    if (this.type.name !== '✨魔法塔' && this.type.name !== '❤️生命塔') {
+        towers.forEach(t => {
+            if (t && t.type && t.type.name === '✨魔法塔' && t.appliedSkills.some(s => s.effect === 'global_amp')) {
+                const ampSkill = t.appliedSkills.find(s => s.effect === 'global_amp');
+                if (ampSkill) globalBuff += ampSkill.value; 
+            }
+        });
+    }
+    
+    let currentDmg = this.dmg;
+    let baseFinalDmg = currentDmg * (1 + globalBuff);
+    if (this.stars === 1 && this.type.baseDmg > 0) {
+        baseFinalDmg += atkBuff;
+    }
+
+    let finalDmg = baseFinalDmg;
+    if (inspireBuff) finalDmg *= 1.5; // 鼓舞 +50%
+
+    const critSkill = this.appliedSkills.find(s => s.effect === 'crit');
+    const critInfo = critSkill ? ` (暴擊率: ${(critSkill.value * 100).toFixed(0)}%, 3倍)` : '';
+
+    let dmgDisplay = finalDmg.toFixed(1);
+    if (inspireBuff) {
+        const diff = finalDmg - baseFinalDmg;
+        const remaining = Math.ceil((inspireBuff.expire - gameTime) / 1000);
+        dmgDisplay = `${dmgDisplay} (+${diff.toFixed(1)})，持續${remaining}秒`;
+    }
+    dmgDisplay += critInfo;
+    
+    if (this.isConfidenceActive) {
+        dmgDisplay = "敵人最大生命 5%";
+    }
+    if (this.type.name === '❤️生命塔') {
+        dmgDisplay = `${finalDmg.toFixed(0)} (治療)`;
+    }
+    if (this.type.name === '👏鼓勵塔' || this.type.name === '💰金幣塔' || this.type.name === '✌️必勝塔') {
+        dmgDisplay = "0";
+        rangeInTiles = "0";
+    }
+    
+    const towerSize = this.subSlot !== null ? "小" : "普通";
+
+    return {
+      name: this.type.name, stars: this.stars, emoji: this.emoji, 
+      dmg: dmgDisplay,
+      range: rangeInTiles, 
+      attackSpeed: secondsPerAttack, 
+      splash: (this.splash + splashBuff), 
+      size: towerSize, 
+      skills: this.appliedSkills.map(s => s.name).join(', ') || '無'
+    };
+  }
+}
+
+// --- 放置塔 ---
+function placeTower() {
+  const cost = calculatePlaceCost(placeIndex); 
+  if (gold < cost) return;
+
+  const emptyNormalSlots = slots.map((s, i) => ({s, i}))
+      .filter(item => !item.s.isSpecial && !towers.some(t => t.slot === item.i))
+      .map(item => ({ slot: item.i, subSlot: null }));
+
+  const emptySubSlots = [];
+  slots.forEach((s, i) => {
+      if (s.isSpecial) {
+          const towersInThisSlot = towers.filter(t => t.slot === i).map(t => t.subSlot);
+          for (let j = 0; j < 4; j++) {
+              if (!towersInThisSlot.includes(j)) {
+                  emptySubSlots.push({ slot: i, subSlot: j });
+              }
+          }
+      }
+  });
+
+  const allEmptySlots = [...emptyNormalSlots, ...emptySubSlots];
+  if (allEmptySlots.length === 0) return; 
+  
+  const chosenSlot = allEmptySlots[Math.floor(Math.random() * allEmptySlots.length)];
+  const slotIdx = chosenSlot.slot;
+  const subSlotIdx = chosenSlot.subSlot; 
+  
+  let towerToPlace = null;
+  if (window.guaranteedFirstTowerType && placeIndex === 0) {
+      towerToPlace = window.guaranteedFirstTowerType;
+  } else {
+      if (window.selectedDeckTypes.length === 0) {
+          const typeIdx = Math.floor(Math.random() * window.towerTypes.length);
+          towerToPlace = window.towerTypes[typeIdx];
+      } else {
+          const randomTypeFromDeck = window.selectedDeckTypes[Math.floor(Math.random() * window.selectedDeckTypes.length)];
+          towerToPlace = randomTypeFromDeck;
+      }
+  }
+  
+  if (towerToPlace) {
+      let initialStars = 1;
+      if (victoryInstant3StarCharges > 0) {
+          initialStars = 3;
+          victoryInstant3StarCharges--;
+          updateUI(); 
+      }
+
+      towers.push(new Tower(slotIdx, towerToPlace, initialStars, subSlotIdx));
+
+      if (window.activeTactic && window.activeTactic.id === 'i_love_you' && towerToPlace.name === '❤️生命塔') {
+          hp = Math.min(maxHp, hp + 3);
+          playHealSound();
+          updateUI();
+      }
+
+      if (window.guaranteedFirstTowerType && placeIndex === 0) {
+          window.guaranteedFirstTowerType = null;
+      }
+  }
+  
+  gold -= cost;
+  placeIndex++; 
+  updateUI();
+}
+
+// --- 滑鼠/觸控事件 ---
+function getMousePos(e) {
+  const rect = canvas.getBoundingClientRect();
+  const scaleX = rect.width > 0 ? canvas.width / rect.width : 1;
+  const scaleY = rect.height > 0 ? canvas.height / rect.height : 1;
+  mouse.x = (e.clientX - rect.left) * scaleX;
+  mouse.y = (e.clientY - rect.top) * scaleY;
+}
+function mousedown(e) {
+  getMousePos(e);
+  potentialDrag = null;
+  
+  for (const tower of towers) {
+    let cx, cy, radius;
+    if (tower.subSlot !== null) {
+        const drawSize = TILE / 2;
+        cx = (tower.x * TILE) + (drawSize / 2);
+        cy = (tower.y * TILE) + (drawSize / 2);
+        radius = drawSize / 2;
+    } else {
+        cx = (tower.x * TILE) + (TILE / 2);
+        cy = (tower.y * TILE) + (TILE / 2);
+        radius = TILE / 2;
+    }
+    
+    if (Math.hypot(mouse.x - cx, mouse.y - cy) < radius) {
+      potentialDrag = tower;
+      dragStart.x = mouse.x; dragStart.y = mouse.y;
+      offsetX = mouse.x - cx; offsetY = mouse.y - cy;
+      break;
+    }
+  }
+}
+function mousemove(e) {
+  getMousePos(e);
+  if (potentialDrag && !dragging) {
+    const d = Math.hypot(mouse.x - dragStart.x, mouse.y - dragStart.y);
+    if (d > 5) {
+      dragging = true;
+      draggingTower = potentialDrag;
+      selectedTower = null; 
+      closeTowerInfo(); 
+    }
+  }
+}
+function mouseup(e) {
+  getMousePos(e);
+  if (dragging) {
+    let target = null;
+    
+    for (const t of towers) {
+      if (t === draggingTower) continue;
+      
+      let cx, cy, radius;
+      if (t.subSlot !== null) {
+          const drawSize = TILE / 2;
+          cx = (t.x * TILE) + (drawSize / 2);
+          cy = (t.y * TILE) + (drawSize / 2);
+          radius = drawSize / 2;
+      } else {
+          cx = (t.x * TILE) + (TILE / 2);
+          cy = (t.y * TILE) + (TILE / 2);
+          radius = TILE / 2;
+      }
+
+      if (Math.hypot(mouse.x - cx, mouse.y - cy) < radius) {
+        target = t; break;
+      }
+    }
+
+    if (target && target.type === draggingTower.type && target.stars === draggingTower.stars && target.stars < 5) {
+      const targetIsSmall = (target.subSlot !== null);
+      const draggingIsSmall = (draggingTower.subSlot !== null);
+
+      if (targetIsSmall === draggingIsSmall) {
+          const originalType = target.type; 
+          const newType = getNewMergedTowerType(originalType);
+          const newStars = target.stars + 1;
+          const newMergedTower = new Tower(target.slot, newType, newStars, target.subSlot); 
+          towers = towers.filter(t => t !== draggingTower && t !== target);
+          towers.push(newMergedTower);
+          if (selectedTower === target || selectedTower === draggingTower) {
+              selectedTower = newMergedTower;
+              showTowerInfo(selectedTower);
+          }
+      }
+    } else {
+      let droppedOnSlot = false;
+      for (let i = 0; i < slots.length; i++) {
+        const slot = slots[i];
+        
+        if (slot.isSpecial) {
+            const subSize = TILE / 2;
+            for (let j = 0; j < 4; j++) {
+                const subX = (slot.x * TILE) + (j % 2) * subSize;
+                const subY = (slot.y * TILE) + Math.floor(j / 2) * subSize;
+                const cx = subX + subSize / 2;
+                const cy = subY + subSize / 2;
+                
+                if (Math.hypot(mouse.x - cx, mouse.y - cy) < subSize / 2) {
+                    const occupied = towers.some(t => t.slot === i && t.subSlot === j);
+                    if (!occupied && draggingTower.subSlot !== null) {
+                        draggingTower.slot = i;
+                        draggingTower.subSlot = j;
+                        draggingTower.x = slot.x + (j % 2) * 0.5;
+                        draggingTower.y = slot.y + Math.floor(j / 2) * 0.5;
+                        droppedOnSlot = true; break;
+                    }
+                }
+            }
+            if (droppedOnSlot) break;
+            
+        } else {
+            const cx = (slot.x * TILE) + (TILE / 2);
+            const cy = (slot.y * TILE) + (TILE / 2);
+            if (Math.hypot(mouse.x - cx, mouse.y - cy) < TILE / 2) {
+                const occupied = towers.some(t => t.slot === i);
+                if (!occupied && draggingTower.subSlot === null) {
+                    draggingTower.slot = i;
+                    draggingTower.subSlot = null; 
+                    draggingTower.x = slot.x; 
+                    draggingTower.y = slot.y;
+                    droppedOnSlot = true; break;
+                }
+            }
+        }
+      }
+    }
+    dragging = false; draggingTower = null;
+  } else if (potentialDrag) {
+    selectedTower = potentialDrag;
+    showTowerInfo(potentialDrag);
+  }
+  potentialDrag = null;
+}
+canvas.addEventListener('mousedown', mousedown);
+canvas.addEventListener('mousemove', mousemove);
+canvas.addEventListener('mouseup', mouseup);
+canvas.addEventListener('touchstart', (e) => mousedown(e.touches[0]));
+canvas.addEventListener('touchmove', (e) => mousemove(e.touches[0]));
+canvas.addEventListener('touchend', (e) => mouseup(e.changedTouches[0]));
+
+// --- 資訊彈窗 ---
+function showTowerInfo(tower) {
+  // 重置樣式
+  const infoTitle = document.getElementById('towerInfoTitle');
+  const infoContent = document.getElementById('towerInfoContent');
+  
+  infoTitle.classList.remove('life-tower', 'encourage-tower', 'gold-tower', 'win-tower');
+  infoContent.classList.remove('life-tower', 'encourage-tower', 'gold-tower', 'win-tower');
+  towerInfoModal.classList.remove('life-tower', 'encourage-tower', 'gold-tower', 'win-tower');
+  
+  if (tower.type.name === '❤️生命塔') {
+    infoTitle.classList.add('life-tower');
+    infoContent.classList.add('life-tower');
+    towerInfoModal.classList.add('life-tower');
+  } else if (tower.type.name === '👏鼓勵塔') {
+    infoTitle.classList.add('encourage-tower');
+    infoContent.classList.add('encourage-tower');
+    towerInfoModal.classList.add('encourage-tower');
+  } else if (tower.type.name === '💰金幣塔') {
+    infoTitle.classList.add('gold-tower');
+    infoContent.classList.add('gold-tower');
+    towerInfoModal.classList.add('gold-tower');
+  } else if (tower.type.name === '✌️必勝塔') {
+    infoTitle.classList.add('win-tower');
+    infoContent.classList.add('win-tower');
+    towerInfoModal.classList.add('win-tower');
+  }
+
+  // 持續更新函式，讓倒數計時實時更新
+  function updateInfo() {
+      if (selectedTower !== tower || towerInfoModal.style.display === 'none') return;
+      const info = tower.getInfo();
+      infoTitle.innerHTML = `${info.name} 詳細資訊`;
+      infoContent.innerHTML = `
+        <p><strong>星級:</strong> ${info.emoji.repeat(info.stars)}</p>
+        <p><strong>大小:</strong> ${info.size}</p>
+        <p><strong>攻擊力:</strong> ${info.dmg}</p>
+        <p><strong>射程:</strong> ${info.range}</p>
+        <p><strong>攻速:</strong> ${info.attackSpeed}</p>
+        ${info.splash > 0 ? `<p><strong>濺射:</strong> ${info.splash.toFixed(0)}</p>` : ''}
+        <p><strong>已學技能:</strong> ${info.skills}</p>
+      `;
+      requestAnimationFrame(updateInfo);
+  }
+
+  towerInfoModal.style.display = 'block';
+  updateInfo();
+}
+function closeTowerInfo() {
+  towerInfoModal.style.display = 'none';
+  selectedTower = null;
+}
+
+// --- 遊戲速度 ---
+function toggleSpeed() {
+  initAudio();
+  gameSpeed = gameSpeed === 1 ? 3 : 1;
+  speedBtn.textContent = gameSpeed + 'x';
+  speedBtn.style.background = gameSpeed === 3 ? 'linear-gradient(145deg, #ff6666, #ff4444)' : 'linear-gradient(145deg, #ff4444, #cc3333)';
+}
+
+// --- 技能學習 ---
+function openSkill() {
+  if (wave < 2) return;
+  
+  const uniqueTowerTypesOnBoard = [...new Set(towers.map(t => t.type))];
+  const typesWithAvailableSkills = uniqueTowerTypesOnBoard.filter(type => {
+      if (['❤️生命塔', '👏鼓勵塔', '💰金幣塔', '✌️必勝塔'].includes(type.name)) {
+          const learned = learnedSkillsRegistry.get(type.name) || new Set();
+          return learned.size < type.skills.length;
+      }
+      const learnedSkills = learnedSkillsRegistry.get(type.name) || new Set();
+      return learnedSkills.size < type.skills.length;
+  });
+  if (typesWithAvailableSkills.length === 0) { console.log("所有在場上的塔都已學滿技能。"); return; }
+  
+  const cost = calculateSkillCost(skillIndex);
+  if (gold < cost) return;
+
+  skillPausedSpeed = gameSpeed;
+  gameSpeed = 0;
+  
+  const randomTowerType = typesWithAvailableSkills[Math.floor(Math.random() * typesWithAvailableSkills.length)];
+  const numOptions = Math.min(3, randomTowerType.skills.length);
+  document.getElementById('skillTitle').innerHTML = `【${randomTowerType.name}】<br>${numOptions}選一技能 ($${cost})`;
+  
+  const skillOptions = document.getElementById('skillOptions');
+  skillOptions.innerHTML = '';
+  
+  const learnedSkills = learnedSkillsRegistry.get(randomTowerType.name) || new Set();
+  const availableSkills = randomTowerType.skills.filter(s => !learnedSkills.has(s.name));
+  
+  if (availableSkills.length === 0) { closeSkill(); return; }
+
+  let skillsToShow = [...availableSkills].sort(() => 0.5 - Math.random()).slice(0, numOptions);
+  skillsToShow.forEach((skill) => {
+    const div = document.createElement('div');
+    div.className = 'skillOpt';
+    div.innerHTML = `<strong>${skill.name}</strong><br><small>${skill.desc}</small>`;
+    div.onclick = () => selectSkill(skill, randomTowerType);
+    skillOptions.appendChild(div);
+  });
+  skillModal.style.display = 'block';
+}
+function selectSkill(skill, type) {
+  const cost = calculateSkillCost(skillIndex);
+  if (gold < cost) { closeSkill(); return; }
+  
+  gold -= cost; skillIndex++; 
+  
+  if (skill.effect === 'grant_gold') {
+      gold += skill.value;
+  }
+  if (skill.effect === 'free_castle') {
+      freeCastleCharges = (freeCastleCharges || 0) + skill.value;
+  }
+  
+  // 必勝塔技能實現
+  if (skill.effect === 'black_hole') {
+      const cx = gameWidth / 2;
+      const cy = gameHeight / 2;
+      blackHoles.push(new BlackHole(cx, cy, skill.value));
+  }
+  if (skill.effect === 'instant_3_star') {
+      victoryInstant3StarCharges += skill.value;
+  }
+  
+  // --- 修正：神之加冕 (All 5 Star) 邏輯 ---
+  if (skill.effect === 'all_5_star') {
+      towers.forEach(t => {
+          if (t.type.name !== '✌️必勝塔') {
+              t.stars = 5;
+              
+              // 重新計算攻擊力 (基礎 * 2^(星級-1))
+              const dmgMultiplier = Math.pow(2, t.stars - 1);
+              t.dmg = t.type.baseDmg * dmgMultiplier;
+              
+              // 特殊：生命塔的攻速(治療速度)隨星級變化，需更新
+              if (t.type.name === '❤️生命塔') {
+                  t.rate = 10000 + (t.stars - 1) * 5000;
+              }
+              
+              // 重新應用已學習的、會影響基礎數值的技能 (如: 重型炮彈 +100% dmg)
+              t.appliedSkills.forEach(s => {
+                   if (s.effect === 'dmg') t.dmg *= s.value;
+              });
+          }
+      });
+  }
+  
+  if (skill.effect === 'skip_to_wave_10') {
+      wave = 9; 
+      enemies.forEach(e => e.hp = 0); 
+      bossHpOverride = 12345; 
+      waveEnemies = waveSpawned; 
+      enemies = [];
+  }
+
+  if (skill.effect === 'new_slot_random_tower') {
+      addNewSlot();
+      setTimeout(() => {
+          const emptyNormalSlots = slots.map((s, i) => ({s, i}))
+              .filter(item => !item.s.isSpecial && !towers.some(t => t.slot === item.i))
+              .map(item => item.i);
+              
+          if (emptyNormalSlots.length > 0) {
+              const slotIdx = emptyNormalSlots[emptyNormalSlots.length - 1]; 
+              let randomTypeFromDeck;
+              if (window.selectedDeckTypes && window.selectedDeckTypes.length > 0) {
+                  randomTypeFromDeck = window.selectedDeckTypes[Math.floor(Math.random() * window.selectedDeckTypes.length)];
+              } else {
+                  randomTypeFromDeck = window.towerTypes[Math.floor(Math.random() * window.towerTypes.length)];
+              }
+              towers.push(new Tower(slotIdx, randomTypeFromDeck, 4)); 
+          }
+      }, 100);
+  }
+  
+  if (skill.effect === 'special_slot') {
+      const newSlotIndex = addNewSlot(); 
+      if (newSlotIndex !== -1) {
+          slots[newSlotIndex].isSpecial = true; 
+      }
+  }
+  if (skill.effect === 'inspire_slot') {
+      nextInspireTime = gameTime;
+  }
+
+  if (skill.effect === 'king_max_hp') {
+      maxHp = skill.value; 
+      hp = Math.min(hp, maxHp); 
+  }
+  if (skill.effect === 'king_regen') {
+      kingRegenPerWave += skill.value;
+  }
+  if (skill.effect === 'enemy_hp_debuff') {
+      enemyHpDebuff = skill.value; 
+  }
+  if (skill.effect === 'king_shield') {
+      hasKingShield = true;
+      kingShieldCharges = skill.value; 
+  }
+
+  if (skill.effect === 'fixed_cost') {
+      fixedCostActive = true; 
+  }
+  if (skill.effect === 'multiply_gold') {
+      gold *= skill.value; 
+  }
+  
+  updateUI(); 
+  
+  if (!learnedSkillsRegistry.has(type.name)) learnedSkillsRegistry.set(type.name, new Set());
+  learnedSkillsRegistry.get(type.name).add(skill.name);
+  
+  if (skill.effect !== 'super_charge' && skill.effect !== 'black_hole' && skill.effect !== 'skip_to_wave_10') {
+      towers.filter(t => t.type === type).forEach(t => {
+        t.applySkill(skill);
+      });
+  }
+  
+  if (selectedTower) showTowerInfo(selectedTower);
+  closeSkill();
+}
+function closeSkill() { 
+    skillModal.style.display = 'none';
+    gameSpeed = skillPausedSpeed;
+}
+
+// --- 城堡技能 ---
+function openCastle() {
+  const cost = getCastleCost(); 
+  if (gold < cost && cost > 0) return; 
+  
+  const costText = cost === 0 ? "免費" : `$${cost}`; 
+  
+  document.getElementById('castleTitle').innerHTML = `城堡技能 (${costText})<br>二選一`; 
+  const castleOptions = document.getElementById('castleOptions');
+  castleOptions.innerHTML = '';
+  const skills = [...castleSkills].sort(() => 0.5 - Math.random());
+  skills.slice(0, 2).forEach((skill) => {
+    const div = document.createElement('div');
+    div.className = 'castleOpt';
+    div.innerHTML = `<strong>${skill.name}</strong><br><small>${skill.desc}</small>`;
+    div.onclick = () => selectCastleSkill(skill);
+    castleOptions.appendChild(div);
+  });
+  castleModal.style.display = 'block';
+}
+function selectCastleSkill(skill) {
+  const cost = getCastleCost(); 
+  
+  if (cost === 0) {
+      freeCastleCharges--; 
+  } else {
+      if (gold < cost) { closeCastle(); return; }
+      gold -= cost;
+
+      if (window.castleCostTacticApplied) {
+          window.castleCostTacticApplied = false;
+      }
+  }
+  
+  updateUI(); 
+  
+  switch (skill.effect) {
+    case 1: enemies.forEach(e => { e.rewindUntil = gameTime + 1000; }); break;
+    case 2: 
+      let nonBossEnemies = enemies.filter(e => e.hp > 0 && !e.type.isBoss);
+      for (let i = 0; i < 2 && nonBossEnemies.length > 0; i++) {
+        let idx = Math.floor(Math.random() * nonBossEnemies.length);
+        let e = nonBossEnemies[idx];
+        e.hp = 0;
+        onEnemyDeath(e); 
+        nonBossEnemies.splice(idx, 1);
+      }
+      updateUI();
+      break;
+    case 3: monsterStunTime = gameTime + 3000; break;
+    case 4: hp = Math.min(maxHp, hp + 4); updateUI(); break;
+    case 5: nextMonstersHalfHp = 5; break;
+  }
+  addNewSlot(); 
+  closeCastle();
+}
+function closeCastle() { castleModal.style.display = 'none'; }
+
+// --- 設置選單 ---
+function openSettings() {
+  previousGameSpeed = gameSpeed;
+  gameSpeed = 0; 
+  settingsModal.style.display = 'block';
+}
+
+function closeSettings() {
+  settingsModal.style.display = 'none';
+  gameSpeed = previousGameSpeed; 
+}
+
+// --- UI 更新 ---
+function updateCosts() {
+  const placeCost = calculatePlaceCost(placeIndex);
+  placeCostBubble.textContent = `$${placeCost}`;
+  placeBtn.style.opacity = gold >= placeCost ? 1 : 0.5;
+  
+  const skillCost = calculateSkillCost(skillIndex);
+  skillCostBubble.textContent = `$${skillCost}`;
+  
+  if (wave < 2) {
+      skillBtn.style.opacity = 0.3;
+      skillCostBubble.style.display = 'none';
+  } else {
+      skillBtn.style.opacity = gold >= skillCost ? 1 : 0.5;
+      skillCostBubble.style.display = 'block';
+  }
+
+  const castleCost = getCastleCost(); 
+  castleCostBubble.textContent = castleCost === 0 ? "免費" : `$${castleCost}`; 
+  castleBtn.style.opacity = (gold >= castleCost || castleCost === 0) ? 1 : 0.5; 
+}
+function updateUI() { 
+  ui.gold.textContent = gold; 
+  ui.hp.textContent = `${hp}/${maxHp}`; 
+  updateCosts();
+}
+
+// --- 遊戲結束/重置 ---
+function gameOver(isVictory = false) {
+  gameSpeed = 0; 
+  infoModal.classList.remove('victory');
+  const infoTitle = document.getElementById('infoTitle');
+  const infoText = document.getElementById('infoText');
+  const infoBtn = document.querySelector('#info button');
+
+  if (isVictory) {
+      infoModal.classList.add('victory');
+      infoTitle.textContent = '🏆 勝利！塔防王國得救了！';
+      infoText.textContent = `恭喜您擊敗了終極大 Boss！\n您以 ${hp} 點國王血量和${window.activeTactic ? window.activeTactic.name : '未知戰術'}完成了遊戲。`;
+      infoBtn.textContent = '太棒了！返回主選單';
+  } else {
+      infoTitle.textContent = '國王陣亡！';
+      infoText.textContent = `請嘗試用✌️必勝塔，取得勝利吧！！`;
+      infoBtn.textContent = '返回主選單';
+  }
+  document.getElementById('info').style.display = 'block';
+}
+function closeInfo() {
+  document.getElementById('info').style.display = 'none';
+  resetGame(); 
+}
+function resetGame() {
+  if (gameLoopId) {
+      cancelAnimationFrame(gameLoopId);
+      gameLoopId = null;
+  }
+
+  gameSpeed = 1; 
+  speedBtn.textContent = '1x';
+  speedBtn.style.background = 'linear-gradient(145deg, #ff4444, #cc3333)';
+
+  gold = 5001; wave = 1; hp = 20; maxHp = 20; 
+  towers = []; enemies = []; projectiles = [];
+  placeIndex = 0; skillIndex = 0; nextMonstersHalfHp = 0;
+  monsterStunTime = 0; monsterRewindTime = 0;
+  selectedTower = null;
+  potentialDrag = null; draggingTower = null; dragging = false;
+  lastMinionSpawn = 0; gameTime = 0; lastRealTime = 0;
+  lastLightningSpeedCheck = 0; lightningSpeedBuffActiveUntil = 0;
+  freeCastleCharges = 0; 
+  
+  nextBossStunTime = 0; 
+  towersStunnedUntil = 0; 
+  
+  kingRegenPerWave = 0;
+  enemyHpDebuff = 0;
+  kingShieldCharges = 0;
+  hasKingShield = false;
+  
+  inspiredBuffs = [];
+  nextInspireTime = 0;
+  globalBuffs = { atkBuff: 0, rangeBuff: 0, splashBuff: 0, speedBuff1Star: 0 };
+
+  fixedCostActive = false; 
+
+  // 重置變數
+  victoryInstant3StarCharges = 0;
+  blackHoles = [];
+  bossHpOverride = 0;
+
+  guaranteedFirstTowerType = null;
+  castleCostTacticApplied = false;
+
+  slots = []; 
+  settingsModal.style.display = 'none'; 
+  
+  learnedSkillsRegistry.clear(); 
+  
+  window.activeTactic = null;
+  window.tacticCannonKills = 0;
+  window.selectedDeckTypes = [];
+  
+  document.getElementById('game').style.display = 'none';
+  document.getElementById('mainMenu').style.display = 'flex';
+  
+  if (window.resetMenuUI) window.resetMenuUI();
+}
+
+function onEnemyDeath(enemy) {
+    // 簡單加錢 (注意：幽靈金幣為負，所以會扣錢)
+    gold += enemy.gold; 
+
+    // 處理復活 (骷髏 -> 小骷髏)
+    if (enemy.type.revivesTo !== undefined) {
+        const newTypeIdx = enemy.type.revivesTo;
+        const newEnemy = new Enemy(newTypeIdx);
+        newEnemy.x = enemy.x;
+        newEnemy.y = enemy.y;
+        newEnemy.targetX = enemy.targetX;
+        newEnemy.targetY = enemy.targetY;
+        enemies.push(newEnemy);
+    }
+}
+
+// --- Enemy 類別 ---
+class Enemy {
+  constructor(typeIdx) {
+    const type = enemyTypes[typeIdx];
+    this.type = type;
+    
+    let baseHp;
+    if (type.emoji === '👻') {
+        baseHp = 1000;
+    } 
+    else if (type.isBoss) {
+        baseHp = type.hp; 
+        if (bossHpOverride > 0) {
+            baseHp = bossHpOverride;
+        }
+    } else {
+        baseHp = type.hp * Math.pow(1.5, wave - 1);
+    }
+    
+    baseHp *= (1.0 - enemyHpDebuff);
+
+    this.isHalfHp = false; 
+    if (nextMonstersHalfHp > 0 && !type.isBoss && type.emoji !== '👻') { 
+      baseHp = Math.floor(baseHp / 2);
+      nextMonstersHalfHp--; 
+      this.isHalfHp = true; 
+    }
+    
+    this.maxHp = Math.ceil(baseHp);
+    this.hp = this.maxHp; 
+    
+    this.speed = type.speed; this.gold = type.gold; this.emoji = type.emoji;
+    
+    if (type.emoji === '🤖' || type.emoji === '👻') {
+        this.x = (gameWidth * 0.2) + Math.random() * (gameWidth * 0.6);
+        this.y = (gameHeight * 0.35) + Math.random() * (gameHeight * 0.2);
+        this.speed = 0; 
+    } else {
+        this.x = Math.random() * gameWidth; 
+        this.y = 0 - (Math.random() * TILE * 2); 
+    }
+    
+    this.targetX = gameWidth * 0.5 + (Math.random() - 0.5) * gameWidth * 0.35;
+    this.targetY = gameHeight * BASELINE_Y;
+    this.stunnedUntil = 0; 
+    this.rewindUntil = 0; 
+    // (Removed tauntStun logic) 
+    this.slowUntil = 0; this.slowFactor = 1;
+    this.burnDamage = 0; this.burnExpiresAt = 0; this.lastBurnTick = gameTime; 
+    this.lastHealTick = gameTime; 
+    // (Removed hasSplit)
+
+    this.lastRangedAttack = gameTime;
+    this.hasVoidDebuff = false; // 無法被治療標記
+  }
+
+  applySlow(factor, duration = 1000) { 
+      this.slowFactor = 1.0 - factor; 
+      this.slowUntil = gameTime + duration;
+  }
+  applyBurn(dmgPerTick, duration = 5000) { 
+      if (dmgPerTick > this.burnDamage) this.burnDamage = dmgPerTick; 
+      this.burnExpiresAt = gameTime + duration;
+      this.lastBurnTick = gameTime; 
+  }
+
+  update() {
+    const now = gameTime;
+
+    if (this.type.isRanged && this.hp > 0) {
+        if (now - this.lastRangedAttack >= 3000) { // 3秒
+            this.lastRangedAttack = now;
+            this.shootKing();
+        }
+    }
+
+    // (Removed tauntStun logic block)
+
+    if (!this.type) { console.error("Bugged enemy", this); this.hp = 0; return true; }
+
+    if (this.type.isHealer) {
+        if (now - this.lastHealTick > 500) { 
+            enemies.forEach(e => {
+                if (e !== this && e.hp > 0 && e.hp < e.maxHp && !e.hasVoidDebuff) {
+                    e.hp = Math.min(e.maxHp, e.hp + 1);
+                }
+            });
+            this.lastHealTick = now;
+        }
+    }
+
+    if (this.burnExpiresAt > now) {
+        if (now - this.lastBurnTick > 200) { 
+            this.hp -= this.burnDamage; 
+            this.lastBurnTick = now;
+            if (this.hp <= 0) {
+                onEnemyDeath(this); 
+                return true; 
+            }
+        }
+    } else {
+        this.burnDamage = 0; 
+    }
+    
+    if (this.stunnedUntil > now || monsterStunTime > now) return false; 
+
+    if (this.speed > 0 && this.rewindUntil > now) {
+        const dx = this.targetX - this.x; const dy = this.targetY - this.y;
+        const dsum = Math.hypot(dx, dy);
+        if (dsum > 0) { 
+            const baseRewindSpeed = this.type.isBoss ? 1 : 5; 
+            const rewindSpeed = baseRewindSpeed * gameSpeed; 
+            this.x -= (dx / dsum) * rewindSpeed;
+            this.y -= (dy / dsum) * rewindSpeed;
+        }
+        return false; 
+    }
+
+    let currentSpeed = this.speed; 
+    if (this.slowUntil > now) currentSpeed *= this.slowFactor;
+    else this.slowFactor = 1; 
+    
+    if (currentSpeed <= 0) return false;
+
+    const dx = this.targetX - this.x; const dy = this.targetY - this.y;
+    const dsum = Math.hypot(dx, dy);
+    
+    if (dsum < 4) {
+        if (this.type.isBoss) {
+            gameOver(false);
+            return true;
+        } else {
+            if (kingShieldCharges > 0 && !this.type.isBoss) {
+                kingShieldCharges--; 
+            } else {
+                if (this.type.emoji === '👹') {
+                    hp = Math.max(0, hp - 2); 
+                } else {
+                    hp--; 
+                }
+            }
+
+            updateUI();
+            if (hp <= 0) gameOver();
+            return true; 
+        }
+    }
+    
+    const step = currentSpeed * gameSpeed; 
+    this.x += (dx / dsum) * step; this.y += (dy / dsum) * step;
+    return false; 
+  }
+
+  shootKing() {
+      ctx.save();
+      ctx.strokeStyle = 'rgba(255, 0, 0, 0.8)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(this.x, this.y);
+      const castleBaseY = gameHeight * BASELINE_Y;
+      const castleCenterX = gameWidth / 2;
+      ctx.lineTo(castleCenterX, castleBaseY);
+      ctx.stroke();
+      ctx.restore();
+      
+      hp = Math.max(0, hp - 1);
+      updateUI();
+      if (hp <= 0) gameOver();
+  }
+  
+  draw() {
+    if (this.isHalfHp) {
+        ctx.save(); ctx.fillStyle = 'rgba(255, 105, 180, 0.4)'; 
+        ctx.beginPath(); ctx.arc(this.x, this.y, TILE * 0.6, 0, Math.PI * 2); ctx.fill();
+        ctx.restore();
+    }
+    if (this.burnExpiresAt > gameTime) {
+        ctx.save(); ctx.fillStyle = 'rgba(255, 100, 0, 0.3)'; 
+        ctx.beginPath(); ctx.arc(this.x, this.y, TILE * 0.55, 0, Math.PI * 2); ctx.fill();
+        ctx.restore();
+    }
+
+    if (this.rewindUntil > gameTime) {
+        ctx.save(); 
+        ctx.fillStyle = 'rgba(135, 206, 250, 0.4)'; 
+        ctx.beginPath(); ctx.arc(this.x, this.y, TILE * 0.7, 0, Math.PI * 2); ctx.fill();
+        ctx.restore();
+    }
+    
+    if (enemyHpDebuff > 0 && this.hp === this.maxHp) {
+        ctx.save(); 
+        ctx.fillStyle = 'rgba(128, 0, 128, 0.3)'; 
+        ctx.beginPath(); ctx.arc(this.x, this.y, TILE * 0.65, 0, Math.PI * 2); ctx.fill();
+        ctx.restore();
+    }
+
+    if (this.hasVoidDebuff) {
+        ctx.save();
+        ctx.strokeStyle = '#8A2BE2'; // 紫色邊框
+        ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.arc(this.x, this.y, TILE * 0.6, 0, Math.PI * 2); ctx.stroke();
+        ctx.restore();
+    }
+
+    let fontSize = TILE * 0.85;
+    if (this.type.isBoss) fontSize = TILE * (this.type.isFinalBoss ? 1.5 : 1.2); 
+
+    ctx.font = `${fontSize}px Arial`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(this.emoji, this.x, this.y);
+    
+    const barW = TILE * (this.type.isBoss ? 1.5 : 1.0); const barH = 6; 
+    const barY = this.y - (TILE / 2) - 12; 
+    ctx.fillStyle = '#333'; ctx.fillRect(this.x - barW / 2, barY, barW, barH);
+    const hpPercent = this.hp / this.maxHp;
+    ctx.fillStyle = hpPercent > 0.5 ? '#4CAF50' : (hpPercent > 0.2 ? '#FFC107' : '#F44336'); 
+    ctx.fillRect(this.x - barW / 2, barY, barW * hpPercent, barH);
+    ctx.font = `12px Arial`; ctx.fillStyle = '#FFFFFF';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(`${Math.ceil(this.hp)}/${this.maxHp}`, this.x, barY - 8); 
+  }
+}
+
+// --- Projectile 類別 ---
+class Projectile {
+  constructor(sx, sy, target, dmg, emoji, color, splash, isCrit, skills, stars, confidenceDmg = 0) { 
+    this.x = sx; this.y = sy; this.target = target; 
+    this.dmg = dmg; this.emoji = emoji; this.color = color;
+    this.splash = splash; this.isCrit = isCrit;
+    this.speed = 15; this.hit = false;
+    this.skills = skills || []; 
+    this.towerStars = stars || 1; 
+    this.confidenceDmg = confidenceDmg; 
+  }
+
+  update() {
+    if (this.hit || !this.target || this.target.hp <= 0) return true; 
+
+    const dx = this.target.x - this.x; const dy = this.target.y - this.y;
+    const dist = Math.hypot(dx, dy);
+
+    if (dist <= this.speed * gameSpeed) {
+      this.hitTarget(); return true; 
+    }
+    const moveX = (dx / dist) * this.speed * gameSpeed;
+    const moveY = (dy / dist) * this.speed * gameSpeed;
+    this.x += moveX; this.y += moveY;
+    return false; 
+  }
+
+  hitTarget() {
+    if (this.hit || !this.target) return; 
+    this.hit = true;
+    
+    if (this.target.hp <= 0 && this.dmg >= 0) return; 
+
+    if (this.target.hasVoidDebuff && this.dmg < 0) {
+        // 治療無效
+        return;
+    }
+
+    if (this.confidenceDmg > 0) {
+        this.target.hp -= this.confidenceDmg;
+    } else {
+        let bonusDmg = 0;
+        const focusFireSkill = this.skills.find(s => s.effect === 'focus_fire');
+        if (focusFireSkill) bonusDmg = focusFireSkill.value;
+        
+        let finalAppliedDmg = this.dmg + bonusDmg;
+        if (this.target.type.emoji === '🐲') {
+            finalAppliedDmg *= 0.95; 
+        }
+        this.target.hp -= finalAppliedDmg;
+        
+        if (finalAppliedDmg < 0) {
+            this.target.hp = Math.min(this.target.hp, this.target.maxHp);
+        }
+    }
+    
+    const stunSkill = this.skills.find(s => s.effect === 'stun');
+    if (stunSkill) this.target.stunnedUntil = gameTime + stunSkill.value;
+
+    const slowSkill = this.skills.find(s => s.effect === 'slow');
+    if (slowSkill) this.target.applySlow(Math.min(slowSkill.value, 0.9), 1000); 
+
+    const burnSkill = this.skills.find(s => s.effect === 'burn');
+    if (burnSkill) this.target.applyBurn(this.dmg * burnSkill.value, 5000); 
+
+    if (this.splash > 0) {
+      const splashRadius = this.splash * TILE;
+      for (const e of enemies) {
+        if (e === this.target || e.hp <= 0) continue; 
+        if (Math.hypot(this.x - e.x, this.y - e.y) < splashRadius) {
+          
+          let splashDmg = this.dmg * 0.65;
+          if (e.type.emoji === '🐲') {
+              splashDmg *= 0.95; 
+          }
+          e.hp -= splashDmg; 
+
+          if (e.hp <= 0) {
+              onEnemyDeath(e); 
+          }
+          if (stunSkill) e.stunnedUntil = gameTime + stunSkill.value;
+        }
+      }
+    }
+    
+    const chainSkill = this.skills.find(s => s.effect === 'chain');
+    if (chainSkill) {
+        const targetTypeEmoji = this.target.type.emoji;
+        const chainDamage = this.dmg * chainSkill.value; 
+        let chainCount = 0; const maxChain = 6;
+        for (const e of enemies) {
+            if (e === this.target || e.hp <= 0 || e.type.emoji !== targetTypeEmoji || chainCount >= maxChain) continue;
+            if (Math.hypot(this.x - e.x, this.y - e.y) > TILE * 6) continue; 
+            
+            let finalChainDmg = chainDamage;
+            if (e.type.emoji === '🐲') {
+                finalChainDmg *= 0.95; 
+            }
+            e.hp -= finalChainDmg; 
+            
+            if (e.hp <= 0) {
+              onEnemyDeath(e); 
+            }
+            chainCount++;
+        }
+    }
+
+    if (window.activeTactic && window.activeTactic.id === 'archer_boss' && this.emoji === '🏹' && this.towerStars === 1 && this.target.type.isBoss) {
+        gold += 654321;
+    }
+
+    if (this.target.hp <= 0) {
+        
+        onEnemyDeath(this.target);
+
+        if (window.activeTactic && window.activeTactic.id === 'cannon_kill' && this.emoji === '💣' && this.towerStars === 1) {
+            window.tacticCannonKills++; 
+            towers.forEach(t => {
+                if (t.type.name === '💣炮塔' && t.stars === 1) {
+                    const baseDmg = t.type.baseDmg; 
+                    const dmgMultiplier = Math.pow(2, t.stars - 1); 
+                    
+                    let newDmg = baseDmg * dmgMultiplier;
+                    
+                    const buff = (1 + (window.tacticCannonKills * 0.03)); 
+                    newDmg *= buff;
+
+                    const heavyShells = t.appliedSkills.find(s => s.effect === 'dmg');
+                    if (heavyShells) {
+                        newDmg *= heavyShells.value; 
+                    }
+
+                    t.dmg = newDmg;
+                }
+            });
+        }
+    }
+    
+    updateUI();
+  }
+
+  draw() {
+    ctx.fillStyle = this.color;
+    let fontSize = 28;
+    if (this.emoji === '🏹' || this.emoji === '⚡') fontSize = 24; 
+    if (this.emoji === '💣') fontSize = 32;
+    if (this.emoji === '❤️' || this.emoji === '👏' || this.emoji === '💰') fontSize = 30; 
+    if (this.emoji === '✌️') fontSize = 30;
+
+    if (this.isCrit) {
+        ctx.shadowColor = '#FFD700'; ctx.shadowBlur = 10; fontSize *= 1.2;
+    }
+    
+    if (this.emoji === '❤️') {
+        ctx.shadowColor = '#FFFFFF'; ctx.shadowBlur = 8;
+    }
+
+    ctx.font = `${fontSize}px Arial`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(this.emoji, this.x, this.y);
+    if (this.isCrit || this.emoji === '❤️') ctx.shadowBlur = 0; 
+  }
+}
+
+// --- 畫面佈局和調整 ---
+function positionBottomControls(wallY, wallHeight) {
+  bottomControls.style.top = `${wallY + 14}px`;
+  bottomControls.style.height = `${Math.max(68, wallHeight - 20)}px`;
+  positionBubbleBelow(skillBtn, skillCostBubble, 8);
+  positionBubbleBelow(placeBtn, placeCostBubble, 8);
+  positionBubbleBelow(castleBtn, castleCostBubble, 8);
+}
+function positionBubbleBelow(buttonEl, bubbleEl, offset = 6) {
+  const contRect = container.getBoundingClientRect();
+  const btnRect = buttonEl.getBoundingClientRect();
+  if (contRect.width === 0 || btnRect.width === 0) return; 
+  const x = btnRect.left - contRect.left + btnRect.width / 2;
+  const y = btnRect.bottom - contRect.top + offset;
+  bubbleEl.style.display = 'block';
+  bubbleEl.style.left = `${x - bubbleEl.offsetWidth / 2}px`;
+  bubbleEl.style.top = `${y}px`;
+}
+function resize() {
+  gameWidth = canvas.width = container.clientWidth;
+  gameHeight = canvas.height = container.clientHeight;
+  const baseCols = 7; 
+  TILE = gameWidth / baseCols; 
+  cols = baseCols;
+  rows = Math.floor(gameHeight / TILE);
+  castleY = Math.max(0, Math.floor(rows * BASELINE_Y) - 1);
+  
+  if (slots.length === 0) initSlots();
+  
+  towers.forEach(t => {
+    if (['❤️生命塔','👏鼓勵塔','💰金幣塔'].includes(t.type.name)) {
+      t.range = t.baseRangeTiles * TILE;
+    } else {
+      t.range = t.baseRangeTiles * TILE;
+    }
+    
+    if (t.isConfidenceActive) {
+        t.range = 2 * TILE;
+    } else {
+        t.appliedSkills.forEach(skill => {
+            if (skill.effect === 'range' && !['❤️生命塔','👏鼓勵塔','💰金幣塔'].includes(t.type.name)) { 
+              t.range = t.baseRangeTiles * TILE; t.range *= skill.value; 
+            } 
+            if (skill.effect === 'range_add' && !['❤️生命塔','👏鼓勵塔','💰金幣塔'].includes(t.type.name)) {
+              t.range += skill.value * TILE; 
+            }
+        });
+    }
+  });
+  
+  const currentSlots = getCastleSlots();
+  const slotPixelY = currentSlots.length > 0 ? currentSlots[0].y * TILE : (gameHeight * BASELINE_Y);
+  positionBottomControls(slotPixelY, gameHeight - slotPixelY);
+}
+window.addEventListener('resize', () => {
+  resize();
+  requestAnimationFrame(() => {
+    updateCosts(); 
+    const currentSlots = getCastleSlots();
+    const slotPixelY = currentSlots.length > 0 ? currentSlots[0].y * TILE : (gameHeight * BASELINE_Y);
+    positionBottomControls(slotPixelY, gameHeight - slotPixelY);
+  });
+});
+
+// --- 遊戲主循環 ---
+function loop(now) {
+  if (gameSpeed === 0) { 
+      gameLoopId = requestAnimationFrame(loop); 
+      return;
+  }
+  if (!lastRealTime) lastRealTime = now;
+  const realDt = now - lastRealTime; 
+  gameTime += realDt * gameSpeed; 
+  lastRealTime = now;
+
+  {
+      let atkBuff = 0;
+      let rangeBuff = 0.0;
+      let splashBuff = 0;
+      let speedBuff1Star = 0; // 新增1星攻速Buff
+
+      const allEncourageTowers = towers.filter(t => t && t.type.name === '👏鼓勵塔');
+      const encourageCount = allEncourageTowers.length;
+
+      if (encourageCount > 0) { 
+          let hasLearnedAtkBuff = allEncourageTowers.some(t => t.appliedSkills.some(s => s.effect === 'global_atk_buff'));
+          // "視野擴展" 重製後變為 global_speed_buff_1star
+          let hasLearnedSpeedBuff = allEncourageTowers.some(t => t.appliedSkills.some(s => s.effect === 'global_speed_buff_1star'));
+          
+          if (hasLearnedAtkBuff) atkBuff = encourageCount * 20;
+          // 每個鼓勵塔 +80% (0.8)
+          if (hasLearnedSpeedBuff) speedBuff1Star = encourageCount * 0.8;
+      }
+      
+      if (window.activeTactic && window.activeTactic.id === 'cheer_splash') {
+          const oneStarEncourageTowers = allEncourageTowers.filter(t => t.stars === 1).length;
+          // 戰術加強：除了Splash外，也加Range
+          splashBuff += oneStarEncourageTowers * 1;
+          rangeBuff += oneStarEncourageTowers * 1 * TILE;
+      }
+      globalBuffs = { atkBuff, rangeBuff, splashBuff, speedBuff1Star };
+  }
+
+  // 隨機鼓舞邏輯 (重製版)
+  // 每15秒，鼓舞2個非鼓勵塔的塔槽，持續20秒
+  if (gameTime > nextInspireTime) {
+      nextInspireTime = gameTime + inspireInterval; 
+      
+      const hasLearnedInspire = towers.some(t => 
+          t && t.type.name === '👏鼓勵塔' && 
+          t.appliedSkills.some(s => s.effect === 'inspire_slot')
+      );
+
+      if (hasLearnedInspire && slots.length > 0) {
+          // 找出所有非鼓勵塔的塔槽 (目前有塔且不是鼓勵塔)
+          const candidateSlots = towers
+              .filter(t => t.type.name !== '👏鼓勵塔')
+              .map(t => t.slot);
+          
+          // 去重
+          const uniqueCandidates = [...new Set(candidateSlots)];
+          
+          let chosen = [];
+          
+          // 如果有非鼓勵塔，優先從中選 2 個
+          if (uniqueCandidates.length > 0) {
+               // 隨機打亂
+               const shuffled = uniqueCandidates.sort(() => 0.5 - Math.random());
+               chosen = shuffled.slice(0, 2);
+          } 
+          // 如果場上全是鼓勵塔或沒有塔 (極端情況)，隨機選空槽位? 
+          // 依照描述"非鼓勵塔的塔槽"，我們這裡只選已經有塔的。若不足2個，就只鼓舞那1個。
+
+          chosen.forEach(slotIdx => {
+              // 移除該槽位舊的 buff (如果存在)，確保時間重置
+              inspiredBuffs = inspiredBuffs.filter(b => b.slot !== slotIdx);
+              inspiredBuffs.push({
+                  slot: slotIdx,
+                  expire: gameTime + inspireDuration
+              });
+          });
+      }
+  }
+  // 清理過期 Buff
+  inspiredBuffs = inspiredBuffs.filter(b => b.expire > gameTime);
+
+  const isBossWave = (wave === 5 || wave === 10) && enemies.some(e => e.type.isBoss);
+  if (isBossWave) {
+      if (nextBossStunTime === 0) {
+          nextBossStunTime = gameTime + bossStunInterval;
+          towersStunnedUntil = 0; 
+      }
+      if (gameTime >= nextBossStunTime) {
+          towersStunnedUntil = gameTime + bossStunDuration;
+          nextBossStunTime = gameTime + bossStunInterval; 
+      }
+  } else {
+      nextBossStunTime = 0;
+      towersStunnedUntil = 0;
+  }
+
+  const lightningType = window.towerTypes.find(t => t.name === '⚡雷塔');
+  const hasSuperCharge = learnedSkillsRegistry.has('⚡雷塔') && learnedSkillsRegistry.get('⚡雷塔').has('超速放電');
+  if (hasSuperCharge && gameTime - lastLightningSpeedCheck >= 7000) { 
+      lastLightningSpeedCheck = gameTime;
+      lightningSpeedBuffActiveUntil = gameTime + 3000; 
+  }
+
+  ctx.clearRect(0, 0, gameWidth, gameHeight);
+  drawGrid();
+  
+  // 繪製黑洞
+  for (let i = blackHoles.length - 1; i >= 0; i--) {
+      blackHoles[i].draw();
+      if (blackHoles[i].update()) {
+          blackHoles.splice(i, 1);
+      }
+  }
+
+  drawCastle();
+  
+  if ((wave === 5 || wave === 10) && enemies.some(e => e.type.isBoss)) {
+    if (gameTime - lastMinionSpawn >= 5000) { 
+      for (let i = 0; i < 2; i++) spawnMinion();
+      lastMinionSpawn = gameTime;
+    }
+  }
+  
+  drawTowerRange(selectedTower);
+
+  if (waveEnemies > 0 && waveSpawned < waveEnemies) {
+    if (gameTime >= nextSpawnAt) {
+      spawnEnemy(); 
+      const gap = Math.max(260, (spawnIntervalBase - wave * 10)); 
+      nextSpawnAt = gameTime + gap;
+    }
+  } else if (waveEnemies > 0 && enemies.length === 0 && waveSpawned >= waveEnemies) {
+    wave++; startWave();
+  }
+
+  for (let i = enemies.length - 1; i >= 0; i--) {
+      const e = enemies[i];
+      if (!e || e.hp <= 0) enemies.splice(i, 1);
+      else if (e.update()) enemies.splice(i, 1);
+  }
+  
+  if (gameTime < towersStunnedUntil) {
+  } else {
+      towers.forEach(t => t.update());
+  }
+  
+  for (let i = projectiles.length - 1; i >= 0; i--) {
+      if (projectiles[i].update()) projectiles.splice(i, 1);
+  }
+
+  towers.forEach(t => { if (t !== draggingTower) t.draw(); });
+  enemies.forEach(e => e.draw());
+  projectiles.forEach(p => p.draw());
+
+  if (gameTime < towersStunnedUntil) {
+      towers.forEach(t => {
+          const centerX = (t.x * TILE) + (TILE / 2);
+          const centerY = (t.y * TILE) + (TILE / 2);
+          ctx.font = `${TILE * 0.8}px Arial`;
+          ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+          ctx.fillStyle = 'rgba(255, 0, 0, 0.7)';
+          ctx.fillText('🚫', centerX, centerY);
+      });
+  }
+
+  if (dragging && draggingTower) {
+    const drawX = mouse.x - offsetX; 
+    const drawY = mouse.y - offsetY;
+    let drawSize = (draggingTower.subSlot !== null) ? (TILE / 2) : TILE;
+
+    ctx.fillStyle = "rgba(255, 255, 255, 0.3)";
+    ctx.fillRect(drawX - drawSize / 2, drawY - drawSize / 2, drawSize, drawSize);
+    ctx.fillStyle = draggingTower.color; const ins = 3;
+    ctx.fillRect(drawX - drawSize / 2 + ins, drawY - drawSize / 2 + ins, drawSize - 2 * ins, drawSize - 2 * ins);
+    
+    const dragFontSize = drawSize * Math.max(0.3, 0.8 - draggingTower.stars * 0.1);
+    ctx.font = `${dragFontSize}px Arial`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillStyle = (draggingTower.type.name === '💰金幣塔') ? '#000000' : '#FFFFFF'; 
+    const padding = drawSize * 0.1; 
+    ctx.fillText(draggingTower.emoji.repeat(draggingTower.stars), drawX, drawY, drawSize - padding);
+  }
+
+  gameLoopId = requestAnimationFrame(loop);
+}
+
+resize(); 
+</script>
+
+<script>
+/* ==============================================
+ * 主選單邏輯
+ * ============================================== */
+document.addEventListener('DOMContentLoaded', () => {
+
+  const screens = {
+    deckScreen: document.getElementById('deckScreen'),
+    homeScreen: document.getElementById('homeScreen'),
+    tacticsScreen: document.getElementById('tacticsScreen')
+  };
+  const navButtons = document.querySelectorAll('.navBtn');
+  const startGameBtn = document.getElementById('startGameBtn');
+  const availableTowersContainer = document.getElementById('availableTowers');
+  const battleDeckContainer = document.getElementById('battleDeck');
+  const tacticListContainer = document.getElementById('tacticList');
+  const menuMessage = document.getElementById('menuMessage');
+  
+  let currentScreen = 'homeScreen';
+  let draggedCard = null;
+  
+  const allTactics = [
+    { id: 'archer_boss', name: '神射手', desc: '所有一星🏹弓箭塔每次攻擊命中Boss時都會 +$654321 金幣。' },
+    { id: 'magic_buff', name: '魔力湧動', desc: '所有一星✨魔法塔的攻速和攻擊力提升 70%。' },
+    { id: 'cannon_kill', name: '火力壓制', desc: '所有一星💣炮塔每擊殺一個敵人，所有一星炮塔在本局中永久 +3% 攻擊力。' },
+    { id: 'lightning_speed', name: '超載', desc: '所有一星⚡雷塔的基礎攻速變為 0.2 秒。' },
+    { id: 'gold_rush', name: '淘金熱 / 鍊金術', desc: '每個一星💰金幣塔都能為每波+$1金幣。' },
+    { id: 'confidence', name: '自信心', desc: '所有一星✌️必勝塔的攻擊為命中怪物最大生命值的5%，攻速為每2秒一下，射程為2格。' },
+    { id: 'i_love_you', name: '我愛你', desc: '每放置一個一星❤️生命塔，立即恢復國王 3 點血量。' },
+    { id: 'cheer_splash', name: '加油努力', desc: '每個一星👏鼓勵塔都能為其他塔的射程和splash加1。' },
+    { id: 'none', name: '無戰術', desc: '依靠你自己的實力！(首次城堡🏰技能 $1000)' }
+  ];
+
+  function initMenu() {
+    availableTowersContainer.innerHTML = '';
+    window.towerTypes.forEach(tower => { 
+      const card = createTowerCard(tower);
+      availableTowersContainer.appendChild(card);
+    });
+
+    tacticListContainer.innerHTML = '';
+    allTactics.forEach(tactic => {
+      const card = createTacticCard(tactic);
+      tacticListContainer.appendChild(card);
+    });
+    
+    tacticListContainer.querySelector('.tactic-card[data-tactic-id="none"]').classList.add('selected');
+  }
+
+  function createTowerCard(tower) {
+    const card = document.createElement('div');
+    card.className = 'deck-card';
+    card.draggable = true;
+    card.dataset.towerName = tower.name;
+    
+    let displayPower = tower.baseDmg;
+    let powerClass = ''; 
+    
+    if (tower.name === '✌️必勝塔' || tower.name === '👏鼓勵塔' || tower.name === '💰金幣塔') { 
+        displayPower = 0;
+    }
+    if (tower.name === '❤️生命塔') {
+        displayPower = -1000;
+        powerClass = ' life'; 
+    }
+    if (tower.name === '👏鼓勵塔') {
+        powerClass = ' encourage';
+    }
+    if (tower.name === '💰金幣塔') {
+        powerClass = ' gold';
+    }
+    
+    card.innerHTML = `
+      <div class="card-power${powerClass}">${displayPower}</div>
+      <div class="card-emoji">${tower.emoji}</div>
+      <div class="card-name">${tower.name}</div>
+    `;
+    card.addEventListener('dragstart', (e) => {
+      draggedCard = e.target;
+      setTimeout(() => e.target.style.opacity = 0.5, 0);
+    });
+    card.addEventListener('dragend', (e) => {
+      draggedCard = null;
+      e.target.style.opacity = 1;
+    });
+    return card;
+  }
+  
+  function createTacticCard(tactic) {
+    const card = document.createElement('div');
+    card.className = 'tactic-card';
+    card.dataset.tacticId = tactic.id;
+    card.innerHTML = `
+      <h3>${tactic.name}</h3>
+      <p>${tactic.desc}</p>
+    `;
+    card.addEventListener('click', () => {
+      tacticListContainer.querySelectorAll('.tactic-card').forEach(c => c.classList.remove('selected'));
+      card.classList.add('selected');
+    });
+    return card;
+  }
+
+  navButtons.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const screenName = btn.dataset.screen;
+      if (screenName === currentScreen) return;
+      
+      if (screens[currentScreen]) screens[currentScreen].style.display = 'none';
+      navButtons.forEach(b => b.classList.remove('active'));
+      
+      if (screens[screenName]) screens[screenName].style.display = 'flex';
+      btn.classList.add('active');
+      
+      currentScreen = screenName;
+    });
+  });
+  
+  const deckSlots = document.querySelectorAll('.deck-slot');
+  
+  deckSlots.forEach(slot => {
+    slot.addEventListener('dragover', (e) => {
+      e.preventDefault(); 
+      slot.classList.add('drag-over');
+    });
+    slot.addEventListener('dragleave', (e) => {
+      slot.classList.remove('drag-over');
+    });
+    slot.addEventListener('drop', (e) => {
+      e.preventDefault();
+      slot.classList.remove('drag-over');
+      
+      if (draggedCard && !slot.hasChildNodes()) { 
+        const towerName = draggedCard.dataset.towerName;
+        let inDeck = false;
+        battleDeckContainer.querySelectorAll('.deck-card').forEach(card => {
+          if (card.dataset.towerName === towerName) inDeck = true;
+        });
+        
+        if (inDeck) {
+          showMenuMessage("這個塔已經在牌組中了！");
+          return;
+        }
+        
+        const newCard = draggedCard.cloneNode(true);
+        newCard.draggable = false; 
+        newCard.style.opacity = 1;
+        newCard.style.cursor = 'default';
+        newCard.addEventListener('click', () => {
+          slot.innerHTML = ''; 
+        });
+        slot.innerHTML = ''; 
+        slot.appendChild(newCard);
+      }
+    });
+  });
+
+  availableTowersContainer.addEventListener('dragover', (e) => e.preventDefault());
+  availableTowersContainer.addEventListener('drop', (e) => { e.preventDefault(); });
+
+  startGameBtn.addEventListener('click', () => {
+    const selectedCards = Array.from(battleDeckContainer.querySelectorAll('.deck-card'));
+    if (selectedCards.length < 4) {
+        const deckButton = document.querySelector('.navBtn[data-screen="deckScreen"]');
+        if (deckButton) {
+            deckButton.click(); 
+        }
+        return;
+    }
+    
+    window.selectedDeckTypes = selectedCards.map(cardEl => {
+        const towerName = cardEl.dataset.towerName;
+        return window.towerTypes.find(t => t.name === towerName); 
+    });
+
+    const selectedTacticEl = document.querySelector('#tacticsScreen .tactic-card.selected');
+    if (selectedTacticEl) {
+        window.activeTactic = allTactics.find(t => t.id === selectedTacticEl.dataset.tacticId);
+    } else {
+        window.activeTactic = allTactics.find(t => t.id === 'none'); 
+    }
+
+    window.guaranteedFirstTowerType = null;
+    window.castleCostTacticApplied = false;
+
+    if (window.activeTactic) {
+        switch (window.activeTactic.id) {
+            case 'archer_boss': window.guaranteedFirstTowerType = window.towerTypes.find(t => t.name === '🏹弓箭塔'); break;
+            case 'magic_buff': window.guaranteedFirstTowerType = window.towerTypes.find(t => t.name === '✨魔法塔'); break;
+            case 'cannon_kill': window.guaranteedFirstTowerType = window.towerTypes.find(t => t.name === '💣炮塔'); break;
+            case 'lightning_speed': window.guaranteedFirstTowerType = window.towerTypes.find(t => t.name === '⚡雷塔'); break;
+            case 'gold_rush': window.guaranteedFirstTowerType = window.towerTypes.find(t => t.name === '💰金幣塔'); break;
+            case 'confidence': window.guaranteedFirstTowerType = window.towerTypes.find(t => t.name === '✌️必勝塔'); break;
+            case 'i_love_you': window.guaranteedFirstTowerType = window.towerTypes.find(t => t.name === '❤️生命塔'); break;
+            case 'cheer_splash': window.guaranteedFirstTowerType = window.towerTypes.find(t => t.name === '👏鼓勵塔'); break;
+            case 'none': window.castleCostTacticApplied = true; break;
+        }
+    }
+
+    window.tacticCannonKills = 0;
+    
+    document.getElementById('mainMenu').style.display = 'none';
+    document.getElementById('game').style.display = 'flex';
+    
+    gameSpeed = 1;
+    speedBtn.textContent = '1x';
+    speedBtn.style.background = 'linear-gradient(145deg, #ff4444, #cc3333)';
+
+    gold = 5001; wave = 1; hp = 31; maxHp = 30; 
+    towers = []; enemies = []; projectiles = [];
+    placeIndex = 0; skillIndex = 0; nextMonstersHalfHp = 0;
+    monsterStunTime = 0; 
+    // (Removed monsterRewindTime)
+    selectedTower = null; potentialDrag = null; draggingTower = null; dragging = false;
+    lastMinionSpawn = 0; gameTime = 0; lastRealTime = 0;
+    lastLightningSpeedCheck = 0; lightningSpeedBuffActiveUntil = 0;
+    freeCastleCharges = 0; 
+    
+    kingRegenPerWave = 0;
+    enemyHpDebuff = 0;
+    kingShieldCharges = 0;
+    hasKingShield = false;
+    
+    // 隨機鼓舞重置
+    inspiredBuffs = [];
+    nextInspireTime = 0;
+    globalBuffs = { atkBuff: 0, rangeBuff: 0, splashBuff: 0, speedBuff1Star: 0 };
+
+    fixedCostActive = false;
+    victoryInstant3StarCharges = 0;
+    blackHoles = [];
+    bossHpOverride = 0;
+
+    learnedSkillsRegistry.clear(); 
+    slots = []; 
+    
+    resize(); 
+    
+    updateUI(); 
+    startWave();
+    
+    setTimeout(() => {
+        updateCosts();
+        const currentSlots = getCastleSlots();
+        const slotPixelY = currentSlots.length > 0 ? currentSlots[0].y * TILE : (gameHeight * BASELINE_Y);
+        positionBottomControls(slotPixelY, gameHeight - slotPixelY);
+    }, 100);
+
+    if (gameLoopId) cancelAnimationFrame(gameLoopId);
+    gameLoopId = requestAnimationFrame(loop);
+  });
+  
+  function showMenuMessage(msg) {
+    menuMessage.textContent = msg;
+    menuMessage.style.display = 'block';
+    setTimeout(() => {
+      menuMessage.style.display = 'none';
+    }, 2500);
+  }
+
+  window.resetMenuUI = () => {
+    deckSlots.forEach(slot => slot.innerHTML = '');
+    tacticListContainer.querySelectorAll('.tactic-card').forEach(c => c.classList.remove('selected'));
+    tacticListContainer.querySelector('.tactic-card[data-tactic-id="none"]').classList.add('selected');
+    navButtons.forEach(btn => {
+      const screenName = btn.dataset.screen;
+      if (screenName === 'homeScreen') {
+        btn.classList.add('active');
+        screens[screenName].style.display = 'flex';
+      } else {
+        btn.classList.remove('active');
+        screens[screenName].style.display = 'none';
+      }
+    });
+    currentScreen = 'homeScreen';
+  };
+
+  initMenu();
+
+});
+</script>
+
+</body>
+</html>

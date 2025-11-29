@@ -1,0 +1,1549 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>霓虹衝刺 - Neon Runner 3D</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.min.js"></script> 
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap');
+        
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: 'Orbitron', sans-serif;
+            background-color: #0f172a;
+            touch-action: none;
+        }
+        
+        #game-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+
+        .ui-layer {
+            position: absolute;
+            z-index: 10;
+            pointer-events: none;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            overflow-y: auto;
+            overflow-x: hidden;
+        }
+
+        .pointer-events-auto {
+            pointer-events: auto;
+        }
+
+        .text-glow {
+            text-shadow: 0 0 10px rgba(0, 255, 255, 0.7), 0 0 20px rgba(0, 255, 255, 0.5);
+        }
+        
+        .hud-text {
+            text-shadow: 2px 2px 0px #000;
+        }
+
+        @keyframes pulse-custom {
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.05); opacity: 0.8; }
+        }
+        .animate-pulse-fast {
+            animation: pulse-custom 1.5s infinite;
+        }
+
+        .hidden { display: none !important; }
+
+        .new-high-score-glow {
+            text-shadow: 0 0 15px #facc15, 0 0 30px #facc15;
+            animation: pulse-custom 1s infinite;
+        }
+
+        .skill-card {
+            transition: all 0.3s ease;
+            cursor: pointer;
+            position: relative;
+        }
+        .skill-card:hover:not(.disabled) {
+            transform: translateY(-10px) scale(1.05);
+            box-shadow: 0 0 30px rgba(6, 182, 212, 0.8);
+        }
+
+        .skill-card.disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .skill-indicator {
+            animation: glow 2s ease-in-out infinite;
+        }
+        @keyframes glow {
+            0%, 100% { box-shadow: 0 0 5px currentColor; }
+            50% { box-shadow: 0 0 20px currentColor; }
+        }
+
+        .coin-cost {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(0,0,0,0.7);
+            padding: 5px 10px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: bold;
+        }
+
+        .skill-container {
+            display: flex;
+            gap: 1.5rem;
+            flex-wrap: wrap;
+            justify-content: center;
+            align-items: center;
+            padding: 1rem;
+            max-width: 100%;
+        }
+
+        @media (min-width: 768px) {
+            .skill-container {
+                flex-direction: row;
+                gap: 1.5rem;
+            }
+            
+            .skill-card {
+                width: 16rem;
+            }
+        }
+
+        @media (max-width: 767px) and (min-width: 481px) {
+            .skill-container {
+                flex-direction: column;
+                gap: 1rem;
+                max-height: 80vh;
+                overflow-y: auto;
+            }
+            
+            .skill-card {
+                width: 70vw;
+                max-width: 400px;
+            }
+
+            .ui-layer h2 {
+                font-size: 2rem;
+            }
+
+            .ui-layer p {
+                font-size: 0.9rem;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .skill-container {
+                flex-direction: column;
+                gap: 0.75rem;
+                max-height: 75vh;
+                overflow-y: auto;
+                padding: 0.5rem;
+            }
+            
+            .skill-card {
+                width: 85vw;
+                max-width: 320px;
+                padding: 1rem !important;
+            }
+
+            .skill-card .text-6xl {
+                font-size: 3rem;
+                margin-bottom: 0.5rem;
+            }
+
+            .skill-card h3 {
+                font-size: 1.25rem !important;
+                margin-bottom: 0.5rem;
+            }
+
+            .skill-card p {
+                font-size: 0.75rem !important;
+            }
+
+            .coin-cost {
+                font-size: 12px;
+                padding: 4px 8px;
+            }
+
+            .ui-layer h2 {
+                font-size: 1.5rem;
+                margin-bottom: 0.5rem;
+            }
+
+            .ui-layer > p {
+                font-size: 0.8rem;
+                margin-bottom: 0.5rem;
+            }
+
+            #ui-hud {
+                padding: 0.5rem;
+            }
+
+            #ui-hud .text-2xl {
+                font-size: 1.25rem;
+            }
+
+            #ui-hud .text-sm {
+                font-size: 0.7rem;
+            }
+
+            .w-8.h-8 {
+                width: 1.5rem;
+                height: 1.5rem;
+            }
+        }
+
+        @media (max-height: 500px) and (orientation: landscape) {
+            .skill-container {
+                flex-direction: row;
+                max-height: 70vh;
+                overflow-x: auto;
+                overflow-y: hidden;
+                padding: 0.5rem;
+            }
+            
+            .skill-card {
+                width: 45vw;
+                min-width: 200px;
+                max-width: 250px;
+            }
+
+            .ui-layer h2 {
+                font-size: 1.25rem;
+                margin-bottom: 0.25rem;
+            }
+
+            .ui-layer > p {
+                font-size: 0.7rem;
+                margin-bottom: 0.25rem;
+            }
+        }
+
+        .skill-container::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        .skill-container::-webkit-scrollbar-track {
+            background: rgba(15, 23, 42, 0.5);
+            border-radius: 4px;
+        }
+
+        .skill-container::-webkit-scrollbar-thumb {
+            background: rgba(6, 182, 212, 0.5);
+            border-radius: 4px;
+        }
+
+        .skill-container::-webkit-scrollbar-thumb:hover {
+            background: rgba(6, 182, 212, 0.8);
+        }
+
+        .fair-play-btn {
+            transition: all 0.3s ease;
+        }
+        .fair-play-btn:hover {
+            transform: scale(1.05);
+        }
+    </style>
+</head>
+<body>
+
+    <div id="game-container"></div>
+
+    <div id="ui-hud" class="absolute top-0 left-0 w-full p-4 flex justify-between items-start z-20 hidden">
+        <div class="flex flex-col gap-1">
+            <div class="text-white text-2xl font-bold hud-text">分數: <span id="score-display" class="text-cyan-400">0</span>m</div>
+            
+            <div id="skill-status" class="mt-2 flex flex-col gap-1">
+                <div id="shield-status" class="hidden text-sm text-blue-300 hud-text skill-indicator">
+                    🛡️ 護盾: <span id="shield-count">0</span>
+                </div>
+                <div id="revive-status" class="hidden text-sm text-green-300 hud-text skill-indicator">
+                    💚 復活: <span id="revive-count">0</span>
+                </div>
+                <div id="clear-status" class="hidden text-sm text-purple-300 hud-text skill-indicator">
+                    ✨ 暢通: <span id="clear-timer">0</span>秒
+                </div>
+                <div id="jumpboost-status" class="hidden text-sm text-yellow-300 hud-text skill-indicator">
+                    ⭐ 跳躍+<span id="jumpboost-level">5</span>
+                </div>
+                <div id="fairplay-status" class="hidden text-sm text-gray-300 hud-text skill-indicator">
+                    ⚔️ 堂堂正正模式
+                </div>
+            </div>
+        </div>
+        <div class="flex items-center gap-2">
+            <div class="w-8 h-8 rounded-full bg-yellow-500 border-2 border-yellow-200 shadow-lg flex items-center justify-center text-yellow-900 font-bold">$</div>
+            <span id="coin-display" class="text-white text-2xl font-bold hud-text">0</span>
+        </div>
+    </div>
+
+    <!-- 堂堂正正選擇界面 -->
+    <div id="ui-fair-play" class="ui-layer bg-slate-900/95 backdrop-blur-md hidden">
+        <h2 class="text-4xl font-black text-cyan-400 text-glow mb-4">⚔️ 堂堂正正 ⚔️</h2>
+        <div class="bg-slate-800/80 p-6 rounded-2xl border border-cyan-500 shadow-2xl mb-6 max-w-md text-center">
+            <div class="text-6xl mb-4">🏆</div>
+            <p class="text-white text-lg mb-4">是否啟動「堂堂正正」模式？</p>
+            <p class="text-slate-300 text-sm mb-4">啟動後，本局將不再有任何技能提供<br>純粹以實力挑戰極限！</p>
+            <p class="text-yellow-400 text-sm">費用：免費</p>
+        </div>
+        
+        <div class="flex gap-4">
+            <button id="btn-fair-play-yes" class="fair-play-btn pointer-events-auto px-8 py-3 bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-bold text-lg rounded-full shadow-lg">
+                ✓ 啟動
+            </button>
+            <button id="btn-fair-play-no" class="fair-play-btn pointer-events-auto px-8 py-3 bg-gradient-to-r from-gray-600 to-gray-700 text-white font-bold text-lg rounded-full shadow-lg">
+                ✗ 不啟動
+            </button>
+        </div>
+    </div>
+
+    <!-- 技能選擇界面 -->
+    <div id="ui-skill-select" class="ui-layer bg-slate-900/95 backdrop-blur-md hidden">
+        <h2 class="text-4xl font-black text-cyan-400 text-glow mb-2">選擇技能!</h2>
+        <p class="text-slate-300 mb-2">已前進 <span id="skill-trigger-distance">500</span>m</p>
+        <p class="text-yellow-400 mb-4">持有金幣: <span id="current-coins">0</span></p>
+        
+        <div class="skill-container">
+            <div id="skill-option-1" class="skill-card pointer-events-auto bg-gradient-to-br from-slate-800 to-slate-700 p-6 rounded-2xl border-2 border-cyan-500 text-center">
+                <div class="coin-cost text-yellow-400">💰 100</div>
+                <div class="text-6xl mb-3">🚀</div>
+                <h3 class="text-2xl font-bold text-white mb-2">技能名稱</h3>
+                <p class="text-slate-300 text-sm">技能描述</p>
+            </div>
+            <div id="skill-option-2" class="skill-card pointer-events-auto bg-gradient-to-br from-slate-800 to-slate-700 p-6 rounded-2xl border-2 border-cyan-500 text-center">
+                <div class="coin-cost text-yellow-400">💰 30</div>
+                <div class="text-6xl mb-3">🛡️</div>
+                <h3 class="text-2xl font-bold text-white mb-2">技能名稱</h3>
+                <p class="text-slate-300 text-sm">技能描述</p>
+            </div>
+            <div id="skill-option-3" class="skill-card pointer-events-auto bg-gradient-to-br from-slate-800 to-slate-700 p-6 rounded-2xl border-2 border-cyan-500 text-center">
+                <div class="coin-cost text-yellow-400">💰 50</div>
+                <div class="text-6xl mb-3">💚</div>
+                <h3 class="text-2xl font-bold text-white mb-2">技能名稱</h3>
+                <p class="text-slate-300 text-sm">技能描述</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- 主菜單 -->
+    <div id="ui-start" class="ui-layer bg-slate-900/80 backdrop-blur-sm transition-opacity duration-300">
+        <h1 class="text-6xl md:text-8xl font-black text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-600 text-glow mb-4 italic tracking-wider">彬跑吧!</h1>
+        <p class="text-cyan-100 text-lg mb-4 tracking-widest">極限挑戰</p>
+        
+        <div class="mt-4 text-white text-3xl font-bold text-glow">
+            最高分數: <span id="high-score-start" class="text-yellow-400">0</span>m
+        </div>
+        
+        <button id="btn-start" class="pointer-events-auto px-12 py-4 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-bold text-xl rounded-full shadow-[0_0_20px_rgba(6,182,212,0.6)] transform transition hover:scale-110 active:scale-95 animate-pulse-fast border-2 border-white/20 mt-8">
+            開始遊戲
+        </button>
+        <div class="mt-8 text-slate-400 text-sm grid grid-cols-2 gap-8 text-center">
+            <div>
+                <p class="text-cyan-300 font-bold mb-1">電腦操作</p>
+                <p>↑ 跳躍</p>
+                <p>↓ 滑鏟</p>
+                <p>← → 移動</p>
+            </div>
+            <div>
+                <p class="text-cyan-300 font-bold mb-1">手機操作</p>
+                <p>👆 上滑跳躍</p>
+                <p>👇 下滑滑鏟</p>
+                <p>👈👉 左右移動</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- 遊戲結束畫面 -->
+    <div id="ui-gameover" class="ui-layer bg-slate-900/90 backdrop-blur-md hidden opacity-0 transition-opacity duration-500">
+        <h2 class="text-5xl font-black text-red-500 text-glow mb-2">CRASHED!</h2>
+        <div class="bg-slate-800/80 p-6 rounded-2xl border border-slate-600 shadow-2xl mb-8 w-80 text-center">
+            <p class="text-slate-400 text-sm uppercase tracking-widest mb-1">最終分數</p>
+            <p id="final-score" class="text-4xl text-white font-bold mb-4">0m</p>
+            
+            <div class="border-t border-slate-600 pt-4 mt-4">
+                <p class="text-xs text-red-400 font-bold uppercase tracking-widest mb-1">歷史最高分數</p>
+                <p id="high-score-final" class="text-2xl text-red-300 font-bold">0m</p>
+                <p id="new-high-score-text" class="text-lg text-yellow-300 new-high-score-glow mt-2 hidden">新紀錄!</p>
+            </div>
+            
+            <div class="flex justify-between border-t border-slate-600 pt-4 mt-4">
+                <div class="text-center">
+                    <p class="text-xs text-slate-500">金幣</p>
+                    <p id="final-coins" class="text-xl text-yellow-400 font-bold">0</p>
+                </div>
+                <div class="text-center">
+                    <p class="text-xs text-slate-500">收集</p>
+                    <p id="final-collected" class="text-xl text-cyan-400 font-bold">0</p>
+                </div>
+            </div>
+        </div>
+        <button id="btn-restart" class="pointer-events-auto px-10 py-3 bg-gradient-to-r from-red-500 to-pink-600 text-white font-bold text-lg rounded-full shadow-lg hover:shadow-red-500/50 transform transition hover:-translate-y-1 active:translate-y-0">
+            再次挑戰
+        </button>
+    </div>
+
+    <script>
+        const CONFIG = {
+            laneWidth: 3,
+            worldCurve: 0.005,
+            speedBase: 25,
+            speedMax: 60,
+            speedIncrement: 0.5,
+            jumpHeight: 2.8,
+            jumpDuration: 0.6,
+            slideDuration: 0.7,
+            distancePerSkill: 500,
+            distancePerReward: 100,
+            rewardCoins: 10,
+            fairPlayTriggerDistance: 1,
+            colors: {
+                ground: 0x1e293b,
+                fog: 0x0f172a,
+                hero: 0x06b6d4,
+                heroAccent: 0xfacc15,
+                obstacle: 0xf43f5e,
+                coin: 0xfacc15,
+                shield: 0x00aaff
+            }
+        };
+
+        const SKILLS = {
+            DASH: { 
+                id: 1, 
+                name: '立即衝刺', 
+                desc: '瞬間衝刺1000公尺', 
+                icon: '🚀', 
+                color: 'from-orange-600 to-red-600',
+                cost: 100
+            },
+            SHIELD: { 
+                id: 2, 
+                name: '無敵護盾', 
+                desc: '免疫3次傷害', 
+                icon: '🛡️', 
+                color: 'from-blue-600 to-cyan-600',
+                cost: 30
+            },
+            REVIVE: { 
+                id: 3, 
+                name: '再接再厲', 
+                desc: '死亡後3秒原地復活', 
+                icon: '💚', 
+                color: 'from-green-600 to-emerald-600',
+                cost: 50
+            },
+            CLEAR: { 
+                id: 4, 
+                name: '暢通無阻', 
+                desc: '障礙物消失10秒', 
+                icon: '✨', 
+                color: 'from-purple-600 to-pink-600',
+                cost: 50
+            },
+            JUMP_BOOST: { 
+                id: 5, 
+                name: '步步高陞', 
+                desc: '跳躍高度+5(可疊加)', 
+                icon: '⭐', 
+                color: 'from-yellow-600 to-amber-600',
+                cost: 20,
+                costMultiplier: 2
+            }
+        };
+
+        const STATE = {
+            isPlaying: false,
+            isGameOver: false,
+            isPaused: false,
+            score: 0,
+            coins: 0,
+            coinsCollected: 0,
+            distance: 0,
+            realDistance: 0,
+            speed: CONFIG.speedBase,
+            time: 0,
+            lastSkillTrigger: 0,
+            lastRewardTrigger: 0,
+            fairPlayMode: false,
+            fairPlayAsked: false
+        };
+
+        const skillState = {
+            shieldCount: 0,
+            reviveCount: 0,
+            clearActive: false,
+            clearTimer: 0,
+            jumpBoostCount: 0,
+            jumpBoostPurchaseCount: 0
+        };
+        
+        let highScore = 0;
+        const HIGH_SCORE_KEY = 'neonRunnerHighScore';
+
+        const dom = {
+            container: document.getElementById('game-container'),
+            uiStart: document.getElementById('ui-start'),
+            uiHud: document.getElementById('ui-hud'),
+            uiGameOver: document.getElementById('ui-gameover'),
+            uiSkillSelect: document.getElementById('ui-skill-select'),
+            uiFairPlay: document.getElementById('ui-fair-play'),
+            score: document.getElementById('score-display'),
+            coins: document.getElementById('coin-display'),
+            finalScore: document.getElementById('final-score'),
+            finalCoins: document.getElementById('final-coins'),
+            finalCollected: document.getElementById('final-collected'),
+            btnStart: document.getElementById('btn-start'),
+            btnRestart: document.getElementById('btn-restart'),
+            btnFairPlayYes: document.getElementById('btn-fair-play-yes'),
+            btnFairPlayNo: document.getElementById('btn-fair-play-no'),
+            highScoreStart: document.getElementById('high-score-start'),
+            highScoreFinal: document.getElementById('high-score-final'),
+            newHighScoreText: document.getElementById('new-high-score-text'),
+            skillTriggerDistance: document.getElementById('skill-trigger-distance'),
+            currentCoins: document.getElementById('current-coins'),
+            shieldStatus: document.getElementById('shield-status'),
+            shieldCount: document.getElementById('shield-count'),
+            reviveStatus: document.getElementById('revive-status'),
+            reviveCount: document.getElementById('revive-count'),
+            clearStatus: document.getElementById('clear-status'),
+            clearTimer: document.getElementById('clear-timer'),
+            jumpBoostStatus: document.getElementById('jumpboost-status'),
+            jumpBoostLevel: document.getElementById('jumpboost-level'),
+            fairPlayStatus: document.getElementById('fairplay-status')
+        };
+        
+        let jumpSFX, slideSFX, coinSFX, crashSFX, skillSFX;
+        let scene, camera, renderer, clock;
+        let hero;
+        let shieldEffect;
+        let world;
+        let animationId;
+        
+        function initAudio() {
+            jumpSFX = new Tone.Synth({
+                oscillator: { type: 'triangle' },
+                envelope: { attack: 0.01, decay: 0.2, sustain: 0.1, release: 0.1 },
+            }).toDestination();
+
+            slideSFX = new Tone.NoiseSynth({
+                noise: { type: 'brown' },
+                envelope: { attack: 0.005, decay: 0.3, sustain: 0, release: 0.1 },
+            }).toDestination();
+            
+            coinSFX = new Tone.FMSynth({
+                modulationIndex: 10,
+                envelope: { attack: 0.001, decay: 0.15, sustain: 0.0, release: 0.1 },
+                modulation: { type: 'square' }
+            }).toDestination();
+            
+            const crashFilter = new Tone.Distortion(0.8).toDestination();
+            crashSFX = new Tone.NoiseSynth({
+                noise: { type: 'white' },
+                envelope: { attack: 0.01, decay: 0.4, sustain: 0, release: 0.2 },
+            }).connect(crashFilter);
+
+            skillSFX = new Tone.Synth({
+                oscillator: { type: 'sine' },
+                envelope: { attack: 0.05, decay: 0.3, sustain: 0.2, release: 0.5 },
+            }).toDestination();
+        }
+
+        function playJump() {
+            if (Tone.context.state === 'running') jumpSFX.triggerAttackRelease("C5", "8n");
+        }
+        
+        function playSlide() {
+            if (Tone.context.state === 'running') slideSFX.triggerAttackRelease(0.15);
+        }
+        
+        function playCoin() {
+            if (Tone.context.state === 'running') coinSFX.triggerAttackRelease("G6", "16n");
+        }
+
+        function playCrash() {
+            if (Tone.context.state === 'running') crashSFX.triggerAttackRelease(0.3);
+        }
+
+        function playSkill() {
+            if (Tone.context.state === 'running') skillSFX.triggerAttackRelease("A5", "4n");
+        }
+
+        function loadHighScore() {
+            try {
+                const storedScore = localStorage.getItem(HIGH_SCORE_KEY);
+                highScore = storedScore ? parseInt(storedScore) : 0;
+                updateHighScoreUI();
+            } catch (e) {
+                console.error("無法載入最高分數:", e);
+                highScore = 0;
+            }
+        }
+
+        function saveHighScore(score) {
+            try {
+                localStorage.setItem(HIGH_SCORE_KEY, score.toString());
+                highScore = score;
+                updateHighScoreUI();
+            } catch (e) {
+                console.error("無法儲存最高分數:", e);
+            }
+        }
+
+        function updateHighScoreUI() {
+            dom.highScoreStart.innerText = highScore;
+            dom.highScoreFinal.innerText = highScore;
+        }
+
+        function getJumpBoostCost() {
+            const baseCost = SKILLS.JUMP_BOOST.cost;
+            const purchaseCount = skillState.jumpBoostPurchaseCount;
+            return baseCost * Math.pow(SKILLS.JUMP_BOOST.costMultiplier, purchaseCount);
+        }
+
+        function triggerFairPlayChoice() {
+            STATE.isPaused = true;
+            STATE.fairPlayAsked = true;
+            dom.uiFairPlay.classList.remove('hidden');
+        }
+
+        function selectFairPlay(choice) {
+            dom.uiFairPlay.classList.add('hidden');
+            
+            if (choice) {
+                STATE.fairPlayMode = true;
+                dom.fairPlayStatus.classList.remove('hidden');
+                playSkill();
+            }
+            
+            STATE.isPaused = false;
+        }
+
+        function triggerSkillSelection() {
+            if (STATE.fairPlayMode) return;
+            
+            STATE.isPaused = true;
+            
+            const availableSkills = Object.values(SKILLS);
+            const shuffled = availableSkills.sort(() => Math.random() - 0.5);
+            const selectedSkills = shuffled.slice(0, 3);
+
+            for (let i = 0; i < 3; i++) {
+                const skill = selectedSkills[i];
+                const optionEl = document.getElementById(`skill-option-${i + 1}`);
+                
+                let actualCost = skill.cost;
+                if (skill.id === 5) {
+                    actualCost = getJumpBoostCost();
+                }
+                
+                const costText = actualCost > 0 ? `💰 ${actualCost}` : '免費';
+                const canAfford = STATE.coins >= actualCost;
+                
+                let descText = skill.desc;
+                if (skill.id === 5 && skillState.jumpBoostPurchaseCount > 0) {
+                    descText += ` (已購${skillState.jumpBoostPurchaseCount}次)`;
+                }
+                
+                optionEl.innerHTML = `
+                    <div class="coin-cost text-yellow-400">${costText}</div>
+                    <div class="text-6xl mb-3">${skill.icon}</div>
+                    <h3 class="text-2xl font-bold text-white mb-2">${skill.name}</h3>
+                    <p class="text-slate-300 text-sm">${descText}</p>
+                `;
+                
+                if (canAfford) {
+                    optionEl.className = `skill-card pointer-events-auto bg-gradient-to-br ${skill.color} p-6 rounded-2xl border-2 border-white/30 text-center shadow-2xl`;
+                    optionEl.onclick = () => selectSkill(skill.id, actualCost);
+                } else {
+                    optionEl.className = `skill-card disabled pointer-events-auto bg-gradient-to-br from-gray-700 to-gray-800 p-6 rounded-2xl border-2 border-gray-600 text-center`;
+                    optionEl.onclick = null;
+                }
+            }
+
+            dom.skillTriggerDistance.innerText = Math.floor(STATE.realDistance);
+            dom.currentCoins.innerText = STATE.coins;
+            dom.uiSkillSelect.classList.remove('hidden');
+        }
+
+        function selectSkill(skillId, cost) {
+            if (STATE.coins < cost) return;
+            
+            STATE.coins -= cost;
+            dom.coins.innerText = STATE.coins;
+            
+            playSkill();
+            
+            switch(skillId) {
+                case 1:
+                    STATE.distance += 1000;
+                    STATE.score = Math.floor(STATE.distance);
+                    break;
+                    
+                case 2:
+                    skillState.shieldCount = 3;
+                    updateSkillUI();
+                    updateShieldEffect();
+                    break;
+                    
+                case 3:
+                    skillState.reviveCount++;
+                    updateSkillUI();
+                    break;
+                    
+                case 4:
+                    skillState.clearActive = true;
+                    skillState.clearTimer = 10;
+                    updateSkillUI();
+                    break;
+                    
+                case 5:
+                    skillState.jumpBoostCount++;
+                    skillState.jumpBoostPurchaseCount++;
+                    updateSkillUI();
+                    break;
+            }
+
+            dom.uiSkillSelect.classList.add('hidden');
+            STATE.isPaused = false;
+        }
+
+        function updateSkillUI() {
+            if (skillState.shieldCount > 0) {
+                dom.shieldStatus.classList.remove('hidden');
+                dom.shieldCount.innerText = skillState.shieldCount;
+            } else {
+                dom.shieldStatus.classList.add('hidden');
+            }
+
+            if (skillState.reviveCount > 0) {
+                dom.reviveStatus.classList.remove('hidden');
+                dom.reviveCount.innerText = skillState.reviveCount;
+            } else {
+                dom.reviveStatus.classList.add('hidden');
+            }
+
+            if (skillState.clearActive) {
+                dom.clearStatus.classList.remove('hidden');
+                dom.clearTimer.innerText = Math.ceil(skillState.clearTimer);
+            } else {
+                dom.clearStatus.classList.add('hidden');
+            }
+
+            if (skillState.jumpBoostCount > 0) {
+                dom.jumpBoostStatus.classList.remove('hidden');
+                const totalBoost = skillState.jumpBoostCount * 5;
+                dom.jumpBoostLevel.innerText = totalBoost;
+            } else {
+                dom.jumpBoostStatus.classList.add('hidden');
+            }
+        }
+
+        function createShieldEffect() {
+            const geometry = new THREE.RingGeometry(1.2, 1.5, 32);
+            const material = new THREE.MeshBasicMaterial({
+                color: CONFIG.colors.shield,
+                transparent: true,
+                opacity: 0.6,
+                side: THREE.DoubleSide
+            });
+            
+            const ring1 = new THREE.Mesh(geometry, material);
+            ring1.rotation.x = Math.PI / 2;
+            
+            const ring2 = new THREE.Mesh(geometry, material.clone());
+            ring2.rotation.z = Math.PI / 2;
+            
+            const ring3 = new THREE.Mesh(geometry, material.clone());
+            
+            const shieldGroup = new THREE.Group();
+            shieldGroup.add(ring1);
+            shieldGroup.add(ring2);
+            shieldGroup.add(ring3);
+            
+            shieldGroup.visible = false;
+            
+            return shieldGroup;
+        }
+
+        function updateShieldEffect() {
+            if (shieldEffect) {
+                shieldEffect.visible = skillState.shieldCount > 0;
+                
+                if (shieldEffect.visible) {
+                    const intensity = skillState.shieldCount / 3;
+                    shieldEffect.children.forEach(ring => {
+                        ring.material.opacity = 0.3 + intensity * 0.4;
+                    });
+                }
+            }
+        }
+
+        function animateShieldEffect(time) {
+            if (shieldEffect && shieldEffect.visible) {
+                shieldEffect.rotation.y = time * 2;
+                shieldEffect.rotation.x = Math.sin(time * 1.5) * 0.3;
+                
+                const pulse = 1 + Math.sin(time * 4) * 0.1;
+                shieldEffect.scale.set(pulse, pulse, pulse);
+                
+                shieldEffect.children.forEach((ring, index) => {
+                    ring.material.opacity = 0.4 + Math.sin(time * 3 + index) * 0.2;
+                });
+            }
+        }
+
+        function init() {
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(CONFIG.colors.fog);
+            scene.fog = new THREE.Fog(CONFIG.colors.fog, 20, 90);
+
+            camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 200);
+            camera.position.set(0, 5, 12);
+            camera.lookAt(0, 0, -10);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            dom.container.appendChild(renderer.domElement);
+
+            const hemisphereLight = new THREE.HemisphereLight(0xffffff, 0x444444, 0.8);
+            scene.add(hemisphereLight);
+
+            const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            dirLight.position.set(10, 20, 10);
+            dirLight.castShadow = true;
+            dirLight.shadow.mapSize.width = 1024;
+            dirLight.shadow.mapSize.height = 1024;
+            dirLight.shadow.camera.near = 0.1;
+            dirLight.shadow.camera.far = 100;
+            scene.add(dirLight);
+
+            clock = new THREE.Clock();
+            createWorld();
+            createHero();
+            
+            shieldEffect = createShieldEffect();
+            hero.add(shieldEffect);
+            shieldEffect.position.y = 1;
+            
+            initAudio();
+            loadHighScore();
+            
+            window.addEventListener('resize', onWindowResize, false);
+            setupInputs();
+            
+            renderer.render(scene, camera);
+        }
+
+        function applyBending(shader) {
+            shader.uniforms.uTime = { value: 0 };
+            
+            shader.vertexShader = `
+                uniform float uTime;
+                ${shader.vertexShader}
+            `;
+            
+            shader.vertexShader = shader.vertexShader.replace(
+                '#include <begin_vertex>',
+                `
+                #include <begin_vertex>
+                
+                float zPos = (modelMatrix * vec4(position, 1.0)).z;
+                float curvature = ${CONFIG.worldCurve};
+                transformed.y = transformed.y - curvature * zPos * zPos;
+                `
+            );
+        }
+
+        function createStandardMaterial(color) {
+            const mat = new THREE.MeshStandardMaterial({ 
+                color: color, 
+                flatShading: true,
+                roughness: 0.4 
+            });
+            mat.onBeforeCompile = applyBending;
+            return mat;
+        }
+
+        let pathChunks = [];
+        const CHUNK_LENGTH = 20;
+        const CHUNK_COUNT = 15;
+
+        function createWorld() {
+            world = new THREE.Group();
+            scene.add(world);
+            
+            const groundMat = createStandardMaterial(CONFIG.colors.ground);
+
+            for (let i = 0; i < CHUNK_COUNT; i++) {
+                spawnChunk(-i * CHUNK_LENGTH, groundMat);
+            }
+        }
+
+        function spawnChunk(zPos, material) {
+            const groundGeo = new THREE.BoxGeometry(CONFIG.laneWidth * 5, 1, CHUNK_LENGTH);
+            const ground = new THREE.Mesh(groundGeo, material);
+            ground.position.set(0, -0.5, zPos);
+            ground.receiveShadow = true;
+            world.add(ground);
+            
+            const decoGeo = new THREE.BoxGeometry(2, 6 + Math.random() * 5, 2);
+            const decoMat = createStandardMaterial(0x334155);
+            
+            if (Math.random() > 0.3) {
+                const leftDeco = new THREE.Mesh(decoGeo, decoMat);
+                leftDeco.position.set(-CONFIG.laneWidth * 2.5, 2, zPos + (Math.random() - 0.5) * 10);
+                leftDeco.castShadow = true;
+                world.add(leftDeco);
+                pathChunks.push({ mesh: leftDeco, type: 'deco', z: leftDeco.position.z });
+            }
+            
+            if (Math.random() > 0.3) {
+                const rightDeco = new THREE.Mesh(decoGeo, decoMat);
+                rightDeco.position.set(CONFIG.laneWidth * 2.5, 2, zPos + (Math.random() - 0.5) * 10);
+                rightDeco.castShadow = true;
+                world.add(rightDeco);
+                pathChunks.push({ mesh: rightDeco, type: 'deco', z: rightDeco.position.z });
+            }
+
+            pathChunks.push({ mesh: ground, type: 'ground', z: zPos });
+            
+            if (zPos < -40) {
+                spawnObstacles(zPos);
+            }
+        }
+
+        function spawnObstacles(zPos) {
+            const lanes = [-1, 0, 1];
+            lanes.sort(() => Math.random() - 0.5);
+            
+            const occupiedLanes = [];
+            const obstacleCount = Math.floor(Math.random() * 2) + 1;
+            
+            for (let i = 0; i < obstacleCount; i++) {
+                const lane = lanes[i];
+                occupiedLanes.push(lane);
+                
+                const type = Math.random();
+                let obstacle;
+                
+                if (type < 0.4) {
+                    const geo = new THREE.BoxGeometry(2, 1, 0.5);
+                    const mat = createStandardMaterial(CONFIG.colors.obstacle);
+                    obstacle = new THREE.Mesh(geo, mat);
+                    obstacle.position.set(lane * CONFIG.laneWidth, 0.5, zPos);
+                    obstacle.userData = { type: 'hurdle' };
+                } else if (type < 0.7) {
+                    const geo = new THREE.BoxGeometry(2.2, 3, 4);
+                    const mat = createStandardMaterial(0x475569);
+                    obstacle = new THREE.Mesh(geo, mat);
+                    obstacle.position.set(lane * CONFIG.laneWidth, 1.5, zPos);
+                    obstacle.userData = { type: 'train' };
+                    
+                    const lightGeo = new THREE.CircleGeometry(0.3, 8);
+                    const lightMat = new THREE.MeshBasicMaterial({ color: 0xffff00 });
+                    const light1 = new THREE.Mesh(lightGeo, lightMat);
+                    light1.position.set(-0.5, -0.5, 2.01);
+                    obstacle.add(light1);
+                    const light2 = new THREE.Mesh(lightGeo, lightMat);
+                    light2.position.set(0.5, -0.5, 2.01);
+                    obstacle.add(light2);
+
+                } else {
+                    const geo = new THREE.BoxGeometry(2.5, 2, 1);
+                    const mat = createStandardMaterial(CONFIG.colors.obstacle);
+                    obstacle = new THREE.Mesh(geo, mat);
+                    obstacle.position.set(lane * CONFIG.laneWidth, 2.5, zPos);
+                    
+                    const legGeo = new THREE.BoxGeometry(0.2, 3, 0.2);
+                    const leg1 = new THREE.Mesh(legGeo, mat);
+                    leg1.position.set(-1.1, -1, 0);
+                    obstacle.add(leg1);
+                    const leg2 = new THREE.Mesh(legGeo, mat);
+                    leg2.position.set(1.1, -1, 0);
+                    obstacle.add(leg2);
+                    
+                    obstacle.userData = { type: 'arch' };
+                }
+                
+                obstacle.castShadow = true;
+                world.add(obstacle);
+                pathChunks.push({ mesh: obstacle, type: 'obstacle', z: zPos, hit: false });
+            }
+
+            const freeLane = lanes[obstacleCount];
+            if (freeLane !== undefined) {
+                for (let j = 0; j < 3; j++) {
+                    const coinGeo = new THREE.CylinderGeometry(0.4, 0.4, 0.1, 8);
+                    coinGeo.rotateX(Math.PI / 2);
+                    const coinMat = new THREE.MeshStandardMaterial({ 
+                        color: CONFIG.colors.coin, 
+                        emissive: 0xffaa00, 
+                        emissiveIntensity: 0.5,
+                        roughness: 0.2,
+                        metalness: 0.8
+                    });
+                    const coin = new THREE.Mesh(coinGeo, coinMat);
+                    coin.position.set(freeLane * CONFIG.laneWidth, 1, zPos - j * 2);
+                    world.add(coin);
+                    
+                    coin.userData = { 
+                        type: 'coin', 
+                        rotateSpeed: 2 + Math.random(), 
+                        bobOffset: Math.random() * Math.PI 
+                    };
+                    
+                    pathChunks.push({ mesh: coin, type: 'coin', z: zPos - j * 2, active: true });
+                }
+            }
+        }
+
+        function createHero() {
+            hero = new THREE.Group();
+            
+            const mat = new THREE.MeshStandardMaterial({ color: CONFIG.colors.hero, roughness: 0.2 });
+            const matDark = new THREE.MeshStandardMaterial({ color: 0x334155 });
+            const matGlow = new THREE.MeshBasicMaterial({ color: CONFIG.colors.heroAccent });
+
+            const bodyGeo = new THREE.BoxGeometry(0.6, 0.8, 0.4);
+            const body = new THREE.Mesh(bodyGeo, mat);
+            body.position.y = 1.0;
+            body.castShadow = true;
+            hero.add(body);
+            hero.body = body;
+
+            const packGeo = new THREE.BoxGeometry(0.4, 0.5, 0.2);
+            const pack = new THREE.Mesh(packGeo, matDark);
+            pack.position.set(0, 0.1, -0.3);
+            body.add(pack);
+
+            const headGeo = new THREE.BoxGeometry(0.4, 0.4, 0.4);
+            const head = new THREE.Mesh(headGeo, mat);
+            head.position.y = 0.7;
+            body.add(head);
+
+            const visorGeo = new THREE.BoxGeometry(0.35, 0.1, 0.05);
+            const visor = new THREE.Mesh(visorGeo, matGlow);
+            visor.position.set(0, 0.05, 0.21);
+            head.add(visor);
+
+            hero.armL = createLimb(0.15, 0.5, 0.15, -0.4, 0.3, 0, mat);
+            hero.armR = createLimb(0.15, 0.5, 0.15, 0.4, 0.3, 0, mat);
+            body.add(hero.armL);
+            body.add(hero.armR);
+
+            hero.legL = createLimb(0.18, 0.7, 0.18, -0.2, -0.4, 0, matDark);
+            hero.legR = createLimb(0.18, 0.7, 0.18, 0.2, -0.4, 0, matDark);
+            body.add(hero.legL);
+            body.add(hero.legR);
+
+            scene.add(hero);
+            
+            hero.currentLane = 0;
+            hero.targetX = 0;
+            hero.velocityY = 0;
+            hero.isJumping = false;
+            hero.isSliding = false;
+            hero.slideTimer = 0;
+            hero.jumpTimer = 0;
+            
+            hero.particles = createParticleSystem();
+            scene.add(hero.particles);
+        }
+
+        function createLimb(w, h, d, x, y, z, mat) {
+            const group = new THREE.Group();
+            group.position.set(x, y, z);
+            
+            const geo = new THREE.BoxGeometry(w, h, d);
+            const mesh = new THREE.Mesh(geo, mat);
+            mesh.position.y = -h / 2;
+            mesh.castShadow = true;
+            group.add(mesh);
+            
+            return group;
+        }
+
+        function createParticleSystem() {
+            const geometry = new THREE.BufferGeometry();
+            const count = 50;
+            const positions = new Float32Array(count * 3);
+            const opacities = new Float32Array(count);
+            
+            for(let i=0; i<count; i++) {
+                positions[i*3] = 0;
+                positions[i*3+1] = -100;
+                positions[i*3+2] = 0;
+                opacities[i] = 0;
+            }
+            
+            geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            geometry.setAttribute('opacity', new THREE.BufferAttribute(opacities, 1));
+            
+            const material = new THREE.PointsMaterial({
+                color: 0x00ffff,
+                size: 0.3,
+                transparent: true,
+                opacity: 0.8
+            });
+            
+            const particles = new THREE.Points(geometry, material);
+            particles.userData = { velocities: [] };
+            for(let i=0; i<count; i++) particles.userData.velocities.push({x:0, y:0, z:0});
+            
+            return particles;
+        }
+
+        function setupInputs() {
+            document.addEventListener('keydown', (e) => {
+                if (!STATE.isPlaying || STATE.isPaused) return;
+                
+                switch(e.code) {
+                    case 'ArrowLeft': 
+                    case 'KeyA':
+                        moveLane(-1); break;
+                    case 'ArrowRight': 
+                    case 'KeyD':
+                        moveLane(1); break;
+                    case 'ArrowUp': 
+                    case 'KeyW':
+                    case 'Space':
+                        jump(); break;
+                    case 'ArrowDown': 
+                    case 'KeyS':
+                        slide(); break;
+                }
+            });
+
+            let touchStartX = 0;
+            let touchStartY = 0;
+            
+            document.addEventListener('touchstart', (e) => {
+                touchStartX = e.touches[0].clientX;
+                touchStartY = e.touches[0].clientY;
+            }, false);
+            
+            document.addEventListener('touchend', (e) => {
+                if (!STATE.isPlaying || STATE.isPaused) return;
+                
+                const touchEndX = e.changedTouches[0].clientX;
+                const touchEndY = e.changedTouches[0].clientY;
+                
+                const diffX = touchEndX - touchStartX;
+                const diffY = touchEndY - touchStartY;
+                
+                if (Math.abs(diffX) > Math.abs(diffY)) {
+                    if (Math.abs(diffX) > 30) {
+                        if (diffX > 0) moveLane(1);
+                        else moveLane(-1);
+                    }
+                } else {
+                    if (Math.abs(diffY) > 30) {
+                        if (diffY < 0) jump();
+                        else slide();
+                    }
+                }
+            }, false);
+
+            dom.btnStart.addEventListener('click', startGame);
+            dom.btnRestart.addEventListener('click', resetGame);
+            dom.btnFairPlayYes.addEventListener('click', () => selectFairPlay(true));
+            dom.btnFairPlayNo.addEventListener('click', () => selectFairPlay(false));
+        }
+
+        function moveLane(dir) {
+            const target = hero.currentLane + dir;
+            if (target >= -1 && target <= 1) {
+                hero.currentLane = target;
+                hero.targetX = target * CONFIG.laneWidth;
+            }
+        }
+
+        function jump() {
+            if (!hero.isJumping && !hero.isSliding) {
+                hero.isJumping = true;
+                hero.jumpTimer = 0;
+                
+                const baseVelocity = 20;
+                const boostValue = skillState.jumpBoostCount * 5;
+                hero.velocityY = baseVelocity + boostValue;
+                
+                playJump();
+            }
+        }
+
+        function slide() {
+            if (!hero.isSliding && !hero.isJumping) {
+                hero.isSliding = true;
+                hero.slideTimer = CONFIG.slideDuration;
+                playSlide();
+            } else if (hero.isJumping) {
+                hero.velocityY = -20;
+            }
+        }
+
+        function animate() {
+            animationId = requestAnimationFrame(animate);
+            
+            const dt = Math.min(clock.getDelta(), 0.1);
+            const time = clock.getElapsedTime();
+
+            if (STATE.isPlaying && !STATE.isGameOver && !STATE.isPaused) {
+                updateGame(dt, time);
+            } else if (!STATE.isPlaying && !STATE.isGameOver) {
+                camera.position.z -= dt * 5;
+                if (camera.position.z < -20) camera.position.z = 0;
+            }
+            
+            animateShieldEffect(time);
+            
+            renderer.render(scene, camera);
+        }
+
+        function updateGame(dt, time) {
+            STATE.speed = Math.min(CONFIG.speedMax, STATE.speed + CONFIG.speedIncrement * dt);
+            const moveDist = STATE.speed * dt;
+            STATE.distance += moveDist;
+            STATE.realDistance += moveDist;
+            
+            STATE.score = Math.floor(STATE.distance);
+            dom.score.innerText = STATE.score;
+
+            // 檢查是否需要顯示堂堂正正選擇（在1m時）
+            if (!STATE.fairPlayAsked && STATE.realDistance >= CONFIG.fairPlayTriggerDistance) {
+                triggerFairPlayChoice();
+                return;
+            }
+
+            if (Math.floor(STATE.realDistance / CONFIG.distancePerReward) > STATE.lastRewardTrigger) {
+                STATE.lastRewardTrigger = Math.floor(STATE.realDistance / CONFIG.distancePerReward);
+                STATE.coins += CONFIG.rewardCoins;
+                dom.coins.innerText = STATE.coins;
+                playCoin();
+            }
+
+            // 只有在非堂堂正正模式下才觸發技能選擇
+            if (!STATE.fairPlayMode && Math.floor(STATE.realDistance / CONFIG.distancePerSkill) > STATE.lastSkillTrigger) {
+                STATE.lastSkillTrigger = Math.floor(STATE.realDistance / CONFIG.distancePerSkill);
+                triggerSkillSelection();
+                return;
+            }
+
+            if (skillState.clearActive) {
+                skillState.clearTimer -= dt;
+                if (skillState.clearTimer <= 0) {
+                    skillState.clearActive = false;
+                }
+                updateSkillUI();
+            }
+
+            hero.position.x += (hero.targetX - hero.position.x) * 10 * dt;
+            
+            if (hero.isJumping) {
+                hero.position.y += hero.velocityY * dt;
+                hero.velocityY -= 35 * dt;
+
+                if (hero.position.y <= 0) {
+                    hero.position.y = 0;
+                    hero.isJumping = false;
+                    hero.velocityY = 0;
+                }
+            } else {
+                hero.position.y = 0;
+            }
+
+            if (hero.isSliding) {
+                hero.slideTimer -= dt;
+                hero.body.scale.set(1, 0.5, 1);
+                hero.body.position.y = 0.5;
+                
+                if (hero.slideTimer <= 0) {
+                    hero.isSliding = false;
+                    hero.body.scale.set(1, 1, 1);
+                    hero.body.position.y = 1.0;
+                }
+            }
+
+            if (!hero.isJumping) {
+                const runSpeed = STATE.speed * 0.5;
+                hero.armL.rotation.x = Math.sin(time * runSpeed) * 0.8;
+                hero.armR.rotation.x = Math.sin(time * runSpeed + Math.PI) * 0.8;
+                hero.legL.rotation.x = Math.sin(time * runSpeed) * 1.0;
+                hero.legR.rotation.x = Math.sin(time * runSpeed + Math.PI) * 1.0;
+            } else {
+                hero.armL.rotation.x = -2.5;
+                hero.armR.rotation.x = -2.5;
+                hero.legL.rotation.x = -0.5;
+                hero.legR.rotation.x = -1.0;
+            }
+
+            let lastChunkZ = -9999;
+            pathChunks.forEach(obj => { if(obj.z < lastChunkZ) lastChunkZ = obj.z; });
+            
+            for (let i = pathChunks.length - 1; i >= 0; i--) {
+                const chunk = pathChunks[i];
+                chunk.mesh.position.z += moveDist;
+                chunk.z = chunk.mesh.position.z;
+
+                if (chunk.type === 'coin') {
+                    chunk.mesh.rotation.y += dt * chunk.mesh.userData.rotateSpeed;
+                    chunk.mesh.position.y = 1 + Math.sin(time * 5 + chunk.mesh.userData.bobOffset) * 0.2;
+                }
+
+                if (chunk.type === 'obstacle') {
+                    chunk.mesh.visible = !skillState.clearActive;
+                }
+
+                if (chunk.type !== 'ground' && chunk.type !== 'deco') {
+                    checkCollision(chunk);
+                }
+
+                if (chunk.mesh.position.z > 10) {
+                    world.remove(chunk.mesh);
+                    pathChunks.splice(i, 1);
+                }
+            }
+
+            let minZ = 0;
+            pathChunks.forEach(c => minZ = Math.min(minZ, c.z));
+            
+            if (minZ > -(CHUNK_COUNT * CHUNK_LENGTH) + CHUNK_LENGTH) {
+               spawnChunk(minZ - CHUNK_LENGTH, world.children[0].material);
+            }
+
+            camera.position.x += (hero.position.x * 0.7 - camera.position.x) * 5 * dt;
+            camera.position.y = 5 + hero.position.y * 0.5;
+            
+            updateParticles(dt);
+        }
+
+        function checkCollision(chunk) {
+            if (chunk.hit || (!chunk.active && chunk.type === 'coin')) return;
+
+            const zDist = Math.abs(chunk.mesh.position.z - hero.position.z);
+            if (zDist > 1.0) return;
+
+            const xDist = Math.abs(chunk.mesh.position.x - hero.position.x);
+            
+            if (chunk.type === 'coin') {
+                if (xDist < 1.0 && Math.abs(hero.position.y - chunk.mesh.position.y) < 1.5) {
+                    collectCoin(chunk);
+                }
+            } else if (chunk.type === 'obstacle' && !skillState.clearActive) {
+                if (xDist < 1.0) {
+                    const obsType = chunk.mesh.userData.type;
+                    let collision = false;
+
+                    const heroTop = hero.position.y + (hero.isSliding ? 0.9 : 1.8);
+                    const heroBottom = hero.position.y;
+
+                    if (obsType === 'hurdle') {
+                        const obstacleTop = 1.0;
+                        if (heroBottom < obstacleTop) {
+                            collision = true;
+                        }
+                    } else if (obsType === 'train') {
+                        const obstacleTop = 3.0;
+                        if (heroBottom < obstacleTop) {
+                            collision = true;
+                        }
+                    } else if (obsType === 'arch') {
+                        const archBottom = 1.5;
+                        const archTop = 3.5;
+                        if (heroTop > archBottom && heroBottom < archTop) {
+                            collision = true;
+                        }
+                    }
+
+                    if (collision) {
+                        chunk.hit = true;
+                        
+                        if (skillState.shieldCount > 0) {
+                            skillState.shieldCount--;
+                            updateSkillUI();
+                            updateShieldEffect();
+                            playSkill();
+                        } else {
+                            gameOver();
+                        }
+                    }
+                }
+            }
+        }
+
+        function collectCoin(chunk) {
+            chunk.active = false;
+            chunk.mesh.visible = false;
+            STATE.coins++;
+            STATE.coinsCollected++;
+            dom.coins.innerText = STATE.coins;
+            
+            playCoin();
+            
+            dom.coins.parentElement.classList.add('scale-125');
+            setTimeout(() => dom.coins.parentElement.classList.remove('scale-125'), 200);
+        }
+
+        function updateParticles(dt) {
+            const positions = hero.particles.geometry.attributes.position.array;
+            const opacities = hero.particles.geometry.attributes.opacity.array;
+            
+            if (STATE.isPlaying && !hero.isJumping) {
+                const spawnIdx = Math.floor(Math.random() * 50);
+                positions[spawnIdx * 3] = hero.position.x + (Math.random() - 0.5) * 0.5;
+                positions[spawnIdx * 3 + 1] = 0.1;
+                positions[spawnIdx * 3 + 2] = hero.position.z + 0.5;
+                opacities[spawnIdx] = 1.0;
+            }
+
+            for(let i=0; i<50; i++) {
+                opacities[i] -= dt * 2.0;
+                positions[i*3 + 2] += dt * 10;
+                
+                if(opacities[i] < 0) {
+                    positions[i*3+1] = -100;
+                }
+            }
+            
+            hero.particles.geometry.attributes.position.needsUpdate = true;
+            hero.particles.geometry.attributes.opacity.needsUpdate = true;
+        }
+
+        async function startGame() {
+            await Tone.start(); 
+            
+            dom.uiStart.classList.add('hidden');
+            dom.uiHud.classList.remove('hidden');
+            STATE.isPlaying = true;
+            STATE.isGameOver = false;
+            
+            camera.position.z = 12;
+        }
+
+        function gameOver() {
+            if (skillState.reviveCount > 0) {
+                skillState.reviveCount--;
+                updateSkillUI();
+                playSkill();
+                
+                const tempShield = skillState.shieldCount;
+                skillState.shieldCount = 3;
+                updateSkillUI();
+                updateShieldEffect();
+                
+                setTimeout(() => {
+                    if (skillState.shieldCount === 3 && tempShield === 0) {
+                        skillState.shieldCount = 0;
+                        updateSkillUI();
+                        updateShieldEffect();
+                    }
+                }, 3000);
+                
+                return;
+            }
+
+            STATE.isGameOver = true;
+            STATE.isPlaying = false;
+            
+            playCrash();
+
+            camera.position.x += (Math.random() - 0.5);
+            camera.position.y += (Math.random() - 0.5);
+            
+            let finalScoreValue = STATE.score;
+
+            if (finalScoreValue > highScore) {
+                saveHighScore(finalScoreValue);
+                dom.newHighScoreText.classList.remove('hidden');
+            } else {
+                dom.newHighScoreText.classList.add('hidden');
+            }
+
+            dom.uiHud.classList.add('hidden');
+            dom.uiGameOver.classList.remove('hidden');
+            setTimeout(() => dom.uiGameOver.classList.remove('opacity-0'), 10);
+            
+            dom.finalScore.innerText = finalScoreValue + 'm';
+            dom.finalCoins.innerText = STATE.coins;
+            dom.finalCollected.innerText = STATE.coinsCollected;
+            dom.highScoreFinal.innerText = highScore + 'm';
+        }
+
+        function resetGame() {
+            STATE.score = 0;
+            STATE.coins = 0;
+            STATE.coinsCollected = 0;
+            STATE.distance = 0;
+            STATE.realDistance = 0;
+            STATE.speed = CONFIG.speedBase;
+            STATE.lastSkillTrigger = 0;
+            STATE.lastRewardTrigger = 0;
+            STATE.fairPlayMode = false;
+            STATE.fairPlayAsked = false;
+            
+            skillState.shieldCount = 0;
+            skillState.reviveCount = 0;
+            skillState.clearActive = false;
+            skillState.clearTimer = 0;
+            skillState.jumpBoostCount = 0;
+            skillState.jumpBoostPurchaseCount = 0;
+            updateSkillUI();
+            updateShieldEffect();
+            
+            dom.fairPlayStatus.classList.add('hidden');
+            
+            dom.score.innerText = '0';
+            dom.coins.innerText = '0';
+            
+            for (let i = pathChunks.length - 1; i >= 0; i--) {
+                const c = pathChunks[i];
+                if (c.type !== 'ground' && c.type !== 'deco') {
+                    world.remove(c.mesh);
+                    pathChunks.splice(i, 1);
+                }
+            }
+            
+            hero.position.set(0, 0, 0);
+            hero.currentLane = 0;
+            hero.targetX = 0;
+            
+            spawnObstacles(-50); 
+            
+            dom.uiGameOver.classList.add('hidden', 'opacity-0');
+            dom.uiHud.classList.remove('hidden');
+            
+            STATE.isPlaying = true;
+            STATE.isGameOver = false;
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        window.onload = function() {
+            init();
+            animate();
+        }
+
+    </script>
+</body>
+</html>
