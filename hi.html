@@ -117,6 +117,23 @@
         .unread-indicator {
             animation: pulse 1.5s infinite;
         }
+        .emoji-btn {
+            transition: all 0.2s ease;
+        }
+        .emoji-btn:hover {
+            transform: scale(1.2);
+        }
+        .emoji-btn.selected {
+            transform: scale(1.2);
+            box-shadow: 0 0 0 3px #8b5cf6;
+        }
+        .delete-btn {
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+        .chat-message-container:hover .delete-btn {
+            opacity: 1;
+        }
     </style>
 </head>
 <body class="min-h-screen gradient-bg">
@@ -309,7 +326,7 @@
                     
                     <div id="profileMember" class="hidden space-y-6">
                         <div class="flex items-center gap-4 p-4 bg-gradient-to-r from-purple-50 to-indigo-50 rounded-xl">
-                            <div id="profileAvatar" class="w-16 h-16 rounded-full bg-gradient-to-br from-purple-500 to-indigo-500 flex items-center justify-center text-white text-2xl font-bold shadow-lg">?</div>
+                            <div id="profileAvatar" class="w-16 h-16 rounded-full bg-gradient-to-br from-purple-500 to-indigo-500 flex items-center justify-center text-4xl shadow-lg cursor-pointer hover:scale-105 transition-all" onclick="openAvatarPicker()">😀</div>
                             <div>
                                 <p id="profileUsername" class="text-xl font-bold text-gray-800"></p>
                                 <p id="profileJoinDate" class="text-sm text-gray-500"></p>
@@ -318,6 +335,12 @@
                         </div>
                         
                         <div class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-600 mb-2">選擇頭像 (點擊上方頭像更換)</label>
+                                <div id="avatarPickerInline" class="hidden grid grid-cols-10 gap-2 p-3 bg-gray-50 rounded-xl">
+                                </div>
+                            </div>
+                            
                             <div>
                                 <label class="block text-sm font-medium text-gray-600 mb-2">名字顏色</label>
                                 <div class="flex flex-wrap gap-2" id="colorPicker"></div>
@@ -443,14 +466,21 @@
                     <div class="p-3 border-b flex items-center gap-3">
                         <button onclick="backToChatList()" class="text-gray-500 hover:text-gray-700 text-xl">←</button>
                         <span id="chatWithName" class="font-bold text-gray-800"></span>
+                        <span id="chatWithAvatar" class="text-xl"></span>
+                    </div>
+                    <div class="p-3 bg-yellow-50 border-b">
+                        <p class="text-sm text-yellow-700">⚠️ 每人僅限一句訊息，需刪除自己的訊息後才可發送下一句</p>
                     </div>
                     <div id="chatMessages" class="flex-1 overflow-y-auto p-4 space-y-3"></div>
                     <div class="p-4 border-t">
-                        <div class="flex gap-2">
+                        <div id="canSendMessage" class="flex gap-2">
                             <input type="text" id="privateMsgInput" placeholder="輸入訊息..."
                                 class="flex-1 px-4 py-2 rounded-lg border-2 border-gray-200 focus:border-purple-500 outline-none"
                                 onkeypress="if(event.key==='Enter')sendPrivateMessage()">
                             <button onclick="sendPrivateMessage()" class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg">發送</button>
+                        </div>
+                        <div id="cannotSendMessage" class="hidden text-center text-gray-500 py-2">
+                            <p>請先刪除你的訊息後再發送下一句</p>
                         </div>
                     </div>
                 </div>
@@ -494,6 +524,15 @@
         let currentChatWith = null;
         let chatListener = null;
         let unreadCounts = {};
+        let hasPendingMessage = false;
+
+        // 頭像 Emoji 列表
+        const AVATAR_EMOJIS = [
+            '😀', '😎', '🥳', '🤩', '😇', '🤠', '🥰', '😺', '🐶', '🐱',
+            '🦊', '🐼', '🐨', '🦁', '🐯', '🐸', '🐵', '🦄', '🐲', '🐳',
+            '🌟', '⭐', '🔥', '💎', '🎮', '🎯', '🎨', '🎭', '🎪', '🏆',
+            '👑', '💪', '🚀', '🌈', '🌸', '🍀', '🌻', '🎵', '💫', '✨'
+        ];
 
         const NAME_COLORS = [
             { id: 'default', name: '預設', class: 'text-gray-800' },
@@ -569,9 +608,7 @@
 
         // ==================== 帳號系統 (明文密碼) ====================
         
-        // 生成用戶ID（用用戶名的小寫形式）
         function generateUserId(username) {
-            // 使用用戶名的小寫並替換特殊字符
             return username.toLowerCase().replace(/[^a-z0-9]/g, '_');
         }
 
@@ -626,7 +663,6 @@
                 return;
             }
 
-            // 檢查用戶名是否包含非法字元
             if (!/^[a-zA-Z0-9\u4e00-\u9fa5_]+$/.test(username)) {
                 showAuthError('用戶名只能包含中英文、數字和底線');
                 return;
@@ -641,18 +677,17 @@
                     return;
                 }
                 
-                // 檢查用戶名是否已存在
                 const snapshot = await db.ref(`users/${userId}`).once('value');
                 if (snapshot.exists()) {
                     showAuthError('用戶名已被使用');
                     return;
                 }
                 
-                // 創建新用戶 - 明文儲存密碼
                 const newUser = {
                     username: username,
-                    password: password,  // 明文密碼
+                    password: password,
                     nameColor: 'default',
+                    avatar: '😀',
                     joinedAt: Date.now(),
                     lastOnline: Date.now(),
                     friends: {}
@@ -663,7 +698,6 @@
                 showToast('✅ 註冊成功！', 'success');
                 
             } else {
-                // 登入 - 比對明文密碼
                 const snapshot = await db.ref(`users/${userId}`).once('value');
                 if (!snapshot.exists()) {
                     showAuthError('用戶不存在');
@@ -672,13 +706,11 @@
                 
                 const userData = snapshot.val();
                 
-                // 直接比對明文密碼
                 if (userData.password !== password) {
                     showAuthError('密碼錯誤');
                     return;
                 }
                 
-                // 更新最後上線時間
                 await db.ref(`users/${userId}/lastOnline`).set(Date.now());
                 loginUser(userId, userData);
                 showToast('✅ 登入成功！', 'success');
@@ -730,10 +762,11 @@
             const playerBadge = document.getElementById('playerBadge');
             
             if (currentUser) {
+                const avatar = currentUser.avatar || '😀';
                 userArea.innerHTML = `
                     <div class="flex items-center gap-2 bg-white/20 px-3 py-2 rounded-full cursor-pointer" onclick="switchTab('profile')">
-                        <div class="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-indigo-500 flex items-center justify-center text-white font-bold text-sm">
-                            ${currentUser.username.charAt(0).toUpperCase()}
+                        <div class="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-indigo-500 flex items-center justify-center text-xl shadow">
+                            ${avatar}
                         </div>
                         <span class="text-white font-medium hidden md:block">${escapeHtml(currentUser.username)}</span>
                     </div>
@@ -773,9 +806,19 @@
             document.getElementById('profileGuest').classList.add('hidden');
             document.getElementById('profileMember').classList.remove('hidden');
             
-            document.getElementById('profileAvatar').textContent = currentUser.username.charAt(0).toUpperCase();
+            const avatar = currentUser.avatar || '😀';
+            document.getElementById('profileAvatar').textContent = avatar;
             document.getElementById('profileUsername').textContent = currentUser.username;
             document.getElementById('profileJoinDate').textContent = `加入於 ${new Date(currentUser.joinedAt).toLocaleDateString('zh-TW')}`;
+            
+            // 頭像選擇器
+            const avatarPicker = document.getElementById('avatarPickerInline');
+            avatarPicker.innerHTML = AVATAR_EMOJIS.map(emoji => `
+                <button onclick="changeAvatar('${emoji}')"
+                    class="emoji-btn w-10 h-10 rounded-lg bg-white border-2 ${currentUser.avatar === emoji ? 'selected border-purple-500' : 'border-gray-200'} hover:border-purple-300 flex items-center justify-center text-xl transition-all">
+                    ${emoji}
+                </button>
+            `).join('');
             
             // 顏色選擇器
             const colorPicker = document.getElementById('colorPicker');
@@ -793,6 +836,22 @@
                 document.getElementById('profileLosses').textContent = stats.losses;
                 document.getElementById('profileDraws').textContent = stats.draws;
             });
+        }
+
+        function openAvatarPicker() {
+            const picker = document.getElementById('avatarPickerInline');
+            picker.classList.toggle('hidden');
+        }
+
+        function changeAvatar(emoji) {
+            if (!currentUser) return;
+            
+            currentUser.avatar = emoji;
+            db.ref(`users/${currentUser.id}/avatar`).set(emoji);
+            localStorage.setItem('currentUser', JSON.stringify(currentUser));
+            updateUserUI();
+            updateProfileSection();
+            showToast('✅ 頭像已更新', 'success');
         }
 
         function changeNameColor(colorId) {
@@ -926,17 +985,25 @@
                 if (friendsList.length === 0) {
                     list.innerHTML = '<p class="text-gray-500 text-center py-4">還沒有好友</p>';
                 } else {
-                    list.innerHTML = friendsList.map(friend => `
-                        <div class="friend-card flex items-center justify-between p-3 bg-gray-50 rounded-xl transition-all cursor-pointer hover:bg-gray-100" onclick="openChatWith('${friend.id}', '${escapeHtml(friend.username)}')">
-                            <div class="flex items-center gap-3">
-                                <div class="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-indigo-500 flex items-center justify-center text-white font-bold">
-                                    ${friend.username.charAt(0).toUpperCase()}
+                    // 獲取好友頭像
+                    Promise.all(friendsList.map(friend => 
+                        db.ref(`users/${friend.id}/avatar`).once('value').then(snap => ({
+                            ...friend,
+                            avatar: snap.val() || '😀'
+                        }))
+                    )).then(friendsWithAvatars => {
+                        list.innerHTML = friendsWithAvatars.map(friend => `
+                            <div class="friend-card flex items-center justify-between p-3 bg-gray-50 rounded-xl transition-all cursor-pointer hover:bg-gray-100" onclick="openChatWith('${friend.id}', '${escapeHtml(friend.username)}', '${friend.avatar}')">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-indigo-500 flex items-center justify-center text-xl">
+                                        ${friend.avatar}
+                                    </div>
+                                    <span class="font-medium text-gray-800">${escapeHtml(friend.username)}</span>
                                 </div>
-                                <span class="font-medium text-gray-800">${escapeHtml(friend.username)}</span>
+                                <button onclick="event.stopPropagation(); removeFriend('${friend.id}')" class="text-red-500 hover:text-red-600 text-sm">移除</button>
                             </div>
-                            <button onclick="event.stopPropagation(); removeFriend('${friend.id}')" class="text-red-500 hover:text-red-600 text-sm">移除</button>
-                        </div>
-                    `).join('');
+                        `).join('');
+                    });
                 }
                 
                 updateChatList();
@@ -1017,28 +1084,36 @@
                 return;
             }
             
-            chatList.innerHTML = friendsList.map(friend => {
-                const unread = unreadCounts[friend.id] || 0;
-                return `
-                    <div class="flex items-center justify-between p-3 bg-gray-50 rounded-xl cursor-pointer hover:bg-gray-100 transition-all" onclick="openChatWith('${friend.id}', '${escapeHtml(friend.username)}')">
-                        <div class="flex items-center gap-3">
-                            <div class="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-indigo-500 flex items-center justify-center text-white font-bold">
-                                ${friend.username.charAt(0).toUpperCase()}
+            Promise.all(friendsList.map(friend => 
+                db.ref(`users/${friend.id}/avatar`).once('value').then(snap => ({
+                    ...friend,
+                    avatar: snap.val() || '😀'
+                }))
+            )).then(friendsWithAvatars => {
+                chatList.innerHTML = friendsWithAvatars.map(friend => {
+                    const unread = unreadCounts[friend.id] || 0;
+                    return `
+                        <div class="flex items-center justify-between p-3 bg-gray-50 rounded-xl cursor-pointer hover:bg-gray-100 transition-all" onclick="openChatWith('${friend.id}', '${escapeHtml(friend.username)}', '${friend.avatar}')">
+                            <div class="flex items-center gap-3">
+                                <div class="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-indigo-500 flex items-center justify-center text-xl">
+                                    ${friend.avatar}
+                                </div>
+                                <span class="font-medium text-gray-800">${escapeHtml(friend.username)}</span>
                             </div>
-                            <span class="font-medium text-gray-800">${escapeHtml(friend.username)}</span>
+                            ${unread > 0 ? `<span class="bg-red-500 text-white text-xs px-2 py-1 rounded-full unread-indicator">${unread}</span>` : ''}
                         </div>
-                        ${unread > 0 ? `<span class="bg-red-500 text-white text-xs px-2 py-1 rounded-full unread-indicator">${unread}</span>` : ''}
-                    </div>
-                `;
-            }).join('');
+                    `;
+                }).join('');
+            });
         }
 
-        function openChatWith(friendId, friendName) {
-            currentChatWith = { id: friendId, name: friendName };
+        function openChatWith(friendId, friendName, friendAvatar = '😀') {
+            currentChatWith = { id: friendId, name: friendName, avatar: friendAvatar };
             
             document.getElementById('chatListView').classList.add('hidden');
             document.getElementById('chatView').classList.remove('hidden');
             document.getElementById('chatWithName').textContent = friendName;
+            document.getElementById('chatWithAvatar').textContent = friendAvatar;
             
             const chatId = getChatId(currentUser.id, friendId);
             const chatRef = db.ref(`privateMessages/${chatId}`);
@@ -1053,14 +1128,31 @@
                     .map(([id, msg]) => ({ id, ...msg }))
                     .sort((a, b) => a.timestamp - b.timestamp);
                 
+                // 檢查當前用戶是否有未刪除的訊息
+                hasPendingMessage = sortedMessages.some(msg => msg.from === currentUser.id);
+                updateSendMessageUI();
+                
+                const myAvatar = currentUser.avatar || '😀';
+                
                 chatMessages.innerHTML = sortedMessages.map(msg => {
                     const isSent = msg.from === currentUser.id;
+                    const avatar = isSent ? myAvatar : friendAvatar;
                     return `
-                        <div class="flex ${isSent ? 'justify-end' : 'justify-start'}">
-                            <div class="${isSent ? 'chat-bubble-sent text-white' : 'chat-bubble-received text-gray-800'} px-4 py-2 rounded-2xl max-w-[80%]">
-                                <p>${escapeHtml(msg.text)}</p>
-                                <p class="text-xs ${isSent ? 'text-white/70' : 'text-gray-400'} mt-1">${getTimeAgo(msg.timestamp)}</p>
+                        <div class="chat-message-container flex ${isSent ? 'justify-end' : 'justify-start'} items-end gap-2">
+                            ${!isSent ? `<span class="text-xl">${avatar}</span>` : ''}
+                            <div class="relative group">
+                                <div class="${isSent ? 'chat-bubble-sent text-white' : 'chat-bubble-received text-gray-800'} px-4 py-2 rounded-2xl max-w-[70%]">
+                                    <p>${escapeHtml(msg.text)}</p>
+                                    <p class="text-xs ${isSent ? 'text-white/70' : 'text-gray-400'} mt-1">${getTimeAgo(msg.timestamp)}</p>
+                                </div>
+                                ${isSent ? `
+                                    <button onclick="deletePrivateMessage('${chatId}', '${msg.id}')" 
+                                        class="delete-btn absolute -left-8 top-1/2 -translate-y-1/2 bg-red-500 hover:bg-red-600 text-white text-xs px-2 py-1 rounded transition-all">
+                                        刪除
+                                    </button>
+                                ` : ''}
                             </div>
+                            ${isSent ? `<span class="text-xl">${avatar}</span>` : ''}
                         </div>
                     `;
                 }).join('');
@@ -1078,14 +1170,33 @@
             document.getElementById('messagesPanel').classList.remove('hidden');
         }
 
+        function updateSendMessageUI() {
+            const canSend = document.getElementById('canSendMessage');
+            const cannotSend = document.getElementById('cannotSendMessage');
+            
+            if (hasPendingMessage) {
+                canSend.classList.add('hidden');
+                cannotSend.classList.remove('hidden');
+            } else {
+                canSend.classList.remove('hidden');
+                cannotSend.classList.add('hidden');
+            }
+        }
+
         function backToChatList() {
             if (chatListener) {
                 chatListener();
                 chatListener = null;
             }
             currentChatWith = null;
+            hasPendingMessage = false;
             document.getElementById('chatListView').classList.remove('hidden');
             document.getElementById('chatView').classList.add('hidden');
+        }
+
+        async function deletePrivateMessage(chatId, messageId) {
+            await db.ref(`privateMessages/${chatId}/${messageId}`).remove();
+            showToast('✅ 訊息已刪除，現在可以發送新訊息', 'success');
         }
 
         async function sendPrivateMessage() {
@@ -1095,6 +1206,11 @@
             const text = input.value.trim();
             
             if (!text) return;
+            
+            if (hasPendingMessage) {
+                showToast('⚠️ 請先刪除你的訊息後再發送下一句', 'warning');
+                return;
+            }
             
             const chatId = getChatId(currentUser.id, currentChatWith.id);
             
@@ -1460,6 +1576,9 @@
             const nameColor = message.nameColor ? 
                 (NAME_COLORS.find(c => c.id === message.nameColor)?.class || 'text-gray-800') : 'text-gray-800';
             
+            const avatar = message.avatar || message.username.charAt(0).toUpperCase();
+            const isEmoji = /\p{Emoji}/u.test(avatar);
+            
             const div = document.createElement('div');
             div.id = `msg-${message.id}`;
             div.className = `glass rounded-2xl p-5 message-card ${animate ? 'message-enter' : ''}`;
@@ -1467,8 +1586,8 @@
             
             div.innerHTML = `
                 <div class="flex gap-4">
-                    <div class="w-12 h-12 rounded-full bg-gradient-to-br ${colors[colorIndex]} flex items-center justify-center text-white font-bold text-lg shadow-lg flex-shrink-0">
-                        ${message.username.charAt(0).toUpperCase()}
+                    <div class="w-12 h-12 rounded-full bg-gradient-to-br ${colors[colorIndex]} flex items-center justify-center ${isEmoji ? 'text-2xl' : 'text-white font-bold text-lg'} shadow-lg flex-shrink-0">
+                        ${isEmoji ? avatar : avatar}
                     </div>
                     <div class="flex-1 min-w-0">
                         <div class="flex items-center gap-2 mb-1 flex-wrap">
@@ -1523,7 +1642,8 @@
                 text: text,
                 timestamp: Date.now(),
                 isMember: !!currentUser,
-                nameColor: currentUser?.nameColor || 'default'
+                nameColor: currentUser?.nameColor || 'default',
+                avatar: currentUser?.avatar || username.charAt(0).toUpperCase()
             };
             
             db.ref('messages').push(message).then(() => {
