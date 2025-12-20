@@ -286,7 +286,7 @@
                 </div>
             </div>
         </div>
-        <div class="flex items-center gap-2">
+        <div id="coin-hud" class="flex items-center gap-2">
             <div class="w-8 h-8 rounded-full bg-yellow-500 border-2 border-yellow-200 shadow-lg flex items-center justify-center text-yellow-900 font-bold">$</div>
             <span id="coin-display" class="text-white text-2xl font-bold hud-text">0</span>
         </div>
@@ -298,7 +298,7 @@
         <div class="bg-slate-800/80 p-6 rounded-2xl border border-cyan-500 shadow-2xl mb-6 max-w-md text-center">
             <div class="text-6xl mb-4">🏆</div>
             <p class="text-white text-lg mb-4">是否啟動「堂堂正正」模式？</p>
-            <p class="text-slate-300 text-sm mb-4">啟動後，本局將不再有任何技能提供<br>純粹以實力挑戰極限！</p>
+            <p class="text-slate-300 text-sm mb-4">啟動後，本局將不再有任何技能提供<br><br>純粹以實力挑戰極限！</p>
             <p class="text-yellow-400 text-sm">祝你好運!</p>
         </div>
         
@@ -381,7 +381,7 @@
                 <p id="new-high-score-text" class="text-lg text-yellow-300 new-high-score-glow mt-2 hidden">新紀錄!</p>
             </div>
             
-            <div class="flex justify-between border-t border-slate-600 pt-4 mt-4">
+            <div id="coin-stats" class="flex justify-between border-t border-slate-600 pt-4 mt-4">
                 <div class="text-center">
                     <p class="text-xs text-slate-500">金幣</p>
                     <p id="final-coins" class="text-xl text-yellow-400 font-bold">0</p>
@@ -390,6 +390,10 @@
                     <p class="text-xs text-slate-500">收集</p>
                     <p id="final-collected" class="text-xl text-cyan-400 font-bold">0</p>
                 </div>
+            </div>
+            
+            <div id="fair-play-badge" class="hidden border-t border-slate-600 pt-4 mt-4">
+                <p class="text-cyan-400 font-bold">⚔️ 完成 ⚔️</p>
             </div>
         </div>
         <button id="btn-restart" class="pointer-events-auto px-10 py-3 bg-gradient-to-r from-red-500 to-pink-600 text-white font-bold text-lg rounded-full shadow-lg hover:shadow-red-500/50 transform transition hover:-translate-y-1 active:translate-y-0">
@@ -504,6 +508,9 @@
             uiFairPlay: document.getElementById('ui-fair-play'),
             score: document.getElementById('score-display'),
             coins: document.getElementById('coin-display'),
+            coinHud: document.getElementById('coin-hud'),
+            coinStats: document.getElementById('coin-stats'),
+            fairPlayBadge: document.getElementById('fair-play-badge'),
             finalScore: document.getElementById('final-score'),
             finalCoins: document.getElementById('final-coins'),
             finalCollected: document.getElementById('final-collected'),
@@ -627,10 +634,28 @@
             if (choice) {
                 STATE.fairPlayMode = true;
                 dom.fairPlayStatus.classList.remove('hidden');
+                
+                // 隱藏金幣 HUD
+                dom.coinHud.classList.add('hidden');
+                
+                // 移除所有現有的金幣
+                removeAllCoins();
+                
                 playSkill();
             }
             
             STATE.isPaused = false;
+        }
+
+        // 移除所有現有金幣的函數
+        function removeAllCoins() {
+            for (let i = pathChunks.length - 1; i >= 0; i--) {
+                const chunk = pathChunks[i];
+                if (chunk.type === 'coin') {
+                    world.remove(chunk.mesh);
+                    pathChunks.splice(i, 1);
+                }
+            }
         }
 
         function triggerSkillSelection() {
@@ -988,29 +1013,32 @@
                 pathChunks.push({ mesh: obstacle, type: 'obstacle', z: zPos, hit: false });
             }
 
-            const freeLane = lanes[obstacleCount];
-            if (freeLane !== undefined) {
-                for (let j = 0; j < 3; j++) {
-                    const coinGeo = new THREE.CylinderGeometry(0.4, 0.4, 0.1, 8);
-                    coinGeo.rotateX(Math.PI / 2);
-                    const coinMat = new THREE.MeshStandardMaterial({ 
-                        color: CONFIG.colors.coin, 
-                        emissive: 0xffaa00, 
-                        emissiveIntensity: 0.5,
-                        roughness: 0.2,
-                        metalness: 0.8
-                    });
-                    const coin = new THREE.Mesh(coinGeo, coinMat);
-                    coin.position.set(freeLane * CONFIG.laneWidth, 1, zPos - j * 2);
-                    world.add(coin);
-                    
-                    coin.userData = { 
-                        type: 'coin', 
-                        rotateSpeed: 2 + Math.random(), 
-                        bobOffset: Math.random() * Math.PI 
-                    };
-                    
-                    pathChunks.push({ mesh: coin, type: 'coin', z: zPos - j * 2, active: true });
+            // 只在非堂堂正正模式下生成金幣
+            if (!STATE.fairPlayMode) {
+                const freeLane = lanes[obstacleCount];
+                if (freeLane !== undefined) {
+                    for (let j = 0; j < 3; j++) {
+                        const coinGeo = new THREE.CylinderGeometry(0.4, 0.4, 0.1, 8);
+                        coinGeo.rotateX(Math.PI / 2);
+                        const coinMat = new THREE.MeshStandardMaterial({ 
+                            color: CONFIG.colors.coin, 
+                            emissive: 0xffaa00, 
+                            emissiveIntensity: 0.5,
+                            roughness: 0.2,
+                            metalness: 0.8
+                        });
+                        const coin = new THREE.Mesh(coinGeo, coinMat);
+                        coin.position.set(freeLane * CONFIG.laneWidth, 1, zPos - j * 2);
+                        world.add(coin);
+                        
+                        coin.userData = { 
+                            type: 'coin', 
+                            rotateSpeed: 2 + Math.random(), 
+                            bobOffset: Math.random() * Math.PI 
+                        };
+                        
+                        pathChunks.push({ mesh: coin, type: 'coin', z: zPos - j * 2, active: true });
+                    }
                 }
             }
         }
@@ -1232,11 +1260,14 @@
                 return;
             }
 
-            if (Math.floor(STATE.realDistance / CONFIG.distancePerReward) > STATE.lastRewardTrigger) {
-                STATE.lastRewardTrigger = Math.floor(STATE.realDistance / CONFIG.distancePerReward);
-                STATE.coins += CONFIG.rewardCoins;
-                dom.coins.innerText = STATE.coins;
-                playCoin();
+            // 只在非堂堂正正模式下給予距離獎勵金幣
+            if (!STATE.fairPlayMode) {
+                if (Math.floor(STATE.realDistance / CONFIG.distancePerReward) > STATE.lastRewardTrigger) {
+                    STATE.lastRewardTrigger = Math.floor(STATE.realDistance / CONFIG.distancePerReward);
+                    STATE.coins += CONFIG.rewardCoins;
+                    dom.coins.innerText = STATE.coins;
+                    playCoin();
+                }
             }
 
             // 只有在非堂堂正正模式下才觸發技能選擇
@@ -1342,7 +1373,8 @@
 
             const xDist = Math.abs(chunk.mesh.position.x - hero.position.x);
             
-            if (chunk.type === 'coin') {
+            // 堂堂正正模式下不收集金幣
+            if (chunk.type === 'coin' && !STATE.fairPlayMode) {
                 if (xDist < 1.0 && Math.abs(hero.position.y - chunk.mesh.position.y) < 1.5) {
                     collectCoin(chunk);
                 }
@@ -1484,6 +1516,15 @@
             dom.finalCoins.innerText = STATE.coins;
             dom.finalCollected.innerText = STATE.coinsCollected;
             dom.highScoreFinal.innerText = highScore + 'm';
+            
+            // 堂堂正正模式下顯示徽章，隱藏金幣統計
+            if (STATE.fairPlayMode) {
+                dom.coinStats.classList.add('hidden');
+                dom.fairPlayBadge.classList.remove('hidden');
+            } else {
+                dom.coinStats.classList.remove('hidden');
+                dom.fairPlayBadge.classList.add('hidden');
+            }
         }
 
         function resetGame() {
@@ -1508,6 +1549,7 @@
             updateShieldEffect();
             
             dom.fairPlayStatus.classList.add('hidden');
+            dom.coinHud.classList.remove('hidden');
             
             dom.score.innerText = '0';
             dom.coins.innerText = '0';
