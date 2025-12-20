@@ -436,6 +436,11 @@
             distancePerReward: 100,
             rewardCoins: 10,
             modeSelectTriggerDistance: 1,
+
+            // ===== Scenery config =====
+            scenerySegment: 500,
+            sceneryEndDistance: 10000,
+
             colors: {
                 ground: 0x1e293b,
                 fog: 0x0f172a,
@@ -505,7 +510,10 @@
             lastSkillTrigger: 0,
             lastRewardTrigger: 0,
             normalMode: false,
-            modeSelected: false
+            modeSelected: false,
+
+            // ===== Scenery state =====
+            sceneryCleared: false
         };
 
         const skillState = {
@@ -564,7 +572,13 @@
         let shieldEffect;
         let world;
         let animationId;
-        
+
+        // World/chunk globals
+        let pathChunks = [];
+        const CHUNK_LENGTH = 20;
+        const CHUNK_COUNT = 15;
+        let groundMaterial = null;
+
         function initAudio() {
             jumpSFX = new Tone.Synth({
                 oscillator: { type: 'triangle' },
@@ -924,28 +938,231 @@
             );
         }
 
-        function createStandardMaterial(color) {
+        // UPDATED: supports opts
+        function createStandardMaterial(color, opts = {}) {
             const mat = new THREE.MeshStandardMaterial({ 
-                color: color, 
+                color: color,
                 flatShading: true,
-                roughness: 0.4 
+                roughness: opts.roughness ?? 0.4,
+                metalness: opts.metalness ?? 0.0,
+                emissive: opts.emissive ?? 0x000000,
+                emissiveIntensity: opts.emissiveIntensity ?? 0.0
             });
             mat.onBeforeCompile = applyBending;
             return mat;
         }
 
-        let pathChunks = [];
-        const CHUNK_LENGTH = 20;
-        const CHUNK_COUNT = 15;
+        // ===== Scenery system (左右風景，每500m循環，10000m後停止) =====
+        const SCENERY_THEMES = ['forest', 'ocean', 'desert', 'snow']; // < 5 種
+        let _sceneryInited = false;
+        const SCENERY_ASSETS = {};
+
+        function randRange(a, b) { return a + Math.random() * (b - a); }
+
+        function initSceneryAssets() {
+            if (_sceneryInited) return;
+            _sceneryInited = true;
+
+            SCENERY_ASSETS.forest = {
+                trunkGeo: new THREE.CylinderGeometry(0.12, 0.18, 1, 6),
+                leafGeo: new THREE.ConeGeometry(0.6, 1.4, 8),
+                trunkMat: createStandardMaterial(0x7c4a21, { roughness: 0.85 }),
+                leafMat: createStandardMaterial(0x1f8a3b, { roughness: 0.7 }),
+                rockGeo: new THREE.DodecahedronGeometry(0.35, 0),
+                rockMat: createStandardMaterial(0x475569, { roughness: 0.95 }),
+            };
+
+            SCENERY_ASSETS.ocean = {
+                waterGeo: new THREE.BoxGeometry(12, 0.25, CHUNK_LENGTH * 1.15),
+                waterMat: createStandardMaterial(0x0ea5e9, { roughness: 0.08, emissive: 0x001018, emissiveIntensity: 0.7 }),
+                rockGeo: new THREE.DodecahedronGeometry(0.5, 0),
+                rockMat: createStandardMaterial(0x334155, { roughness: 0.9 }),
+            };
+
+            SCENERY_ASSETS.desert = {
+                duneGeo: new THREE.IcosahedronGeometry(1.0, 0),
+                duneMat: createStandardMaterial(0xfbbf24, { roughness: 0.95 }),
+                cactusMat: createStandardMaterial(0x16a34a, { roughness: 0.8 }),
+            };
+
+            SCENERY_ASSETS.snow = {
+                iceGeo: new THREE.ConeGeometry(0.35, 2.0, 6),
+                iceMat: createStandardMaterial(0x93c5fd, { roughness: 0.25, emissive: 0x0b1220, emissiveIntensity: 0.4 }),
+                snowRockGeo: new THREE.DodecahedronGeometry(0.6, 0),
+                snowRockMat: createStandardMaterial(0xe2e8f0, { roughness: 0.9 }),
+            };
+        }
+
+        function themeKeyAtDistance(distance) {
+            if (distance >= CONFIG.sceneryEndDistance) return null;
+            const idx = Math.floor(distance / CONFIG.scenerySegment) % SCENERY_THEMES.length;
+            return SCENERY_THEMES[idx];
+        }
+
+        function clearAllScenery() {
+            for (let i = pathChunks.length - 1; i >= 0; i--) {
+                if (pathChunks[i].type === 'scenery') {
+                    world.remove(pathChunks[i].mesh);
+                    pathChunks.splice(i, 1);
+                }
+            }
+        }
+
+        function spawnSceneryForChunk(zPos) {
+            if (STATE.sceneryCleared) return;
+
+            // zPos是負值在前方；估算玩家到達該chunk時的距離
+            const spawnDistance = STATE.realDistance + (-zPos);
+            const key = themeKeyAtDistance(spawnDistance);
+            if (!key) return;
+
+            initSceneryAssets();
+
+            for (const side of [-1, 1]) {
+                const group = createSceneryGroup(key, side, zPos);
+                if (!group) continue;
+                world.add(group);
+                pathChunks.push({ mesh: group, type: 'scenery', z: group.position.z });
+            }
+        }
+
+        function createSceneryGroup(key, side, zPos) {
+            const group = new THREE.Group();
+            group.position.z = zPos;
+
+            const baseX = CONFIG.laneWidth * 3.7;
+            const outJitter = CONFIG.laneWidth * 2.2;
+
+            const placeX = () => side * (baseX + randRange(0.0, outJitter));
+            const placeZ = () => randRange(-CHUNK_LENGTH * 0.45, CHUNK_LENGTH * 0.45);
+
+            if (key === 'forest') {
+                const a = SCENERY_ASSETS.forest;
+                const treeCount = 2 + Math.floor(Math.random() * 3);
+
+                for (let i = 0; i < treeCount; i++) {
+                    const tree = new THREE.Group();
+
+                    const trunk = new THREE.Mesh(a.trunkGeo, a.trunkMat);
+                    const h = randRange(2.0, 4.0);
+                    trunk.scale.y = h;
+                    trunk.position.y = (h * 0.5);
+                    trunk.castShadow = true;
+
+                    const leaf = new THREE.Mesh(a.leafGeo, a.leafMat);
+                    leaf.position.y = h + 0.7;
+                    leaf.scale.setScalar(randRange(0.9, 1.4));
+                    leaf.castShadow = true;
+
+                    tree.add(trunk);
+                    tree.add(leaf);
+
+                    tree.position.set(placeX(), 0, placeZ());
+                    group.add(tree);
+                }
+
+                if (Math.random() < 0.6) {
+                    const rock = new THREE.Mesh(a.rockGeo, a.rockMat);
+                    rock.position.set(placeX(), 0.2, placeZ());
+                    rock.scale.setScalar(randRange(0.8, 1.5));
+                    rock.castShadow = true;
+                    group.add(rock);
+                }
+                return group;
+            }
+
+            if (key === 'ocean') {
+                const a = SCENERY_ASSETS.ocean;
+
+                const water = new THREE.Mesh(a.waterGeo, a.waterMat);
+                water.position.set(side * (CONFIG.laneWidth * 6.2), -0.95, randRange(-2, 2));
+                water.receiveShadow = true;
+                group.add(water);
+
+                const rockCount = 1 + Math.floor(Math.random() * 2);
+                for (let i = 0; i < rockCount; i++) {
+                    const rock = new THREE.Mesh(a.rockGeo, a.rockMat);
+                    rock.position.set(side * (CONFIG.laneWidth * 5.6 + randRange(0, 2.8)), -0.55, placeZ());
+                    rock.scale.setScalar(randRange(0.6, 1.4));
+                    rock.castShadow = true;
+                    group.add(rock);
+                }
+                return group;
+            }
+
+            if (key === 'desert') {
+                const a = SCENERY_ASSETS.desert;
+
+                const duneCount = 2 + Math.floor(Math.random() * 2);
+                for (let i = 0; i < duneCount; i++) {
+                    const dune = new THREE.Mesh(a.duneGeo, a.duneMat);
+                    dune.position.set(placeX(), -0.2, placeZ());
+                    dune.scale.set(randRange(2.0, 3.5), randRange(0.6, 1.2), randRange(1.4, 2.4));
+                    dune.castShadow = true;
+                    group.add(dune);
+                }
+
+                if (Math.random() < 0.85) {
+                    const cactus = new THREE.Group();
+                    const body = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.22, 2.2, 6), a.cactusMat);
+                    body.position.y = 1.1;
+                    body.castShadow = true;
+                    cactus.add(body);
+
+                    const arm1 = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 1.0, 6), a.cactusMat);
+                    arm1.position.set(0.35, 1.4, 0);
+                    arm1.rotation.z = -0.9;
+                    arm1.castShadow = true;
+                    cactus.add(arm1);
+
+                    const arm2 = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 0.9, 6), a.cactusMat);
+                    arm2.position.set(-0.35, 1.2, 0);
+                    arm2.rotation.z = 0.9;
+                    arm2.castShadow = true;
+                    cactus.add(arm2);
+
+                    cactus.position.set(placeX(), 0, placeZ());
+                    group.add(cactus);
+                }
+                return group;
+            }
+
+            if (key === 'snow') {
+                const a = SCENERY_ASSETS.snow;
+
+                const spikeCount = 2 + Math.floor(Math.random() * 3);
+                for (let i = 0; i < spikeCount; i++) {
+                    const ice = new THREE.Mesh(a.iceGeo, a.iceMat);
+                    ice.position.set(placeX(), 0, placeZ());
+                    ice.scale.set(1, randRange(0.8, 1.6), 1);
+                    ice.castShadow = true;
+                    group.add(ice);
+                }
+
+                if (Math.random() < 0.6) {
+                    const snowRock = new THREE.Mesh(a.snowRockGeo, a.snowRockMat);
+                    snowRock.position.set(placeX(), 0.15, placeZ());
+                    snowRock.scale.setScalar(randRange(0.7, 1.3));
+                    snowRock.castShadow = true;
+                    group.add(snowRock);
+                }
+                return group;
+            }
+
+            return null;
+        }
 
         function createWorld() {
+            if (world) scene.remove(world);
+
             world = new THREE.Group();
             scene.add(world);
-            
-            const groundMat = createStandardMaterial(CONFIG.colors.ground);
+
+            pathChunks = [];
+            groundMaterial = createStandardMaterial(CONFIG.colors.ground);
 
             for (let i = 0; i < CHUNK_COUNT; i++) {
-                spawnChunk(-i * CHUNK_LENGTH, groundMat);
+                spawnChunk(-i * CHUNK_LENGTH, groundMaterial);
             }
         }
 
@@ -955,27 +1172,11 @@
             ground.position.set(0, -0.5, zPos);
             ground.receiveShadow = true;
             world.add(ground);
-            
-            const decoGeo = new THREE.BoxGeometry(2, 6 + Math.random() * 5, 2);
-            const decoMat = createStandardMaterial(0x334155);
-            
-            if (Math.random() > 0.3) {
-                const leftDeco = new THREE.Mesh(decoGeo, decoMat);
-                leftDeco.position.set(-CONFIG.laneWidth * 2.5, 2, zPos + (Math.random() - 0.5) * 10);
-                leftDeco.castShadow = true;
-                world.add(leftDeco);
-                pathChunks.push({ mesh: leftDeco, type: 'deco', z: leftDeco.position.z });
-            }
-            
-            if (Math.random() > 0.3) {
-                const rightDeco = new THREE.Mesh(decoGeo, decoMat);
-                rightDeco.position.set(CONFIG.laneWidth * 2.5, 2, zPos + (Math.random() - 0.5) * 10);
-                rightDeco.castShadow = true;
-                world.add(rightDeco);
-                pathChunks.push({ mesh: rightDeco, type: 'deco', z: rightDeco.position.z });
-            }
 
             pathChunks.push({ mesh: ground, type: 'ground', z: zPos });
+
+            // 左右風景（每500m循環，10000m後停止）
+            spawnSceneryForChunk(zPos);
             
             if (zPos < -40) {
                 spawnObstacles(zPos);
@@ -1277,6 +1478,12 @@
             const moveDist = STATE.speed * dt;
             STATE.distance += moveDist;
             STATE.realDistance += moveDist;
+
+            // 10000m 後不再有任何風景：立刻清掉當前所有風景
+            if (!STATE.sceneryCleared && STATE.realDistance >= CONFIG.sceneryEndDistance) {
+                STATE.sceneryCleared = true;
+                clearAllScenery();
+            }
             
             STATE.score = Math.floor(STATE.distance);
             dom.score.innerText = STATE.score;
@@ -1352,9 +1559,6 @@
                 hero.legR.rotation.x = -1.0;
             }
 
-            let lastChunkZ = -9999;
-            pathChunks.forEach(obj => { if(obj.z < lastChunkZ) lastChunkZ = obj.z; });
-            
             for (let i = pathChunks.length - 1; i >= 0; i--) {
                 const chunk = pathChunks[i];
                 chunk.mesh.position.z += moveDist;
@@ -1369,7 +1573,8 @@
                     chunk.mesh.visible = !skillState.clearActive;
                 }
 
-                if (chunk.type !== 'ground' && chunk.type !== 'deco') {
+                // 不對 scenery 做碰撞
+                if (chunk.type !== 'ground' && chunk.type !== 'deco' && chunk.type !== 'scenery') {
                     checkCollision(chunk);
                 }
 
@@ -1383,7 +1588,7 @@
             pathChunks.forEach(c => minZ = Math.min(minZ, c.z));
             
             if (minZ > -(CHUNK_COUNT * CHUNK_LENGTH) + CHUNK_LENGTH) {
-               spawnChunk(minZ - CHUNK_LENGTH, world.children[0].material);
+               spawnChunk(minZ - CHUNK_LENGTH, groundMaterial);
             }
 
             camera.position.x += (hero.position.x * 0.7 - camera.position.x) * 5 * dt;
@@ -1569,6 +1774,7 @@
             STATE.lastRewardTrigger = 0;
             STATE.normalMode = false;
             STATE.modeSelected = false;
+            STATE.sceneryCleared = false;
             
             skillState.shieldCount = 0;
             skillState.reviveCount = 0;
@@ -1584,20 +1790,13 @@
             
             dom.score.innerText = '0';
             dom.coins.innerText = '0';
-            
-            for (let i = pathChunks.length - 1; i >= 0; i--) {
-                const c = pathChunks[i];
-                if (c.type !== 'ground' && c.type !== 'deco') {
-                    world.remove(c.mesh);
-                    pathChunks.splice(i, 1);
-                }
-            }
+
+            // 重建整個世界（包含地面/障礙/金幣/風景）
+            createWorld();
             
             hero.position.set(0, 0, 0);
             hero.currentLane = 0;
             hero.targetX = 0;
-            
-            spawnObstacles(-50); 
             
             dom.uiGameOver.classList.add('hidden', 'opacity-0');
             dom.uiHud.classList.remove('hidden');
@@ -1616,8 +1815,6 @@
             init();
             animate();
         }
-
     </script>
 </body>
-
 </html>
