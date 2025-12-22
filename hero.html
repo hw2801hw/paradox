@@ -2,8 +2,8 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Fire Hero Roguelike - Updated</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Fire Hero - Shield Update</title>
     <style>
         * {
             margin: 0;
@@ -18,11 +18,15 @@
         body {
             background-color: #1a1a1a;
             overflow: hidden;
+            width: 100vw;
+            height: 100vh;
         }
 
         canvas {
             display: block;
             background: linear-gradient(to bottom, #141e30, #243b55);
+            width: 100%;
+            height: 100%;
         }
 
         /* --- UI 層 (HUD) --- */
@@ -34,6 +38,13 @@
             height: 100%;
             pointer-events: none;
             z-index: 10;
+            /* 避免被手機瀏海遮擋 */
+            padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+        }
+
+        /* 通用 HUD 文字陰影 */
+        .hud-shadow {
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
         }
 
         /* 頂部置中等級條 */
@@ -43,13 +54,14 @@
             left: 50%;
             transform: translateX(-50%);
             background: rgba(0, 0, 0, 0.6);
-            padding: 10px 30px;
+            padding: 8px 25px;
             border-radius: 30px;
             border: 2px solid #00d2ff;
             text-align: center;
             color: white;
             box-shadow: 0 0 15px rgba(0, 210, 255, 0.3);
-            min-width: 200px;
+            min-width: 160px;
+            white-space: nowrap;
         }
 
         #level-text {
@@ -60,24 +72,24 @@
         }
 
         #progress-text {
-            font-size: 16px;
+            font-size: 14px;
             color: #fff;
-            margin-top: 5px;
+            margin-top: 2px;
             font-weight: bold;
         }
 
-        /* Boss 血條 (僅在 Lv10 顯示) */
+        /* Boss 血條 */
         #boss-hp-container {
             position: absolute;
-            top: 100px;
+            top: 90px;
             left: 50%;
             transform: translateX(-50%);
-            width: 80%;
-            max-width: 600px;
-            height: 30px;
+            width: 70%;
+            max-width: 500px;
+            height: 24px;
             background: rgba(0,0,0,0.8);
             border: 2px solid #ff416c;
-            border-radius: 15px;
+            border-radius: 12px;
             display: none;
             overflow: hidden;
         }
@@ -95,8 +107,8 @@
             transform: translate(-50%, -50%);
             color: #fff;
             font-weight: bold;
-            font-size: 14px;
-            text-shadow: 1px 1px 2px #000, -1px -1px 2px #000;
+            font-size: 12px;
+            text-shadow: 1px 1px 2px #000;
             z-index: 1;
             width: 100%;
             text-align: center;
@@ -108,9 +120,9 @@
             top: 20px;
             left: 20px;
             color: rgba(255,255,255,0.9);
-            font-size: 18px;
+            font-size: 16px;
             background: rgba(0,0,0,0.5);
-            padding: 8px 15px;
+            padding: 6px 12px;
             border-radius: 10px;
             border: 1px solid #00d2ff;
         }
@@ -125,32 +137,21 @@
             top: 20px;
             right: 20px;
             background: rgba(0,0,0,0.6);
-            padding: 12px 18px;
+            padding: 10px 15px;
             border-radius: 12px;
             border: 1px solid #00d2ff;
             color: white;
-            font-size: 14px;
-            min-width: 130px;
+            font-size: 13px;
+            min-width: 110px;
         }
         .stat-row {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin: 6px 0;
+            margin: 4px 0;
         }
-        .stat-icon {
-            font-size: 16px;
-            margin-right: 8px;
-        }
-        .stat-label {
-            color: #aaa;
-            flex: 1;
-        }
-        .stat-value {
-            font-weight: bold;
-            color: #00d2ff;
-            text-align: right;
-        }
+        .stat-icon { margin-right: 6px; }
+        .stat-value { font-weight: bold; color: #00d2ff; text-align: right; }
         .stat-value.bullets { color: #f1c40f; }
         .stat-value.firerate { color: #2ecc71; }
         .stat-value.damage { color: #e74c3c; }
@@ -171,14 +172,25 @@
             z-index: 20;
             backdrop-filter: blur(8px);
             transition: opacity 0.3s;
+            padding: 20px;
         }
 
-        h1 { font-size: 40px; margin-bottom: 10px; text-shadow: 0 0 10px #ff416c; text-align: center;}
-        p { font-size: 18px; color: #ccc; margin-bottom: 30px; text-align: center; padding: 0 20px;}
+        h1 { 
+            font-size: clamp(32px, 8vw, 50px); 
+            margin-bottom: 10px; 
+            text-shadow: 0 0 10px #ff416c; 
+            text-align: center;
+        }
+        p { 
+            font-size: clamp(16px, 4vw, 20px); 
+            color: #ccc; 
+            margin-bottom: 30px; 
+            text-align: center; 
+        }
 
         .btn {
-            padding: 15px 50px;
-            font-size: 22px;
+            padding: 12px 40px;
+            font-size: 20px;
             background: linear-gradient(90deg, #ff416c, #ff4b2b);
             border: none;
             border-radius: 50px;
@@ -186,35 +198,77 @@
             cursor: pointer;
             box-shadow: 0 5px 20px rgba(255, 75, 43, 0.4);
             pointer-events: auto;
+            max-width: 80%;
         }
         .btn:active { transform: scale(0.95); }
 
-        /* --- 技能卡片樣式 --- */
+        /* --- 技能卡片樣式 RWD --- */
         #skill-container {
             display: flex;
             flex-wrap: wrap;
             justify-content: center;
-            gap: 20px;
+            gap: 15px;
             width: 100%;
-            padding: 20px;
+            max-width: 900px;
             pointer-events: auto;
+            overflow-y: auto;
+            max-height: 70vh;
         }
 
         .skill-card {
             background: rgba(255, 255, 255, 0.1);
             border: 2px solid;
             border-radius: 15px;
-            padding: 25px;
-            width: 150px;
+            padding: 20px;
+            width: 140px;
             cursor: pointer;
             text-align: center;
             transition: all 0.2s;
             position: relative;
-            overflow: hidden;
+            flex-shrink: 0;
+        }
+
+        /* 手機版樣式優化 */
+        @media (max-width: 600px) {
+            #skill-container {
+                gap: 10px;
+            }
+            .skill-card {
+                width: 45%; /* 兩欄排列 */
+                padding: 15px 10px;
+            }
+            .skill-icon { font-size: 36px !important; margin-bottom: 8px !important; }
+            .skill-title { font-size: 16px !important; }
+            .skill-desc { font-size: 12px !important; display: none; /* 極小螢幕隱藏描述 */ }
+            
+            #stats-container {
+                padding: 8px;
+                font-size: 12px;
+                right: 10px;
+                top: 50px; /* 避開計時器或等級條 */
+            }
+            #timer-container {
+                top: 50px;
+                left: 10px;
+                padding: 4px 8px;
+                font-size: 14px;
+            }
+            #level-container {
+                top: 10px;
+            }
+            #boss-hp-container {
+                top: 80px;
+                width: 90%;
+            }
+        }
+        
+        /* 稍微大一點的手機顯示描述 */
+        @media (min-width: 380px) and (max-width: 600px) {
+            .skill-desc { display: block !important; }
         }
 
         .skill-card:hover:not(.disabled) {
-            transform: translateY(-10px);
+            transform: translateY(-5px);
             background: rgba(255, 255, 255, 0.2);
         }
 
@@ -225,49 +279,40 @@
         }
 
         .skill-card.disabled::after {
-            content: "已滿級";
+            content: "MAX";
             position: absolute;
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%) rotate(-15deg);
             background: rgba(255,0,0,0.8);
             color: white;
-            padding: 5px 15px;
+            padding: 5px 10px;
             font-size: 14px;
             font-weight: bold;
             border-radius: 5px;
         }
 
-        .skill-icon { font-size: 50px; display: block; margin-bottom: 15px; }
-        .skill-title { font-weight: 800; font-size: 18px; display: block; margin-bottom: 8px; color: #fff;}
-        .skill-desc { font-size: 13px; color: #ddd; line-height: 1.4; }
+        .skill-icon { font-size: 40px; display: block; margin-bottom: 10px; }
+        .skill-title { font-weight: 800; font-size: 16px; display: block; margin-bottom: 5px; color: #fff;}
+        .skill-desc { font-size: 12px; color: #ddd; line-height: 1.3; }
         .skill-level { font-size: 11px; color: #888; margin-top: 8px; display: block; }
 
-        .type-multi { border-color: #f1c40f; box-shadow: 0 0 15px rgba(241, 196, 15, 0.2); }
-        .type-speed { border-color: #2ecc71; box-shadow: 0 0 15px rgba(46, 204, 113, 0.2); }
-        .type-power { border-color: #e74c3c; box-shadow: 0 0 15px rgba(231, 76, 60, 0.2); }
+        .type-multi { border-color: #f1c40f; box-shadow: 0 0 10px rgba(241, 196, 15, 0.2); }
+        .type-speed { border-color: #2ecc71; box-shadow: 0 0 10px rgba(46, 204, 113, 0.2); }
+        .type-power { border-color: #e74c3c; box-shadow: 0 0 10px rgba(231, 76, 60, 0.2); }
 
         .hidden { display: none !important; }
-        
-        /* 勝利標題顏色 */
         .victory-text { color: #f1c40f; text-shadow: 0 0 20px #f1c40f; }
-
-        /* 結算時間樣式 */
-        .final-time {
-            font-size: 28px;
-            color: #00d2ff;
-            font-weight: bold;
-        }
+        .final-time { font-size: 24px; color: #00d2ff; font-weight: bold; }
     </style>
 </head>
 <body>
 
     <!-- HUD 介面 -->
     <div id="hud-layer">
-        <div id="timer-container">⏱ TIME: <span id="timer-val">00:00</span></div>
+        <div id="timer-container" class="hud-shadow">⏱ <span id="timer-val">00:00</span></div>
         
-        <!-- 右上角數值面板 -->
-        <div id="stats-container">
+        <div id="stats-container" class="hud-shadow">
             <div class="stat-row">
                 <span class="stat-icon">⚡</span>
                 <span class="stat-label">子彈</span>
@@ -285,13 +330,11 @@
             </div>
         </div>
         
-        <!-- 頂部等級進度條 -->
-        <div id="level-container">
+        <div id="level-container" class="hud-shadow">
             <span id="level-text">Lv.1</span>
             <div id="progress-text">0 / 10</div>
         </div>
 
-        <!-- Boss 血條 -->
         <div id="boss-hp-container">
             <span id="boss-hp-text">100.0%</span>
             <div id="boss-hp-bar"></div>
@@ -301,14 +344,14 @@
     <!-- 開始畫面 -->
     <div id="start-screen" class="overlay-screen">
         <h1>FIRE HERO</h1>
-        <p>滑動控制 • 擊敗 Boss • 挑戰極限</p>
+        <p>左右滑動 • 擊破護盾 • 挑戰 Boss</p>
         <button class="btn" id="start-btn">開始挑戰</button>
     </div>
 
-    <!-- 技能選擇畫面 (升級時顯示) -->
+    <!-- 技能選擇畫面 -->
     <div id="skill-screen" class="overlay-screen hidden">
         <h1 style="color:#ffcc00; text-shadow:0 0 20px #ffcc00;">LEVEL UP!</h1>
-        <p>選擇一項能力增強</p>
+        <p>選擇能力升級</p>
         <div id="skill-container">
             <div class="skill-card type-multi" id="card-multishot" onclick="chooseSkill('multishot')">
                 <span class="skill-icon">⚡</span>
@@ -319,14 +362,14 @@
             <div class="skill-card type-speed" id="card-firerate" onclick="chooseSkill('firerate')">
                 <span class="skill-icon">🚀</span>
                 <span class="skill-title">瘋狂射速</span>
-                <span class="skill-desc">射擊速度 +20%<br>彈幕更密集</span>
-                <span class="skill-level" id="firerate-level">已強化 0 次</span>
+                <span class="skill-desc">射速提升 20%<br>彈幕更密集</span>
+                <span class="skill-level" id="firerate-level">Lv.0</span>
             </div>
             <div class="skill-card type-power" id="card-damage" onclick="chooseSkill('damage')">
                 <span class="skill-icon">💥</span>
                 <span class="skill-title">強化子彈</span>
-                <span class="skill-desc">傷害 +2<br>大幅提升破壞力</span>
-                <span class="skill-level" id="damage-level">已強化 0 次</span>
+                <span class="skill-desc">傷害 +2<br>提升單發威力</span>
+                <span class="skill-level" id="damage-level">Lv.0</span>
             </div>
         </div>
     </div>
@@ -361,12 +404,10 @@ const bossHpContainer = document.getElementById('boss-hp-container');
 const bossHpBar = document.getElementById('boss-hp-bar');
 const bossHpText = document.getElementById('boss-hp-text');
 
-// 右上角數值顯示
 const uiStatBullets = document.getElementById('stat-bullets');
 const uiStatFirerate = document.getElementById('stat-firerate');
 const uiStatDamage = document.getElementById('stat-damage');
 
-// 技能卡片
 const cardMultishot = document.getElementById('card-multishot');
 const multishotLevelText = document.getElementById('multishot-level');
 const firerateLevelText = document.getElementById('firerate-level');
@@ -400,14 +441,14 @@ const player = {
     width: 40,
     height: 40,
     targetX: 0,
-    // 戰鬥屬性
     bulletCount: 1,
     fireRate: 10,
     damage: 2,
     
     reset() {
         this.x = canvas.width / 2;
-        this.y = canvas.height - 100;
+        // RWD 調整: 使用相對位置，避免在不同比例螢幕上位置過低或過高
+        this.y = canvas.height * 0.85; 
         this.targetX = this.x;
         this.bulletCount = 1;
         this.fireRate = 10;
@@ -416,8 +457,12 @@ const player = {
     
     update() {
         this.x += (this.targetX - this.x) * 0.25;
+        // 邊界檢查
         if(this.x < 20) this.x = 20;
         if(this.x > canvas.width - 20) this.x = canvas.width - 20;
+        
+        // 確保 resize 後 y 軸位置正確
+        this.y = canvas.height * 0.85; 
     },
     
     draw() {
@@ -430,6 +475,7 @@ const player = {
         ctx.lineTo(20, 20);
         ctx.fill();
         
+        // 根據子彈數量畫簡單的裝飾
         if(this.bulletCount > 1) {
             ctx.strokeStyle = '#f1c40f';
             ctx.lineWidth = 3;
@@ -439,7 +485,6 @@ const player = {
     }
 };
 
-// 實體陣列
 let bullets = [];
 let enemies = [];
 let particles = [];
@@ -453,7 +498,7 @@ function resize() {
     if(!gameRunning) player.reset();
 }
 window.addEventListener('resize', resize);
-resize();
+resize(); // 初始化調用
 
 // --- 輸入控制 ---
 function handleInput(x) { player.targetX = x; }
@@ -508,7 +553,7 @@ class Bullet {
 
 class Enemy {
     constructor() {
-        this.r = Math.random() * 20 + 25;
+        this.r = Math.random() * 20 + 25; // 半徑
         this.x = Math.random() * (canvas.width - this.r*2) + this.r;
         this.y = -this.r * 2;
         this.vx = (Math.random() - 0.5) * 5;
@@ -517,12 +562,20 @@ class Enemy {
         this.hp = Math.floor(Math.random() * 5) + 5 + (level * 5);
         this.maxHp = this.hp;
         
+        // --- 護盾機制 ---
+        // 根據飛船等級計算護盾層數
+        // Level 1: 0, Level 2: 2, Level 3: 4...
+        this.shield = Math.max(0, (level - 1) * 2);
+        this.maxShield = this.shield;
+        
         this.color = `hsl(${Math.random()*360}, 70%, 60%)`;
         this.dead = false;
     }
     update() {
         this.x += this.vx;
         this.y += this.vy;
+        
+        // 邊界彈跳
         if(this.x - this.r < 0 || this.x + this.r > canvas.width) {
             this.vx *= -1;
             this.x = Math.max(this.r, Math.min(canvas.width - this.r, this.x));
@@ -530,6 +583,19 @@ class Enemy {
         if(this.y > canvas.height + 100) this.dead = true;
     }
     draw() {
+        // 繪製護盾光環
+        if (this.shield > 0) {
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, this.r + 6, 0, Math.PI*2);
+            ctx.strokeStyle = '#00d2ff'; // 藍色護盾
+            ctx.lineWidth = 3;
+            // 讓護盾看起來有點閃爍
+            ctx.globalAlpha = 0.7 + Math.sin(frameCount * 0.2) * 0.3; 
+            ctx.stroke();
+            ctx.globalAlpha = 1;
+        }
+
+        // 繪製本體
         ctx.beginPath();
         ctx.arc(this.x, this.y, this.r, 0, Math.PI*2);
         ctx.fillStyle = this.color;
@@ -538,11 +604,20 @@ class Enemy {
         ctx.lineWidth = 2;
         ctx.stroke();
         
+        // 文字顯示
         ctx.fillStyle = '#fff';
-        ctx.font = 'bold 18px Arial';
+        ctx.font = 'bold 16px Arial';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText(this.hp, this.x, this.y);
+        
+        // 優先顯示護盾值，如果沒護盾則顯示HP
+        if (this.shield > 0) {
+            ctx.fillStyle = '#00d2ff';
+            ctx.fillText(`🛡️${this.shield}`, this.x, this.y);
+        } else {
+            ctx.fillStyle = '#fff';
+            ctx.fillText(this.hp, this.x, this.y);
+        }
     }
 }
 
@@ -571,8 +646,9 @@ class Boss {
             this.attackCount++;
             
             if(this.attackCount % 5 === 0) {
-                this.shoot(7);
-                this.hp = Math.min(this.maxHp, this.hp + this.maxHp * 0.05);
+                this.shoot(7); // 大招
+                // Boss 少量回血
+                this.hp = Math.min(this.maxHp, this.hp + this.maxHp * 0.02);
                 for(let k=0; k<10; k++) particles.push(new HealParticle(this.x, this.y));
                 updateHUD();
             } else {
@@ -589,13 +665,11 @@ class Boss {
         if (count === 1) {
              bossBullets.push(new BossBullet(this.x, this.y + 50, baseAngle));
         } else {
-             bossBullets.push(new BossBullet(this.x, this.y + 50, baseAngle));
-             bossBullets.push(new BossBullet(this.x, this.y + 50, baseAngle - 1.0));
-             bossBullets.push(new BossBullet(this.x, this.y + 50, baseAngle + 1.0));
-             bossBullets.push(new BossBullet(this.x, this.y + 50, baseAngle - 2.0));
-             bossBullets.push(new BossBullet(this.x, this.y + 50, baseAngle + 2.0));
-             bossBullets.push(new BossBullet(this.x, this.y + 50, baseAngle - 3.0));
-             bossBullets.push(new BossBullet(this.x, this.y + 50, baseAngle + 3.0));
+             // 扇形彈幕
+             let angles = [-3, -2, -1, 0, 1, 2, 3];
+             angles.forEach(offset => {
+                 bossBullets.push(new BossBullet(this.x, this.y + 50, baseAngle + offset));
+             });
         }
     }
 
@@ -615,6 +689,7 @@ class Boss {
         ctx.lineWidth = 4;
         ctx.stroke();
 
+        // 眼睛
         ctx.fillStyle = '#ffff00';
         ctx.beginPath(); ctx.arc(-30, -10, 10, 0, Math.PI*2); ctx.fill();
         ctx.beginPath(); ctx.arc(30, -10, 10, 0, Math.PI*2); ctx.fill();
@@ -623,7 +698,7 @@ class Boss {
     }
 }
 
-// --- Boss 子彈類別 ---
+// --- Boss 子彈 ---
 class BossBullet {
     constructor(x, y, angle) {
         this.x = x;
@@ -632,7 +707,7 @@ class BossBullet {
         this.speed = 5;
         this.radius = 12;
         this.dead = false;
-        this.baseTurnRate = 0.1; 
+        this.baseTurnRate = 0.08; 
     }
 
     update() {
@@ -715,29 +790,20 @@ class HealParticle {
 // --- 核心邏輯 ---
 
 function updateStatsDisplay() {
-    // 子彈數量 (X/7)
     uiStatBullets.innerText = `${player.bulletCount}/7`;
-    
-    // 射速（fireRate 是幀數間隔，轉換為秒）
-    // 假設 60fps，每 fireRate 幀發射一次
     let fireRateSeconds = (player.fireRate / 60).toFixed(2);
     uiStatFirerate.innerText = `${fireRateSeconds}s`;
-    
-    // 攻擊力
     uiStatDamage.innerText = player.damage;
 }
 
 function updateSkillCards() {
-    // 更新多重射擊卡片狀態
     multishotLevelText.innerText = `${multishotUpgrades} / ${MAX_MULTISHOT_UPGRADES}`;
-    
     if (multishotUpgrades >= MAX_MULTISHOT_UPGRADES) {
         cardMultishot.classList.add('disabled');
     } else {
         cardMultishot.classList.remove('disabled');
     }
     
-    // 更新其他技能等級顯示
     firerateLevelText.innerText = `已強化 ${firerateUpgrades} 次`;
     damageLevelText.innerText = `已強化 ${damageUpgrades} 次`;
 }
@@ -759,7 +825,6 @@ function updateHUD() {
         uiProgressText.innerText = `${currentKills} / ${targetKills}`;
         bossHpContainer.style.display = 'none';
     }
-    
     updateStatsDisplay();
 }
 
@@ -781,11 +846,8 @@ function checkLevelUp() {
 
 // 全域函數：選擇技能
 window.chooseSkill = function(type) {
-    // 檢查多重射擊是否已達上限
     if (type === 'multishot') {
-        if (multishotUpgrades >= MAX_MULTISHOT_UPGRADES) {
-            return; // 已達上限，不執行
-        }
+        if (multishotUpgrades >= MAX_MULTISHOT_UPGRADES) return;
         player.bulletCount += 2;
         multishotUpgrades++;
     }
@@ -802,11 +864,9 @@ window.chooseSkill = function(type) {
 
     level++;
     
-    // 補償暫停時間
     let pauseDuration = Date.now() - pausedTime;
     gameStartTime += pauseDuration;
     
-    // 更新數值顯示
     updateStatsDisplay();
     
     if (level === 10) {
@@ -842,12 +902,10 @@ function initGame() {
     boss = null;
     bossBullets = [];
     
-    // 重置技能升級次數
     multishotUpgrades = 0;
     firerateUpgrades = 0;
     damageUpgrades = 0;
     
-    // 重置計時器
     gameStartTime = Date.now();
     gameElapsedTime = 0;
     
@@ -864,7 +922,6 @@ function initGame() {
     uiEndTitle.innerText = "GAME OVER";
     uiEndTitle.classList.remove('victory-text');
     
-    // 重置技能卡片狀態
     cardMultishot.classList.remove('disabled');
     
     gameRunning = true;
@@ -900,12 +957,14 @@ function animate() {
 
     updateTimer();
 
+    // 清除畫布
     ctx.fillStyle = 'rgba(20, 30, 48, 0.3)';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
     player.update();
     player.draw();
 
+    // 產生子彈
     if(frameCount % player.fireRate === 0) {
         let startAngle = -0.15 * (player.bulletCount - 1);
         for(let i=0; i<player.bulletCount; i++) {
@@ -914,27 +973,30 @@ function animate() {
         }
     }
 
+    // Boss 邏輯
     if (isBossLevel) {
         if (boss && !boss.dead) {
             boss.update();
             boss.draw();
 
+            // Boss 碰撞玩家
             if(Math.abs(player.x - boss.x) < (boss.width/2 + 20) && 
                Math.abs(player.y - boss.y) < (boss.height/2 + 20)) {
                 endGame();
             }
         }
     } else {
+        // 小怪生成邏輯
         let spawnRate = Math.max(15, 60 - (level * 3)); 
-        
         if(frameCount % spawnRate === 0) {
             enemies.push(new Enemy());
-            
+            // 高等級生成更多
             if (level >= 2 && Math.random() < 0.3) enemies.push(new Enemy());
             if (level >= 5 && Math.random() < 0.3) enemies.push(new Enemy());
         }
     }
 
+    // 子彈碰撞邏輯
     bullets.forEach(b => {
         b.update();
         b.draw();
@@ -944,21 +1006,35 @@ function animate() {
                 if(b.dead || e.dead) return;
                 let dist = Math.hypot(b.x - e.x, b.y - e.y);
                 if(dist < e.r + b.radius) {
-                    b.dead = true;
-                    e.hp -= b.damage;
-                    e.r = Math.max(15, e.r - 1);
+                    b.dead = true; // 子彈消失
                     
-                    if(e.hp <= 0) {
-                        e.dead = true;
-                        currentKills++;
-                        updateHUD();
-                        for(let k=0; k<8; k++) particles.push(new Particle(e.x, e.y, e.color));
-                        checkLevelUp();
+                    // --- 護盾邏輯 ---
+                    if (e.shield > 0) {
+                        e.shield--; // 扣除護盾
+                        // 產生藍色護盾粒子
+                        for(let k=0; k<4; k++) particles.push(new Particle(b.x, b.y, '#00d2ff'));
+                        // 有護盾時，不扣血，不縮小
+                    } else {
+                        // 無護盾，正常扣血
+                        e.hp -= b.damage;
+                        e.r = Math.max(15, e.r - 1); // 被打中稍微變小
+                        // 產生紅色傷害粒子
+                        particles.push(new Particle(b.x, b.y, '#ff416c'));
+                        
+                        if(e.hp <= 0) {
+                            e.dead = true;
+                            currentKills++;
+                            updateHUD();
+                            // 死亡爆炸
+                            for(let k=0; k<8; k++) particles.push(new Particle(e.x, e.y, e.color));
+                            checkLevelUp();
+                        }
                     }
                 }
             });
         } 
         else if (boss && !boss.dead) {
+            // Boss 碰撞 (Boss 沒有護盾邏輯，或另計)
             if (b.x > boss.x - 75 && b.x < boss.x + 75 && 
                 b.y > boss.y - 50 && b.y < boss.y + 50) {
                 
@@ -978,6 +1054,7 @@ function animate() {
         }
     });
 
+    // 敵人移動與玩家碰撞
     if (!isBossLevel) {
         enemies.forEach(e => {
             e.update();
@@ -989,11 +1066,11 @@ function animate() {
         });
     }
 
+    // Boss 子彈處理
     if (isBossLevel) {
         bossBullets.forEach(bb => {
             bb.update();
             bb.draw();
-            
             let dist = Math.hypot(player.x - bb.x, player.y - bb.y);
             if (dist < 20 + bb.radius) {
                 endGame();
@@ -1004,6 +1081,7 @@ function animate() {
 
     particles.forEach(p => { p.update(); p.draw(); });
 
+    // 清理無用物件
     bullets = bullets.filter(b => !b.dead);
     enemies = enemies.filter(e => !e.dead);
     particles = particles.filter(p => p.life > 0);
