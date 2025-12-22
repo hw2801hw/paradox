@@ -1,0 +1,1188 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>彬紛泡泡樂</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700&display=swap');
+        * {
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            min-height: 100vh;
+            overflow-x: hidden;
+            overflow-y: auto;
+        }
+        .power-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        #gameCanvas {
+            border-radius: 10px;
+            box-shadow: 0 0 30px rgba(0,0,0,0.5);
+            touch-action: none;
+        }
+        
+        /* Mobile Tabs */
+        .mobile-tabs {
+            display: none;
+        }
+        
+        @media (max-width: 900px) {
+            .mobile-tabs {
+                display: flex;
+                width: 100%;
+                max-width: 400px;
+                margin-bottom: 8px;
+            }
+            .mobile-tab {
+                flex: 1;
+                padding: 8px 12px;
+                background: rgba(255,255,255,0.1);
+                border: none;
+                color: white;
+                font-weight: bold;
+                cursor: pointer;
+                transition: all 0.3s;
+            }
+            .mobile-tab:first-child {
+                border-radius: 8px 0 0 8px;
+            }
+            .mobile-tab:last-child {
+                border-radius: 0 8px 8px 0;
+            }
+            .mobile-tab.active {
+                background: rgba(255,255,255,0.3);
+            }
+            .mobile-panel-container {
+                display: block;
+                width: 100%;
+                max-width: 400px;
+            }
+            .mobile-panel {
+                display: none;
+            }
+            .mobile-panel.active {
+                display: block;
+            }
+            .desktop-panels {
+                display: none !important;
+            }
+        }
+        
+        @media (min-width: 901px) {
+            .mobile-panel-container {
+                display: none !important;
+            }
+        }
+        
+        @media (max-width: 500px) {
+            .power-item {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+            }
+            .power-item > div:first-child {
+                flex-shrink: 0;
+            }
+            .power-item > div:last-child {
+                flex: 1;
+            }
+        }
+    </style>
+</head>
+<body class="flex flex-col items-center justify-start p-2 md:p-4 pb-8">
+    <div class="game-container flex flex-col lg:flex-row gap-4 lg:gap-6 items-center lg:items-start w-full max-w-6xl">
+        
+        <!-- Desktop Left Panel - Power-ups -->
+        <div class="desktop-panels side-panel bg-white/10 backdrop-blur-md rounded-xl p-3 md:p-4 text-white w-48 hidden lg:block">
+            <h2 class="text-lg md:text-xl font-bold text-center mb-3 md:mb-4 text-yellow-300">🎯 道具商店</h2>
+            
+            <div class="space-y-2 md:space-y-3">
+                <div class="power-item bg-white/10 rounded-lg p-2 md:p-3">
+                    <div class="flex items-center gap-2 mb-1 md:mb-2">
+                        <span class="text-xl md:text-2xl">⚪</span>
+                        <span class="font-bold text-sm">萬能泡泡</span>
+                    </div>
+                    <div>
+                        <p class="text-xs text-gray-300 mb-1 md:mb-2">未來3次發射為萬能泡泡</p>
+                        <button id="powerRainbow" onclick="usePowerRainbow()" class="power-btn w-full bg-gradient-to-r from-gray-400 to-gray-200 hover:from-gray-500 hover:to-gray-300 text-gray-800 py-1 px-2 rounded text-xs md:text-sm font-bold transition">
+                            消耗 15 積分
+                        </button>
+                        <div id="rainbowCount" class="text-center text-yellow-300 text-xs md:text-sm mt-1 hidden">剩餘: <span>0</span> 次</div>
+                    </div>
+                </div>
+                
+                <div class="power-item bg-white/10 rounded-lg p-2 md:p-3">
+                    <div class="flex items-center gap-2 mb-1 md:mb-2">
+                        <span class="text-xl md:text-2xl">⏱️</span>
+                        <span class="font-bold text-sm">延遲新輪</span>
+                    </div>
+                    <div>
+                        <p class="text-xs text-gray-300 mb-1 md:mb-2">3次→5次加新泡泡(永久)</p>
+                        <button id="powerDelay" onclick="usePowerDelay()" class="power-btn w-full bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white py-1 px-2 rounded text-xs md:text-sm font-bold transition">
+                            消耗 20 積分
+                        </button>
+                        <div id="delayActive" class="text-center text-green-300 text-xs md:text-sm mt-1 hidden">✓ 已啟用</div>
+                    </div>
+                </div>
+                
+                <div class="power-item bg-white/10 rounded-lg p-2 md:p-3">
+                    <div class="flex items-center gap-2 mb-1 md:mb-2">
+                        <span class="text-xl md:text-2xl">🎯</span>
+                        <span class="font-bold text-sm">減少目標</span>
+                    </div>
+                    <div>
+                        <p class="text-xs text-gray-300 mb-1 md:mb-2">勝利條件 -10 次</p>
+                        <button id="powerReduce" onclick="usePowerReduce()" class="power-btn w-full bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white py-1 px-2 rounded text-xs md:text-sm font-bold transition">
+                            消耗 50 積分
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Game Area -->
+        <div class="game-area flex flex-col items-center">
+            <h1 class="text-2xl md:text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-pink-400 via-purple-400 to-cyan-400 mb-2 md:mb-4">🫧 彬紛泡泡樂 🫧</h1>
+            
+            <div class="flex flex-wrap justify-center gap-2 md:gap-4 mb-2 md:mb-4 text-white">
+                <div class="bg-white/10 backdrop-blur-md rounded-lg px-3 py-1 md:px-4 md:py-2">
+                    <span class="text-gray-300 text-sm md:text-base">積分:</span>
+                    <span id="score" class="text-lg md:text-2xl font-bold text-yellow-300 ml-1 md:ml-2">0</span>
+                </div>
+                <div class="bg-white/10 backdrop-blur-md rounded-lg px-3 py-1 md:px-4 md:py-2">
+                    <span class="text-gray-300 text-sm md:text-base">發射:</span>
+                    <span id="shots" class="text-lg md:text-2xl font-bold text-cyan-300 ml-1">0</span>
+                    <span class="text-gray-300">/</span>
+                    <span id="targetShots" class="text-lg md:text-2xl font-bold text-green-300">100</span>
+                </div>
+                <div class="bg-white/10 backdrop-blur-md rounded-lg px-3 py-1 md:px-4 md:py-2">
+                    <span class="text-gray-300 text-sm md:text-base">新輪:</span>
+                    <span id="nextRow" class="text-lg md:text-2xl font-bold text-orange-300 ml-1">3</span>
+                </div>
+            </div>
+            
+            <!-- Current & Next Bubble Display -->
+            <div class="flex items-center gap-4 mb-2 text-white">
+                <div class="bg-white/10 backdrop-blur-md rounded-lg px-4 py-2 flex items-center gap-2">
+                    <span class="text-sm text-gray-300">目前:</span>
+                    <canvas id="currentBubblePreview" width="36" height="36"></canvas>
+                </div>
+                <div class="bg-white/10 backdrop-blur-md rounded-lg px-4 py-2 flex items-center gap-2">
+                    <span class="text-sm text-gray-300">下一個:</span>
+                    <canvas id="nextBubblePreview" width="36" height="36"></canvas>
+                </div>
+            </div>
+            
+<canvas id="gameCanvas" width="360" height="480"></canvas>
+            
+            <div class="mt-2 md:mt-4 flex gap-4">
+                <button onclick="restartGame()" class="bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white py-2 px-4 md:px-6 rounded-lg font-bold transition transform hover:scale-105 text-sm md:text-base">
+                    🔄 重新開始
+                </button>
+            </div>
+            <p class="text-gray-400 text-xs md:text-sm mt-2 text-center">點擊或觸控螢幕瞄準發射泡泡</p>
+            
+            <!-- Mobile Tabs - Show below restart button on mobile -->
+            <div class="mobile-tabs mt-3">
+                <button class="mobile-tab active" onclick="switchMobileTab('shop')">🎯 道具商店</button>
+                <button class="mobile-tab" onclick="switchMobileTab('help')">📖 遊戲說明</button>
+            </div>
+            
+            <!-- Mobile Panel Container -->
+            <div class="mobile-panel-container mb-2">
+                <!-- Mobile Shop Panel -->
+                <div id="mobileShopPanel" class="mobile-panel active bg-white/10 backdrop-blur-md rounded-xl p-3 text-white">
+                    <div class="flex gap-2 overflow-x-auto pb-2">
+                        <div class="flex-shrink-0 bg-white/10 rounded-lg p-2 min-w-[140px]">
+                            <div class="flex items-center gap-1 mb-1">
+                                <span class="text-lg">⚪</span>
+                                <span class="font-bold text-xs">萬能泡泡</span>
+                            </div>
+                            <p class="text-xs text-gray-300 mb-1">未來3次萬能泡泡</p>
+                            <button id="powerRainbowMobile" onclick="usePowerRainbow()" class="power-btn w-full bg-gradient-to-r from-gray-400 to-gray-200 text-gray-800 py-1 px-2 rounded text-xs font-bold">
+                                15 積分
+                            </button>
+                            <div id="rainbowCountMobile" class="text-center text-yellow-300 text-xs mt-1 hidden">剩餘: <span>0</span> 次</div>
+                        </div>
+                        
+                        <div class="flex-shrink-0 bg-white/10 rounded-lg p-2 min-w-[140px]">
+                            <div class="flex items-center gap-1 mb-1">
+                                <span class="text-lg">⏱️</span>
+                                <span class="font-bold text-xs">延遲新輪</span>
+                            </div>
+                            <p class="text-xs text-gray-300 mb-1">3次→5次(永久)</p>
+                            <button id="powerDelayMobile" onclick="usePowerDelay()" class="power-btn w-full bg-gradient-to-r from-blue-500 to-cyan-500 text-white py-1 px-2 rounded text-xs font-bold">
+                                20 積分
+                            </button>
+                            <div id="delayActiveMobile" class="text-center text-green-300 text-xs mt-1 hidden">✓ 已啟用</div>
+                        </div>
+                        
+                        <div class="flex-shrink-0 bg-white/10 rounded-lg p-2 min-w-[140px]">
+                            <div class="flex items-center gap-1 mb-1">
+                                <span class="text-lg">🎯</span>
+                                <span class="font-bold text-xs">減少目標</span>
+                            </div>
+                            <p class="text-xs text-gray-300 mb-1">勝利條件 -10 次</p>
+                            <button id="powerReduceMobile" onclick="usePowerReduce()" class="power-btn w-full bg-gradient-to-r from-green-500 to-emerald-500 text-white py-1 px-2 rounded text-xs font-bold">
+                                50 積分
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Mobile Help Panel -->
+                <div id="mobileHelpPanel" class="mobile-panel bg-white/10 backdrop-blur-md rounded-xl p-3 text-white">
+                    <div class="grid grid-cols-2 gap-2 text-xs">
+                        <div class="bg-white/10 rounded-lg p-2">
+                            <p class="text-yellow-300 font-bold">🎯 目標</p>
+                            <p class="text-gray-300">發射100次泡泡即可勝利！</p>
+                        </div>
+                        <div class="bg-white/10 rounded-lg p-2">
+                            <p class="text-yellow-300 font-bold">💫 消除規則</p>
+                            <p class="text-gray-300">3個以上相同顏色相連消除</p>
+                        </div>
+                        <div class="bg-white/10 rounded-lg p-2">
+                            <p class="text-yellow-300 font-bold">⚠️ 失敗條件</p>
+                            <p class="text-gray-300">泡泡觸及底線即失敗</p>
+                        </div>
+                        <div class="bg-white/10 rounded-lg p-2">
+                            <p class="text-yellow-300 font-bold">💡 提示</p>
+                            <p class="text-gray-300">善用道具增加優勢！</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Desktop Right Panel - Instructions -->
+        <div class="desktop-panels side-panel bg-white/10 backdrop-blur-md rounded-xl p-3 md:p-4 text-white w-48 hidden lg:block">
+            <h2 class="text-lg md:text-xl font-bold text-center mb-3 md:mb-4 text-cyan-300">📖 遊戲說明</h2>
+            <div class="space-y-2 md:space-y-3 text-sm">
+                <div class="bg-white/10 rounded-lg p-2">
+                    <p class="text-yellow-300 font-bold">🎯 目標</p>
+                    <p class="text-gray-300 text-xs">發射100次泡泡即可勝利！</p>
+                </div>
+                <div class="bg-white/10 rounded-lg p-2">
+                    <p class="text-yellow-300 font-bold">💫 消除規則</p>
+                    <p class="text-gray-300 text-xs">3個或以上相同顏色相連即可消除</p>
+                </div>
+                <div class="bg-white/10 rounded-lg p-2">
+                    <p class="text-yellow-300 font-bold">⚠️ 失敗條件</p>
+                    <p class="text-gray-300 text-xs">泡泡觸及底線即失敗</p>
+                </div>
+                <div class="bg-white/10 rounded-lg p-2">
+                    <p class="text-yellow-300 font-bold">💡 提示</p>
+                    <p class="text-gray-300 text-xs">善用道具增加優勢！</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Win/Lose Modal -->
+    <div id="gameModal" class="fixed inset-0 bg-black/70 flex items-center justify-center hidden z-50 p-4">
+        <div class="bg-gradient-to-br from-purple-600 to-pink-600 rounded-2xl p-6 md:p-8 text-center text-white transform scale-0 transition-transform duration-300 max-w-sm w-full" id="modalContent">
+            <div id="modalIcon" class="text-6xl md:text-8xl mb-4">🎉</div>
+            <h2 id="modalTitle" class="text-2xl md:text-4xl font-bold mb-4">恭喜勝利！</h2>
+            <p id="modalMessage" class="text-lg md:text-xl mb-4 md:mb-6">你成功完成了挑戰！</p>
+            <p id="modalScore" class="text-base md:text-lg mb-4 md:mb-6">最終積分: <span class="text-yellow-300 font-bold">0</span></p>
+            <button onclick="restartGame()" class="bg-white text-purple-600 py-2 md:py-3 px-6 md:px-8 rounded-lg font-bold text-lg md:text-xl hover:bg-gray-100 transition transform hover:scale-105">
+                再玩一次
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // Mobile tab switching
+        function switchMobileTab(tab) {
+            const tabs = document.querySelectorAll('.mobile-tab');
+            const shopPanel = document.getElementById('mobileShopPanel');
+            const helpPanel = document.getElementById('mobileHelpPanel');
+            
+            tabs.forEach(t => t.classList.remove('active'));
+            
+            if (tab === 'shop') {
+                tabs[0].classList.add('active');
+                shopPanel.classList.add('active');
+                helpPanel.classList.remove('active');
+            } else {
+                tabs[1].classList.add('active');
+                helpPanel.classList.add('active');
+                shopPanel.classList.remove('active');
+            }
+        }
+        
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const currentPreview = document.getElementById('currentBubblePreview');
+        const nextPreview = document.getElementById('nextBubblePreview');
+        const currentPreviewCtx = currentPreview.getContext('2d');
+        const nextPreviewCtx = nextPreview.getContext('2d');
+        
+        // Responsive canvas sizing
+        function resizeCanvas() {
+            const maxWidth = Math.min(window.innerWidth - 32, 400);
+            const scale = maxWidth / 360;
+            if (window.innerWidth < 500) {
+                canvas.style.width = maxWidth + 'px';
+                canvas.style.height = (480 * scale) + 'px';
+            } else {
+                canvas.style.width = '';
+                canvas.style.height = '';
+            }
+        }
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
+        
+        // Game constants
+        const BUBBLE_RADIUS = 15;
+        const COLS = 12;
+        const ROW_HEIGHT = BUBBLE_RADIUS * 1.732;
+        // 5 vibrant colors: Red, Green, Yellow, Blue, Purple
+        const COLORS = ['#FF0000', '#00DD00', '#FFDD00', '#0088FF', '#AA00FF'];
+        
+        // Game state
+        let bubbleGrid = [];
+        let currentBubble = null;
+        let nextBubbleColor = null;
+        let rainbowShots = 0;
+        let shooting = false;
+        let shootAngle = -Math.PI / 2;
+        let score = 0;
+        let shots = 0;
+        let targetShots = 100;
+        let shotsUntilNewRow = 3;
+        let newRowInterval = 3;
+        let delayPurchased = false;
+        let gameOver = false;
+        let gameWon = false;
+        let topRowOffset = 0;
+        
+        // Initialize game
+        function initGame() {
+            bubbleGrid = [];
+            score = 0;
+            shots = 0;
+            targetShots = 100;
+            shotsUntilNewRow = 3;
+            newRowInterval = 3;
+            delayPurchased = false;
+            rainbowShots = 0;
+            gameOver = false;
+            gameWon = false;
+            topRowOffset = 0;
+            
+            // Create initial bubble grid (8 rows)
+            for (let row = 0; row < 8; row++) {
+                bubbleGrid[row] = [];
+                const isOddRow = (row + topRowOffset) % 2 === 1;
+                const cols = isOddRow ? COLS - 1 : COLS;
+                
+                for (let col = 0; col < cols; col++) {
+                    bubbleGrid[row][col] = {
+                        color: COLORS[Math.floor(Math.random() * COLORS.length)],
+                        exists: true
+                    };
+                }
+            }
+            
+            nextBubbleColor = getNewBubbleColor();
+            createNewBubble();
+            updateUI();
+            hideModal();
+            
+            document.getElementById('delayActive').classList.add('hidden');
+            document.getElementById('delayActiveMobile').classList.add('hidden');
+            document.getElementById('powerDelay').disabled = false;
+            document.getElementById('powerDelayMobile').disabled = false;
+            updateRainbowUI();
+        }
+        
+        function getNewBubbleColor() {
+            if (rainbowShots > 0) {
+                return 'white';
+            }
+            return COLORS[Math.floor(Math.random() * COLORS.length)];
+        }
+        
+        function createNewBubble() {
+            currentBubble = {
+                x: canvas.width / 2,
+                y: canvas.height - 35,
+                color: nextBubbleColor,
+                vx: 0,
+                vy: 0
+            };
+            
+            // Prepare next bubble color
+            if (rainbowShots > 1) {
+                nextBubbleColor = 'white';
+            } else {
+                nextBubbleColor = COLORS[Math.floor(Math.random() * COLORS.length)];
+            }
+            
+            updateBubblePreviews();
+        }
+        
+        function updateBubblePreviews() {
+            // Draw current bubble preview
+            currentPreviewCtx.clearRect(0, 0, 36, 36);
+            drawBubbleOnContext(currentPreviewCtx, 18, 18, currentBubble.color, 14);
+            
+            // Draw next bubble preview
+            nextPreviewCtx.clearRect(0, 0, 36, 36);
+            drawBubbleOnContext(nextPreviewCtx, 18, 18, nextBubbleColor, 14);
+        }
+        
+        function drawBubbleOnContext(context, x, y, color, radius) {
+            context.save();
+            
+            if (color === 'white') {
+                // White bubble with star effect
+                const gradient = context.createRadialGradient(x - 2, y - 2, 0, x, y, radius);
+                gradient.addColorStop(0, '#FFFFFF');
+                gradient.addColorStop(0.5, '#F0F0F0');
+                gradient.addColorStop(1, '#CCCCCC');
+                context.fillStyle = gradient;
+                
+                context.beginPath();
+                context.arc(x, y, radius - 1, 0, Math.PI * 2);
+                context.fill();
+                
+                // Add sparkle effect
+                context.strokeStyle = '#AAAAAA';
+                context.lineWidth = 1;
+                context.beginPath();
+                context.arc(x, y, radius - 1, 0, Math.PI * 2);
+                context.stroke();
+                
+                // Star symbol
+                context.fillStyle = '#888888';
+                context.font = `${radius * 0.9}px sans-serif`;
+                context.textAlign = 'center';
+                context.textBaseline = 'middle';
+                context.fillText('✦', x, y + 1);
+            } else {
+                const gradient = context.createRadialGradient(x - 3, y - 3, 0, x, y, radius);
+                gradient.addColorStop(0, '#ffffff');
+                gradient.addColorStop(0.3, color);
+                gradient.addColorStop(1, shadeColor(color, -30));
+                context.fillStyle = gradient;
+                
+                context.beginPath();
+                context.arc(x, y, radius - 1, 0, Math.PI * 2);
+                context.fill();
+                
+                // Shine
+                context.fillStyle = 'rgba(255,255,255,0.6)';
+                context.beginPath();
+                context.arc(x - radius/3, y - radius/3, radius/4, 0, Math.PI * 2);
+                context.fill();
+            }
+            
+            context.restore();
+        }
+        
+        function getBubblePosition(row, col) {
+            const isOddRow = (row + topRowOffset) % 2 === 1;
+            const offset = isOddRow ? BUBBLE_RADIUS : 0;
+            return {
+                x: col * BUBBLE_RADIUS * 2 + BUBBLE_RADIUS + offset,
+                y: row * ROW_HEIGHT + BUBBLE_RADIUS
+            };
+        }
+        
+        function getGridPosition(x, y) {
+            const row = Math.round((y - BUBBLE_RADIUS) / ROW_HEIGHT);
+            const isOddRow = (row + topRowOffset) % 2 === 1;
+            const offset = isOddRow ? BUBBLE_RADIUS : 0;
+            const col = Math.round((x - BUBBLE_RADIUS - offset) / (BUBBLE_RADIUS * 2));
+            return { row, col };
+        }
+        
+        function shoot() {
+            if (shooting || gameOver || gameWon) return;
+            
+            shooting = true;
+            const speed = 12;
+            currentBubble.vx = Math.cos(shootAngle) * speed;
+            currentBubble.vy = Math.sin(shootAngle) * speed;
+        }
+        
+        function update() {
+            if (gameOver || gameWon) return;
+            
+            if (shooting && currentBubble) {
+                currentBubble.x += currentBubble.vx;
+                currentBubble.y += currentBubble.vy;
+                
+                // Wall collision
+                if (currentBubble.x <= BUBBLE_RADIUS) {
+                    currentBubble.x = BUBBLE_RADIUS;
+                    currentBubble.vx *= -1;
+                }
+                if (currentBubble.x >= canvas.width - BUBBLE_RADIUS) {
+                    currentBubble.x = canvas.width - BUBBLE_RADIUS;
+                    currentBubble.vx *= -1;
+                }
+                
+                // Top collision
+                if (currentBubble.y <= BUBBLE_RADIUS) {
+                    currentBubble.y = BUBBLE_RADIUS;
+                    snapBubble();
+                    return;
+                }
+                
+                // Check collision with existing bubbles
+                for (let row = 0; row < bubbleGrid.length; row++) {
+                    for (let col = 0; col < bubbleGrid[row].length; col++) {
+                        if (!bubbleGrid[row][col] || !bubbleGrid[row][col].exists) continue;
+                        
+                        const pos = getBubblePosition(row, col);
+                        const dx = currentBubble.x - pos.x;
+                        const dy = currentBubble.y - pos.y;
+                        const dist = Math.sqrt(dx * dx + dy * dy);
+                        
+                        if (dist < BUBBLE_RADIUS * 1.8) {
+                            snapBubble();
+                            return;
+                        }
+                    }
+                }
+            }
+        }
+        
+        function snapBubble() {
+            // Find best grid position
+            const gridPos = getGridPosition(currentBubble.x, currentBubble.y);
+            let bestRow = Math.max(0, gridPos.row);
+            let bestCol = gridPos.col;
+            
+            const isOddRow = (bestRow + topRowOffset) % 2 === 1;
+            const maxCols = isOddRow ? COLS - 1 : COLS;
+            bestCol = Math.max(0, Math.min(maxCols - 1, bestCol));
+            
+            // Make sure the row exists in grid
+            while (bubbleGrid.length <= bestRow) {
+                bubbleGrid.push([]);
+            }
+            
+            // Check if position is occupied, find nearby empty spot
+            if (bubbleGrid[bestRow][bestCol] && bubbleGrid[bestRow][bestCol].exists) {
+                let found = false;
+                for (let r = bestRow; r >= 0 && !found; r--) {
+                    const rowIsOdd = (r + topRowOffset) % 2 === 1;
+                    const rowMaxCols = rowIsOdd ? COLS - 1 : COLS;
+                    for (let c = 0; c < rowMaxCols; c++) {
+                        if (!bubbleGrid[r] || !bubbleGrid[r][c] || !bubbleGrid[r][c].exists) {
+                            const pos = getBubblePosition(r, c);
+                            const dx = currentBubble.x - pos.x;
+                            const dy = currentBubble.y - pos.y;
+                            const dist = Math.sqrt(dx * dx + dy * dy);
+                            if (dist < BUBBLE_RADIUS * 3) {
+                                bestRow = r;
+                                bestCol = c;
+                                found = true;
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+            
+            // Ensure row array exists
+            if (!bubbleGrid[bestRow]) {
+                bubbleGrid[bestRow] = [];
+            }
+            
+            // Place the bubble
+            bubbleGrid[bestRow][bestCol] = {
+                color: currentBubble.color,
+                exists: true
+            };
+            
+            // Find matches
+            let matchColor = currentBubble.color;
+            if (matchColor === 'white') {
+                // Find color of adjacent bubble
+                const neighbors = getNeighbors(bestRow, bestCol);
+                for (let n of neighbors) {
+                    if (n.color !== 'white') {
+                        matchColor = n.color;
+                        break;
+                    }
+                }
+            }
+            
+            const matches = findMatches(bestRow, bestCol, matchColor);
+            
+            if (matches.length >= 3) {
+                // Remove matched bubbles
+                for (let match of matches) {
+                    if (bubbleGrid[match.row] && bubbleGrid[match.row][match.col]) {
+                        bubbleGrid[match.row][match.col].exists = false;
+                    }
+                }
+                score += matches.length;
+                
+                // Remove floating bubbles
+                const floating = findFloatingBubbles();
+                for (let f of floating) {
+                    if (bubbleGrid[f.row] && bubbleGrid[f.row][f.col]) {
+                        bubbleGrid[f.row][f.col].exists = false;
+                    }
+                }
+                score += floating.length;
+            }
+            
+            // Update counters
+            shots++;
+            if (rainbowShots > 0) {
+                rainbowShots--;
+                updateRainbowUI();
+            }
+            
+            shotsUntilNewRow--;
+            
+            // Check for new row
+            if (shotsUntilNewRow <= 0) {
+                addNewRow();
+                shotsUntilNewRow = newRowInterval;
+            }
+            
+            // Check win/lose conditions
+            checkGameEnd();
+            
+            shooting = false;
+            createNewBubble();
+            updateUI();
+        }
+        
+        function getNeighbors(row, col) {
+            const neighbors = [];
+            const isOddRow = (row + topRowOffset) % 2 === 1;
+            
+            const offsets = isOddRow ? [
+                [-1, 0], [-1, 1],
+                [0, -1], [0, 1],
+                [1, 0], [1, 1]
+            ] : [
+                [-1, -1], [-1, 0],
+                [0, -1], [0, 1],
+                [1, -1], [1, 0]
+            ];
+            
+            for (let [dr, dc] of offsets) {
+                const nr = row + dr;
+                const nc = col + dc;
+                
+                if (nr >= 0 && nr < bubbleGrid.length && 
+                    bubbleGrid[nr] && bubbleGrid[nr][nc] && 
+                    bubbleGrid[nr][nc].exists) {
+                    neighbors.push({ row: nr, col: nc, color: bubbleGrid[nr][nc].color });
+                }
+            }
+            
+            return neighbors;
+        }
+        
+        function findMatches(startRow, startCol, targetColor) {
+            const matches = [{ row: startRow, col: startCol }];
+            const checked = new Set();
+            checked.add(`${startRow},${startCol}`);
+            
+            const queue = [{ row: startRow, col: startCol }];
+            
+            while (queue.length > 0) {
+                const current = queue.shift();
+                const neighbors = getNeighbors(current.row, current.col);
+                
+                for (let neighbor of neighbors) {
+                    const key = `${neighbor.row},${neighbor.col}`;
+                    if (!checked.has(key) && (neighbor.color === targetColor || neighbor.color === 'white')) {
+                        checked.add(key);
+                        matches.push({ row: neighbor.row, col: neighbor.col });
+                        queue.push({ row: neighbor.row, col: neighbor.col });
+                    }
+                }
+            }
+            
+            return matches;
+        }
+        
+        function findFloatingBubbles() {
+            const connected = new Set();
+            const queue = [];
+            
+            if (bubbleGrid[0]) {
+                for (let col = 0; col < bubbleGrid[0].length; col++) {
+                    if (bubbleGrid[0][col] && bubbleGrid[0][col].exists) {
+                        connected.add(`0,${col}`);
+                        queue.push({ row: 0, col: col });
+                    }
+                }
+            }
+            
+            while (queue.length > 0) {
+                const current = queue.shift();
+                const neighbors = getNeighbors(current.row, current.col);
+                
+                for (let neighbor of neighbors) {
+                    const key = `${neighbor.row},${neighbor.col}`;
+                    if (!connected.has(key)) {
+                        connected.add(key);
+                        queue.push({ row: neighbor.row, col: neighbor.col });
+                    }
+                }
+            }
+            
+            const floating = [];
+            for (let row = 0; row < bubbleGrid.length; row++) {
+                if (!bubbleGrid[row]) continue;
+                for (let col = 0; col < bubbleGrid[row].length; col++) {
+                    if (bubbleGrid[row][col] && bubbleGrid[row][col].exists) {
+                        if (!connected.has(`${row},${col}`)) {
+                            floating.push({ row, col });
+                        }
+                    }
+                }
+            }
+            
+            return floating;
+        }
+        
+        function addNewRow() {
+            bubbleGrid.unshift([]);
+            topRowOffset = (topRowOffset + 1) % 2;
+            
+            const isOddRow = topRowOffset % 2 === 1;
+            const cols = isOddRow ? COLS - 1 : COLS;
+            
+            for (let col = 0; col < cols; col++) {
+                bubbleGrid[0][col] = {
+                    color: COLORS[Math.floor(Math.random() * COLORS.length)],
+                    exists: true
+                };
+            }
+        }
+        
+        function checkGameEnd() {
+            if (shots >= targetShots) {
+                gameWon = true;
+                showModal(true);
+                return;
+            }
+            
+            const bottomLimit = canvas.height - 70;
+            for (let row = 0; row < bubbleGrid.length; row++) {
+                if (!bubbleGrid[row]) continue;
+                for (let col = 0; col < bubbleGrid[row].length; col++) {
+                    if (bubbleGrid[row][col] && bubbleGrid[row][col].exists) {
+                        const pos = getBubblePosition(row, col);
+                        if (pos.y + BUBBLE_RADIUS >= bottomLimit) {
+                            gameOver = true;
+                            showModal(false);
+                            return;
+                        }
+                    }
+                }
+            }
+        }
+        
+        function showModal(won) {
+            const modal = document.getElementById('gameModal');
+            const content = document.getElementById('modalContent');
+            const icon = document.getElementById('modalIcon');
+            const title = document.getElementById('modalTitle');
+            const message = document.getElementById('modalMessage');
+            const scoreEl = document.getElementById('modalScore');
+            
+            if (won) {
+                icon.textContent = '🎉';
+                title.textContent = '恭喜勝利！';
+                message.textContent = '你成功發射了 ' + targetShots + ' 次泡泡！';
+                content.className = 'bg-gradient-to-br from-purple-600 to-pink-600 rounded-2xl p-6 md:p-8 text-center text-white transform scale-100 transition-transform duration-300 max-w-sm w-full';
+            } else {
+                icon.textContent = '😢';
+                title.textContent = '遊戲結束';
+                message.textContent = '泡泡碰到底線了！';
+                content.className = 'bg-gradient-to-br from-gray-600 to-gray-800 rounded-2xl p-6 md:p-8 text-center text-white transform scale-100 transition-transform duration-300 max-w-sm w-full';
+            }
+            
+            scoreEl.innerHTML = '最終積分: <span class="text-yellow-300 font-bold">' + score + '</span>';
+            
+            modal.classList.remove('hidden');
+            setTimeout(() => {
+                content.classList.remove('scale-0');
+                content.classList.add('scale-100');
+            }, 50);
+        }
+        
+        function hideModal() {
+            const modal = document.getElementById('gameModal');
+            const content = document.getElementById('modalContent');
+            content.classList.remove('scale-100');
+            content.classList.add('scale-0');
+            modal.classList.add('hidden');
+        }
+        
+        // Calculate trajectory with wall bounces
+        function calculateTrajectory() {
+            const points = [];
+            let simX = currentBubble.x;
+            let simY = currentBubble.y;
+            let simVX = Math.cos(shootAngle);
+            let simVY = Math.sin(shootAngle);
+            
+            points.push({ x: simX, y: simY });
+            
+            for (let i = 0; i < 500; i++) {
+                simX += simVX * 2;
+                simY += simVY * 2;
+                
+                // Wall bounce
+                if (simX <= BUBBLE_RADIUS) {
+                    simX = BUBBLE_RADIUS;
+                    simVX *= -1;
+                    points.push({ x: simX, y: simY, bounce: true });
+                }
+                if (simX >= canvas.width - BUBBLE_RADIUS) {
+                    simX = canvas.width - BUBBLE_RADIUS;
+                    simVX *= -1;
+                    points.push({ x: simX, y: simY, bounce: true });
+                }
+                
+                // Top boundary
+                if (simY <= BUBBLE_RADIUS) {
+                    points.push({ x: simX, y: BUBBLE_RADIUS });
+                    break;
+                }
+                
+                // Check collision with existing bubbles
+                let hitBubble = false;
+                for (let row = 0; row < bubbleGrid.length && !hitBubble; row++) {
+                    for (let col = 0; col < (bubbleGrid[row] ? bubbleGrid[row].length : 0); col++) {
+                        if (!bubbleGrid[row][col] || !bubbleGrid[row][col].exists) continue;
+                        
+                        const pos = getBubblePosition(row, col);
+                        const dx = simX - pos.x;
+                        const dy = simY - pos.y;
+                        const dist = Math.sqrt(dx * dx + dy * dy);
+                        
+                        if (dist < BUBBLE_RADIUS * 1.9) {
+                            points.push({ x: simX, y: simY });
+                            hitBubble = true;
+                            break;
+                        }
+                    }
+                }
+                
+                if (hitBubble) break;
+            }
+            
+            return points;
+        }
+        
+        function draw() {
+            // Clear canvas
+            ctx.fillStyle = '#1a1a2e';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw grid background
+            ctx.fillStyle = 'rgba(255,255,255,0.02)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height - 70);
+            
+            // Draw bottom line (danger zone)
+            ctx.strokeStyle = '#ff4444';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([10, 5]);
+            ctx.beginPath();
+            ctx.moveTo(0, canvas.height - 70);
+            ctx.lineTo(canvas.width, canvas.height - 70);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            
+            // Draw bubbles from grid
+            for (let row = 0; row < bubbleGrid.length; row++) {
+                if (!bubbleGrid[row]) continue;
+                for (let col = 0; col < bubbleGrid[row].length; col++) {
+                    if (bubbleGrid[row][col] && bubbleGrid[row][col].exists) {
+                        const pos = getBubblePosition(row, col);
+                        drawBubble(pos.x, pos.y, bubbleGrid[row][col].color);
+                    }
+                }
+            }
+            
+            // Draw aiming line with bounces
+            if (!shooting && currentBubble) {
+                const trajectory = calculateTrajectory();
+                
+                ctx.strokeStyle = 'rgba(255,255,255,0.7)';
+                ctx.lineWidth = 2;
+                ctx.setLineDash([8, 4]);
+                
+                ctx.beginPath();
+                if (trajectory.length > 0) {
+                    ctx.moveTo(trajectory[0].x, trajectory[0].y);
+                    for (let i = 1; i < trajectory.length; i++) {
+                        ctx.lineTo(trajectory[i].x, trajectory[i].y);
+                    }
+                }
+                ctx.stroke();
+                ctx.setLineDash([]);
+                
+                // Draw bounce points
+                for (let point of trajectory) {
+                    if (point.bounce) {
+                        ctx.fillStyle = 'rgba(255, 200, 0, 0.8)';
+                        ctx.beginPath();
+                        ctx.arc(point.x, point.y, 4, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+                }
+                
+                // Draw end point
+                if (trajectory.length > 0) {
+                    const endPoint = trajectory[trajectory.length - 1];
+                    ctx.strokeStyle = 'rgba(255,255,255,0.5)';
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.arc(endPoint.x, endPoint.y, BUBBLE_RADIUS, 0, Math.PI * 2);
+                    ctx.stroke();
+                }
+            }
+            
+            // Draw shooter base
+            ctx.fillStyle = '#444';
+            ctx.beginPath();
+            ctx.arc(canvas.width / 2, canvas.height - 35, 25, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = '#666';
+            ctx.lineWidth = 3;
+            ctx.stroke();
+            
+            // Draw current bubble (shooter)
+            if (currentBubble) {
+                drawBubble(currentBubble.x, currentBubble.y, currentBubble.color);
+            }
+        }
+        
+        function drawBubble(x, y, color, alpha = 1) {
+            ctx.save();
+            ctx.globalAlpha = alpha;
+            
+            if (color === 'white') {
+                // White bubble with star symbol
+                const gradient = ctx.createRadialGradient(x - 3, y - 3, 0, x, y, BUBBLE_RADIUS);
+                gradient.addColorStop(0, '#FFFFFF');
+                gradient.addColorStop(0.5, '#F5F5F5');
+                gradient.addColorStop(1, '#CCCCCC');
+                ctx.fillStyle = gradient;
+                
+                ctx.beginPath();
+                ctx.arc(x, y, BUBBLE_RADIUS - 1, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Border
+                ctx.strokeStyle = '#AAAAAA';
+                ctx.lineWidth = 1;
+                ctx.stroke();
+                
+                // Star symbol
+                ctx.fillStyle = '#777777';
+                ctx.font = '12px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('✦', x, y + 1);
+            } else {
+                const gradient = ctx.createRadialGradient(x - 4, y - 4, 0, x, y, BUBBLE_RADIUS);
+                gradient.addColorStop(0, '#ffffff');
+                gradient.addColorStop(0.3, color);
+                gradient.addColorStop(1, shadeColor(color, -30));
+                ctx.fillStyle = gradient;
+                
+                ctx.beginPath();
+                ctx.arc(x, y, BUBBLE_RADIUS - 1, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Shine effect
+                ctx.fillStyle = 'rgba(255,255,255,0.6)';
+                ctx.beginPath();
+                ctx.arc(x - 5, y - 5, 4, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            
+            ctx.restore();
+        }
+        
+        function shadeColor(color, percent) {
+            const num = parseInt(color.replace('#', ''), 16);
+            const amt = Math.round(2.55 * percent);
+            const R = (num >> 16) + amt;
+            const G = (num >> 8 & 0x00FF) + amt;
+            const B = (num & 0x0000FF) + amt;
+            return '#' + (0x1000000 + (R < 255 ? R < 1 ? 0 : R : 255) * 0x10000 +
+                (G < 255 ? G < 1 ? 0 : G : 255) * 0x100 +
+                (B < 255 ? B < 1 ? 0 : B : 255)).toString(16).slice(1);
+        }
+        
+        function updateUI() {
+            document.getElementById('score').textContent = score;
+            document.getElementById('shots').textContent = shots;
+            document.getElementById('targetShots').textContent = targetShots;
+            document.getElementById('nextRow').textContent = shotsUntilNewRow;
+            
+            // Desktop buttons
+            document.getElementById('powerRainbow').disabled = score < 15 || gameOver || gameWon;
+            document.getElementById('powerDelay').disabled = score < 20 || delayPurchased || gameOver || gameWon;
+            document.getElementById('powerReduce').disabled = score < 50 || targetShots <= 10 || gameOver || gameWon;
+            
+            // Mobile buttons
+            document.getElementById('powerRainbowMobile').disabled = score < 15 || gameOver || gameWon;
+            document.getElementById('powerDelayMobile').disabled = score < 20 || delayPurchased || gameOver || gameWon;
+            document.getElementById('powerReduceMobile').disabled = score < 50 || targetShots <= 10 || gameOver || gameWon;
+        }
+        
+        function updateRainbowUI() {
+            // Desktop
+            const rainbowDiv = document.getElementById('rainbowCount');
+            if (rainbowShots > 0) {
+                rainbowDiv.classList.remove('hidden');
+                rainbowDiv.querySelector('span').textContent = rainbowShots;
+            } else {
+                rainbowDiv.classList.add('hidden');
+            }
+            
+            // Mobile
+            const rainbowDivMobile = document.getElementById('rainbowCountMobile');
+            if (rainbowShots > 0) {
+                rainbowDivMobile.classList.remove('hidden');
+                rainbowDivMobile.querySelector('span').textContent = rainbowShots;
+            } else {
+                rainbowDivMobile.classList.add('hidden');
+            }
+        }
+        
+        // Power-up functions
+        function usePowerRainbow() {
+            if (score >= 15 && !gameOver && !gameWon) {
+                score -= 15;
+                rainbowShots += 3;
+                
+                if (!shooting && currentBubble) {
+                    currentBubble.color = 'white';
+                    nextBubbleColor = rainbowShots > 1 ? 'white' : COLORS[Math.floor(Math.random() * COLORS.length)];
+                    updateBubblePreviews();
+                }
+                
+                updateUI();
+                updateRainbowUI();
+            }
+        }
+        
+        function usePowerDelay() {
+            if (score >= 20 && !delayPurchased && !gameOver && !gameWon) {
+                score -= 20;
+                newRowInterval = 5;
+                delayPurchased = true;
+                
+                document.getElementById('delayActive').classList.remove('hidden');
+                document.getElementById('delayActiveMobile').classList.remove('hidden');
+                document.getElementById('powerDelay').disabled = true;
+                document.getElementById('powerDelayMobile').disabled = true;
+                
+                updateUI();
+            }
+        }
+        
+        function usePowerReduce() {
+            if (score >= 50 && targetShots > 10 && !gameOver && !gameWon) {
+                score -= 50;
+                targetShots -= 10;
+                
+                if (shots >= targetShots) {
+                    gameWon = true;
+                    showModal(true);
+                }
+                
+                updateUI();
+            }
+        }
+        
+        function restartGame() {
+            initGame();
+        }
+        
+        // Get position from mouse or touch event
+        function getEventPosition(e) {
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            
+            let clientX, clientY;
+            if (e.touches && e.touches.length > 0) {
+                clientX = e.touches[0].clientX;
+                clientY = e.touches[0].clientY;
+            } else {
+                clientX = e.clientX;
+                clientY = e.clientY;
+            }
+            
+            return {
+                x: (clientX - rect.left) * scaleX,
+                y: (clientY - rect.top) * scaleY
+            };
+        }
+        
+        function handleAim(e) {
+            if (shooting || gameOver || gameWon || !currentBubble) return;
+            
+            const pos = getEventPosition(e);
+            const dx = pos.x - currentBubble.x;
+            const dy = pos.y - currentBubble.y;
+            
+            shootAngle = Math.atan2(dy, dx);
+            
+            // Allow wider angle range for edge shots (from -0.08 to -PI+0.08)
+            if (shootAngle > -0.08) shootAngle = -0.08;
+            if (shootAngle < -Math.PI + 0.08) shootAngle = -Math.PI + 0.08;
+        }
+        
+        // Mouse events
+        canvas.addEventListener('mousemove', handleAim);
+        canvas.addEventListener('click', (e) => {
+            if (e.target === canvas) {
+                shoot();
+            }
+        });
+        
+        // Touch events
+        canvas.addEventListener('touchmove', (e) => {
+            e.preventDefault();
+            handleAim(e);
+        }, { passive: false });
+        
+        canvas.addEventListener('touchend', (e) => {
+            e.preventDefault();
+            shoot();
+        }, { passive: false });
+        
+        // Game loop
+        function gameLoop() {
+            update();
+            draw();
+            requestAnimationFrame(gameLoop);
+        }
+        
+        // Start game
+        initGame();
+        gameLoop();
+    </script>
+</body>
+</html>
