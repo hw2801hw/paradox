@@ -999,11 +999,6 @@
                 setTimeout(() => this.playBeep(784, 0.15, 'sine', 0.3), 300);
                 setTimeout(() => this.playBeep(1047, 0.3, 'sine', 0.3), 450);
             }
-
-            toggle() {
-                this.enabled = !this.enabled;
-                return this.enabled;
-            }
         }
 
         // ==================== 基礎植物類別 ====================
@@ -1025,7 +1020,8 @@
             update(deltaTime) {}
 
             draw(ctx) {
-                ctx.font = `${this.game.fontSize}px Arial`;
+                // 使用更大的 plantFontSize 讓植物更清晰可見
+                ctx.font = `${this.game.plantFontSize}px Arial`;
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
                 ctx.fillText(this.emoji, this.x, this.y);
@@ -1036,17 +1032,17 @@
 
                 // 成長標記
                 if (this.isUpgraded) {
-                    ctx.font = '12px Arial';
+                    ctx.font = '14px Arial';
                     ctx.fillStyle = '#a855f7';
-                    ctx.fillText('⬆', this.x + 15, this.y - 20);
+                    ctx.fillText('⬆', this.x + this.game.plantFontSize * 0.5, this.y - this.game.plantFontSize * 0.5);
                 }
             }
 
             drawHealthBar(ctx) {
-                const barWidth = this.game.cellWidth * 0.5;
-                const barHeight = 6;
+                const barWidth = this.game.cellWidth * 0.6;
+                const barHeight = 8;
                 const barX = this.x - barWidth / 2;
-                const barY = this.y + this.game.cellHeight * 0.3;
+                const barY = this.y + this.game.plantFontSize * 0.5 + 5;
                 
                 ctx.fillStyle = '#333';
                 ctx.fillRect(barX, barY, barWidth, barHeight);
@@ -1097,7 +1093,7 @@
                 ctx.save();
                 ctx.translate(this.x, this.y);
                 ctx.scale(scale, scale);
-                ctx.font = `${this.game.fontSize}px Arial`;
+                ctx.font = `${this.game.plantFontSize}px Arial`;
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
                 ctx.fillText(this.emoji, 0, 0);
@@ -1106,7 +1102,7 @@
                 if (this.isUpgraded) {
                     ctx.fillStyle = 'rgba(168, 85, 247, 0.3)';
                     ctx.beginPath();
-                    ctx.arc(this.x, this.y, this.game.fontSize * 0.6, 0, Math.PI * 2);
+                    ctx.arc(this.x, this.y, this.game.plantFontSize * 0.6, 0, Math.PI * 2);
                     ctx.fill();
                 }
 
@@ -1177,7 +1173,7 @@
             }
 
             draw(ctx) {
-                ctx.font = `${this.game.fontSize}px Arial`;
+                ctx.font = `${this.game.plantFontSize}px Arial`;
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
                 
@@ -1185,7 +1181,7 @@
                 ctx.fillText(this.emoji, this.x + offset, this.y);
 
                 // 豌豆頭（成長版顯示3個）
-                const headSize = this.game.fontSize * 0.2;
+                const headSize = this.game.plantFontSize * 0.25;
                 if (this.isUpgraded) {
                     // 三頭豌豆
                     ctx.fillStyle = '#22c55e';
@@ -1196,7 +1192,7 @@
                     });
                     ctx.fillStyle = 'rgba(168, 85, 247, 0.3)';
                     ctx.beginPath();
-                    ctx.arc(this.x, this.y, this.game.fontSize * 0.7, 0, Math.PI * 2);
+                    ctx.arc(this.x, this.y, this.game.plantFontSize * 0.7, 0, Math.PI * 2);
                     ctx.fill();
                 } else {
                     ctx.fillStyle = '#22c55e';
@@ -1228,7 +1224,7 @@
             }
 
             draw(ctx) {
-                ctx.font = `${this.game.fontSize * 1.1}px Arial`;
+                ctx.font = `${this.game.plantFontSize * 1.1}px Arial`;
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
                 
@@ -1242,7 +1238,7 @@
                 if (this.isUpgraded) {
                     ctx.fillStyle = 'rgba(168, 85, 247, 0.3)';
                     ctx.beginPath();
-                    ctx.arc(this.x, this.y, this.game.fontSize * 0.7, 0, Math.PI * 2);
+                    ctx.arc(this.x, this.y, this.game.plantFontSize * 0.7, 0, Math.PI * 2);
                     ctx.fill();
                 }
 
@@ -1293,7 +1289,7 @@
             }
 
             draw(ctx) {
-                ctx.font = `${this.game.fontSize}px Arial`;
+                ctx.font = `${this.game.plantFontSize}px Arial`;
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
                 
@@ -1302,7 +1298,7 @@
 
                 ctx.fillStyle = this.isUpgraded ? 'rgba(168, 85, 247, 0.4)' : 'rgba(100, 200, 255, 0.3)';
                 ctx.beginPath();
-                ctx.arc(this.x, this.y, this.game.fontSize * 0.6, 0, Math.PI * 2);
+                ctx.arc(this.x, this.y, this.game.plantFontSize * 0.6, 0, Math.PI * 2);
                 ctx.fill();
 
                 if (this.health < this.maxHealth) {
@@ -1372,14 +1368,14 @@
                 
                 const flash = Math.sin(this.fuseTimer / 50) > 0;
                 
-                ctx.font = `${this.game.fontSize * 1.1}px Arial`;
+                ctx.font = `${this.game.plantFontSize * 1.1}px Arial`;
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
                 
                 if (flash) {
                     ctx.fillStyle = this.isUpgraded ? 'rgba(168, 85, 247, 0.5)' : 'rgba(255, 100, 100, 0.5)';
                     ctx.beginPath();
-                    ctx.arc(this.x, this.y, this.game.fontSize * (this.isUpgraded ? 1.2 : 0.75), 0, Math.PI * 2);
+                    ctx.arc(this.x, this.y, this.game.plantFontSize * (this.isUpgraded ? 1.2 : 0.75), 0, Math.PI * 2);
                     ctx.fill();
                 }
                 
@@ -1849,6 +1845,7 @@
                 this.baseHeight = 500;
                 this.scale = 1;
                 this.fontSize = 40;
+                this.plantFontSize = 55; // 專門給植物用的更大字體
                 
                 this.resize();
                 
@@ -2151,7 +2148,13 @@
                 this.cellWidth = this.canvas.width / this.cols;
                 this.cellHeight = this.canvas.height / this.rows;
                 
-                this.fontSize = Math.max(20, Math.floor(40 * this.scale));
+                // 一般字體大小
+                this.fontSize = Math.max(24, Math.floor(40 * this.scale));
+                
+                // 植物專用更大字體 - 確保手機上也能清楚看見
+                // 基於格子大小計算，確保植物填滿格子的大部分空間
+                const cellBasedSize = Math.min(this.cellWidth, this.cellHeight) * 0.7;
+                this.plantFontSize = Math.max(36, Math.floor(cellBasedSize));
             }
 
             getCanvasCoordinates(clientX, clientY) {
@@ -2730,7 +2733,7 @@
                             this.ctx.fillRect(x, y, this.cellWidth, this.cellHeight);
                             
                             if (hasPlant) {
-                                this.ctx.font = `${this.fontSize * 0.8}px Arial`;
+                                this.ctx.font = `${this.plantFontSize * 0.7}px Arial`;
                                 this.ctx.textAlign = 'center';
                                 this.ctx.textBaseline = 'middle';
                                 this.ctx.fillText('🔧', x + this.cellWidth / 2, y + this.cellHeight / 2);
