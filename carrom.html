@@ -1,0 +1,1707 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
+    <title>Carrom 卡羅姆彈盤遊戲</title>
+    <!--
+    ========================================
+    CARROM 卡羅姆彈盤遊戲 - 遊戲說明
+    ========================================
+    
+    【遊戲規則】
+    1. 兩位玩家輪流操作，玩家1控制白色盤子，玩家2控制黑色盤子
+    2. 使用擊球器（Striker）將自己顏色的盤子彈入四個角落的洞中
+    3. 紅色皇后（Queen）可被任一玩家擊入，但必須緊接著擊入自己的盤子才能「Cover」
+    4. 成功將盤子擊入洞中可繼續操作，否則換對手
+    5. 先將所有己方盤子擊入洞中的玩家獲勝
+    
+    【天賦系統】
+    開局時每位玩家選擇一個天賦：
+    - 一觸即發：力度和瞄準線+300%（可預覽反彈路徑），對手-30%
+    - 身不由己：對手進球不能連續回合，且從左右兩側同時發射2個球
+    - 洞察先機：我方回合洞+4個（額外洞大小+100%）；對方回合只剩頂部和底部正中間的洞（大小+50%），無其他洞
+    
+    【操作方式】
+    - 拖拽擊球器：在基線上左右移動擊球器位置
+    - 瞄準發射：按住擊球器並向後拖拽，顯示瞄準線和力量條，放開發射
+    - 力量控制：拖拽距離越長，發射力量越大
+    ========================================
+    -->
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            touch-action: none;
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+        
+        html, body {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: #1a1a2e;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        #gameContainer {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        #gameCanvas {
+            display: block;
+            background: #2d2d44;
+        }
+        
+        #ui {
+            position: absolute;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 15px;
+            background: rgba(0,0,0,0.7);
+            padding: 10px 20px;
+            border-radius: 25px;
+            color: white;
+            font-size: 14px;
+            z-index: 10;
+            align-items: center;
+        }
+        
+        .player-info {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .player-dot {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            border: 2px solid white;
+        }
+        
+        .player-info.active {
+            background: rgba(255,255,255,0.2);
+            padding: 5px 12px;
+            border-radius: 15px;
+            margin: -5px -12px;
+        }
+        
+        #menuBtn {
+            background: rgba(255,255,255,0.2);
+            border: none;
+            color: white;
+            padding: 8px 15px;
+            border-radius: 15px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+        
+        #menuBtn:hover, #menuBtn:active {
+            background: rgba(255,255,255,0.3);
+        }
+        
+        #overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.9);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+            overflow-y: auto;
+            padding: 20px;
+        }
+        
+        #overlay.hidden {
+            display: none;
+        }
+        
+        #overlay h1 {
+            color: #ffd700;
+            font-size: 42px;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+        }
+        
+        #overlay h2 {
+            color: #fff;
+            font-size: 24px;
+            margin-bottom: 20px;
+            font-weight: normal;
+        }
+        
+        #overlay h3 {
+            color: #ffd700;
+            font-size: 20px;
+            margin: 15px 0 10px 0;
+        }
+        
+        .menu-btn {
+            background: linear-gradient(145deg, #4a6741, #3d5636);
+            color: white;
+            border: none;
+            padding: 18px 45px;
+            font-size: 20px;
+            border-radius: 30px;
+            cursor: pointer;
+            margin: 10px;
+            min-width: 220px;
+            box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+            transition: all 0.2s;
+        }
+        
+        .menu-btn:hover, .menu-btn:active {
+            background: linear-gradient(145deg, #5a7a51, #4d6846);
+            transform: scale(1.05);
+        }
+        
+        .talent-container {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 15px;
+            max-width: 900px;
+            margin: 10px 0;
+        }
+        
+        .talent-card {
+            background: linear-gradient(145deg, #2a3a50, #1e2a3a);
+            border: 3px solid #3a4a60;
+            border-radius: 15px;
+            padding: 15px;
+            width: 260px;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-align: left;
+        }
+        
+        .talent-card:hover {
+            border-color: #ffd700;
+            transform: translateY(-5px);
+        }
+        
+        .talent-card.selected {
+            border-color: #4ade80;
+            background: linear-gradient(145deg, #2a4a3a, #1e3a2a);
+            box-shadow: 0 0 20px rgba(74, 222, 128, 0.3);
+        }
+        
+        .talent-card h4 {
+            color: #ffd700;
+            font-size: 18px;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .talent-card p {
+            color: #ccc;
+            font-size: 13px;
+            line-height: 1.4;
+        }
+        
+        .talent-icon {
+            font-size: 24px;
+        }
+        
+        #message {
+            position: absolute;
+            bottom: 80px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.8);
+            color: #ffd700;
+            padding: 12px 25px;
+            border-radius: 20px;
+            font-size: 16px;
+            z-index: 10;
+            opacity: 0;
+            transition: opacity 0.3s;
+            text-align: center;
+            max-width: 90%;
+        }
+        
+        #message.show {
+            opacity: 1;
+        }
+        
+        #turnIndicator {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.7);
+            color: white;
+            padding: 10px 25px;
+            border-radius: 20px;
+            font-size: 16px;
+            z-index: 10;
+        }
+        
+        .winner-text {
+            font-size: 28px !important;
+            color: #4ade80 !important;
+        }
+        
+        .talent-display {
+            font-size: 12px;
+            color: #aaa;
+            margin-left: 10px;
+        }
+        
+        .confirm-dialog {
+            background: rgba(0,0,0,0.95);
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 200;
+        }
+        
+        .confirm-dialog.hidden {
+            display: none;
+        }
+        
+        .confirm-dialog p {
+            color: white;
+            font-size: 22px;
+            margin-bottom: 30px;
+        }
+        
+        .confirm-buttons {
+            display: flex;
+            gap: 20px;
+        }
+        
+        .confirm-btn {
+            padding: 15px 40px;
+            font-size: 18px;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .confirm-btn.yes {
+            background: #ef4444;
+            color: white;
+        }
+        
+        .confirm-btn.no {
+            background: #4a6741;
+            color: white;
+        }
+        
+        .confirm-btn:hover {
+            transform: scale(1.05);
+        }
+    </style>
+</head>
+<body>
+    <div id="gameContainer">
+        <canvas id="gameCanvas"></canvas>
+        <div id="ui" class="hidden">
+            <button id="menuBtn" onclick="showExitConfirm()">☰ 選單</button>
+            <div class="player-info" id="player1Info">
+                <div class="player-dot" style="background: #f5f5dc;"></div>
+                <span>P1: <span id="score1">0</span></span>
+                <span class="talent-display" id="talent1Display"></span>
+            </div>
+            <div class="player-info" id="player2Info">
+                <div class="player-dot" style="background: #2d2d2d;"></div>
+                <span>P2: <span id="score2">0</span></span>
+                <span class="talent-display" id="talent2Display"></span>
+            </div>
+        </div>
+        <div id="message"></div>
+        <div id="turnIndicator" class="hidden">玩家1 的回合</div>
+        
+        <div id="confirmDialog" class="confirm-dialog hidden">
+            <p>確定要返回主選單嗎？</p>
+            <div class="confirm-buttons">
+                <button class="confirm-btn yes" onclick="confirmExit()">確定</button>
+                <button class="confirm-btn no" onclick="cancelExit()">取消</button>
+            </div>
+        </div>
+        
+        <div id="overlay">
+            <h1>🎯 CARROM</h1>
+            <h2>卡羅姆彈盤遊戲</h2>
+            <button class="menu-btn" onclick="selectMode('pvp')">👥 雙人對戰</button>
+            <button class="menu-btn" onclick="selectMode('ai')">🤖 單人 vs AI</button>
+        </div>
+    </div>
+
+    <script>
+        // ========== 遊戲配置 ==========
+        const CONFIG = {
+            friction: 0.985,
+            restitution: 0.75,
+            basePocketRadius: 22,
+            pieceRadius: 14,
+            strikerRadius: 18,
+            queenRadius: 14,
+            maxPower: 25,
+            minSpeed: 0.15,
+            baseAimLength: 200
+        };
+
+        // ========== 天賦系統 ==========
+        const TALENTS = {
+            precision: {
+                id: 'precision',
+                name: '一觸即發',
+                icon: '🎯',
+                desc: '我方力度和瞄準線+300%（可預覽反彈路徑），對方力度和瞄準線-30%'
+            },
+            rhythm: {
+                id: 'rhythm',
+                name: '身不由己',
+                icon: '🔒',
+                desc: '對方進球不能連續回合，且從左右兩側同時發射2個球'
+            },
+            holes: {
+                id: 'holes',
+                name: '洞察先機',
+                icon: '🕳️',
+                desc: '我方回合：洞+4個（額外洞大小+100%）；對方回合：只剩頂部和底部正中間的洞（大小+50%），無其他洞'
+            }
+        };
+
+        // ========== 音效系統 ==========
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        let audioCtx = null;
+
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new AudioContext();
+            }
+        }
+
+        function playSound(type) {
+            if (!audioCtx) return;
+            try {
+                const oscillator = audioCtx.createOscillator();
+                const gainNode = audioCtx.createGain();
+                oscillator.connect(gainNode);
+                gainNode.connect(audioCtx.destination);
+                
+                if (type === 'hit') {
+                    oscillator.frequency.value = 200 + Math.random() * 100;
+                    gainNode.gain.setValueAtTime(0.15, audioCtx.currentTime);
+                    gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+                    oscillator.start();
+                    oscillator.stop(audioCtx.currentTime + 0.1);
+                } else if (type === 'pocket') {
+                    oscillator.frequency.value = 150;
+                    gainNode.gain.setValueAtTime(0.2, audioCtx.currentTime);
+                    gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.2);
+                    oscillator.start();
+                    oscillator.stop(audioCtx.currentTime + 0.2);
+                } else if (type === 'wall') {
+                    oscillator.frequency.value = 400;
+                    gainNode.gain.setValueAtTime(0.08, audioCtx.currentTime);
+                    gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.05);
+                    oscillator.start();
+                    oscillator.stop(audioCtx.currentTime + 0.05);
+                }
+            } catch (e) {}
+        }
+
+        // ========== 遊戲狀態 ==========
+        let canvas, ctx;
+        let boardSize, boardX, boardY, innerSize, innerX, innerY;
+        let pieces = [];
+        let striker = null;
+        let striker2 = null; // 第二個擊球器（身不由己天賦）
+        let basePockets = [];
+        let currentPockets = [];
+        let gameMode = 'pvp';
+        let currentPlayer = 1;
+        let scores = [0, 0];
+        let pocketed = { white: 0, black: 0, queen: false };
+        let queenPocketedBy = 0;
+        let needCover = false;
+        let gameOver = false;
+        let isMoving = false;
+        let strikerBaseY = 0;
+        let strikerMinX = 0;
+        let strikerMaxX = 0;
+
+        // 天賦狀態
+        let playerTalents = [null, null]; // [player1 talent, player2 talent]
+        let talentSelectionPhase = 0; // 0: not selecting, 1: player1 selecting, 2: player2 selecting
+        let selectedTalentTemp = null;
+        let hasDualStrikers = false; // 是否有雙擊球器模式
+
+        // 回合追蹤 - 修復連續回合的bug
+        let pocketedThisTurn = { white: 0, black: 0, queen: false, striker: false };
+
+        // 拖拽狀態
+        let isDragging = false;
+        let isAiming = false;
+        let dragStart = { x: 0, y: 0 };
+        let aimEnd = { x: 0, y: 0 };
+        let power = 0;
+
+        // ========== 初始化 ==========
+        function init() {
+            canvas = document.getElementById('gameCanvas');
+            ctx = canvas.getContext('2d');
+            
+            resizeCanvas();
+            window.addEventListener('resize', resizeCanvas);
+            
+            // 事件監聽
+            canvas.addEventListener('mousedown', handleStart);
+            canvas.addEventListener('mousemove', handleMove);
+            canvas.addEventListener('mouseup', handleEnd);
+            canvas.addEventListener('touchstart', handleStart, { passive: false });
+            canvas.addEventListener('touchmove', handleMove, { passive: false });
+            canvas.addEventListener('touchend', handleEnd, { passive: false });
+            
+            requestAnimationFrame(gameLoop);
+        }
+
+        function resizeCanvas() {
+            const container = document.getElementById('gameContainer');
+            const maxWidth = container.clientWidth - 20;
+            const maxHeight = container.clientHeight - 100;
+            
+            boardSize = Math.min(maxWidth, maxHeight, 600);
+            canvas.width = boardSize;
+            canvas.height = boardSize;
+            
+            innerSize = boardSize * 0.85;
+            boardX = (boardSize - innerSize) / 2;
+            boardY = (boardSize - innerSize) / 2;
+            innerX = boardX;
+            innerY = boardY;
+            
+            // 基礎袋口位置（四個角）
+            const pocketOffset = boardSize * 0.08;
+            basePockets = [
+                { x: pocketOffset, y: pocketOffset, type: 'corner' },
+                { x: boardSize - pocketOffset, y: pocketOffset, type: 'corner' },
+                { x: pocketOffset, y: boardSize - pocketOffset, type: 'corner' },
+                { x: boardSize - pocketOffset, y: boardSize - pocketOffset, type: 'corner' }
+            ];
+            
+            updatePocketsForCurrentPlayer();
+            
+            if (striker) {
+                resetStriker();
+            }
+        }
+
+        // ========== 選單系統 ==========
+        function showExitConfirm() {
+            document.getElementById('confirmDialog').classList.remove('hidden');
+        }
+
+        function cancelExit() {
+            document.getElementById('confirmDialog').classList.add('hidden');
+        }
+
+        function confirmExit() {
+            document.getElementById('confirmDialog').classList.add('hidden');
+            returnToMainMenu();
+        }
+
+        function returnToMainMenu() {
+            gameOver = true;
+            isMoving = false;
+            talentSelectionPhase = 0;
+            playerTalents = [null, null];
+            
+            document.getElementById('ui').classList.add('hidden');
+            document.getElementById('turnIndicator').classList.add('hidden');
+            
+            const overlay = document.getElementById('overlay');
+            overlay.innerHTML = `
+                <h1>🎯 CARROM</h1>
+                <h2>卡羅姆彈盤遊戲</h2>
+                <button class="menu-btn" onclick="selectMode('pvp')">👥 雙人對戰</button>
+                <button class="menu-btn" onclick="selectMode('ai')">🤖 單人 vs AI</button>
+            `;
+            overlay.classList.remove('hidden');
+        }
+
+        function selectMode(mode) {
+            initAudio();
+            gameMode = mode;
+            talentSelectionPhase = 1;
+            selectedTalentTemp = null;
+            showTalentSelection(1);
+        }
+
+        function showTalentSelection(player) {
+            const overlay = document.getElementById('overlay');
+            const playerName = gameMode === 'ai' && player === 2 ? 'AI' : `玩家 ${player}`;
+            const playerColor = player === 1 ? '#f5f5dc' : '#2d2d2d';
+            
+            // AI自動選擇天賦
+            if (gameMode === 'ai' && player === 2) {
+                const talentKeys = Object.keys(TALENTS);
+                const randomTalent = talentKeys[Math.floor(Math.random() * talentKeys.length)];
+                playerTalents[1] = randomTalent;
+                startGame();
+                return;
+            }
+            
+            overlay.innerHTML = `
+                <h2 style="display: flex; align-items: center; gap: 10px;">
+                    <span style="display: inline-block; width: 24px; height: 24px; border-radius: 50%; background: ${playerColor}; border: 2px solid white;"></span>
+                    ${playerName} 選擇天賦
+                </h2>
+                <div class="talent-container">
+                    ${Object.values(TALENTS).map(t => `
+                        <div class="talent-card" id="talent-${t.id}" onclick="selectTalent('${t.id}')">
+                            <h4><span class="talent-icon">${t.icon}</span> ${t.name}</h4>
+                            <p>${t.desc}</p>
+                        </div>
+                    `).join('')}
+                </div>
+                <button class="menu-btn" id="confirmTalentBtn" onclick="confirmTalent()" style="opacity: 0.5; pointer-events: none;">
+                    確認選擇
+                </button>
+            `;
+        }
+
+        function selectTalent(talentId) {
+            selectedTalentTemp = talentId;
+            
+            // 更新UI
+            document.querySelectorAll('.talent-card').forEach(card => {
+                card.classList.remove('selected');
+            });
+            document.getElementById(`talent-${talentId}`).classList.add('selected');
+            
+            const confirmBtn = document.getElementById('confirmTalentBtn');
+            confirmBtn.style.opacity = '1';
+            confirmBtn.style.pointerEvents = 'auto';
+        }
+
+        function confirmTalent() {
+            if (!selectedTalentTemp) return;
+            
+            if (talentSelectionPhase === 1) {
+                playerTalents[0] = selectedTalentTemp;
+                talentSelectionPhase = 2;
+                selectedTalentTemp = null;
+                showTalentSelection(2);
+            } else if (talentSelectionPhase === 2) {
+                playerTalents[1] = selectedTalentTemp;
+                talentSelectionPhase = 0;
+                startGame();
+            }
+        }
+
+        function startGame() {
+            currentPlayer = 1;
+            scores = [0, 0];
+            pocketed = { white: 0, black: 0, queen: false };
+            queenPocketedBy = 0;
+            needCover = false;
+            gameOver = false;
+            pocketedThisTurn = { white: 0, black: 0, queen: false, striker: false };
+            
+            setupPieces();
+            resetStriker();
+            updatePocketsForCurrentPlayer();
+            updateUI();
+            
+            document.getElementById('overlay').classList.add('hidden');
+            document.getElementById('ui').classList.remove('hidden');
+            document.getElementById('turnIndicator').classList.remove('hidden');
+            
+            // 顯示天賦
+            const t1 = TALENTS[playerTalents[0]];
+            const t2 = TALENTS[playerTalents[1]];
+            document.getElementById('talent1Display').textContent = t1 ? t1.icon : '';
+            document.getElementById('talent2Display').textContent = t2 ? t2.icon : '';
+            
+            showMessage(`遊戲開始！P1:${t1?.name || '無'} vs P2:${t2?.name || '無'}`);
+        }
+
+        function setupPieces() {
+            pieces = [];
+            const center = boardSize / 2;
+            const spacing = CONFIG.pieceRadius * 2.3;
+            
+            // 中心皇后
+            pieces.push({
+                x: center,
+                y: center,
+                vx: 0,
+                vy: 0,
+                radius: CONFIG.queenRadius,
+                type: 'queen',
+                color: '#dc2626'
+            });
+            
+            // 圓形排列盤子
+            const rings = [
+                { count: 6, radius: spacing },
+                { count: 12, radius: spacing * 2 }
+            ];
+            
+            let whiteCount = 0, blackCount = 0;
+            
+            rings.forEach((ring, ringIndex) => {
+                for (let i = 0; i < ring.count; i++) {
+                    const angle = (i / ring.count) * Math.PI * 2 - Math.PI / 2;
+                    const x = center + Math.cos(angle) * ring.radius;
+                    const y = center + Math.sin(angle) * ring.radius;
+                    
+                    let type, color;
+                    if (ringIndex === 0) {
+                        type = i % 2 === 0 ? 'white' : 'black';
+                    } else {
+                        if (whiteCount < 6 && (i % 2 === 0 || blackCount >= 6)) {
+                            type = 'white';
+                            whiteCount++;
+                        } else if (blackCount < 6) {
+                            type = 'black';
+                            blackCount++;
+                        } else {
+                            type = 'white';
+                        }
+                    }
+                    
+                    color = type === 'white' ? '#f5f5dc' : '#2d2d2d';
+                    
+                    pieces.push({
+                        x, y, vx: 0, vy: 0,
+                        radius: CONFIG.pieceRadius,
+                        type, color
+                    });
+                }
+            });
+        }
+
+        function resetStriker() {
+            const baselineOffset = innerSize * 0.22;
+            strikerBaseY = currentPlayer === 1 
+                ? innerY + innerSize - baselineOffset 
+                : innerY + baselineOffset;
+            
+            // 檢查對手是否有身不由己天賦（影響當前玩家）
+            const opponentTalent = playerTalents[currentPlayer === 1 ? 1 : 0];
+            hasDualStrikers = opponentTalent === 'rhythm';
+            
+            if (hasDualStrikers) {
+                // 雙擊球器模式：固定在左右兩側
+                const leftX = innerX + innerSize * 0.25;
+                const rightX = innerX + innerSize * 0.75;
+                
+                striker = {
+                    x: leftX,
+                    y: strikerBaseY,
+                    vx: 0,
+                    vy: 0,
+                    radius: CONFIG.strikerRadius,
+                    type: 'striker',
+                    color: '#fbbf24'
+                };
+                
+                striker2 = {
+                    x: rightX,
+                    y: strikerBaseY,
+                    vx: 0,
+                    vy: 0,
+                    radius: CONFIG.strikerRadius,
+                    type: 'striker2',
+                    color: '#fb923c'
+                };
+                
+                strikerMinX = leftX;
+                strikerMaxX = leftX;
+            } else {
+                // 單擊球器模式
+                strikerMinX = innerX + innerSize * 0.2;
+                strikerMaxX = innerX + innerSize * 0.8;
+                
+                striker = {
+                    x: boardSize / 2,
+                    y: strikerBaseY,
+                    vx: 0,
+                    vy: 0,
+                    radius: CONFIG.strikerRadius,
+                    type: 'striker',
+                    color: '#fbbf24'
+                };
+                
+                striker2 = null;
+            }
+            
+            isDragging = false;
+            isAiming = false;
+        }
+
+        // ========== 天賦效果：更新袋口 ==========
+        function updatePocketsForCurrentPlayer() {
+            const pocketOffset = boardSize * 0.08;
+            const center = boardSize / 2;
+            const myTalent = playerTalents[currentPlayer - 1];
+            const opponentTalent = playerTalents[currentPlayer === 1 ? 1 : 0];
+            
+            // 檢查洞察先機天賦
+            let useExtraPockets = false;
+            let limitedPockets = false;
+            
+            if (myTalent === 'holes') {
+                useExtraPockets = true;
+            }
+            
+            if (opponentTalent === 'holes') {
+                limitedPockets = true;
+            }
+            
+            currentPockets = [];
+            
+            if (limitedPockets) {
+                // 對方有洞察先機：只剩頂部和底部的正中間位置的洞，大小+50%
+                const limitSize = CONFIG.basePocketRadius * 1.5; // +50%
+
+                // 頂部正中間 (Top Center)
+                currentPockets.push({ x: center, y: pocketOffset, size: limitSize, extra: true });
+                
+                // 底部正中間 (Bottom Center)
+                currentPockets.push({ x: center, y: boardSize - pocketOffset, size: limitSize, extra: true });
+
+            } else {
+                // 標準模式：四個角落
+                const size = CONFIG.basePocketRadius;
+                currentPockets.push({ x: pocketOffset, y: pocketOffset, size });
+                currentPockets.push({ x: boardSize - pocketOffset, y: pocketOffset, size });
+                currentPockets.push({ x: pocketOffset, y: boardSize - pocketOffset, size });
+                currentPockets.push({ x: boardSize - pocketOffset, y: boardSize - pocketOffset, size });
+                
+                // 我方天賦：額外4個洞（上下左右中間）- 大小+100%
+                if (useExtraPockets) {
+                    const extraSize = CONFIG.basePocketRadius * 2; // +100%
+                    currentPockets.push({ x: center, y: pocketOffset, size: extraSize, extra: true }); // 上
+                    currentPockets.push({ x: center, y: boardSize - pocketOffset, size: extraSize, extra: true }); // 下
+                    currentPockets.push({ x: pocketOffset, y: center, size: extraSize, extra: true }); // 左
+                    currentPockets.push({ x: boardSize - pocketOffset, y: center, size: extraSize, extra: true }); // 右
+                }
+            }
+        }
+
+        // ========== 天賦效果：獲取力量和瞄準線修正 ==========
+        function getPowerModifier() {
+            const myTalent = playerTalents[currentPlayer - 1];
+            const opponentTalent = playerTalents[currentPlayer === 1 ? 1 : 0];
+            
+            let modifier = 1;
+            
+            if (myTalent === 'precision') {
+                modifier *= 3; // +300%
+            }
+            if (opponentTalent === 'precision') {
+                modifier *= 0.7; // -30%
+            }
+            
+            return modifier;
+        }
+
+        function getAimLengthModifier() {
+            return getPowerModifier(); // 同樣的修正
+        }
+
+        // ========== 輸入處理 ==========
+        function getEventPos(e) {
+            const rect = canvas.getBoundingClientRect();
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+            return {
+                x: (clientX - rect.left) * (canvas.width / rect.width),
+                y: (clientY - rect.top) * (canvas.height / rect.height)
+            };
+        }
+
+        function handleStart(e) {
+            e.preventDefault();
+            if (isMoving || gameOver || !striker) return;
+            if (gameMode === 'ai' && currentPlayer === 2) return;
+            
+            const pos = getEventPos(e);
+            
+            // 檢查是否點擊任一擊球器
+            const dist = Math.hypot(pos.x - striker.x, pos.y - striker.y);
+            const dist2 = striker2 ? Math.hypot(pos.x - striker2.x, pos.y - striker2.y) : Infinity;
+            
+            if (dist < striker.radius * 2 || dist2 < CONFIG.strikerRadius * 2) {
+                isAiming = true;
+                // 使用第一個擊球器的位置作為基準（雙擊球器時兩個一起發射）
+                dragStart = { x: striker.x, y: striker.y };
+                aimEnd = pos;
+            } else if (Math.abs(pos.y - strikerBaseY) < 40 && !hasDualStrikers) {
+                // 只有非雙擊球器模式才能拖拽
+                isDragging = true;
+                striker.x = Math.max(strikerMinX, Math.min(strikerMaxX, pos.x));
+            }
+        }
+
+        function handleMove(e) {
+            e.preventDefault();
+            if (isMoving || gameOver || !striker) return;
+            
+            const pos = getEventPos(e);
+            
+            if (isDragging && !hasDualStrikers) {
+                striker.x = Math.max(strikerMinX, Math.min(strikerMaxX, pos.x));
+            } else if (isAiming) {
+                aimEnd = pos;
+                const dx = dragStart.x - aimEnd.x;
+                const dy = dragStart.y - aimEnd.y;
+                power = Math.min(Math.hypot(dx, dy) / 150, 1);
+            }
+        }
+
+        function handleEnd(e) {
+            e.preventDefault();
+            if (isMoving || gameOver || !striker) return;
+            
+            if (isAiming && power > 0.05) {
+                const dx = dragStart.x - aimEnd.x;
+                const dy = dragStart.y - aimEnd.y;
+                const angle = Math.atan2(dy, dx);
+                const powerMod = getPowerModifier();
+                const force = power * CONFIG.maxPower * Math.min(powerMod, 3); // 限制實際力量最多3倍
+                
+                striker.vx = Math.cos(angle) * force;
+                striker.vy = Math.sin(angle) * force;
+                
+                // 如果有第二個擊球器，同時發射
+                if (striker2) {
+                    striker2.vx = Math.cos(angle) * force;
+                    striker2.vy = Math.sin(angle) * force;
+                }
+                
+                // 重置這回合的入袋追蹤
+                pocketedThisTurn = { white: 0, black: 0, queen: false, striker: false };
+                
+                isMoving = true;
+                playSound('hit');
+            }
+            
+            isDragging = false;
+            isAiming = false;
+            power = 0;
+        }
+
+        // ========== 物理系統 ==========
+        function updatePhysics() {
+            if (!isMoving) return;
+            
+            let allPieces = [...pieces];
+            if (striker) allPieces.push(striker);
+            if (striker2) allPieces.push(striker2);
+            
+            // 更新位置
+            allPieces.forEach(p => {
+                if (p.pocketed) return;
+                p.x += p.vx;
+                p.y += p.vy;
+                p.vx *= CONFIG.friction;
+                p.vy *= CONFIG.friction;
+            });
+            
+            // 邊界碰撞
+            allPieces.forEach(p => {
+                if (p.pocketed) return;
+                
+                const minX = innerX + p.radius;
+                const maxX = innerX + innerSize - p.radius;
+                const minY = innerY + p.radius;
+                const maxY = innerY + innerSize - p.radius;
+                
+                if (p.x < minX) { p.x = minX; p.vx *= -CONFIG.restitution; playSound('wall'); }
+                if (p.x > maxX) { p.x = maxX; p.vx *= -CONFIG.restitution; playSound('wall'); }
+                if (p.y < minY) { p.y = minY; p.vy *= -CONFIG.restitution; playSound('wall'); }
+                if (p.y > maxY) { p.y = maxY; p.vy *= -CONFIG.restitution; playSound('wall'); }
+            });
+            
+            // 盤子間碰撞
+            for (let i = 0; i < allPieces.length; i++) {
+                for (let j = i + 1; j < allPieces.length; j++) {
+                    const a = allPieces[i];
+                    const b = allPieces[j];
+                    if (a.pocketed || b.pocketed) continue;
+                    
+                    const dx = b.x - a.x;
+                    const dy = b.y - a.y;
+                    const dist = Math.hypot(dx, dy);
+                    const minDist = a.radius + b.radius;
+                    
+                    if (dist < minDist && dist > 0) {
+                        playSound('hit');
+                        
+                        // 分離
+                        const overlap = minDist - dist;
+                        const nx = dx / dist;
+                        const ny = dy / dist;
+                        
+                        a.x -= nx * overlap / 2;
+                        a.y -= ny * overlap / 2;
+                        b.x += nx * overlap / 2;
+                        b.y += ny * overlap / 2;
+                        
+                        // 速度交換
+                        const dvx = a.vx - b.vx;
+                        const dvy = a.vy - b.vy;
+                        const dot = dvx * nx + dvy * ny;
+                        
+                        if (dot > 0) {
+                            const impulse = dot * CONFIG.restitution;
+                            a.vx -= impulse * nx;
+                            a.vy -= impulse * ny;
+                            b.vx += impulse * nx;
+                            b.vy += impulse * ny;
+                        }
+                    }
+                }
+            }
+            
+            // 檢查入袋
+            checkPockets();
+            
+            // 檢查是否停止
+            const moving = allPieces.some(p => 
+                !p.pocketed && (Math.abs(p.vx) > CONFIG.minSpeed || Math.abs(p.vy) > CONFIG.minSpeed)
+            );
+            
+            if (!moving && isMoving) {
+                isMoving = false;
+                handleTurnEnd();
+            }
+        }
+
+        function checkPockets() {
+            let allPieces = [...pieces];
+            if (striker) allPieces.push(striker);
+            if (striker2) allPieces.push(striker2);
+            
+            allPieces.forEach(piece => {
+                if (piece.pocketed) return;
+                
+                currentPockets.forEach(pocket => {
+                    const dist = Math.hypot(piece.x - pocket.x, piece.y - pocket.y);
+                    if (dist < pocket.size + piece.radius * 0.3) {
+                        piece.pocketed = true;
+                        piece.vx = 0;
+                        piece.vy = 0;
+                        playSound('pocket');
+                        
+                        handlePocket(piece);
+                    }
+                });
+            });
+        }
+
+        function handlePocket(piece) {
+            if (piece.type === 'striker' || piece.type === 'striker2') {
+                pocketedThisTurn.striker = true;
+                showMessage('犯規！擊球器入袋');
+                scores[currentPlayer - 1] = Math.max(0, scores[currentPlayer - 1] - 1);
+            } else if (piece.type === 'queen') {
+                queenPocketedBy = currentPlayer;
+                needCover = true;
+                pocketed.queen = true;
+                pocketedThisTurn.queen = true;
+                showMessage('皇后入袋！需要 Cover');
+            } else if (piece.type === 'white') {
+                pocketed.white++;
+                pocketedThisTurn.white++;
+                if (currentPlayer === 1) {
+                    scores[0]++;
+                    if (needCover && queenPocketedBy === 1) {
+                        scores[0] += 3;
+                        needCover = false;
+                        showMessage('Cover 成功！+3 分');
+                    }
+                }
+            } else if (piece.type === 'black') {
+                pocketed.black++;
+                pocketedThisTurn.black++;
+                if (currentPlayer === 2) {
+                    scores[1]++;
+                    if (needCover && queenPocketedBy === 2) {
+                        scores[1] += 3;
+                        needCover = false;
+                        showMessage('Cover 成功！+3 分');
+                    }
+                }
+            }
+            
+            updateUI();
+        }
+
+        function handleTurnEnd() {
+            // 檢查勝利條件
+            if (pocketed.white >= 9) {
+                endGame(1);
+                return;
+            }
+            if (pocketed.black >= 9) {
+                endGame(2);
+                return;
+            }
+            
+            // 如果皇后未被 cover，檢查這回合是否有cover
+            if (needCover && pocketedThisTurn.queen) {
+                // 皇后這回合入袋，需要同回合cover
+                const coveredThisTurn = (queenPocketedBy === 1 && pocketedThisTurn.white > 0) ||
+                                       (queenPocketedBy === 2 && pocketedThisTurn.black > 0);
+                
+                if (!coveredThisTurn) {
+                    const queenPiece = pieces.find(p => p.type === 'queen');
+                    if (queenPiece) {
+                        queenPiece.pocketed = false;
+                        queenPiece.x = boardSize / 2;
+                        queenPiece.y = boardSize / 2;
+                        needCover = false;
+                        queenPocketedBy = 0;
+                        pocketed.queen = false;
+                        showMessage('未能 Cover，皇后重置');
+                    }
+                }
+            }
+            
+            // 檢查是否有己方盤子入袋（這回合）
+            let scoredThisTurn = false;
+            if (currentPlayer === 1) {
+                scoredThisTurn = pocketedThisTurn.white > 0;
+            } else {
+                scoredThisTurn = pocketedThisTurn.black > 0;
+            }
+            
+            // 檢查對手的身不由己天賦
+            const opponentTalent = playerTalents[currentPlayer === 1 ? 1 : 0];
+            const noConsecutiveTurn = opponentTalent === 'rhythm';
+            
+            // 判斷是否換人
+            const shouldSwitch = !scoredThisTurn || pocketedThisTurn.striker || noConsecutiveTurn;
+            
+            if (shouldSwitch) {
+                currentPlayer = currentPlayer === 1 ? 2 : 1;
+                updatePocketsForCurrentPlayer();
+            }
+            
+            resetStriker();
+            updateUI();
+            
+            // AI 回合
+            if (gameMode === 'ai' && currentPlayer === 2 && !gameOver) {
+                setTimeout(aiTurn, 1000);
+            }
+        }
+
+        function endGame(winner) {
+            gameOver = true;
+            const overlay = document.getElementById('overlay');
+            const winnerName = gameMode === 'ai' && winner === 2 ? 'AI' : `玩家 ${winner}`;
+            overlay.innerHTML = `
+                <h1>🏆 遊戲結束</h1>
+                <h2 class="winner-text">${winnerName} 獲勝！</h2>
+                <p style="color: #fff; font-size: 20px; margin-bottom: 20px;">
+                    玩家1: ${scores[0]} 分 | ${gameMode === 'ai' ? 'AI' : '玩家2'}: ${scores[1]} 分
+                </p>
+                <button class="menu-btn" onclick="returnToMainMenu()">🔄 返回主選單</button>
+            `;
+            overlay.classList.remove('hidden');
+        }
+
+        // ========== AI 系統 ==========
+        function aiTurn() {
+            if (!striker || isMoving || gameOver) return;
+            
+            // 找最佳目標
+            const targets = pieces.filter(p => !p.pocketed && p.type === 'black');
+            if (targets.length === 0) return;
+            
+            let bestTarget = null;
+            let bestScore = -Infinity;
+            
+            targets.forEach(target => {
+                currentPockets.forEach(pocket => {
+                    const score = evaluateShot(striker, target, pocket);
+                    if (score > bestScore) {
+                        bestScore = score;
+                        bestTarget = { piece: target, pocket };
+                    }
+                });
+            });
+            
+            if (bestTarget) {
+                // 計算射擊角度
+                const dx = bestTarget.piece.x - striker.x;
+                const dy = bestTarget.piece.y - striker.y;
+                const angle = Math.atan2(dy, dx);
+                const powerMod = getPowerModifier();
+                const basePower = Math.min(0.5 + Math.random() * 0.4, 1);
+                const force = basePower * CONFIG.maxPower * Math.min(powerMod, 3);
+                
+                striker.vx = Math.cos(angle) * force;
+                striker.vy = Math.sin(angle) * force;
+                
+                // 如果有第二個擊球器，同時發射
+                if (striker2) {
+                    striker2.vx = Math.cos(angle) * force;
+                    striker2.vy = Math.sin(angle) * force;
+                }
+                
+                // 重置這回合的入袋追蹤
+                pocketedThisTurn = { white: 0, black: 0, queen: false, striker: false };
+                
+                isMoving = true;
+                playSound('hit');
+            }
+        }
+
+        function evaluateShot(striker, target, pocket) {
+            const d1 = Math.hypot(target.x - striker.x, target.y - striker.y);
+            const d2 = Math.hypot(pocket.x - target.x, pocket.y - target.y);
+            
+            // 計算角度對齊
+            const angle1 = Math.atan2(target.y - striker.y, target.x - striker.x);
+            const angle2 = Math.atan2(pocket.y - target.y, pocket.x - target.x);
+            const angleDiff = Math.abs(angle1 - angle2);
+            
+            return 100 - d1 * 0.1 - d2 * 0.1 - angleDiff * 20;
+        }
+
+        // ========== 渲染系統 ==========
+        function render() {
+            ctx.clearRect(0, 0, boardSize, boardSize);
+            
+            drawBoard();
+            drawPieces();
+            drawStriker();
+            drawAimLine();
+        }
+
+        function drawBoard() {
+            // 外框木紋
+            const woodGrad = ctx.createLinearGradient(0, 0, boardSize, boardSize);
+            woodGrad.addColorStop(0, '#8B4513');
+            woodGrad.addColorStop(0.3, '#A0522D');
+            woodGrad.addColorStop(0.6, '#8B4513');
+            woodGrad.addColorStop(1, '#654321');
+            ctx.fillStyle = woodGrad;
+            ctx.fillRect(0, 0, boardSize, boardSize);
+            
+            // 內部遊戲區
+            ctx.fillStyle = '#d4b896';
+            ctx.fillRect(innerX, innerY, innerSize, innerSize);
+            
+            // 裝飾線
+            ctx.strokeStyle = '#654321';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(innerX + 10, innerY + 10, innerSize - 20, innerSize - 20);
+            
+            // 中心圓
+            const center = boardSize / 2;
+            ctx.beginPath();
+            ctx.arc(center, center, innerSize * 0.12, 0, Math.PI * 2);
+            ctx.strokeStyle = '#8B4513';
+            ctx.lineWidth = 3;
+            ctx.stroke();
+            
+            ctx.beginPath();
+            ctx.arc(center, center, innerSize * 0.06, 0, Math.PI * 2);
+            ctx.stroke();
+            
+            // 角落箭頭區域
+            const arrowDist = innerSize * 0.15;
+            [[1,1], [1,-1], [-1,1], [-1,-1]].forEach(([dx, dy]) => {
+                ctx.beginPath();
+                ctx.arc(center + dx * arrowDist, center + dy * arrowDist, 5, 0, Math.PI * 2);
+                ctx.fillStyle = '#8B4513';
+                ctx.fill();
+            });
+            
+            // 基線
+            ctx.strokeStyle = 'rgba(139, 69, 19, 0.5)';
+            ctx.lineWidth = 2;
+            
+            // 玩家1基線（下）
+            const baseline1Y = innerY + innerSize - innerSize * 0.22;
+            ctx.beginPath();
+            ctx.moveTo(innerX + innerSize * 0.15, baseline1Y);
+            ctx.lineTo(innerX + innerSize * 0.85, baseline1Y);
+            ctx.stroke();
+            
+            // 玩家2基線（上）
+            const baseline2Y = innerY + innerSize * 0.22;
+            ctx.beginPath();
+            ctx.moveTo(innerX + innerSize * 0.15, baseline2Y);
+            ctx.lineTo(innerX + innerSize * 0.85, baseline2Y);
+            ctx.stroke();
+            
+            // 如果對手有身不由己天賦，顯示雙擊球器標記
+            if (hasDualStrikers && !isMoving && !gameOver) {
+                const lockY = currentPlayer === 1 ? baseline1Y : baseline2Y;
+                ctx.fillStyle = 'rgba(255, 100, 0, 0.3)';
+                ctx.fillRect(innerX + innerSize * 0.15, lockY - 20, innerSize * 0.7, 40);
+                ctx.fillStyle = '#ff6600';
+                ctx.font = '14px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText('🔒 雙擊球器模式 - 左右同時發射', boardSize / 2, lockY + 5);
+            }
+            
+            // 繪製袋口
+            currentPockets.forEach(pocket => {
+                // 陰影
+                ctx.beginPath();
+                ctx.arc(pocket.x + 2, pocket.y + 2, pocket.size, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(0,0,0,0.3)';
+                ctx.fill();
+                
+                // 袋口
+                ctx.beginPath();
+                ctx.arc(pocket.x, pocket.y, pocket.size, 0, Math.PI * 2);
+                if (pocket.isCenter) {
+                    ctx.fillStyle = '#3a1a3a'; // 中心洞用紫色
+                } else if (pocket.extra) {
+                    ctx.fillStyle = '#2a1a0a';
+                } else {
+                    ctx.fillStyle = '#1a1a1a';
+                }
+                ctx.fill();
+                
+                // 內環
+                ctx.beginPath();
+                ctx.arc(pocket.x, pocket.y, pocket.size - 4, 0, Math.PI * 2);
+                if (pocket.isCenter) {
+                    ctx.strokeStyle = '#6a3a6a';
+                } else if (pocket.extra) {
+                    ctx.strokeStyle = '#4a3a2a';
+                } else {
+                    ctx.strokeStyle = '#333';
+                }
+                ctx.lineWidth = 2;
+                ctx.stroke();
+                
+                // 額外洞的標記
+                if (pocket.extra) {
+                    ctx.beginPath();
+                    ctx.arc(pocket.x, pocket.y, pocket.size * 0.3, 0, Math.PI * 2);
+                    ctx.fillStyle = '#ffd700';
+                    ctx.fill();
+                }
+                
+                // 中心洞的標記
+                if (pocket.isCenter) {
+                    ctx.beginPath();
+                    ctx.arc(pocket.x, pocket.y, pocket.size * 0.2, 0, Math.PI * 2);
+                    ctx.fillStyle = '#ff00ff';
+                    ctx.fill();
+                }
+            });
+        }
+
+        function drawPieces() {
+            pieces.forEach(piece => {
+                if (piece.pocketed) return;
+                
+                // 陰影
+                ctx.beginPath();
+                ctx.arc(piece.x + 3, piece.y + 3, piece.radius, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(0,0,0,0.3)';
+                ctx.fill();
+                
+                // 盤子
+                ctx.beginPath();
+                ctx.arc(piece.x, piece.y, piece.radius, 0, Math.PI * 2);
+                
+                const grad = ctx.createRadialGradient(
+                    piece.x - piece.radius * 0.3, 
+                    piece.y - piece.radius * 0.3, 
+                    0,
+                    piece.x, piece.y, piece.radius
+                );
+                
+                if (piece.type === 'white') {
+                    grad.addColorStop(0, '#fffef0');
+                    grad.addColorStop(1, '#d4d4aa');
+                } else if (piece.type === 'black') {
+                    grad.addColorStop(0, '#4a4a4a');
+                    grad.addColorStop(1, '#1a1a1a');
+                } else {
+                    grad.addColorStop(0, '#ef4444');
+                    grad.addColorStop(1, '#991b1b');
+                }
+                
+                ctx.fillStyle = grad;
+                ctx.fill();
+                
+                ctx.strokeStyle = piece.type === 'black' ? '#000' : '#888';
+                ctx.lineWidth = 1;
+                ctx.stroke();
+                
+                // 內圈裝飾
+                ctx.beginPath();
+                ctx.arc(piece.x, piece.y, piece.radius * 0.6, 0, Math.PI * 2);
+                ctx.strokeStyle = piece.type === 'queen' ? '#fbbf24' : 
+                                 piece.type === 'white' ? '#ccc' : '#333';
+                ctx.lineWidth = 1;
+                ctx.stroke();
+            });
+        }
+
+        function drawStriker() {
+            // 繪製主擊球器
+            if (striker && !striker.pocketed) {
+                drawSingleStriker(striker, '#fde047', '#ca8a04');
+            }
+            
+            // 繪製第二個擊球器（如果有）
+            if (striker2 && !striker2.pocketed) {
+                drawSingleStriker(striker2, '#fdba74', '#ea580c');
+            }
+        }
+        
+        function drawSingleStriker(s, colorLight, colorDark) {
+            // 陰影
+            ctx.beginPath();
+            ctx.arc(s.x + 3, s.y + 3, s.radius, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(0,0,0,0.3)';
+            ctx.fill();
+            
+            // 擊球器
+            ctx.beginPath();
+            ctx.arc(s.x, s.y, s.radius, 0, Math.PI * 2);
+            
+            const grad = ctx.createRadialGradient(
+                s.x - s.radius * 0.3,
+                s.y - s.radius * 0.3,
+                0,
+                s.x, s.y, s.radius
+            );
+            grad.addColorStop(0, colorLight);
+            grad.addColorStop(1, colorDark);
+            
+            ctx.fillStyle = grad;
+            ctx.fill();
+            
+            ctx.strokeStyle = '#92400e';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            
+            // 中心點
+            ctx.beginPath();
+            ctx.arc(s.x, s.y, 4, 0, Math.PI * 2);
+            ctx.fillStyle = '#92400e';
+            ctx.fill();
+        }
+
+        function drawAimLine() {
+            if (!isAiming || !striker) return;
+            
+            const dx = dragStart.x - aimEnd.x;
+            const dy = dragStart.y - aimEnd.y;
+            const angle = Math.atan2(dy, dx);
+            const aimMod = getAimLengthModifier();
+            const baseLength = Math.min(Math.hypot(dx, dy) * 2, CONFIG.baseAimLength);
+            const length = baseLength * aimMod;
+            
+            // 檢查是否有一觸即發天賦（可以顯示反彈路徑）
+            const myTalent = playerTalents[currentPlayer - 1];
+            const showBounce = myTalent === 'precision';
+            
+            if (showBounce) {
+                // 繪製帶反彈的瞄準線
+                drawBouncingAimLine(striker, angle, length);
+                if (striker2) {
+                    drawBouncingAimLine(striker2, angle, length);
+                }
+            } else {
+                // 普通瞄準線
+                drawSimpleAimLine(striker, angle, length);
+                if (striker2) {
+                    drawSimpleAimLine(striker2, angle, length);
+                }
+            }
+            
+            // 力量條
+            const barWidth = 100;
+            const barHeight = 12;
+            const barX = striker.x - barWidth / 2;
+            const barY = striker.y + striker.radius + 20;
+            
+            ctx.fillStyle = 'rgba(0,0,0,0.5)';
+            ctx.fillRect(barX - 2, barY - 2, barWidth + 4, barHeight + 4);
+            
+            ctx.fillStyle = '#333';
+            ctx.fillRect(barX, barY, barWidth, barHeight);
+            
+            const powerMod = getPowerModifier();
+            const displayPower = Math.min(power * powerMod, 1);
+            
+            const powerGrad = ctx.createLinearGradient(barX, 0, barX + barWidth, 0);
+            powerGrad.addColorStop(0, '#22c55e');
+            powerGrad.addColorStop(0.5, '#eab308');
+            powerGrad.addColorStop(1, '#ef4444');
+            
+            ctx.fillStyle = powerGrad;
+            ctx.fillRect(barX, barY, barWidth * displayPower, barHeight);
+            
+            // 顯示力量修正
+            if (powerMod !== 1) {
+                ctx.fillStyle = powerMod > 1 ? '#4ade80' : '#ef4444';
+                ctx.font = '12px Arial';
+                ctx.textAlign = 'center';
+                const modText = powerMod > 1 ? `瞄準線 x${aimMod.toFixed(1)}` : `力量 x${powerMod.toFixed(1)}`;
+                ctx.fillText(modText, striker.x, barY + barHeight + 15);
+            }
+        }
+
+        function drawSimpleAimLine(s, angle, length) {
+            ctx.beginPath();
+            ctx.moveTo(s.x, s.y);
+            ctx.lineTo(
+                s.x + Math.cos(angle) * length,
+                s.y + Math.sin(angle) * length
+            );
+            ctx.strokeStyle = `rgba(255, 255, 255, ${0.3 + power * 0.5})`;
+            ctx.lineWidth = 3;
+            ctx.setLineDash([10, 10]);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            
+            // 力量指示點
+            const dotCount = 5;
+            for (let i = 0; i < dotCount; i++) {
+                const dotDist = (i + 1) * length / (dotCount + 1);
+                const dotX = s.x + Math.cos(angle) * dotDist;
+                const dotY = s.y + Math.sin(angle) * dotDist;
+                
+                ctx.beginPath();
+                ctx.arc(dotX, dotY, 4 - i * 0.3, 0, Math.PI * 2);
+                ctx.fillStyle = `rgba(255, ${255 - power * 200}, 0, ${1 - i * 0.1})`;
+                ctx.fill();
+            }
+        }
+
+        function drawBouncingAimLine(s, angle, totalLength) {
+            let currentX = s.x;
+            let currentY = s.y;
+            let currentAngle = angle;
+            let remainingLength = totalLength;
+            let bounceCount = 0;
+            const maxBounces = 5;
+            
+            ctx.beginPath();
+            ctx.moveTo(currentX, currentY);
+            
+            while (remainingLength > 0 && bounceCount < maxBounces) {
+                // 計算下一個位置
+                let nextX = currentX + Math.cos(currentAngle) * remainingLength;
+                let nextY = currentY + Math.sin(currentAngle) * remainingLength;
+                
+                // 檢查是否碰到邊界
+                const minX = innerX + CONFIG.strikerRadius;
+                const maxX = innerX + innerSize - CONFIG.strikerRadius;
+                const minY = innerY + CONFIG.strikerRadius;
+                const maxY = innerY + innerSize - CONFIG.strikerRadius;
+                
+                let hitWall = false;
+                let hitX = nextX;
+                let hitY = nextY;
+                let travelDist = remainingLength;
+                
+                // 檢查左右邊界
+                if (nextX < minX || nextX > maxX) {
+                    const wallX = nextX < minX ? minX : maxX;
+                    const t = (wallX - currentX) / (nextX - currentX);
+                    hitX = wallX;
+                    hitY = currentY + t * (nextY - currentY);
+                    travelDist = Math.hypot(hitX - currentX, hitY - currentY);
+                    hitWall = true;
+                    currentAngle = Math.PI - currentAngle; // 水平反彈
+                }
+                
+                // 檢查上下邊界
+                if (nextY < minY || nextY > maxY) {
+                    const wallY = nextY < minY ? minY : maxY;
+                    const t = (wallY - currentY) / (nextY - currentY);
+                    const testHitX = currentX + t * (nextX - currentX);
+                    const testHitY = wallY;
+                    const testDist = Math.hypot(testHitX - currentX, testHitY - currentY);
+                    
+                    if (testDist < travelDist) {
+                        hitX = testHitX;
+                        hitY = testHitY;
+                        travelDist = testDist;
+                        hitWall = true;
+                        currentAngle = -currentAngle; // 垂直反彈
+                    }
+                }
+                
+                ctx.lineTo(hitX, hitY);
+                
+                if (hitWall) {
+                    bounceCount++;
+                    remainingLength -= travelDist;
+                    currentX = hitX;
+                    currentY = hitY;
+                    
+                    // 繪製反彈點
+                    ctx.stroke();
+                    ctx.beginPath();
+                    ctx.arc(hitX, hitY, 6, 0, Math.PI * 2);
+                    ctx.fillStyle = `rgba(255, 200, 0, ${0.8 - bounceCount * 0.15})`;
+                    ctx.fill();
+                    
+                    ctx.beginPath();
+                    ctx.moveTo(currentX, currentY);
+                } else {
+                    remainingLength = 0;
+                }
+            }
+            
+            ctx.strokeStyle = `rgba(0, 255, 255, ${0.4 + power * 0.4})`;
+            ctx.lineWidth = 3;
+            ctx.setLineDash([8, 8]);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            
+            // 預覽碰撞盤子
+            simulateCollisions(s, angle, totalLength);
+        }
+
+        function simulateCollisions(s, angle, totalLength) {
+            // 模擬擊球器路徑，預覽可能碰到的盤子
+            let currentX = s.x;
+            let currentY = s.y;
+            let currentAngle = angle;
+            let remainingLength = totalLength;
+            let bounceCount = 0;
+            const maxBounces = 5;
+            const stepSize = 5;
+            
+            const hitPieces = new Set();
+            
+            while (remainingLength > 0 && bounceCount < maxBounces) {
+                const step = Math.min(stepSize, remainingLength);
+                const nextX = currentX + Math.cos(currentAngle) * step;
+                const nextY = currentY + Math.sin(currentAngle) * step;
+                
+                // 檢查是否碰到盤子
+                pieces.forEach(piece => {
+                    if (piece.pocketed || hitPieces.has(piece)) return;
+                    const dist = Math.hypot(nextX - piece.x, nextY - piece.y);
+                    if (dist < CONFIG.strikerRadius + piece.radius) {
+                        hitPieces.add(piece);
+                        
+                        // 繪製碰撞預覽
+                        ctx.beginPath();
+                        ctx.arc(piece.x, piece.y, piece.radius + 5, 0, Math.PI * 2);
+                        ctx.strokeStyle = piece.type === 'queen' ? '#ff0000' : 
+                                         piece.type === 'white' ? '#00ff00' : '#ffff00';
+                        ctx.lineWidth = 3;
+                        ctx.setLineDash([5, 5]);
+                        ctx.stroke();
+                        ctx.setLineDash([]);
+                        
+                        // 預測盤子的飛行方向
+                        const hitAngle = Math.atan2(piece.y - nextY, piece.x - nextX);
+                        const predictLength = 80;
+                        ctx.beginPath();
+                        ctx.moveTo(piece.x, piece.y);
+                        ctx.lineTo(
+                            piece.x + Math.cos(hitAngle) * predictLength,
+                            piece.y + Math.sin(hitAngle) * predictLength
+                        );
+                        ctx.strokeStyle = `rgba(255, 255, 0, 0.5)`;
+                        ctx.lineWidth = 2;
+                        ctx.setLineDash([5, 5]);
+                        ctx.stroke();
+                        ctx.setLineDash([]);
+                    }
+                });
+                
+                // 檢查邊界
+                const minX = innerX + CONFIG.strikerRadius;
+                const maxX = innerX + innerSize - CONFIG.strikerRadius;
+                const minY = innerY + CONFIG.strikerRadius;
+                const maxY = innerY + innerSize - CONFIG.strikerRadius;
+                
+                if (nextX < minX || nextX > maxX) {
+                    currentAngle = Math.PI - currentAngle;
+                    bounceCount++;
+                }
+                if (nextY < minY || nextY > maxY) {
+                    currentAngle = -currentAngle;
+                    bounceCount++;
+                }
+                
+                currentX = Math.max(minX, Math.min(maxX, nextX));
+                currentY = Math.max(minY, Math.min(maxY, nextY));
+                remainingLength -= step;
+            }
+        }
+
+        function updateUI() {
+            document.getElementById('score1').textContent = scores[0];
+            document.getElementById('score2').textContent = scores[1];
+            
+            document.getElementById('player1Info').classList.toggle('active', currentPlayer === 1);
+            document.getElementById('player2Info').classList.toggle('active', currentPlayer === 2);
+            
+            let turnText;
+            if (gameMode === 'ai' && currentPlayer === 2) {
+                turnText = 'AI 思考中...';
+            } else {
+                turnText = `玩家${currentPlayer} 的回合`;
+                if (hasDualStrikers) {
+                    turnText += ' (雙擊球器)';
+                }
+            }
+            document.getElementById('turnIndicator').textContent = turnText;
+        }
+
+        function showMessage(text) {
+            const msg = document.getElementById('message');
+            msg.textContent = text;
+            msg.classList.add('show');
+            setTimeout(() => msg.classList.remove('show'), 2500);
+        }
+
+        // ========== 遊戲循環 ==========
+        function gameLoop() {
+            updatePhysics();
+            render();
+            requestAnimationFrame(gameLoop);
+        }
+
+        // 啟動
+        init();
+    </script>
+</body>
+</html>
