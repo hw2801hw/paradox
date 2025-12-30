@@ -1,1 +1,91 @@
-Hi
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>快捷連結</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            padding: 50px;
+            background-color: #f0f8ff;
+        }
+        p {
+            font-size: 24px;
+            line-height: 2.5;
+        }
+        a {
+            text-decoration: none;
+            color: #007bff;
+            margin: 0 15px;
+        }
+        a:hover {
+            text-decoration: underline;
+        }
+        .button-style {
+            display: inline-block;
+            padding: 12px 28px;
+            background-color: #007bff;
+            color: white;
+            border-radius: 12px;
+            font-size: 24px;
+            transition: background 0.5s ease;
+        }
+        /* 第7項泡泡專用：整個按鈕背景彩虹漸變動畫 */
+        #rainbow-button {
+            color: white;
+            font-weight: bold;
+            background: linear-gradient(270deg, #ff0000, #ff9900, #ffff00, #00ff00, #00ffff, #0000ff, #9900ff);
+            background-size: 600% 600%;
+            animation: rainbowFlow 2s ease infinite;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        }
+        @keyframes rainbowFlow {
+            0%   { background-position: 0% 50%; }
+            50%  { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+    </style>
+</head>
+<body>
+    <p>
+        <a href="https://hw2801hw.github.io/paradox/彬彬象棋">1. 彬</a>
+        <a href="https://hw2801hw.github.io/paradox/彬彬象棋" target="_blank" class="button-style">&emsp; 彬 &emsp;</a>
+        <a href="https://hw2801hw.github.io/paradox/彬彬象棋">彬</a><br /><br />
+
+        <a href="https://hw2801hw.github.io/paradox/game">2. 豳</a>
+        <a href="https://hw2801hw.github.io/paradox/game" target="_blank" class="button-style">&emsp; 豳 &emsp;</a>
+        <a href="https://hw2801hw.github.io/paradox/game">豳</a><br /><br />
+
+        <a href="https://hw2801hw.github.io/paradox/html2">3. 奔</a>
+        <a href="https://hw2801hw.github.io/paradox/html2" target="_blank" class="button-style">&emsp; 奔 &emsp;</a>
+        <a href="https://hw2801hw.github.io/paradox/html2">奔</a><br /><br />
+
+        <a href="https://hw2801hw.github.io/paradox/debug">4. 椕</a>
+        <a href="https://hw2801hw.github.io/paradox/debug" target="_blank" class="button-style">&emsp; 椕 &emsp;</a>
+        <a href="https://hw2801hw.github.io/paradox/debug">椕</a><br /><br />
+
+        <a href="https://hw2801hw.github.io/paradox/plant">5. 邠</a>
+        <a href="https://hw2801hw.github.io/paradox/plant" target="_blank" class="button-style">&emsp; 邠 &emsp;</a>
+        <a href="https://hw2801hw.github.io/paradox/plant">植物</a><br /><br />
+
+        <a href="https://hw2801hw.github.io/paradox/hero">6. 瀕</a>
+        <a href="https://hw2801hw.github.io/paradox/hero" target="_blank" class="button-style">&emsp; 瀕 &emsp;</a>
+        <a href="https://hw2801hw.github.io/paradox/hero">瀕</a><br /><br />
+
+        <a href="https://hw2801hw.github.io/paradox/ball">7. 繽</a>
+        <a href="https://hw2801hw.github.io/paradox/ball" target="_blank" class="button-style" id="rainbow-button">&emsp; 玢 &emsp;</a>
+        <a href="https://hw2801hw.github.io/paradox/ball">繽</a><br /><br />
+
+
+        <a href="https://hw2801hw.github.io/paradox/carrom">8. 豩</a>
+        <a href="https://hw2801hw.github.io/paradox/carrom"" target="_blank" class="button-style">&emsp; 豩 &emsp;</a>
+        <a href="https://hw2801hw.github.io/paradox/carrom"">豩</a>
+
+        <a href="https://hw2801hw.github.io/paradox/carrom">9. 豩</a>
+        <a href="https://hw2801hw.github.io/paradox/carrom"" target="_blank" class="button-style">&emsp; 豩 &emsp;</a>
+        <a href="https://hw2801hw.github.io/paradox/carrom"">豩</a>
+    </p>
+</body>
+</html>
