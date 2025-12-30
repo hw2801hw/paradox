@@ -1,0 +1,1819 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>鬥獸棋 - 首領模式</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+        
+        body {
+            font-family: 'Microsoft YaHei', 'PingFang SC', sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 10px;
+            color: #fff;
+        }
+        
+        h1 {
+            font-size: clamp(1.3rem, 4vw, 2rem);
+            margin-bottom: 8px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+            background: linear-gradient(45deg, #f39c12, #e74c3c);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .game-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 100%;
+            max-width: 600px;
+        }
+        
+        .controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            justify-content: center;
+            margin-bottom: 10px;
+        }
+        
+        button {
+            padding: 8px 16px;
+            font-size: clamp(0.8rem, 2.5vw, 1rem);
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s ease;
+            font-family: inherit;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(45deg, #e74c3c, #c0392b);
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            transform: scale(1.05);
+            box-shadow: 0 4px 15px rgba(231, 76, 60, 0.4);
+        }
+        
+        .btn-secondary {
+            background: linear-gradient(45deg, #3498db, #2980b9);
+            color: white;
+        }
+        
+        .btn-secondary:hover {
+            transform: scale(1.05);
+            box-shadow: 0 4px 15px rgba(52, 152, 219, 0.4);
+        }
+        
+        .btn-active {
+            background: linear-gradient(45deg, #27ae60, #1e8449);
+            box-shadow: 0 0 10px rgba(39, 174, 96, 0.6);
+        }
+        
+        .btn-info {
+            background: linear-gradient(45deg, #9b59b6, #8e44ad);
+            color: white;
+        }
+        
+        .status {
+            font-size: clamp(0.9rem, 3vw, 1.2rem);
+            margin-bottom: 8px;
+            padding: 6px 16px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 20px;
+            text-align: center;
+        }
+        
+        .leader-display {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 8px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        
+        .leader-card {
+            padding: 8px 12px;
+            border-radius: 10px;
+            font-size: clamp(0.7rem, 2vw, 0.85rem);
+            text-align: center;
+            min-width: 140px;
+        }
+        
+        .leader-card.red {
+            background: rgba(231, 76, 60, 0.3);
+            border: 2px solid #e74c3c;
+        }
+        
+        .leader-card.blue {
+            background: rgba(52, 152, 219, 0.3);
+            border: 2px solid #3498db;
+        }
+        
+        .leader-name {
+            font-weight: bold;
+            font-size: clamp(0.85rem, 2.5vw, 1rem);
+        }
+        
+        .leader-ability {
+            color: #f1c40f;
+            margin-top: 3px;
+        }
+        
+        #gameCanvas {
+            border-radius: 10px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            touch-action: none;
+            max-width: 100%;
+            height: auto;
+        }
+        
+        .info-panel {
+            margin-top: 10px;
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        
+        .player-info {
+            padding: 8px 12px;
+            border-radius: 10px;
+            font-size: clamp(0.75rem, 2vw, 0.9rem);
+        }
+        
+        .red-info {
+            background: rgba(231, 76, 60, 0.3);
+            border: 2px solid #e74c3c;
+        }
+        
+        .blue-info {
+            background: rgba(52, 152, 219, 0.3);
+            border: 2px solid #3498db;
+        }
+        
+        .legend {
+            margin-top: 10px;
+            padding: 12px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 10px;
+            font-size: clamp(0.65rem, 1.8vw, 0.8rem);
+            max-width: 100%;
+        }
+        
+        .legend-title {
+            font-weight: bold;
+            margin-bottom: 6px;
+            color: #f39c12;
+        }
+        
+        .legend-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            justify-content: center;
+        }
+        
+        .legend-item {
+            background: rgba(0,0,0,0.3);
+            padding: 2px 6px;
+            border-radius: 5px;
+        }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.85);
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            padding: 20px;
+        }
+        
+        .modal-content {
+            background: linear-gradient(135deg, #2c3e50, #1a252f);
+            padding: 25px;
+            border-radius: 20px;
+            text-align: center;
+            max-width: 95%;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+        }
+        
+        .modal h2 {
+            font-size: clamp(1.3rem, 5vw, 2rem);
+            margin-bottom: 15px;
+        }
+        
+        .winner-red {
+            color: #e74c3c;
+        }
+        
+        .winner-blue {
+            color: #3498db;
+        }
+        
+        .ability-list {
+            text-align: left;
+            margin: 15px 0;
+            font-size: clamp(0.7rem, 2vw, 0.9rem);
+        }
+        
+        .ability-item {
+            padding: 10px;
+            margin: 8px 0;
+            background: rgba(0,0,0,0.3);
+            border-radius: 8px;
+            border-left: 4px solid #f39c12;
+        }
+        
+        .ability-item strong {
+            color: #f1c40f;
+        }
+        
+        .ability-item.trap-ability {
+            border-left-color: #9b59b6;
+        }
+        
+        .ability-item.trap-ability strong {
+            color: #bb8fce;
+        }
+        
+        .close-btn {
+            position: absolute;
+            top: 10px;
+            right: 15px;
+            font-size: 24px;
+            cursor: pointer;
+            color: #aaa;
+        }
+        
+        .close-btn:hover {
+            color: #fff;
+        }
+        
+        @media (max-width: 480px) {
+            body {
+                padding: 5px;
+            }
+            
+            .controls {
+                gap: 5px;
+            }
+            
+            button {
+                padding: 6px 12px;
+            }
+            
+            .leader-card {
+                min-width: 120px;
+                padding: 6px 8px;
+            }
+        }
+        
+        @media (orientation: landscape) and (max-height: 500px) {
+            body {
+                justify-content: flex-start;
+                padding-top: 5px;
+            }
+            
+            h1 {
+                font-size: 1rem;
+                margin-bottom: 3px;
+            }
+            
+            .controls, .status, .leader-display {
+                margin-bottom: 3px;
+            }
+            
+            .info-panel, .legend {
+                display: none;
+            }
+            
+            .leader-card {
+                padding: 4px 8px;
+                min-width: 100px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <h1>🐘 鬥獸棋 - 首領模式 🐯</h1>
+    
+    <div class="game-container">
+        <div class="controls">
+            <button class="btn-primary" onclick="restartGame()">🔄 重新開始</button>
+            <button class="btn-secondary" id="modeBtn" onclick="toggleMode()">👤 單人模式</button>
+            <button class="btn-info" onclick="showAbilities()">📜 首領技能</button>
+        </div>
+        
+        <div class="status" id="status">紅方回合 - 選擇首領棋子或雙擊穴</div>
+        
+        <div class="leader-display">
+            <div class="leader-card red">
+                <div>🔴 紅方首領</div>
+                <div class="leader-name" id="redLeader">等待選擇...</div>
+                <div class="leader-ability" id="redAbility"></div>
+            </div>
+            <div class="leader-card blue">
+                <div>🔵 藍方首領</div>
+                <div class="leader-name" id="blueLeader">等待選擇...</div>
+                <div class="leader-ability" id="blueAbility"></div>
+            </div>
+        </div>
+        
+        <canvas id="gameCanvas"></canvas>
+        
+        <div class="info-panel">
+            <div class="player-info red-info">
+                🔴 紅方 (玩家) - 下方
+            </div>
+            <div class="player-info blue-info">
+                🔵 藍方 (<span id="opponentType">電腦</span>) - 上方
+            </div>
+        </div>
+        
+        <div class="legend">
+            <div class="legend-title">🏆 動物等級 | 💡 第一步行動的動物成為首領！</div>
+            <div class="legend-row">
+                <span class="legend-item">龍9</span>
+                <span class="legend-item">象8</span>
+                <span class="legend-item">犀7.5</span>
+                <span class="legend-item">獅7</span>
+                <span class="legend-item">虎6</span>
+                <span class="legend-item">豹5</span>
+                <span class="legend-item">狼4</span>
+                <span class="legend-item">狗3</span>
+                <span class="legend-item">貓2</span>
+                <span class="legend-item">鼠1</span>
+            </div>
+        </div>
+    </div>
+    
+    <div class="modal" id="winModal">
+        <div class="modal-content">
+            <h2 id="winMessage">遊戲結束</h2>
+            <button class="btn-primary" onclick="restartGame()">🔄 再玩一局</button>
+        </div>
+    </div>
+    
+    <div class="modal" id="abilityModal">
+        <div class="modal-content" style="position:relative; max-width:500px;">
+            <span class="close-btn" onclick="closeAbilities()">&times;</span>
+            <h2>📜 首領技能說明</h2>
+            <p style="color:#f1c40f; margin-bottom:10px;">第一步行動的動物將成為首領，獲得特殊能力！</p>
+            <div class="ability-list">
+                <div class="ability-item">
+                    <strong>🐭 兩鼠鬥穴（鼠）</strong><br>
+                    己方鼠在對方陷阱中不受影響（不會失去戰鬥力），其他棋子不能吃掉陷阱中的鼠；鼠可吃掉陷阱中的對方任何動物
+                </div>
+                <div class="ability-item">
+                    <strong>🐱 貓鼠同眠（貓）</strong><br>
+                    己方貓不能被象/犀吃；擁有「尊貴移動」—點擊貓會顯示己方所有棋子周圍的可行格，貓可瞬移至任何己方棋子附近；對方的龍不能跳河
+                </div>
+                <div class="ability-item">
+                    <strong>🐕 狗急跳牆（狗）</strong><br>
+                    己方狗在草地上無敵（不會被任何棋子吃掉），只有在陷阱中時才能被吃；己方狗能跳河；對方獅虎不可跳河
+                </div>
+                <div class="ability-item">
+                    <strong>🐺 狼吞虎嚥（狼）</strong><br>
+                    己方狼等級從4升為6，同等於虎；且可直線移動1-2格（半條直線）
+                </div>
+                <div class="ability-item">
+                    <strong>🐆 熊心豹膽（豹）</strong><br>
+                    己方豹能進入河流游泳，同時也能跳過河流到對岸
+                </div>
+                <div class="ability-item">
+                    <strong>🐅 龍精虎猛（虎）</strong><br>
+                    己方虎每次吃子升1級，最高升為9級「龍」，龍絕對不會被吃
+                </div>
+                <div class="ability-item">
+                    <strong>🦁 獅子搏兔（獅）</strong><br>
+                    對方的獅只能吃鼠
+                </div>
+                <div class="ability-item">
+                    <strong>🐘 拔犀擢象（象）</strong><br>
+                    己方象改名為「犀」（等級7.5），可九宮格移動（上下左右+四個斜角各一格），能吃獅但被象吃
+                </div>
+                <div class="ability-item trap-ability">
+                    <strong>🪤 造謀布阱（雙擊己方穴觸發）</strong><br>
+                    首領為陷阱本身！可移動場上所有陷阱（雙方的），陷阱不再是固定位置
+                </div>
+            </div>
+            <button class="btn-primary" onclick="closeAbilities()">了解！</button>
+        </div>
+    </div>
+
+    <script>
+        // 遊戲常量
+        const COLS = 7;
+        const ROWS = 9;
+        
+        // 動物類型
+        const ANIMALS = {
+            DRAGON: { name: '龍', rank: 9, baseRank: 9 },
+            ELEPHANT: { name: '象', rank: 8, baseRank: 8 },
+            RHINO: { name: '犀', rank: 7.5, baseRank: 7.5 },
+            LION: { name: '獅', rank: 7, baseRank: 7 },
+            TIGER: { name: '虎', rank: 6, baseRank: 6 },
+            LEOPARD: { name: '豹', rank: 5, baseRank: 5 },
+            WOLF: { name: '狼', rank: 4, baseRank: 4 },
+            DOG: { name: '狗', rank: 3, baseRank: 3 },
+            CAT: { name: '貓', rank: 2, baseRank: 2 },
+            RAT: { name: '鼠', rank: 1, baseRank: 1 }
+        };
+        
+        // 首領技能
+        const LEADER_ABILITIES = {
+            RAT: { name: '兩鼠鬥穴', desc: '鼠免疫陷阱，可反吃' },
+            CAT: { name: '貓鼠同眠', desc: '貓不被象/犀吃，尊貴移動' },
+            DOG: { name: '狗急跳牆', desc: '狗草地無敵，可跳河' },
+            WOLF: { name: '狼吞虎嚥', desc: '狼等級6，可直線走2格' },
+            LEOPARD: { name: '熊心豹膽', desc: '豹可游河/跳河' },
+            TIGER: { name: '龍精虎猛', desc: '虎吃子升級，可成龍' },
+            LION: { name: '獅子搏兔', desc: '敵獅只能吃鼠' },
+            ELEPHANT: { name: '拔犀擢象', desc: '象變犀，九宮格移動' },
+            TRAP: { name: '造謀布阱', desc: '可移動所有陷阱' }
+        };
+        
+        const RED = 'red';
+        const BLUE = 'blue';
+        
+        // 河流位置（固定）
+        const WATER = [
+            [3,1], [3,2], [4,1], [4,2], [5,1], [5,2],
+            [3,4], [3,5], [4,4], [4,5], [5,4], [5,5]
+        ];
+        
+        // 陷阱位置（可動態變化）
+        let traps = {
+            [BLUE]: [[0,2], [0,4], [1,3]],
+            [RED]: [[8,2], [8,4], [7,3]]
+        };
+        
+        // 獸穴位置
+        const DENS = {
+            [BLUE]: [0, 3],
+            [RED]: [8, 3]
+        };
+        
+        // 遊戲狀態
+        let canvas, ctx;
+        let cellSize, boardOffsetX, boardOffsetY;
+        let board = [];
+        let currentPlayer = RED;
+        let selectedPiece = null;
+        let selectedTrap = null; // 選中的陷阱
+        let validMoves = [];
+        let gameOver = false;
+        let isSinglePlayer = true;
+        let isAIThinking = false;
+        
+        // 首領系統
+        let leaders = {
+            [RED]: null,
+            [BLUE]: null
+        };
+        
+        // 虎升級追蹤（可變成龍）
+        let tigerLevels = {
+            [RED]: 6,
+            [BLUE]: 6
+        };
+        
+        // 雙擊偵測
+        let lastClickTime = 0;
+        let lastClickPos = null;
+        const DOUBLE_CLICK_DELAY = 400;
+        
+        // 初始化棋盤
+        function initBoard() {
+            board = Array(ROWS).fill(null).map(() => Array(COLS).fill(null));
+            
+            // 藍方（上方）
+            board[0][0] = { type: 'LION', player: BLUE };
+            board[0][6] = { type: 'TIGER', player: BLUE };
+            board[1][1] = { type: 'DOG', player: BLUE };
+            board[1][5] = { type: 'CAT', player: BLUE };
+            board[2][0] = { type: 'RAT', player: BLUE };
+            board[2][2] = { type: 'LEOPARD', player: BLUE };
+            board[2][4] = { type: 'WOLF', player: BLUE };
+            board[2][6] = { type: 'ELEPHANT', player: BLUE };
+            
+            // 紅方（下方）
+            board[8][0] = { type: 'TIGER', player: RED };
+            board[8][6] = { type: 'LION', player: RED };
+            board[7][1] = { type: 'CAT', player: RED };
+            board[7][5] = { type: 'DOG', player: RED };
+            board[6][0] = { type: 'ELEPHANT', player: RED };
+            board[6][2] = { type: 'WOLF', player: RED };
+            board[6][4] = { type: 'LEOPARD', player: RED };
+            board[6][6] = { type: 'RAT', player: RED };
+            
+            // 重置首領
+            leaders = { [RED]: null, [BLUE]: null };
+            tigerLevels = { [RED]: 6, [BLUE]: 6 };
+            
+            // 重置陷阱位置
+            traps = {
+                [BLUE]: [[0,2], [0,4], [1,3]],
+                [RED]: [[8,2], [8,4], [7,3]]
+            };
+            
+            selectedTrap = null;
+        }
+        
+        // 獲取棋子顯示名稱
+        function getPieceName(piece) {
+            if (piece.type === 'ELEPHANT' && leaders[piece.player] === 'ELEPHANT') {
+                return '犀';
+            }
+            if (piece.type === 'TIGER' && tigerLevels[piece.player] >= 9) {
+                return '龍';
+            }
+            return ANIMALS[piece.type].name;
+        }
+        
+        // 獲取棋子實際等級
+        function getPieceRank(piece) {
+            const player = piece.player;
+            const enemy = player === RED ? BLUE : RED;
+            
+            // 龍精虎猛：虎升級
+            if (piece.type === 'TIGER') {
+                return tigerLevels[player];
+            }
+            
+            // 狼吞虎嚥：狼等級變6
+            if (piece.type === 'WOLF' && leaders[player] === 'WOLF') {
+                return 6;
+            }
+            
+            // 拔犀擢象：象變犀（7.5）
+            if (piece.type === 'ELEPHANT' && leaders[player] === 'ELEPHANT') {
+                return 7.5;
+            }
+            
+            return ANIMALS[piece.type].rank;
+        }
+        
+        // 檢查是否是河流
+        function isWater(row, col) {
+            return WATER.some(([r, c]) => r === row && c === col);
+        }
+        
+        // 檢查是否是陷阱
+        function isTrap(row, col, player) {
+            return traps[player].some(([r, c]) => r === row && c === col);
+        }
+        
+        // 檢查是否是任意陷阱
+        function isAnyTrap(row, col) {
+            return isTrap(row, col, RED) || isTrap(row, col, BLUE);
+        }
+        
+        // 獲取陷阱所屬玩家
+        function getTrapOwner(row, col) {
+            if (isTrap(row, col, RED)) return RED;
+            if (isTrap(row, col, BLUE)) return BLUE;
+            return null;
+        }
+        
+        // 檢查是否是獸穴
+        function isDen(row, col, player) {
+            const den = DENS[player];
+            return den[0] === row && den[1] === col;
+        }
+        
+        // 獲取棋子戰鬥力（考慮陷阱）
+        function getCombatPower(row, col, piece) {
+            const player = piece.player;
+            const enemy = player === RED ? BLUE : RED;
+            
+            // 兩鼠鬥穴：己方鼠在對方陷阱中不受影響（不會失去戰鬥力）
+            if (piece.type === 'RAT' && leaders[player] === 'RAT') {
+                return getPieceRank(piece);
+            }
+            
+            // 在敵方陷阱中失去戰鬥力
+            if (isTrap(row, col, enemy)) {
+                return 0;
+            }
+            
+            return getPieceRank(piece);
+        }
+        
+        // 檢查是否可以跳河
+        function canJumpRiver(piece) {
+            const player = piece.player;
+            const enemy = player === RED ? BLUE : RED;
+            
+            // 龍（升級後的虎）
+            if (piece.type === 'TIGER' && tigerLevels[player] >= 9) {
+                // 貓鼠同眠：對方的龍不能跳河
+                if (leaders[enemy] === 'CAT') {
+                    return false;
+                }
+                return true;
+            }
+            
+            // 獅子
+            if (piece.type === 'LION') {
+                // 狗急跳牆：對方獅虎不可跳河
+                if (leaders[enemy] === 'DOG') {
+                    return false;
+                }
+                return true;
+            }
+            
+            // 虎
+            if (piece.type === 'TIGER') {
+                // 狗急跳牆：對方獅虎不可跳河
+                if (leaders[enemy] === 'DOG') {
+                    return false;
+                }
+                return true;
+            }
+            
+            // 狗急跳牆：己方狗能跳河
+            if (piece.type === 'DOG' && leaders[player] === 'DOG') {
+                return true;
+            }
+            
+            // 熊心豹膽：己方豹能跳河
+            if (piece.type === 'LEOPARD' && leaders[player] === 'LEOPARD') {
+                return true;
+            }
+            
+            return false;
+        }
+        
+        // 檢查是否可以進入河流
+        function canEnterWater(piece) {
+            // 鼠可以進入河流
+            if (piece.type === 'RAT') {
+                return true;
+            }
+            
+            // 熊心豹膽：豹可以進入河流
+            if (piece.type === 'LEOPARD' && leaders[piece.player] === 'LEOPARD') {
+                return true;
+            }
+            
+            return false;
+        }
+        
+        // 檢查是否可以吃子
+        function canCapture(fromRow, fromCol, toRow, toCol, attacker, defender) {
+            const attackerPlayer = attacker.player;
+            const defenderPlayer = defender.player;
+            const attackerRank = getCombatPower(fromRow, fromCol, attacker);
+            const defenderRank = getCombatPower(toRow, toCol, defender);
+            
+            // 龍精虎猛：龍絕對不會被吃
+            if (defender.type === 'TIGER' && tigerLevels[defenderPlayer] >= 9) {
+                return false;
+            }
+            
+            // 狗急跳牆：己方狗在草地上是無敵的，只有在陷阱中才能被吃
+            if (defender.type === 'DOG' && leaders[defenderPlayer] === 'DOG') {
+                // 檢查狗是否在陷阱中
+                const inTrap = isTrap(toRow, toCol, RED) || isTrap(toRow, toCol, BLUE);
+                if (!inTrap) {
+                    // 狗在草地上，無敵
+                    return false;
+                }
+            }
+            
+            // 貓鼠同眠：己方貓不能被大象或犀吃掉
+            if (defender.type === 'CAT' && leaders[defenderPlayer] === 'CAT') {
+                if (attacker.type === 'ELEPHANT') {
+                    return false;
+                }
+            }
+            
+            // 兩鼠鬥穴：己方鼠在對方陷阱中時，其他棋子不能吃掉它
+            if (defender.type === 'RAT' && leaders[defenderPlayer] === 'RAT') {
+                if (isTrap(toRow, toCol, attackerPlayer)) {
+                    // 鼠在對方（攻擊者）的陷阱中，但因為「兩鼠鬥穴」所以不能被吃
+                    return false;
+                }
+            }
+            
+            // 獅子搏兔：對方的獅只能吃鼠
+            if (attacker.type === 'LION' && leaders[defenderPlayer] === 'LION') {
+                if (defender.type !== 'RAT') {
+                    return false;
+                }
+            }
+            
+            // 貓鼠同眠：己方貓能吃大象或犀
+            if (attacker.type === 'CAT' && leaders[attackerPlayer] === 'CAT') {
+                if (defender.type === 'ELEPHANT') {
+                    return true;
+                }
+            }
+            
+            // 兩鼠鬥穴：己方鼠可以吃掉在陷阱中的對方任何動物（因為對方在陷阱中戰鬥力為0）
+            if (attacker.type === 'RAT' && leaders[attackerPlayer] === 'RAT') {
+                if (isTrap(toRow, toCol, defenderPlayer)) {
+                    // 對方棋子在對方自己的陷阱中（己方陷阱對對方來說）
+                    // 因為對方棋子在己方陷阱中會失去戰鬥力，所以鼠可以吃
+                    return true;
+                }
+                if (isTrap(toRow, toCol, attackerPlayer)) {
+                    // 對方棋子在攻擊者的陷阱中，失去戰鬥力
+                    return true;
+                }
+            }
+            
+            // 拔犀擢象：犀（7.5）能吃獅，但被象吃
+            if (attacker.type === 'ELEPHANT' && leaders[attackerPlayer] === 'ELEPHANT') {
+                // 犀被象吃
+                if (defender.type === 'ELEPHANT' && leaders[defenderPlayer] !== 'ELEPHANT') {
+                    return false;
+                }
+            }
+            if (defender.type === 'ELEPHANT' && leaders[defenderPlayer] === 'ELEPHANT') {
+                // 象吃犀
+                if (attacker.type === 'ELEPHANT' && leaders[attackerPlayer] !== 'ELEPHANT') {
+                    return true;
+                }
+            }
+            
+            // 鼠吃象的規則
+            if (attacker.type === 'RAT' && defender.type === 'ELEPHANT') {
+                // 鼠在水中不能吃陸上的象
+                if (isWater(fromRow, fromCol) && !isWater(toRow, toCol)) {
+                    return false;
+                }
+                return true;
+            }
+            
+            // 象不能吃鼠
+            if (attacker.type === 'ELEPHANT' && defender.type === 'RAT') {
+                return false;
+            }
+            
+            // 陸上棋子不能吃水中的棋子（鼠或豹）
+            if (isWater(toRow, toCol) && !isWater(fromRow, fromCol)) {
+                return false;
+            }
+            
+            return attackerRank >= defenderRank;
+        }
+        
+        // 獲取犀的九宮格移動（上下左右+四個對角線，各一格）
+        function getRhinoMoves(row, col, piece) {
+            const moves = [];
+            // 八個方向：上、下、左、右、左上、右上、左下、右下
+            const directions = [
+                [-1, 0], [1, 0], [0, -1], [0, 1],
+                [-1, -1], [-1, 1], [1, -1], [1, 1]
+            ];
+            
+            for (const [dr, dc] of directions) {
+                const newRow = row + dr;
+                const newCol = col + dc;
+                
+                // 邊界檢查
+                if (newRow < 0 || newRow >= ROWS || newCol < 0 || newCol >= COLS) continue;
+                
+                // 不能進入河流
+                if (isWater(newRow, newCol)) continue;
+                
+                // 不能進入自己的獸穴
+                if (isDen(newRow, newCol, piece.player)) continue;
+                
+                const target = board[newRow][newCol];
+                if (!target) {
+                    moves.push([newRow, newCol]);
+                } else if (target.player !== piece.player) {
+                    if (canCapture(row, col, newRow, newCol, piece, target)) {
+                        moves.push([newRow, newCol]);
+                    }
+                }
+            }
+            
+            return moves;
+        }
+        
+        // 獲取狼的直線移動（可走1-2格）
+        function getWolfMoves(row, col, piece) {
+            const moves = [];
+            const directions = [[-1, 0], [1, 0], [0, -1], [0, 1]];
+            
+            for (const [dr, dc] of directions) {
+                for (let step = 1; step <= 2; step++) {
+                    const newRow = row + dr * step;
+                    const newCol = col + dc * step;
+                    
+                    // 邊界檢查
+                    if (newRow < 0 || newRow >= ROWS || newCol < 0 || newCol >= COLS) break;
+                    
+                    // 不能進入河流
+                    if (isWater(newRow, newCol)) break;
+                    
+                    // 不能進入自己的獸穴
+                    if (isDen(newRow, newCol, piece.player)) break;
+                    
+                    const target = board[newRow][newCol];
+                    if (!target) {
+                        moves.push([newRow, newCol]);
+                    } else if (target.player !== piece.player) {
+                        if (canCapture(row, col, newRow, newCol, piece, target)) {
+                            moves.push([newRow, newCol]);
+                        }
+                        break; // 遇到棋子就停止（不能越過）
+                    } else {
+                        break; // 遇到己方棋子就停止
+                    }
+                }
+            }
+            
+            return moves;
+        }
+        
+        // 貓鼠同眠：貓首領的「尊貴」移動方式
+        // 貓可以從己方任何棋子的位置出發，移動到那些棋子的相鄰格
+        function getCatLeaderMoves(catRow, catCol, catPiece) {
+            const moves = [];
+            const addedMoves = new Set(); // 避免重複
+            const player = catPiece.player;
+            const directions = [[-1, 0], [1, 0], [0, -1], [0, 1]];
+            
+            // 遍歷所有己方棋子（包括貓自己）
+            for (let row = 0; row < ROWS; row++) {
+                for (let col = 0; col < COLS; col++) {
+                    const piece = board[row][col];
+                    if (piece && piece.player === player) {
+                        // 從這個棋子的位置出發，檢查四個方向
+                        for (const [dr, dc] of directions) {
+                            const newRow = row + dr;
+                            const newCol = col + dc;
+                            
+                            // 邊界檢查
+                            if (newRow < 0 || newRow >= ROWS || newCol < 0 || newCol >= COLS) continue;
+                            
+                            // 不能進入河流（貓不能游水）
+                            if (isWater(newRow, newCol)) continue;
+                            
+                            // 不能進入自己的獸穴
+                            if (isDen(newRow, newCol, player)) continue;
+                            
+                            // 不能移動到貓自己的位置
+                            if (newRow === catRow && newCol === catCol) continue;
+                            
+                            const moveKey = `${newRow},${newCol}`;
+                            if (addedMoves.has(moveKey)) continue;
+                            
+                            const target = board[newRow][newCol];
+                            if (!target) {
+                                moves.push([newRow, newCol]);
+                                addedMoves.add(moveKey);
+                            } else if (target.player !== player) {
+                                // 貓可以吃敵方棋子
+                                if (canCapture(catRow, catCol, newRow, newCol, catPiece, target)) {
+                                    moves.push([newRow, newCol]);
+                                    addedMoves.add(moveKey);
+                                }
+                            }
+                            // 如果是己方棋子則跳過
+                        }
+                    }
+                }
+            }
+            
+            return moves;
+        }
+        
+        // 獲取陷阱可移動位置
+        function getTrapValidMoves(trapRow, trapCol) {
+            const moves = [];
+            const directions = [[-1, 0], [1, 0], [0, -1], [0, 1]];
+            
+            for (const [dr, dc] of directions) {
+                const newRow = trapRow + dr;
+                const newCol = trapCol + dc;
+                
+                // 邊界檢查
+                if (newRow < 0 || newRow >= ROWS || newCol < 0 || newCol >= COLS) continue;
+                
+                // 不能移到河流中
+                if (isWater(newRow, newCol)) continue;
+                
+                // 不能移到獸穴上
+                if (isDen(newRow, newCol, RED) || isDen(newRow, newCol, BLUE)) continue;
+                
+                // 不能移到其他陷阱上
+                if (isAnyTrap(newRow, newCol)) continue;
+                
+                // 可以移動（即使有棋子在上面，陷阱移過去會使該棋子落入陷阱）
+                moves.push([newRow, newCol]);
+            }
+            
+            return moves;
+        }
+        
+        // 獲取合法移動
+        function getValidMoves(row, col) {
+            const piece = board[row][col];
+            if (!piece) return [];
+            
+            // 貓鼠同眠：貓首領擁有「尊貴」移動方式
+            if (piece.type === 'CAT' && leaders[piece.player] === 'CAT') {
+                return getCatLeaderMoves(row, col, piece);
+            }
+            
+            // 拔犀擢象：犀可以九宮格移動
+            if (piece.type === 'ELEPHANT' && leaders[piece.player] === 'ELEPHANT') {
+                return getRhinoMoves(row, col, piece);
+            }
+            
+            // 狼吞虎嚥：狼可以直線移動1-2格
+            if (piece.type === 'WOLF' && leaders[piece.player] === 'WOLF') {
+                return getWolfMoves(row, col, piece);
+            }
+            
+            const moves = [];
+            const directions = [[-1, 0], [1, 0], [0, -1], [0, 1]];
+            
+            for (const [dr, dc] of directions) {
+                let newRow = row + dr;
+                let newCol = col + dc;
+                
+                // 基本邊界檢查
+                if (newRow < 0 || newRow >= ROWS || newCol < 0 || newCol >= COLS) continue;
+                
+                // 不能進入自己的獸穴
+                if (isDen(newRow, newCol, piece.player)) continue;
+                
+                // 河流處理
+                if (isWater(newRow, newCol)) {
+                    // 可以進入河流的棋子（鼠、熊心豹膽的豹）
+                    if (canEnterWater(piece)) {
+                        const target = board[newRow][newCol];
+                        if (!target || (target.player !== piece.player && canCapture(row, col, newRow, newCol, piece, target))) {
+                            moves.push([newRow, newCol]);
+                        }
+                        
+                        // 熊心豹膽：豹除了能游水，也能跳河
+                        if (piece.type === 'LEOPARD' && leaders[piece.player] === 'LEOPARD') {
+                            // 嘗試跳河
+                            let jumpRow = row;
+                            let jumpCol = col;
+                            let blocked = false;
+                            
+                            while (true) {
+                                jumpRow += dr;
+                                jumpCol += dc;
+                                
+                                if (jumpRow < 0 || jumpRow >= ROWS || jumpCol < 0 || jumpCol >= COLS) {
+                                    blocked = true;
+                                    break;
+                                }
+                                
+                                if (!isWater(jumpRow, jumpCol)) {
+                                    // 到達對岸
+                                    break;
+                                }
+                                
+                                // 檢查河中是否有棋子阻擋
+                                if (board[jumpRow][jumpCol]) {
+                                    blocked = true;
+                                    break;
+                                }
+                            }
+                            
+                            if (!blocked && !isDen(jumpRow, jumpCol, piece.player)) {
+                                const jumpTarget = board[jumpRow][jumpCol];
+                                if (!jumpTarget) {
+                                    // 避免重複添加（如果跳過位置和游過去的位置不同）
+                                    if (jumpRow !== newRow || jumpCol !== newCol) {
+                                        moves.push([jumpRow, jumpCol]);
+                                    }
+                                } else if (jumpTarget.player !== piece.player && canCapture(row, col, jumpRow, jumpCol, piece, jumpTarget)) {
+                                    if (jumpRow !== newRow || jumpCol !== newCol) {
+                                        moves.push([jumpRow, jumpCol]);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    // 可以跳河的棋子（獅、虎、狗急跳牆的狗）
+                    else if (canJumpRiver(piece)) {
+                        // 跳河邏輯
+                        let jumpRow = row;
+                        let jumpCol = col;
+                        let blocked = false;
+                        
+                        while (true) {
+                            jumpRow += dr;
+                            jumpCol += dc;
+                            
+                            if (jumpRow < 0 || jumpRow >= ROWS || jumpCol < 0 || jumpCol >= COLS) {
+                                blocked = true;
+                                break;
+                            }
+                            
+                            if (!isWater(jumpRow, jumpCol)) {
+                                // 到達對岸
+                                break;
+                            }
+                            
+                            // 檢查河中是否有棋子阻擋（鼠或豹）
+                            if (board[jumpRow][jumpCol]) {
+                                blocked = true;
+                                break;
+                            }
+                        }
+                        
+                        if (!blocked && !isDen(jumpRow, jumpCol, piece.player)) {
+                            const target = board[jumpRow][jumpCol];
+                            if (!target) {
+                                moves.push([jumpRow, jumpCol]);
+                            } else if (target.player !== piece.player && canCapture(row, col, jumpRow, jumpCol, piece, target)) {
+                                moves.push([jumpRow, jumpCol]);
+                            }
+                        }
+                    }
+                    // 其他動物不能進入河流
+                } else {
+                    // 普通移動
+                    const target = board[newRow][newCol];
+                    if (!target) {
+                        moves.push([newRow, newCol]);
+                    } else if (target.player !== piece.player && canCapture(row, col, newRow, newCol, piece, target)) {
+                        moves.push([newRow, newCol]);
+                    }
+                }
+            }
+            
+            return moves;
+        }
+        
+        // 移動陷阱
+        function moveTrap(fromRow, fromCol, toRow, toCol) {
+            const owner = getTrapOwner(fromRow, fromCol);
+            if (!owner) return;
+            
+            // 從原位置移除
+            traps[owner] = traps[owner].filter(([r, c]) => !(r === fromRow && c === fromCol));
+            // 添加到新位置
+            traps[owner].push([toRow, toCol]);
+            
+            // 切換回合
+            currentPlayer = currentPlayer === RED ? BLUE : RED;
+            selectedTrap = null;
+            validMoves = [];
+            updateStatus();
+            
+            // AI 回合
+            if (isSinglePlayer && currentPlayer === BLUE && !gameOver) {
+                isAIThinking = true;
+                updateStatus();
+                setTimeout(aiMove, 600);
+            }
+        }
+        
+        // 執行移動
+        function makeMove(fromRow, fromCol, toRow, toCol) {
+            const piece = board[fromRow][fromCol];
+            const target = board[toRow][toCol];
+            
+            // 首次移動設定首領
+            if (!leaders[piece.player]) {
+                leaders[piece.player] = piece.type;
+                updateLeaderDisplay();
+            }
+            
+            // 龍精虎猛：虎吃子升級
+            if (piece.type === 'TIGER' && leaders[piece.player] === 'TIGER' && target) {
+                if (tigerLevels[piece.player] < 9) {
+                    tigerLevels[piece.player]++;
+                }
+            }
+            
+            board[toRow][toCol] = piece;
+            board[fromRow][fromCol] = null;
+            
+            // 檢查勝利條件
+            checkWinCondition();
+            
+            if (!gameOver) {
+                currentPlayer = currentPlayer === RED ? BLUE : RED;
+                updateStatus();
+                
+                // AI 回合
+                if (isSinglePlayer && currentPlayer === BLUE && !gameOver) {
+                    isAIThinking = true;
+                    updateStatus();
+                    setTimeout(aiMove, 600);
+                }
+            }
+        }
+        
+        // 檢查勝利條件
+        function checkWinCondition() {
+            // 檢查是否有棋子進入敵方獸穴
+            for (let row = 0; row < ROWS; row++) {
+                for (let col = 0; col < COLS; col++) {
+                    const piece = board[row][col];
+                    if (piece) {
+                        const enemyDen = DENS[piece.player === RED ? BLUE : RED];
+                        if (row === enemyDen[0] && col === enemyDen[1]) {
+                            announceWinner(piece.player);
+                            return;
+                        }
+                    }
+                }
+            }
+            
+            // 檢查是否吃光對方棋子
+            let redCount = 0, blueCount = 0;
+            for (let row = 0; row < ROWS; row++) {
+                for (let col = 0; col < COLS; col++) {
+                    const piece = board[row][col];
+                    if (piece) {
+                        if (piece.player === RED) redCount++;
+                        else blueCount++;
+                    }
+                }
+            }
+            
+            if (redCount === 0) announceWinner(BLUE);
+            else if (blueCount === 0) announceWinner(RED);
+            
+            // 檢查對方是否無子可動
+            if (!gameOver) {
+                const nextPlayer = currentPlayer === RED ? BLUE : RED;
+                let hasValidMove = false;
+                for (let row = 0; row < ROWS && !hasValidMove; row++) {
+                    for (let col = 0; col < COLS && !hasValidMove; col++) {
+                        const piece = board[row][col];
+                        if (piece && piece.player === nextPlayer) {
+                            if (getValidMoves(row, col).length > 0) {
+                                hasValidMove = true;
+                            }
+                        }
+                    }
+                }
+                
+                // 如果有造謀布阱，檢查是否可以移動陷阱
+                if (!hasValidMove && leaders[nextPlayer] === 'TRAP') {
+                    for (const [tr, tc] of [...traps[RED], ...traps[BLUE]]) {
+                        if (getTrapValidMoves(tr, tc).length > 0) {
+                            hasValidMove = true;
+                            break;
+                        }
+                    }
+                }
+                
+                if (!hasValidMove) {
+                    announceWinner(currentPlayer);
+                }
+            }
+        }
+        
+        // 宣布獲勝者
+        function announceWinner(winner) {
+            gameOver = true;
+            const winMessage = document.getElementById('winMessage');
+            const modal = document.getElementById('winModal');
+            
+            const leaderName = leaders[winner] ? LEADER_ABILITIES[leaders[winner]].name : '';
+            
+            if (winner === RED) {
+                winMessage.innerHTML = `🎉 <span class="winner-red">紅方獲勝！</span> 🎉<br><small>${leaderName}</small>`;
+            } else {
+                winMessage.innerHTML = `🎉 <span class="winner-blue">藍方獲勝！</span> 🎉<br><small>${leaderName}</small>`;
+            }
+            
+            modal.style.display = 'flex';
+        }
+        
+        // AI 移動
+        function aiMove() {
+            if (gameOver) {
+                isAIThinking = false;
+                return;
+            }
+            
+            const allMoves = [];
+            
+            // 收集所有可能的移動
+            for (let row = 0; row < ROWS; row++) {
+                for (let col = 0; col < COLS; col++) {
+                    const piece = board[row][col];
+                    if (piece && piece.player === BLUE) {
+                        const moves = getValidMoves(row, col);
+                        for (const [toRow, toCol] of moves) {
+                            let score = 0;
+                            
+                            // 評估移動
+                            const target = board[toRow][toCol];
+                            if (target) {
+                                // 優先吃子，越高等級越好
+                                score += 150 + getPieceRank(target) * 15;
+                            }
+                            
+                            // 接近敵方獸穴
+                            const enemyDen = DENS[RED];
+                            const distToDen = Math.abs(toRow - enemyDen[0]) + Math.abs(toCol - enemyDen[1]);
+                            score += (15 - distToDen) * 8;
+                            
+                            // 進入敵方獸穴直接獲勝
+                            if (toRow === enemyDen[0] && toCol === enemyDen[1]) {
+                                score += 10000;
+                            }
+                            
+                            // 高等級棋子優先移動
+                            score += getPieceRank(piece) * 2;
+                            
+                            // 首次移動選擇首領策略
+                            if (!leaders[BLUE]) {
+                                // AI優先選擇有利的首領
+                                if (piece.type === 'TIGER') score += 50; // 龍精虎猛
+                                if (piece.type === 'ELEPHANT') score += 45; // 拔犀擢象
+                                if (piece.type === 'DOG') score += 40; // 狗急跳牆
+                                if (piece.type === 'WOLF') score += 35; // 狼吞虎嚥
+                            }
+                            
+                            // 添加隨機性
+                            score += Math.random() * 15;
+                            
+                            allMoves.push({
+                                type: 'piece',
+                                from: [row, col],
+                                to: [toRow, toCol],
+                                score: score
+                            });
+                        }
+                    }
+                }
+            }
+            
+            // 如果AI有造謀布阱，也考慮移動陷阱
+            if (leaders[BLUE] === 'TRAP') {
+                for (const [tr, tc] of [...traps[RED], ...traps[BLUE]]) {
+                    const trapMoves = getTrapValidMoves(tr, tc);
+                    for (const [toRow, toCol] of trapMoves) {
+                        let score = 10; // 基礎分數較低
+                        
+                        // 如果目標位置有紅方棋子，加分（使其落入陷阱）
+                        const target = board[toRow][toCol];
+                        if (target && target.player === RED) {
+                            score += 100 + getPieceRank(target) * 10;
+                        }
+                        
+                        // 添加隨機性
+                        score += Math.random() * 10;
+                        
+                        allMoves.push({
+                            type: 'trap',
+                            from: [tr, tc],
+                            to: [toRow, toCol],
+                            score: score
+                        });
+                    }
+                }
+            }
+            
+            if (allMoves.length > 0) {
+                // 選擇最高分的移動
+                allMoves.sort((a, b) => b.score - a.score);
+                const best = allMoves[0];
+                
+                if (best.type === 'trap') {
+                    moveTrap(best.from[0], best.from[1], best.to[0], best.to[1]);
+                } else {
+                    makeMove(best.from[0], best.from[1], best.to[0], best.to[1]);
+                }
+            }
+            
+            isAIThinking = false;
+            selectedPiece = null;
+            selectedTrap = null;
+            validMoves = [];
+            draw();
+        }
+        
+        // 更新首領顯示
+        function updateLeaderDisplay() {
+            const redLeaderEl = document.getElementById('redLeader');
+            const redAbilityEl = document.getElementById('redAbility');
+            const blueLeaderEl = document.getElementById('blueLeader');
+            const blueAbilityEl = document.getElementById('blueAbility');
+            
+            if (leaders[RED]) {
+                const ability = LEADER_ABILITIES[leaders[RED]];
+                if (leaders[RED] === 'TRAP') {
+                    redLeaderEl.textContent = '陷阱 - ' + ability.name;
+                } else {
+                    redLeaderEl.textContent = ANIMALS[leaders[RED]].name + ' - ' + ability.name;
+                }
+                redAbilityEl.textContent = ability.desc;
+            } else {
+                redLeaderEl.textContent = '等待選擇...';
+                redAbilityEl.textContent = '';
+            }
+            
+            if (leaders[BLUE]) {
+                const ability = LEADER_ABILITIES[leaders[BLUE]];
+                if (leaders[BLUE] === 'TRAP') {
+                    blueLeaderEl.textContent = '陷阱 - ' + ability.name;
+                } else {
+                    blueLeaderEl.textContent = ANIMALS[leaders[BLUE]].name + ' - ' + ability.name;
+                }
+                blueAbilityEl.textContent = ability.desc;
+            } else {
+                blueLeaderEl.textContent = '等待選擇...';
+                blueAbilityEl.textContent = '';
+            }
+        }
+        
+        // 更新狀態顯示
+        function updateStatus() {
+            const status = document.getElementById('status');
+            if (gameOver) {
+                status.textContent = '遊戲結束';
+            } else if (isAIThinking) {
+                status.textContent = '🤖 電腦思考中...';
+            } else {
+                let leaderStatus = '';
+                if (!leaders[currentPlayer]) {
+                    leaderStatus = ' - 選擇棋子或雙擊穴';
+                } else if (leaders[currentPlayer] === 'TRAP') {
+                    leaderStatus = ' - 可移動陷阱';
+                }
+                status.textContent = currentPlayer === RED ? `🔴 紅方回合${leaderStatus}` : `🔵 藍方回合${leaderStatus}`;
+            }
+        }
+        
+        // 計算畫布尺寸
+        function calculateSizes() {
+            const container = document.querySelector('.game-container');
+            const maxWidth = Math.min(container.clientWidth - 20, 500);
+            const maxHeight = window.innerHeight * 0.5;
+            
+            const aspectRatio = COLS / ROWS;
+            
+            let width = maxWidth;
+            let height = width / aspectRatio;
+            
+            if (height > maxHeight) {
+                height = maxHeight;
+                width = height * aspectRatio;
+            }
+            
+            cellSize = Math.floor(width / COLS);
+            width = cellSize * COLS;
+            height = cellSize * ROWS;
+            
+            canvas.width = width;
+            canvas.height = height;
+            
+            boardOffsetX = 0;
+            boardOffsetY = 0;
+        }
+        
+        // 繪製棋盤
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // 繪製格子
+            for (let row = 0; row < ROWS; row++) {
+                for (let col = 0; col < COLS; col++) {
+                    const x = col * cellSize;
+                    const y = row * cellSize;
+                    
+                    // 底色
+                    if (isWater(row, col)) {
+                        ctx.fillStyle = '#4a90d9';
+                    } else {
+                        ctx.fillStyle = '#7cb342';
+                    }
+                    ctx.fillRect(x, y, cellSize, cellSize);
+                    
+                    // 格線
+                    ctx.strokeStyle = '#2e7d32';
+                    ctx.lineWidth = 1;
+                    ctx.strokeRect(x, y, cellSize, cellSize);
+                    
+                    // 陷阱標記
+                    const trapOwner = getTrapOwner(row, col);
+                    if (trapOwner) {
+                        const isLeaderTrap = leaders[trapOwner] === 'TRAP' || leaders[trapOwner === RED ? BLUE : RED] === 'TRAP';
+                        if (isLeaderTrap) {
+                            // 可移動的陷阱有特殊效果
+                            ctx.fillStyle = trapOwner === RED ? 'rgba(231, 76, 60, 0.4)' : 'rgba(52, 152, 219, 0.4)';
+                        } else {
+                            ctx.fillStyle = 'rgba(139, 69, 19, 0.5)';
+                        }
+                        ctx.fillRect(x + 2, y + 2, cellSize - 4, cellSize - 4);
+                        ctx.fillStyle = trapOwner === RED ? '#e74c3c' : '#3498db';
+                        ctx.font = `${cellSize * 0.25}px Arial`;
+                        ctx.textAlign = 'center';
+                        ctx.textBaseline = 'middle';
+                        ctx.fillText('陷', x + cellSize/2, y + cellSize/2);
+                    }
+                    
+                    // 獸穴標記
+                    if (isDen(row, col, BLUE)) {
+                        drawDen(x, y, '#3498db');
+                    } else if (isDen(row, col, RED)) {
+                        drawDen(x, y, '#e74c3c');
+                    }
+                }
+            }
+            
+            // 繪製河流波紋效果
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+            ctx.lineWidth = 1;
+            for (const [row, col] of WATER) {
+                const x = col * cellSize;
+                const y = row * cellSize;
+                for (let i = 0; i < 3; i++) {
+                    ctx.beginPath();
+                    ctx.arc(x + cellSize * 0.3, y + cellSize * (0.3 + i * 0.2), cellSize * 0.12, 0, Math.PI);
+                    ctx.stroke();
+                }
+            }
+            
+            // 繪製可移動位置高亮
+            for (const [row, col] of validMoves) {
+                const x = col * cellSize;
+                const y = row * cellSize;
+                
+                if (selectedTrap) {
+                    // 陷阱移動用紫色高亮
+                    ctx.fillStyle = 'rgba(155, 89, 182, 0.5)';
+                } else {
+                    ctx.fillStyle = 'rgba(255, 255, 0, 0.4)';
+                }
+                ctx.fillRect(x, y, cellSize, cellSize);
+                
+                if (board[row][col] && !selectedTrap) {
+                    // 可吃子位置用紅色標記
+                    ctx.strokeStyle = '#ff0000';
+                    ctx.lineWidth = 3;
+                    ctx.strokeRect(x + 2, y + 2, cellSize - 4, cellSize - 4);
+                }
+            }
+            
+            // 繪製選中棋子高亮
+            if (selectedPiece) {
+                const x = selectedPiece.col * cellSize;
+                const y = selectedPiece.row * cellSize;
+                ctx.strokeStyle = '#ffff00';
+                ctx.lineWidth = 4;
+                ctx.strokeRect(x, y, cellSize, cellSize);
+            }
+            
+            // 繪製選中陷阱高亮
+            if (selectedTrap) {
+                const x = selectedTrap.col * cellSize;
+                const y = selectedTrap.row * cellSize;
+                ctx.strokeStyle = '#9b59b6';
+                ctx.lineWidth = 4;
+                ctx.strokeRect(x, y, cellSize, cellSize);
+            }
+            
+            // 繪製棋子
+            for (let row = 0; row < ROWS; row++) {
+                for (let col = 0; col < COLS; col++) {
+                    const piece = board[row][col];
+                    if (piece) {
+                        drawPiece(col * cellSize, row * cellSize, piece);
+                    }
+                }
+            }
+        }
+        
+        // 繪製獸穴
+        function drawDen(x, y, color) {
+            ctx.fillStyle = color;
+            ctx.globalAlpha = 0.3;
+            ctx.fillRect(x, y, cellSize, cellSize);
+            ctx.globalAlpha = 1;
+            
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 3;
+            ctx.strokeRect(x + 3, y + 3, cellSize - 6, cellSize - 6);
+            
+            ctx.fillStyle = color;
+            ctx.font = `bold ${cellSize * 0.3}px Arial`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('穴', x + cellSize/2, y + cellSize/2);
+        }
+        
+        // 繪製棋子
+        function drawPiece(x, y, piece) {
+            const centerX = x + cellSize / 2;
+            const centerY = y + cellSize / 2;
+            const radius = cellSize * 0.4;
+            
+            const isLeader = leaders[piece.player] === piece.type;
+            const pieceName = getPieceName(piece);
+            const pieceRank = getPieceRank(piece);
+            
+            // 棋子底色
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+            
+            const gradient = ctx.createRadialGradient(
+                centerX - radius * 0.3, centerY - radius * 0.3, 0,
+                centerX, centerY, radius
+            );
+            
+            if (piece.player === RED) {
+                if (isLeader) {
+                    gradient.addColorStop(0, '#ff9f43');
+                    gradient.addColorStop(1, '#d63031');
+                } else {
+                    gradient.addColorStop(0, '#ff6b6b');
+                    gradient.addColorStop(1, '#c0392b');
+                }
+            } else {
+                if (isLeader) {
+                    gradient.addColorStop(0, '#74b9ff');
+                    gradient.addColorStop(1, '#0984e3');
+                } else {
+                    gradient.addColorStop(0, '#74b9ff');
+                    gradient.addColorStop(1, '#2980b9');
+                }
+            }
+            
+            ctx.fillStyle = gradient;
+            ctx.fill();
+            
+            // 首領光環
+            if (isLeader) {
+                ctx.strokeStyle = '#f1c40f';
+                ctx.lineWidth = 3;
+                ctx.stroke();
+                
+                // 皇冠標記
+                ctx.fillStyle = '#f1c40f';
+                ctx.font = `${cellSize * 0.18}px Arial`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('👑', centerX, centerY - radius * 0.7);
+            } else {
+                // 普通邊框
+                ctx.strokeStyle = piece.player === RED ? '#8b0000' : '#1a5276';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+            }
+            
+            // 動物名稱
+            ctx.fillStyle = '#ffffff';
+            ctx.font = `bold ${cellSize * 0.32}px Microsoft YaHei, sans-serif`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(pieceName, centerX, centerY);
+            
+            // 等級數字
+            ctx.font = `${cellSize * 0.16}px Arial`;
+            const rankDisplay = pieceRank % 1 === 0 ? pieceRank : pieceRank.toFixed(1);
+            ctx.fillText(rankDisplay, centerX, centerY + radius * 0.6);
+        }
+        
+        // 處理點擊/觸摸
+        function handleClick(event) {
+            if (gameOver || isAIThinking) return;
+            if (isSinglePlayer && currentPlayer === BLUE) return;
+            
+            event.preventDefault();
+            
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            
+            let clientX, clientY;
+            if (event.touches) {
+                clientX = event.touches[0].clientX;
+                clientY = event.touches[0].clientY;
+            } else {
+                clientX = event.clientX;
+                clientY = event.clientY;
+            }
+            
+            const x = (clientX - rect.left) * scaleX;
+            const y = (clientY - rect.top) * scaleY;
+            
+            const col = Math.floor(x / cellSize);
+            const row = Math.floor(y / cellSize);
+            
+            if (row < 0 || row >= ROWS || col < 0 || col >= COLS) return;
+            
+            const now = Date.now();
+            const clickedPiece = board[row][col];
+            
+            // 雙擊偵測 - 觸發「造謀布阱」
+            if (!leaders[currentPlayer] && isDen(row, col, currentPlayer)) {
+                if (lastClickPos && lastClickPos.row === row && lastClickPos.col === col && 
+                    now - lastClickTime < DOUBLE_CLICK_DELAY) {
+                    // 雙擊己方穴，觸發造謀布阱
+                    leaders[currentPlayer] = 'TRAP';
+                    updateLeaderDisplay();
+                    updateStatus();
+                    
+                    // 不切換回合，玩家需要選擇移動陷阱或棋子
+                    lastClickTime = 0;
+                    lastClickPos = null;
+                    draw();
+                    return;
+                }
+            }
+            
+            // 記錄點擊時間和位置
+            lastClickTime = now;
+            lastClickPos = { row, col };
+            
+            // 如果有造謀布阱，可以選擇和移動陷阱
+            if (leaders[currentPlayer] === 'TRAP') {
+                // 如果已選中陷阱
+                if (selectedTrap) {
+                    const isValidMove = validMoves.some(([r, c]) => r === row && c === col);
+                    
+                    if (isValidMove) {
+                        moveTrap(selectedTrap.row, selectedTrap.col, row, col);
+                        draw();
+                        return;
+                    } else if (isAnyTrap(row, col)) {
+                        // 選擇另一個陷阱
+                        selectedTrap = { row, col };
+                        selectedPiece = null;
+                        validMoves = getTrapValidMoves(row, col);
+                        draw();
+                        return;
+                    } else if (clickedPiece && clickedPiece.player === currentPlayer) {
+                        // 選擇己方棋子
+                        selectedTrap = null;
+                        selectedPiece = { row, col };
+                        validMoves = getValidMoves(row, col);
+                        draw();
+                        return;
+                    } else {
+                        // 取消選擇
+                        selectedTrap = null;
+                        selectedPiece = null;
+                        validMoves = [];
+                        draw();
+                        return;
+                    }
+                }
+                
+                // 點擊陷阱
+                if (isAnyTrap(row, col) && !clickedPiece) {
+                    selectedTrap = { row, col };
+                    selectedPiece = null;
+                    validMoves = getTrapValidMoves(row, col);
+                    draw();
+                    return;
+                }
+            }
+            
+            // 普通棋子選擇邏輯
+            // 如果已選中棋子
+            if (selectedPiece) {
+                // 檢查是否點擊有效移動位置
+                const isValidMove = validMoves.some(([r, c]) => r === row && c === col);
+                
+                if (isValidMove) {
+                    makeMove(selectedPiece.row, selectedPiece.col, row, col);
+                    selectedPiece = null;
+                    selectedTrap = null;
+                    validMoves = [];
+                } else if (clickedPiece && clickedPiece.player === currentPlayer) {
+                    // 選擇另一個己方棋子
+                    selectedPiece = { row, col };
+                    selectedTrap = null;
+                    validMoves = getValidMoves(row, col);
+                } else if (leaders[currentPlayer] === 'TRAP' && isAnyTrap(row, col) && !clickedPiece) {
+                    // 選擇陷阱
+                    selectedTrap = { row, col };
+                    selectedPiece = null;
+                    validMoves = getTrapValidMoves(row, col);
+                } else {
+                    // 取消選擇
+                    selectedPiece = null;
+                    selectedTrap = null;
+                    validMoves = [];
+                }
+            } else {
+                // 選擇棋子
+                if (clickedPiece && clickedPiece.player === currentPlayer) {
+                    selectedPiece = { row, col };
+                    selectedTrap = null;
+                    validMoves = getValidMoves(row, col);
+                } else if (leaders[currentPlayer] === 'TRAP' && isAnyTrap(row, col)) {
+                    // 選擇陷阱
+                    selectedTrap = { row, col };
+                    selectedPiece = null;
+                    validMoves = getTrapValidMoves(row, col);
+                }
+            }
+            
+            draw();
+        }
+        
+        // 切換模式
+        function toggleMode() {
+            isSinglePlayer = !isSinglePlayer;
+            const btn = document.getElementById('modeBtn');
+            const opponentType = document.getElementById('opponentType');
+            
+            if (isSinglePlayer) {
+                btn.textContent = '👤 單人模式';
+                btn.classList.remove('btn-active');
+                opponentType.textContent = '電腦';
+            } else {
+                btn.textContent = '👥 雙人模式';
+                btn.classList.add('btn-active');
+                opponentType.textContent = '玩家2';
+            }
+            
+            restartGame();
+        }
+        
+        // 顯示技能說明
+        function showAbilities() {
+            document.getElementById('abilityModal').style.display = 'flex';
+        }
+        
+        // 關閉技能說明
+        function closeAbilities() {
+            document.getElementById('abilityModal').style.display = 'none';
+        }
+        
+        // 重新開始
+        function restartGame() {
+            document.getElementById('winModal').style.display = 'none';
+            gameOver = false;
+            isAIThinking = false;
+            currentPlayer = RED;
+            selectedPiece = null;
+            selectedTrap = null;
+            validMoves = [];
+            lastClickTime = 0;
+            lastClickPos = null;
+            initBoard();
+            updateLeaderDisplay();
+            updateStatus();
+            draw();
+        }
+        
+        // 視窗大小改變
+        function handleResize() {
+            calculateSizes();
+            draw();
+        }
+        
+        // 初始化
+        function init() {
+            canvas = document.getElementById('gameCanvas');
+            ctx = canvas.getContext('2d');
+            
+            calculateSizes();
+            initBoard();
+            updateLeaderDisplay();
+            updateStatus();
+            draw();
+            
+            // 事件監聽
+            canvas.addEventListener('click', handleClick);
+            canvas.addEventListener('touchstart', handleClick, { passive: false });
+            window.addEventListener('resize', handleResize);
+            window.addEventListener('orientationchange', () => {
+                setTimeout(handleResize, 100);
+            });
+        }
+        
+        // 啟動遊戲
+        window.onload = init;
+    </script>
+</body>
+</html>
