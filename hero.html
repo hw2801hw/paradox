@@ -630,6 +630,10 @@ class Boss {
         this.y = 120;
         this.hp = 3000;
         this.maxHp = 3000;
+        // --- Boss 護盾機制 ---
+        this.shield = 100; // 固定 100 次免疫
+        this.maxShield = 100;
+        
         this.dead = false;
         
         this.attackTimer = 0;
@@ -676,6 +680,23 @@ class Boss {
     draw() {
         ctx.save();
         ctx.translate(this.x, this.y);
+
+        // --- 繪製 Boss 護盾 ---
+        if (this.shield > 0) {
+            ctx.beginPath();
+            ctx.arc(0, 0, 90, 0, Math.PI*2); // 畫一個大圈包圍 Boss
+            ctx.strokeStyle = '#00d2ff';
+            ctx.lineWidth = 4;
+            ctx.globalAlpha = 0.6 + Math.sin(frameCount * 0.1) * 0.4; // 呼吸效果
+            ctx.stroke();
+            ctx.globalAlpha = 1;
+            
+            // 顯示護盾次數
+            ctx.fillStyle = '#00d2ff';
+            ctx.font = 'bold 20px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText(`🛡️${this.shield}`, 0, 80);
+        }
         
         ctx.fillStyle = '#ff0000';
         ctx.beginPath();
@@ -1034,15 +1055,23 @@ function animate() {
             });
         } 
         else if (boss && !boss.dead) {
-            // Boss 碰撞 (Boss 沒有護盾邏輯，或另計)
+            // Boss 碰撞
             if (b.x > boss.x - 75 && b.x < boss.x + 75 && 
                 b.y > boss.y - 50 && b.y < boss.y + 50) {
                 
                 b.dead = true;
-                boss.hp -= b.damage;
-                updateHUD();
                 
-                particles.push(new Particle(b.x, b.y, '#ff0000'));
+                // --- Boss 護盾邏輯 ---
+                if (boss.shield > 0) {
+                    boss.shield--;
+                    // 護盾藍色火花
+                    for(let k=0; k<5; k++) particles.push(new Particle(b.x, b.y, '#00d2ff'));
+                } else {
+                    // 護盾破裂後才扣血
+                    boss.hp -= b.damage;
+                    updateHUD();
+                    particles.push(new Particle(b.x, b.y, '#ff0000'));
+                }
 
                 if (boss.hp <= 0) {
                     boss.dead = true;
