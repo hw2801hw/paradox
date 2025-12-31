@@ -20,7 +20,7 @@
     開局時每位玩家選擇一個天賦：
     - 一觸即發：力度和瞄準線+300%（可預覽反彈路徑），對手-30%
     - 身不由己：對手進球不能連續回合，且從左右兩側同時發射2個球
-    - 洞察先機：我方回合洞+4個（額外洞大小+100%）；對方回合只剩頂部和底部正中間的洞（大小+50%），無其他洞
+    - 洞察先機：我方回合洞大小+100%；對方回合只剩左側和右側正中間的洞（大小+50%）
     
     【操作方式】
     - 拖拽擊球器：在基線上左右移動擊球器位置
@@ -323,7 +323,7 @@
     <div id="gameContainer">
         <canvas id="gameCanvas"></canvas>
         <div id="ui" class="hidden">
-            <button id="menuBtn" onclick="showExitConfirm()">☰ 選單</button>
+            <button id="menuBtn" onclick="showExitConfirm()">主選單</button>
             <div class="player-info" id="player1Info">
                 <div class="player-dot" style="background: #f5f5dc;"></div>
                 <span>P1: <span id="score1">0</span></span>
@@ -386,7 +386,7 @@
                 id: 'holes',
                 name: '洞察先機',
                 icon: '🕳️',
-                desc: '我方回合：洞+4個（額外洞大小+100%）；對方回合：只剩頂部和底部正中間的洞（大小+50%），無其他洞'
+                desc: '我方回合：洞大小+100%；對方回合：只剩左側和右側正中間的洞（大小+50%'
             }
         };
 
@@ -783,31 +783,28 @@
             currentPockets = [];
             
             if (limitedPockets) {
-                // 對方有洞察先機：只剩頂部和底部的正中間位置的洞，大小+50%
+                // 對方有洞察先機：只剩左側和右側的正中間位置的洞，大小+50%
                 const limitSize = CONFIG.basePocketRadius * 1.5; // +50%
 
-                // 頂部正中間 (Top Center)
-                currentPockets.push({ x: center, y: pocketOffset, size: limitSize, extra: true });
+                // 左側正中間 (Left Center)
+                currentPockets.push({ x: pocketOffset, y: center, size: limitSize, extra: true, isCenter: true });
                 
-                // 底部正中間 (Bottom Center)
-                currentPockets.push({ x: center, y: boardSize - pocketOffset, size: limitSize, extra: true });
+                // 右側正中間 (Right Center)
+                currentPockets.push({ x: boardSize - pocketOffset, y: center, size: limitSize, extra: true, isCenter: true });
 
             } else {
                 // 標準模式：四個角落
-                const size = CONFIG.basePocketRadius;
+                let size = CONFIG.basePocketRadius;
+                
+                // 我方天賦：洞大小+100% 
+                if (useExtraPockets) {
+                    size = CONFIG.basePocketRadius * 2;
+                }
+
                 currentPockets.push({ x: pocketOffset, y: pocketOffset, size });
                 currentPockets.push({ x: boardSize - pocketOffset, y: pocketOffset, size });
                 currentPockets.push({ x: pocketOffset, y: boardSize - pocketOffset, size });
                 currentPockets.push({ x: boardSize - pocketOffset, y: boardSize - pocketOffset, size });
-                
-                // 我方天賦：額外4個洞（上下左右中間）- 大小+100%
-                if (useExtraPockets) {
-                    const extraSize = CONFIG.basePocketRadius * 2; // +100%
-                    currentPockets.push({ x: center, y: pocketOffset, size: extraSize, extra: true }); // 上
-                    currentPockets.push({ x: center, y: boardSize - pocketOffset, size: extraSize, extra: true }); // 下
-                    currentPockets.push({ x: pocketOffset, y: center, size: extraSize, extra: true }); // 左
-                    currentPockets.push({ x: boardSize - pocketOffset, y: center, size: extraSize, extra: true }); // 右
-                }
             }
         }
 
