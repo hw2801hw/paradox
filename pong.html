@@ -1,0 +1,638 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>乒彬球</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #222;
+            overflow: hidden;
+            touch-action: none; /* Prevent pull-to-refresh on mobile */
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        #gameCanvas {
+            display: block;
+            margin: 0 auto;
+            background-color: #333;
+        }
+        #ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start;
+            align-items: center;
+            padding-top: 20px;
+            z-index: 5;
+        }
+        #menu-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.85);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 10;
+        }
+        .score {
+            color: white;
+            font-size: 2rem;
+            font-weight: bold;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+            background: rgba(0,0,0,0.3);
+            padding: 5px 15px;
+            border-radius: 10px;
+        }
+        .message {
+            margin-top: 20px;
+            color: #fbbf24;
+            font-size: 2rem;
+            font-weight: bold;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        .visible {
+            opacity: 1;
+        }
+        .title {
+            color: white;
+            font-size: 3rem;
+            font-weight: bold;
+            margin-bottom: 30px;
+            text-shadow: 0 4px 6px rgba(0,0,0,0.5);
+            text-align: center;
+        }
+        .btn {
+            padding: 15px 50px;
+            font-size: 1.5rem;
+            background: linear-gradient(to bottom, #ef4444, #b91c1c);
+            color: white;
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            font-weight: bold;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            transition: transform 0.1s, box-shadow 0.1s;
+            pointer-events: auto;
+        }
+        .btn:active {
+            transform: scale(0.95);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+        .hidden {
+            display: none !important;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="ui-layer">
+        <div class="score" id="scoreDisplay">Player: 0 | AI: 0</div>
+        <div class="message" id="messageDisplay">Ready?</div>
+    </div>
+
+    <div id="menu-layer">
+        <div class="title">乒彬球</div>
+        <button class="btn" id="startBtn">START GAME</button>
+    </div>
+
+    <canvas id="gameCanvas"></canvas>
+
+    <script>
+        // --- Game Configuration & Constants ---
+        const GAME_WIDTH = 600;
+        const GAME_HEIGHT = 800;
+        
+        // Table dimensions
+        const TABLE_WIDTH = 400;
+        const TABLE_LENGTH = 700;
+        const TABLE_Y_START = (GAME_HEIGHT - TABLE_LENGTH) / 2;
+        const TABLE_Y_END = TABLE_Y_START + TABLE_LENGTH;
+        const NET_Y = TABLE_Y_START + TABLE_LENGTH / 2;
+        
+        // Physics constants (Adjusted for slower gameplay)
+        const GRAVITY = 0.25;         // Reduced from 0.45
+        const AIR_RESISTANCE = 0.995; // Slightly less resistance to keep momentum with low gravity
+        const TABLE_BOUNCE_DAMPING = 0.8;
+        const PADDLE_BOUNCE_FORCE_Z = 9;  // Reduced from 13
+        const PADDLE_BOUNCE_FORCE_Y = 11; // Reduced from 16
+        const MAX_SPEED_Y = 14;           // Cap speed
+        
+        // Paddle
+        const PADDLE_WIDTH = 80;
+        const PADDLE_HEIGHT = 50;
+        const PADDLE_LIMIT_Y_MIN = NET_Y + 50;
+        const PADDLE_LIMIT_Y_MAX = GAME_HEIGHT - 20;
+
+        // Ball
+        const BALL_RADIUS = 8;
+        
+        // --- State Variables ---
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const scoreDisplay = document.getElementById('scoreDisplay');
+        const messageDisplay = document.getElementById('messageDisplay');
+        const menuLayer = document.getElementById('menu-layer');
+        const startBtn = document.getElementById('startBtn');
+
+        let scale = 1;
+        
+        // Game State
+        let gameState = 'menu'; // menu, serve, play, scored, gameover
+        let playerScore = 0;
+        let aiScore = 0;
+        
+        let ball = {
+            x: GAME_WIDTH / 2,
+            y: TABLE_Y_START + 50,
+            z: 100,
+            vx: 0,
+            vy: 0,
+            vz: 0,
+            spin: 0
+        };
+
+        let paddle = {
+            x: GAME_WIDTH / 2,
+            y: TABLE_Y_END + 10,
+            targetX: GAME_WIDTH / 2,
+            targetY: TABLE_Y_END + 10,
+            lastX: GAME_WIDTH / 2
+        };
+
+        let aiPaddle = {
+            x: GAME_WIDTH / 2,
+            y: TABLE_Y_START - 20,
+            speed: 5, // Reduced AI speed slightly
+            width: 80,
+            height: 50
+        };
+
+        let input = {
+            left: false,
+            right: false,
+            up: false,
+            down: false
+        };
+
+        // --- Initialization ---
+
+        function init() {
+            window.addEventListener('resize', resize);
+            window.addEventListener('keydown', handleKeyDown);
+            window.addEventListener('keyup', handleKeyUp);
+            
+            canvas.addEventListener('touchstart', handleTouchStart, {passive: false});
+            canvas.addEventListener('touchmove', handleTouchMove, {passive: false});
+            canvas.addEventListener('touchend', handleTouchEnd, {passive: false});
+            canvas.addEventListener('mousedown', handleMouseDown);
+            canvas.addEventListener('mousemove', handleMouseMove);
+            canvas.addEventListener('mouseup', handleMouseUp);
+
+            startBtn.addEventListener('click', startGame);
+
+            resize();
+            requestAnimationFrame(gameLoop);
+        }
+
+        function resize() {
+            const winW = window.innerWidth;
+            const winH = window.innerHeight;
+            const aspect = GAME_WIDTH / GAME_HEIGHT;
+            const winAspect = winW / winH;
+
+            if (winAspect < aspect) {
+                canvas.width = winW;
+                canvas.height = winW / aspect;
+            } else {
+                canvas.height = winH;
+                canvas.width = winH * aspect;
+            }
+
+            scale = canvas.width / GAME_WIDTH;
+        }
+
+        function startGame() {
+            menuLayer.classList.add('hidden');
+            playerScore = 0;
+            aiScore = 0;
+            updateScoreBoard();
+            resetBall('serve');
+        }
+
+        function updateScoreBoard() {
+            scoreDisplay.textContent = `Player: ${playerScore} | AI: ${aiScore}`;
+        }
+
+        // --- Input Handling ---
+
+        function handleKeyDown(e) {
+            if (e.key === 'ArrowLeft' || e.key === 'a') input.left = true;
+            if (e.key === 'ArrowRight' || e.key === 'd') input.right = true;
+            if (e.key === 'ArrowUp' || e.key === 'w') input.up = true;
+            if (e.key === 'ArrowDown' || e.key === 's') input.down = true;
+        }
+
+        function handleKeyUp(e) {
+            if (e.key === 'ArrowLeft' || e.key === 'a') input.left = false;
+            if (e.key === 'ArrowRight' || e.key === 'd') input.right = false;
+            if (e.key === 'ArrowUp' || e.key === 'w') input.up = false;
+            if (e.key === 'ArrowDown' || e.key === 's') input.down = false;
+        }
+
+        function getGameCoordinates(clientX, clientY) {
+            const rect = canvas.getBoundingClientRect();
+            const x = (clientX - rect.left) / scale;
+            const y = (clientY - rect.top) / scale;
+            return { x, y };
+        }
+
+        function handleTouchStart(e) {
+            e.preventDefault();
+            const touch = e.touches[0];
+            const pos = getGameCoordinates(touch.clientX, touch.clientY);
+            paddle.targetX = pos.x;
+            paddle.targetY = pos.y;
+        }
+
+        function handleTouchMove(e) {
+            e.preventDefault();
+            const touch = e.touches[0];
+            const pos = getGameCoordinates(touch.clientX, touch.clientY);
+            paddle.targetX = pos.x;
+            paddle.targetY = pos.y;
+        }
+
+        function handleTouchEnd(e) {
+            e.preventDefault();
+        }
+
+        let isDragging = false;
+        function handleMouseDown(e) {
+            isDragging = true;
+            const pos = getGameCoordinates(e.clientX, e.clientY);
+            paddle.targetX = pos.x;
+            paddle.targetY = pos.y;
+        }
+        function handleMouseMove(e) {
+            if (isDragging) {
+                const pos = getGameCoordinates(e.clientX, e.clientY);
+                paddle.targetX = pos.x;
+                paddle.targetY = pos.y;
+            }
+        }
+        function handleMouseUp(e) {
+            isDragging = false;
+        }
+
+
+        // --- Game Logic ---
+
+        function resetBall(mode) {
+            ball.x = GAME_WIDTH / 2;
+            ball.y = TABLE_Y_START + 50; 
+            ball.z = 120;
+            // Slower serve
+            ball.vx = (Math.random() - 0.5) * 3;
+            ball.vy = 7; 
+            ball.vz = 0;
+            ball.spin = 0;
+            
+            gameState = 'play';
+            hideMessage();
+        }
+
+        function showMessage(text) {
+            messageDisplay.textContent = text;
+            messageDisplay.classList.add('visible');
+        }
+
+        function hideMessage() {
+            messageDisplay.classList.remove('visible');
+        }
+
+        function update() {
+            if (gameState === 'menu' || gameState === 'scored' || gameState === 'gameover') return;
+
+            // --- Paddle Movement ---
+            const speed = 7;
+            if (input.left) paddle.targetX -= speed;
+            if (input.right) paddle.targetX += speed;
+            if (input.up) paddle.targetY -= speed;
+            if (input.down) paddle.targetY += speed;
+
+            paddle.lastX = paddle.x; // Store previous position for velocity calculation
+            paddle.x += (paddle.targetX - paddle.x) * 0.3;
+            paddle.y += (paddle.targetY - paddle.y) * 0.3;
+
+            if (paddle.x < PADDLE_WIDTH/2) paddle.x = PADDLE_WIDTH/2;
+            if (paddle.x > GAME_WIDTH - PADDLE_WIDTH/2) paddle.x = GAME_WIDTH - PADDLE_WIDTH/2;
+            if (paddle.y < PADDLE_LIMIT_Y_MIN) paddle.y = PADDLE_LIMIT_Y_MIN;
+            if (paddle.y > PADDLE_LIMIT_Y_MAX) paddle.y = PADDLE_LIMIT_Y_MAX;
+
+            // --- AI Movement ---
+            let aiTargetX = ball.x;
+            if (ball.vy < 0) {
+                // If ball coming fast, AI might miss slightly (reaction delay could be added here)
+                aiPaddle.x += (aiTargetX - aiPaddle.x) * 0.08; 
+            } else {
+                aiPaddle.x += (GAME_WIDTH/2 - aiPaddle.x) * 0.05;
+            }
+            // Clamp AI
+            if (aiPaddle.x < PADDLE_WIDTH/2) aiPaddle.x = PADDLE_WIDTH/2;
+            if (aiPaddle.x > GAME_WIDTH - PADDLE_WIDTH/2) aiPaddle.x = GAME_WIDTH - PADDLE_WIDTH/2;
+
+            // --- Real-time Air Control (Synchronous Movement) ---
+            // If ball is moving away from player (Player just hit it), allow remote control via paddle
+            if (ball.vy < 0 && ball.z > 0) {
+                 const paddleMove = paddle.x - paddle.lastX;
+                 // Direct synchronization: Moving paddle left moves ball left instantly
+                 ball.x += paddleMove * 1.5; 
+            }
+
+            // --- Physics ---
+            // Artificial "Anti-Out" Gravity:
+            // If ball crosses net, increase gravity/downward force to ensure it bounces on table
+            if (ball.z > 0) {
+                const isOverPlayerTable = ball.y > NET_Y && ball.y < TABLE_Y_END;
+                const isOverAITable = ball.y < NET_Y && ball.y > TABLE_Y_START;
+                
+                // If AI hit it (vy > 0) and it's over player table -> Force down
+                if (ball.vy > 0 && isOverPlayerTable) {
+                    ball.vz -= 0.45; 
+                }
+                // If Player hit it (vy < 0) and it's over AI table -> Force down
+                if (ball.vy < 0 && isOverAITable) {
+                    ball.vz -= 0.45;
+                }
+            }
+
+            // Apply Spin (Magnus Effect approximation)
+            ball.vx += ball.spin * 0.05;
+            ball.spin *= 0.98; // Spin decay
+
+            ball.x += ball.vx;
+            ball.y += ball.vy;
+            ball.z += ball.vz;
+            
+            ball.vz -= GRAVITY;
+            ball.vx *= AIR_RESISTANCE;
+            
+            // --- Collisions ---
+
+            // 1. Table Bounce Logic
+            const onTableX = ball.x > (GAME_WIDTH - TABLE_WIDTH)/2 && ball.x < (GAME_WIDTH + TABLE_WIDTH)/2;
+            const onTableY = ball.y > TABLE_Y_START && ball.y < TABLE_Y_END;
+
+            if (ball.z <= 0) {
+                if (onTableX && onTableY) {
+                    ball.z = 0;
+                    ball.vz = -ball.vz * TABLE_BOUNCE_DAMPING;
+                    // Min bounce to stop infinite low bounces
+                    if (Math.abs(ball.vz) < 1) ball.vz = 0;
+                } else {
+                    // Missed Table (Out)
+                    // Logic: If it lands on floor, whoever hit it last failed.
+                    if (ball.vy > 0) {
+                        // Moving towards Player. AI shot.
+                        // If it lands on floor (not table), AI missed the table. Player Point.
+                        // NOTE: Previous logic was checking side of net.
+                        // Simplified: If it bounces on floor, and it was moving towards Player, AI missed.
+                        // UNLESS it already bounced on table once?
+                        // We need to track bounces?
+                        // For simplicity in this arcade version:
+                        // If it hits floor without hitting paddle:
+                        // If y < NET_Y (AI Side), Player hit it short/wide -> AI Point.
+                        // If y > NET_Y (Player Side), AI hit it short/wide -> Player Point.
+                        
+                        if (ball.y < NET_Y) {
+                             scorePoint('ai');
+                        } else {
+                             scorePoint('player');
+                        }
+                    } else {
+                        // Moving towards AI. Player shot.
+                         if (ball.y > NET_Y) {
+                             scorePoint('player');
+                        } else {
+                             scorePoint('ai');
+                        }
+                    }
+                }
+            }
+
+            // 2. Paddle Collision (Player)
+            const pLeft = paddle.x - PADDLE_WIDTH/2;
+            const pRight = paddle.x + PADDLE_WIDTH/2;
+            const pTop = paddle.y - PADDLE_HEIGHT/2;
+            const pBottom = paddle.y + PADDLE_HEIGHT/2;
+
+            // Visual Y position of the ball
+            const ballVisualY = ball.y - ball.z;
+            
+            const hitVisualY = ballVisualY >= pTop && ballVisualY <= pBottom;
+            const hitLogicalY = ball.y >= pTop && ball.y <= pBottom; 
+            
+            if (ball.vy > 0 && // Moving towards player
+                ball.x >= pLeft && ball.x <= pRight &&
+                (hitVisualY || (hitLogicalY && ball.z < 200))) { 
+                
+                // HIT!
+                ball.vy = -Math.abs(ball.vy) * 1.05; 
+                if (Math.abs(ball.vy) > MAX_SPEED_Y) ball.vy = -MAX_SPEED_Y;
+
+                ball.vz = PADDLE_BOUNCE_FORCE_Z;
+                
+                const paddleVx = paddle.x - paddle.lastX;
+                
+                let hitOffset = (ball.x - paddle.x) / (PADDLE_WIDTH/2);
+                ball.vx = hitOffset * 4; 
+                ball.vx += paddleVx * 0.5;
+            }
+
+            // 3. AI Collision
+            const aiLeft = aiPaddle.x - aiPaddle.width/2;
+            const aiRight = aiPaddle.x + aiPaddle.width/2;
+            
+            if (ball.vy < 0 && 
+                ball.y < TABLE_Y_START + 50 && 
+                ball.x >= aiLeft && ball.x <= aiRight &&
+                ball.z < 60) {
+                
+                // AI Hit
+                ball.vy = Math.abs(ball.vy);
+                if (Math.abs(ball.vy) > MAX_SPEED_Y) ball.vy = MAX_SPEED_Y;
+                ball.vz = PADDLE_BOUNCE_FORCE_Z;
+                
+                let targetX = paddle.x + (Math.random() - 0.5) * 150;
+                ball.vx = (targetX - ball.x) / 70;
+            }
+
+            // 4. Out of Bounds (Deep)
+            if (ball.y > GAME_HEIGHT + 50) {
+                scorePoint('ai');
+            }
+            if (ball.y < -100) {
+                scorePoint('player');
+            }
+        }
+
+        function scorePoint(winner) {
+            if (gameState === 'scored') return;
+            gameState = 'scored';
+
+            if (winner === 'player') {
+                playerScore++;
+                showMessage("POINT PLAYER");
+            } else {
+                aiScore++;
+                showMessage("POINT AI");
+            }
+            updateScoreBoard();
+
+            if (playerScore >= 11 || aiScore >= 11) {
+                setTimeout(() => {
+                    if (playerScore >= 11) endGame("YOU WIN!");
+                    else endGame("AI WINS!");
+                }, 1000);
+            } else {
+                setTimeout(() => {
+                    resetBall('serve');
+                }, 1500);
+            }
+        }
+
+        function endGame(text) {
+            gameState = 'gameover';
+            menuLayer.classList.remove('hidden');
+            document.querySelector('#menu-layer .title').innerHTML = text + "<br><span style='font-size:1.5rem'>Score: " + playerScore + "-" + aiScore + "</span>";
+            startBtn.textContent = "PLAY AGAIN";
+        }
+
+        // --- Rendering ---
+
+        function draw() {
+            // Clear Screen
+            ctx.fillStyle = '#222';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            ctx.save();
+            ctx.scale(scale, scale);
+
+            // Table
+            const tableX = (GAME_WIDTH - TABLE_WIDTH) / 2;
+            
+            // Shadow
+            ctx.fillStyle = 'rgba(0,0,0,0.5)';
+            ctx.fillRect(tableX + 10, TABLE_Y_START + 10, TABLE_WIDTH, TABLE_LENGTH);
+
+            // Surface
+            ctx.fillStyle = '#1e40af';
+            ctx.fillRect(tableX, TABLE_Y_START, TABLE_WIDTH, TABLE_LENGTH);
+            
+            // Lines
+            ctx.strokeStyle = 'rgba(255,255,255,0.6)';
+            ctx.lineWidth = 4;
+            ctx.strokeRect(tableX, TABLE_Y_START, TABLE_WIDTH, TABLE_LENGTH);
+            
+            ctx.beginPath();
+            ctx.moveTo(GAME_WIDTH/2, TABLE_Y_START);
+            ctx.lineTo(GAME_WIDTH/2, TABLE_Y_END);
+            ctx.stroke();
+
+            // Net
+            ctx.fillStyle = '#444';
+            ctx.fillRect(tableX - 5, NET_Y - 5, 5, 10);
+            ctx.fillRect(tableX + TABLE_WIDTH, NET_Y - 5, 5, 10);
+            
+            ctx.strokeStyle = '#eee';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(tableX, NET_Y);
+            ctx.lineTo(tableX + TABLE_WIDTH, NET_Y);
+            ctx.stroke();
+            
+            ctx.globalAlpha = 1.0;
+            ctx.beginPath();
+            ctx.moveTo(tableX, NET_Y - 10);
+            ctx.lineTo(tableX + TABLE_WIDTH, NET_Y - 10);
+            ctx.strokeStyle = 'rgba(255,255,255,0.8)';
+            ctx.stroke();
+
+            // AI Paddle
+            ctx.fillStyle = '#d946ef';
+            ctx.fillRect(aiPaddle.x - aiPaddle.width/2, aiPaddle.y - aiPaddle.height/2, aiPaddle.width, aiPaddle.height);
+
+            // Ball Shadow
+            if (gameState !== 'menu' && gameState !== 'gameover') {
+                const shadowScale = Math.max(0, 1 - (ball.z / 400));
+                const shadowRadius = BALL_RADIUS * Math.max(0.5, shadowScale);
+                ctx.beginPath();
+                ctx.fillStyle = 'rgba(0,0,0,0.4)';
+                ctx.ellipse(ball.x, ball.y, shadowRadius, shadowRadius * 0.6, 0, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Ball Visuals
+                const visualY = ball.y - ball.z;
+                // Scale ball based on height (Z) - higher is bigger
+                // Base radius 8, max radius maybe 16?
+                const zScale = 1 + (ball.z / 150);
+                const currentRadius = Math.max(BALL_RADIUS, BALL_RADIUS * zScale);
+
+                ctx.beginPath();
+                ctx.arc(ball.x, visualY, currentRadius, 0, Math.PI * 2);
+                ctx.fillStyle = '#fbbf24';
+                ctx.fill();
+                
+                // Spin indicator (simple line)
+                ctx.save();
+                ctx.translate(ball.x, visualY);
+                ctx.rotate(Date.now() / 100 * (ball.spin + 1)); // Visual rotation based on spin
+                ctx.beginPath();
+                ctx.moveTo(-currentRadius/2, 0);
+                ctx.lineTo(currentRadius/2, 0);
+                ctx.strokeStyle = 'rgba(0,0,0,0.2)';
+                ctx.lineWidth = 1;
+                ctx.stroke();
+                ctx.restore();
+
+                // Shine
+                ctx.beginPath();
+                ctx.arc(ball.x - currentRadius*0.3, visualY - currentRadius*0.3, currentRadius/3, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(255,255,255,0.6)';
+                ctx.fill();
+            }
+
+            // Player Paddle
+            ctx.fillStyle = '#ef4444';
+            ctx.fillRect(paddle.x - PADDLE_WIDTH/2, paddle.y - PADDLE_HEIGHT/2, PADDLE_WIDTH, PADDLE_HEIGHT);
+            ctx.fillStyle = '#7f1d1d';
+            ctx.fillRect(paddle.x - 5, paddle.y + PADDLE_HEIGHT/2, 10, 15);
+
+            ctx.restore();
+        }
+
+        function gameLoop() {
+            update();
+            draw();
+            requestAnimationFrame(gameLoop);
+        }
+
+        init();
+
+    </script>
+</body>
+</html>
