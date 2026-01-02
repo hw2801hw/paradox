@@ -393,7 +393,7 @@
                 </div>
                 <div class="ability-item">
                     <strong>🐕 狗急跳牆（狗）</strong><br>
-                    己方狗在草地上無敵（不會被任何棋子吃掉），只有在陷阱中時才能被吃；己方狗能跳河；對方獅虎不可跳河
+                    己方狗能跳河；對方獅虎不可跳河；對方鼠不能潛水；擁有「一臂之力」：己方所有動物可瞬移至狗首領周圍
                 </div>
                 <div class="ability-item">
                     <strong>🐺 狼吞虎嚥（狼）</strong><br>
@@ -447,7 +447,7 @@
         const LEADER_ABILITIES = {
             RAT: { name: '兩鼠鬥穴', desc: '鼠免疫陷阱，可反吃' },
             CAT: { name: '貓鼠同眠', desc: '貓不被象/犀吃，尊貴移動' },
-            DOG: { name: '狗急跳牆', desc: '狗草地無敵，可跳河' },
+            DOG: { name: '狗急跳牆', desc: '跳河/封鎖鼠水/一臂之力' },
             WOLF: { name: '狼吞虎嚥', desc: '狼等級6，可直線走2格' },
             LEOPARD: { name: '熊心豹膽', desc: '豹可游河/跳河' },
             TIGER: { name: '龍精虎猛', desc: '虎吃子升級，可成龍' },
@@ -670,8 +670,15 @@
         
         // 檢查是否可以進入河流
         function canEnterWater(piece) {
+            const player = piece.player;
+            const enemy = player === RED ? BLUE : RED;
+
             // 鼠可以進入河流
             if (piece.type === 'RAT') {
+                // 狗急跳牆：對方首領是狗時，老鼠不能潛水
+                if (leaders[enemy] === 'DOG') {
+                    return false;
+                }
                 return true;
             }
             
@@ -695,15 +702,8 @@
                 return false;
             }
             
-            // 狗急跳牆：己方狗在草地上是無敵的，只有在陷阱中才能被吃
-            if (defender.type === 'DOG' && leaders[defenderPlayer] === 'DOG') {
-                // 檢查狗是否在陷阱中
-                const inTrap = isTrap(toRow, toCol, RED) || isTrap(toRow, toCol, BLUE);
-                if (!inTrap) {
-                    // 狗在草地上，無敵
-                    return false;
-                }
-            }
+            // (移除舊版) 狗急跳牆：己方狗在草地上是無敵的...
+            // 新版狗不再有此無敵能力
             
             // 貓鼠同眠：己方貓不能被大象或犀吃掉
             if (defender.type === 'CAT' && leaders[defenderPlayer] === 'CAT') {
@@ -906,6 +906,61 @@
             
             return moves;
         }
+
+        // 狗急跳牆：一臂之力（全隊瞬移至狗身邊）
+        // 類似反向的尊貴移動，檢查狗的位置，將其周圍空格加入可行移動
+        function getDogLeaderSupportMoves(startRow, startCol, piece) {
+            const moves = [];
+            const player = piece.player;
+            let dogPos = null;
+
+            // 尋找己方狗的位置
+            for(let r=0; r<ROWS; r++) {
+                for(let c=0; c<COLS; c++) {
+                    const p = board[r][c];
+                    if (p && p.player === player && p.type === 'DOG') {
+                        dogPos = {r, c};
+                        break;
+                    }
+                }
+                if (dogPos) break;
+            }
+
+            // 如果沒有狗（被吃掉了），則無法使用此能力
+            if (!dogPos) return [];
+
+            const directions = [[-1, 0], [1, 0], [0, -1], [0, 1]];
+            
+            for (const [dr, dc] of directions) {
+                const targetRow = dogPos.r + dr;
+                const targetCol = dogPos.c + dc;
+
+                // 邊界檢查
+                if (targetRow < 0 || targetRow >= ROWS || targetCol < 0 || targetCol >= COLS) continue;
+
+                // 不能移動到自己原本的位置（不算移動）
+                if (targetRow === startRow && targetCol === startCol) continue;
+
+                // 檢查是否能進入該位置（水、穴）
+                if (isWater(targetRow, targetCol)) {
+                    if (!canEnterWater(piece)) continue;
+                }
+
+                // 不能進入自己的獸穴
+                if (isDen(targetRow, targetCol, player)) continue;
+
+                const targetPiece = board[targetRow][targetCol];
+                if (!targetPiece) {
+                    moves.push([targetRow, targetCol]);
+                } else if (targetPiece.player !== player) {
+                    // 可以攻擊敵方棋子
+                    if (canCapture(startRow, startCol, targetRow, targetCol, piece, targetPiece)) {
+                        moves.push([targetRow, targetCol]);
+                    }
+                }
+            }
+            return moves;
+        }
         
         // 獲取陷阱可移動位置
         function getTrapValidMoves(trapRow, trapCol) {
@@ -1033,7 +1088,7 @@
                             
                             if (jumpRow < 0 || jumpRow >= ROWS || jumpCol < 0 || jumpCol >= COLS) {
                                 blocked = true;
-                                break;
+                                    break;
                             }
                             
                             if (!isWater(jumpRow, jumpCol)) {
@@ -1065,6 +1120,17 @@
                         moves.push([newRow, newCol]);
                     } else if (target.player !== piece.player && canCapture(row, col, newRow, newCol, piece, target)) {
                         moves.push([newRow, newCol]);
+                    }
+                }
+            }
+
+            // 狗急跳牆：一臂之力
+            if (leaders[piece.player] === 'DOG') {
+                const supportMoves = getDogLeaderSupportMoves(row, col, piece);
+                // 合併移動（檢查重複）
+                for (const m of supportMoves) {
+                    if (!moves.some(existing => existing[0] === m[0] && existing[1] === m[1])) {
+                        moves.push(m);
                     }
                 }
             }
