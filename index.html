@@ -5,33 +5,80 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>快捷連結</title>
     <style>
+        * {
+            box-sizing: border-box;
+        }
+        
         body {
             font-family: Arial, sans-serif;
             text-align: center;
-            padding: 50px;
+            padding: 30px 15px;
             background-color: #f0f8ff;
+            margin: 0;
         }
-        p {
-            font-size: 24px;
-            line-height: 2.5;
+        
+        h1 {
+            font-size: 28px;
+            color: #333;
+            margin-bottom: 30px;
         }
+        
+        .links-container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        
+        .link-row {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 20px;
+            padding: 15px;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+        
+        .link-number {
+            font-size: 20px;
+            color: #333;
+            font-weight: bold;
+            min-width: 50px;
+        }
+        
         a {
             text-decoration: none;
             color: #007bff;
-            margin: 0 15px;
         }
+        
         a:hover {
             text-decoration: underline;
         }
+        
+        .side-link {
+            font-size: 20px;
+            padding: 8px 12px;
+        }
+        
         .button-style {
             display: inline-block;
             padding: 12px 28px;
             background-color: #007bff;
             color: white;
             border-radius: 12px;
-            font-size: 24px;
-            transition: background 0.5s ease;
+            font-size: 22px;
+            transition: background 0.3s ease, transform 0.2s ease;
+            min-width: 100px;
         }
+        
+        .button-style:hover {
+            text-decoration: none;
+            transform: scale(1.05);
+            background-color: #0056b3;
+        }
+        
         /* 第7項泡泡專用：整個按鈕背景彩虹漸變動畫 */
         #rainbow-button {
             color: white;
@@ -41,61 +88,185 @@
             animation: rainbowFlow 2s ease infinite;
             box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
         }
+        
+        #rainbow-button:hover {
+            background: linear-gradient(270deg, #ff0000, #ff9900, #ffff00, #00ff00, #00ffff, #0000ff, #9900ff);
+            background-size: 600% 600%;
+        }
+        
         @keyframes rainbowFlow {
             0%   { background-position: 0% 50%; }
             50%  { background-position: 100% 50%; }
             100% { background-position: 0% 50%; }
         }
+        
+        /* 平板裝置 */
+        @media (max-width: 768px) {
+            body {
+                padding: 20px 10px;
+            }
+            
+            .link-row {
+                padding: 12px;
+                gap: 8px;
+            }
+            
+            .link-number {
+                font-size: 18px;
+                min-width: 45px;
+            }
+            
+            .side-link {
+                font-size: 18px;
+                padding: 6px 10px;
+            }
+            
+            .button-style {
+                padding: 10px 20px;
+                font-size: 20px;
+                min-width: 90px;
+            }
+        }
+        
+        /* 手機裝置 */
+        @media (max-width: 480px) {
+            body {
+                padding: 15px 8px;
+            }
+            
+            h1 {
+                font-size: 22px;
+                margin-bottom: 20px;
+            }
+            
+            .link-row {
+                flex-direction: column;
+                padding: 15px 10px;
+                gap: 12px;
+            }
+            
+            .link-number {
+                font-size: 16px;
+                min-width: auto;
+            }
+            
+            .side-links {
+                display: flex;
+                gap: 15px;
+                justify-content: center;
+            }
+            
+            .side-link {
+                font-size: 16px;
+                padding: 5px 8px;
+            }
+            
+            .button-style {
+                padding: 14px 30px;
+                font-size: 20px;
+                min-width: 120px;
+                width: 80%;
+                max-width: 200px;
+            }
+        }
+        
+        /* 超小螢幕 */
+        @media (max-width: 360px) {
+            .button-style {
+                padding: 12px 20px;
+                font-size: 18px;
+            }
+            
+            .side-link {
+                font-size: 14px;
+            }
+            
+            .link-number {
+                font-size: 14px;
+            }
+        }
     </style>
 </head>
 <body>
-    <p>
-        <a href="https://hw2801hw.github.io/paradox/彬彬象棋">1. 彬</a>
-        <a href="https://hw2801hw.github.io/paradox/彬彬象棋" target="_blank" class="button-style">&emsp; 彬 &emsp;</a>
-        <a href="https://hw2801hw.github.io/paradox/彬彬象棋">彬</a><br /><br />
+    <h1>📱 快捷連結</h1>
+    
+    <div class="links-container">
+        <div class="link-row">
+            <span class="link-number">1.</span>
+            <a href="https://hw2801hw.github.io/paradox/彬彬象棋" class="side-link">彬</a>
+            <a href="https://hw2801hw.github.io/paradox/彬彬象棋" target="_blank" class="button-style">彬</a>
+            <a href="https://hw2801hw.github.io/paradox/彬彬象棋" class="side-link">彬</a>
+        </div>
 
-        <a href="https://hw2801hw.github.io/paradox/game">2. 豳</a>
-        <a href="https://hw2801hw.github.io/paradox/game" target="_blank" class="button-style">&emsp; 豳 &emsp;</a>
-        <a href="https://hw2801hw.github.io/paradox/game">豳</a><br /><br />
+        <div class="link-row">
+            <span class="link-number">2.</span>
+            <a href="https://hw2801hw.github.io/paradox/game" class="side-link">豳</a>
+            <a href="https://hw2801hw.github.io/paradox/game" target="_blank" class="button-style">豳</a>
+            <a href="https://hw2801hw.github.io/paradox/game" class="side-link">豳</a>
+        </div>
 
-        <a href="https://hw2801hw.github.io/paradox/html2">3. 奔</a>
-        <a href="https://hw2801hw.github.io/paradox/html2" target="_blank" class="button-style">&emsp; 奔 &emsp;</a>
-        <a href="https://hw2801hw.github.io/paradox/html2">奔</a><br /><br />
+        <div class="link-row">
+            <span class="link-number">3.</span>
+            <a href="https://hw2801hw.github.io/paradox/html2" class="side-link">奔</a>
+            <a href="https://hw2801hw.github.io/paradox/html2" target="_blank" class="button-style">奔</a>
+            <a href="https://hw2801hw.github.io/paradox/html2" class="side-link">奔</a>
+        </div>
 
-        <a href="https://hw2801hw.github.io/paradox/debug">4. 椕</a>
-        <a href="https://hw2801hw.github.io/paradox/debug" target="_blank" class="button-style">&emsp; 椕 &emsp;</a>
-        <a href="https://hw2801hw.github.io/paradox/debug">椕</a><br /><br />
+        <div class="link-row">
+            <span class="link-number">4.</span>
+            <a href="https://hw2801hw.github.io/paradox/debug" class="side-link">椕</a>
+            <a href="https://hw2801hw.github.io/paradox/debug" target="_blank" class="button-style">椕</a>
+            <a href="https://hw2801hw.github.io/paradox/debug" class="side-link">椕</a>
+        </div>
 
-        <a href="https://hw2801hw.github.io/paradox/plant">5. 邠</a>
-        <a href="https://hw2801hw.github.io/paradox/plant" target="_blank" class="button-style">&emsp; 邠 &emsp;</a>
-        <a href="https://hw2801hw.github.io/paradox/plant">邠</a><br /><br />
+        <div class="link-row">
+            <span class="link-number">5.</span>
+            <a href="https://hw2801hw.github.io/paradox/plant" class="side-link">邠</a>
+            <a href="https://hw2801hw.github.io/paradox/plant" target="_blank" class="button-style">邠</a>
+            <a href="https://hw2801hw.github.io/paradox/plant" class="side-link">邠</a>
+        </div>
 
-        <a href="https://hw2801hw.github.io/paradox/hero">6. 瀕</a>
-        <a href="https://hw2801hw.github.io/paradox/hero" target="_blank" class="button-style">&emsp; 瀕 &emsp;</a>
-        <a href="https://hw2801hw.github.io/paradox/hero">瀕</a><br /><br />
+        <div class="link-row">
+            <span class="link-number">6.</span>
+            <a href="https://hw2801hw.github.io/paradox/hero" class="side-link">瀕</a>
+            <a href="https://hw2801hw.github.io/paradox/hero" target="_blank" class="button-style">瀕</a>
+            <a href="https://hw2801hw.github.io/paradox/hero" class="side-link">瀕</a>
+        </div>
 
-        <a href="https://hw2801hw.github.io/paradox/ball">7. 繽</a>
-        <a href="https://hw2801hw.github.io/paradox/ball" target="_blank" class="button-style" id="rainbow-button">&emsp; 玢 &emsp;</a>
-        <a href="https://hw2801hw.github.io/paradox/ball">繽</a><br /><br />
+        <div class="link-row">
+            <span class="link-number">7.</span>
+            <a href="https://hw2801hw.github.io/paradox/ball" class="side-link">繽</a>
+            <a href="https://hw2801hw.github.io/paradox/ball" target="_blank" class="button-style" id="rainbow-button">玢</a>
+            <a href="https://hw2801hw.github.io/paradox/ball" class="side-link">繽</a>
+        </div>
 
+        <div class="link-row">
+            <span class="link-number">8.</span>
+            <a href="https://hw2801hw.github.io/paradox/carrom" class="side-link">豩</a>
+            <a href="https://hw2801hw.github.io/paradox/carrom" target="_blank" class="button-style">豩</a>
+            <a href="https://hw2801hw.github.io/paradox/carrom" class="side-link">豩</a>
+        </div>
 
-        <a href="https://hw2801hw.github.io/paradox/carrom">8. 豩</a>
-        <a href="https://hw2801hw.github.io/paradox/carrom"" target="_blank" class="button-style">&emsp; 豩 &emsp;</a>
-        <a href="https://hw2801hw.github.io/paradox/carrom"">豩</a><br /><br />
+        <div class="link-row">
+            <span class="link-number">9.</span>
+            <a href="https://hw2801hw.github.io/paradox/ai" class="side-link">虨</a>
+            <a href="https://hw2801hw.github.io/paradox/ai" target="_blank" class="button-style">虨</a>
+            <a href="https://hw2801hw.github.io/paradox/ai" class="side-link">虨</a>
+        </div>
 
-        <a href="https://hw2801hw.github.io/paradox/ai">9. 虨</a>
-        <a href="https://hw2801hw.github.io/paradox/ai"" target="_blank" class="button-style">&emsp; 虨 &emsp;</a>
-        <a href="https://hw2801hw.github.io/paradox/ai"">虨</a><br /><br />
+        <div class="link-row">
+            <span class="link-number">10.</span>
+            <a href="https://hw2801hw.github.io/paradox/pong" class="side-link">璸</a>
+            <a href="https://hw2801hw.github.io/paradox/pong" target="_blank" class="button-style">璸</a>
+            <a href="https://hw2801hw.github.io/paradox/pong" class="side-link">璸</a>
+        </div>
 
-        <a href="https://hw2801hw.github.io/paradox/pong">10. 璸</a>
-        <a href="https://hw2801hw.github.io/paradox/pong"" target="_blank" class="button-style">&emsp; 璸 &emsp;</a>
-        <a href="https://hw2801hw.github.io/paradox/pong"">璸</a><br /><br />
-
-        <a href="https://hw2801hw.github.io/paradox/darts">25. 錛</a>
-        <a href="https://hw2801hw.github.io/paradox/darts"" target="_blank" class="button-style">&emsp; 錛 &emsp;</a>
-        <a href="https://hw2801hw.github.io/paradox/darts"">錛</a><br /><br />
-
-    </p>
+        <div class="link-row">
+            <span class="link-number">25.</span>
+            <a href="https://hw2801hw.github.io/paradox/darts" class="side-link">攽</a>
+            <a href="https://hw2801hw.github.io/paradox/darts" target="_blank" class="button-style">攽</a>
+            <a href="https://hw2801hw.github.io/paradox/darts" class="side-link">攽</a>
+        </div>
+    </div>
 </body>
-
 </html>
