@@ -1,0 +1,2128 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>清目飛鏢隊</title>
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+    html,body{width:100%;height:100%;overflow:hidden;background:linear-gradient(135deg,#1a1a2e 0%,#16213e 50%,#0f3460 100%);font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
+    #gameContainer{width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;position:relative}
+    #canvas{display:block;touch-action:none}
+
+    /* UI layer */
+    #ui{position:absolute;top:0;left:0;width:100%;padding:8px;display:flex;justify-content:space-between;align-items:flex-start;pointer-events:none;z-index:10}
+    
+    .player-panel{background:rgba(0,0,0,.8);border-radius:12px;padding:8px 6px;color:#fff;text-align:center;min-width:90px;width:28%;border:2px solid transparent;transition:transform .2s; box-shadow: 0 4px 6px rgba(0,0,0,0.3);}
+    .player-panel.active{border-color:#ffd700;box-shadow:0 0 15px rgba(255,215,0,.5);transform:scale(1.05); z-index: 20;}
+    .player-panel.player{border-left:4px solid #3498db}
+    .player-panel.ai{border-left:4px solid #e74c3c}
+    .player-panel .name{font-size:clamp(10px, 3vw, 12px);opacity:.92;margin-bottom:2px;font-weight:700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;}
+    .player-panel .score{font-size:clamp(20px, 6vw, 28px);font-weight:800;color:#ffd700; line-height: 1.2;}
+    .player-panel .darts-info{font-size:10px;opacity:.7;margin-top:2px}
+    .player-panel .checkout-hint{font-size:10px;color:#2ecc71;margin-top:2px;font-weight:700;min-height:15px;white-space:pre-wrap; line-height: 1.1;}
+
+    .center-info-container{display:flex;flex-direction:column;align-items:center;gap:6px; flex: 1; margin: 0 4px;}
+    .center-info{background:rgba(0,0,0,.7);border-radius:10px;padding:4px 8px;color:#fff;text-align:center}
+    .center-info .mode{font-size:12px;color:#ffd700;font-weight:800}
+    /* .leg removed */
+
+    /* 優化後的風況顯示：字體加大，寬度增加 */
+    .wind-info{background:rgba(255,255,255,.15);border-radius:10px;padding:6px 8px;color:#fff;text-align:center;border:1px solid rgba(255,255,255,.3);min-width:100px; backdrop-filter: blur(4px);}
+    .wind-title{font-size:12px;opacity:.9;margin-bottom:2px; font-weight: 600;}
+    .wind-display{display:flex;align-items:center;justify-content:center;gap:6px}
+    .wind-arrow{font-size:26px;font-weight:900; line-height: 1; text-shadow: 0 2px 4px rgba(0,0,0,0.5);}
+    .wind-speed{font-size:22px;color:#fff;font-weight:900; line-height: 1; text-shadow: 0 2px 4px rgba(0,0,0,0.5);}
+    .wind-unit{font-size:12px; margin-top: 6px; opacity: 0.8;}
+
+    /* 優化後的返回按鈕：移動到右下角，避免遮擋 */
+    #backBtn{
+        position:absolute;
+        bottom:20px;
+        right:20px;
+        top: auto;
+        left: auto;
+        transform: none;
+        background:rgba(231,76,60,.92);
+        border:2px solid rgba(255,255,255,0.2);
+        color:#fff;
+        padding:10px 20px;
+        font-size:14px;
+        font-weight: 700;
+        border-radius:25px;
+        cursor:pointer;
+        z-index:90;
+        pointer-events:auto;
+        display:none;
+        box-shadow:0 4px 15px rgba(0,0,0,.4);
+        transition: all 0.2s;
+    }
+    #backBtn:hover,#backBtn:active{background:rgba(192,57,43,1); transform: scale(1.05);}
+    #backBtn.show{display:block}
+
+    .screen{position:absolute;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.92);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:100;color:#fff;text-align:center;padding:20px}
+    .hidden{display:none !important}
+    .title{font-size:clamp(28px,7vw,42px);font-weight:900;margin-bottom:10px;background:linear-gradient(45deg,#ffd700,#ff6b6b);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+    .subtitle{font-size:clamp(12px,3vw,16px);opacity:.84;margin-bottom:18px;line-height:1.5}
+
+    .mode-selection{margin-bottom:14px}
+    .mode-selection h3{font-size:16px;margin-bottom:10px;color:#ffd700}
+    .mode-buttons{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+    .mode-btn{background:linear-gradient(45deg,#2c3e50,#34495e);border:2px solid #3498db;color:#fff;padding:12px 18px;font-size:18px;font-weight:800;border-radius:12px;cursor:pointer;transition:all .25s;min-width:105px}
+    .mode-btn:hover,.mode-btn.selected{background:linear-gradient(45deg,#3498db,#2980b9);border-color:#ffd700;transform:scale(1.05)}
+    .mode-btn.selected{box-shadow:0 0 20px rgba(52,152,219,.6)}
+
+    .difficulty-selection{margin-bottom:16px}
+    .difficulty-selection h3{font-size:16px;margin-bottom:10px;color:#e74c3c}
+    .difficulty-buttons{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
+    .diff-btn{background:rgba(255,255,255,.1);border:2px solid #666;color:#fff;padding:8px 16px;font-size:14px;border-radius:8px;cursor:pointer;transition:all .25s}
+    .diff-btn:hover,.diff-btn.selected{border-color:#e74c3c;background:rgba(231,76,60,.3)}
+    .diff-btn.selected{background:linear-gradient(45deg,#e74c3c,#c0392b)}
+
+    .btn{background:linear-gradient(45deg,#27ae60,#2ecc71);border:none;color:#fff;padding:15px 50px;font-size:20px;border-radius:30px;cursor:pointer;pointer-events:auto;transition:transform .2s,box-shadow .2s;box-shadow:0 4px 15px rgba(39,174,96,.4);margin-top:10px}
+    .btn:hover,.btn:active{transform:scale(1.05);box-shadow:0 6px 20px rgba(39,174,96,.6)}
+    .btn:disabled{filter: grayscale(1); opacity: 0.6; cursor: not-allowed;}
+
+    .btn.blue{background:linear-gradient(45deg,#3498db,#2980b9)}
+    .btn.red{background:linear-gradient(45deg,#e74c3c,#c0392b)}
+
+    .instructions{margin-top:18px;font-size:clamp(11px,2.5vw,13px);opacity:.75;max-width:360px;line-height:1.6;text-align:left}
+
+    #phaseIndicator{position:absolute;bottom:70px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.82);color:#ffd700;padding:10px 20px;border-radius:20px;font-size:15px;pointer-events:none;z-index:10;white-space:nowrap}
+    #hitScore{position:absolute;top:45%;left:50%;transform:translate(-50%,-50%);font-size:clamp(40px,12vw,70px);font-weight:900;color:#ffd700;text-shadow:0 0 20px rgba(255,215,0,.8);pointer-events:none;z-index:20;opacity:0;transition:opacity .3s}
+
+    .end-stats{margin:20px 0}
+    .end-stats .winner{font-size:22px;margin-bottom:12px}
+    .end-stats .final-scores{display:flex;justify-content:center;gap:30px;margin:15px 0;flex-wrap:wrap}
+    .end-stats .score-item{text-align:center;min-width:120px}
+    .end-stats .score-item .label{font-size:14px;opacity:.85}
+    .end-stats .score-item .value{font-size:32px;font-weight:900;color:#ffd700}
+    .end-stats .score-item.winner-score .value{color:#2ecc71}
+
+    #turnIndicator{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,.9);color:#fff;padding:20px 40px;border-radius:15px;font-size:20px;font-weight:900;z-index:50;opacity:0;pointer-events:none;transition:opacity .3s;text-align:center}
+    #turnIndicator.show{opacity:1}
+    #turnIndicator .sub-text{font-size:14px;color:#4ecdc4;margin-top:5px;font-weight:400}
+
+    #scoreHistory{position:absolute;bottom:120px;left:50%;transform:translateX(-50%);display:flex;gap:8px;z-index:10;pointer-events:none;flex-wrap:wrap;justify-content:center;max-width:92vw}
+    .history-dart{background:rgba(0,0,0,.7);color:#4ecdc4;padding:4px 10px;border-radius:12px;font-size:14px;font-weight:900}
+
+    /* start screen inputs */
+    .panel-card{width:min(420px,92vw);background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:16px;padding:14px;text-align:left}
+    .field-label{font-size:12px;opacity:.8;margin:10px 0 6px}
+    .field{width:100%;padding:10px 12px;border-radius:12px;background:rgba(0,0,0,.35);border:1px solid rgba(255,255,255,.18);outline:none;color:#fff}
+    .field:focus{border-color:#ffd700;box-shadow:0 0 0 3px rgba(255,215,0,.15)}
+    .status{margin-top:10px;font-size:12px;opacity:.85;min-height:18px}
+    .status.error{color:#ff6b6b;opacity:1}
+    .status.ok{color:#2ecc71;opacity:1}
+
+    details summary{cursor:pointer}
+    details{user-select:none}
+  </style>
+</head>
+<body>
+  <div id="gameContainer">
+    <canvas id="canvas"></canvas>
+
+    <button id="backBtn">返回主頁</button>
+
+    <div id="ui">
+      <div class="player-panel player" id="playerPanel">
+        <div class="name" id="playerName">👤 你</div>
+        <div class="score" id="playerScore">501</div>
+        <div class="checkout-hint" id="checkoutHint"></div>
+        <div class="darts-info" id="playerDarts">🎯🎯🎯</div>
+      </div>
+
+      <div class="center-info-container">
+        <div class="center-info">
+          <div class="mode" id="gameMode">501</div>
+          <!-- LEG INFO REMOVED HERE -->
+        </div>
+        <div class="wind-info" id="windInfo">
+          <div class="wind-title">風況預報</div>
+          <div class="wind-display">
+            <span id="windDirectionArrow" class="wind-arrow">⚡</span>
+            <span id="windSpeedValue" class="wind-speed">0</span>
+            <span id="windUnit" class="wind-unit">級</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="player-panel ai" id="aiPanel">
+        <div class="name">
+          <span id="opponentName">🤖 AI</span>
+          <span id="aiDiffWrap">(<span id="aiDiffLabel">業餘</span>)</span>
+        </div>
+        <div class="score" id="aiScore">501</div>
+        <div class="darts-info" id="aiDarts">🎯🎯🎯</div>
+      </div>
+    </div>
+
+    <div id="scoreHistory"></div>
+    <div id="phaseIndicator">點擊鎖定垂直位置 ↕</div>
+    <div id="hitScore">0</div>
+    <div id="turnIndicator"></div>
+
+    <!-- Start Screen -->
+    <div class="screen" id="startScreen">
+      <div class="title">🎯 清目飛鏢隊</div>
+      <div class="subtitle">留意風向，挑戰 AI 或好友即時連線！</div>
+
+      <div class="mode-selection">
+        <h3>挑戰分數</h3>
+        <div class="mode-buttons" id="scoreModeButtons">
+          <button class="mode-btn" data-mode="301">301</button>
+          <button class="mode-btn selected" data-mode="501">501</button>
+          <button class="mode-btn" data-mode="701">701</button>
+        </div>
+      </div>
+
+      <div class="mode-selection">
+        <h3>對戰模式</h3>
+        <div class="mode-buttons" id="matchTypeButtons">
+          <button class="mode-btn selected" data-match="ai">AI對決</button>
+          <button class="mode-btn" data-match="multi">雙人對決</button>
+        </div>
+      </div>
+
+      <div id="aiOptions">
+        <div class="difficulty-selection">
+          <h3>AI 難度</h3>
+          <div class="difficulty-buttons">
+            <button class="diff-btn selected" data-diff="amateur">業餘</button>
+            <button class="diff-btn" data-diff="pro">專業</button>
+          </div>
+        </div>
+        <button class="btn" id="startAiBtn">開始對戰</button>
+      </div>
+
+      <div id="multiOptions" class="hidden">
+        <div class="panel-card">
+          <div class="text-sm font-bold text-amber-300">雙人對決</div>
+          <div class="field-label">暱稱（必填）</div>
+          <input id="nicknameInput" class="field" maxlength="16" placeholder="例如：阿彬" />
+
+          <div class="field-label">房間號碼（4位數字）</div>
+          <input id="roomCodeInput" class="field" inputmode="numeric" maxlength="4" placeholder="例如：1234" />
+
+          <div class="mt-3 flex gap-2 flex-wrap">
+            <button class="btn blue" id="createRoomBtn" style="margin-top:0;padding:12px 18px;font-size:16px;border-radius:14px;">創建房間</button>
+            <button class="btn" id="joinRoomBtn" style="margin-top:0;padding:12px 18px;font-size:16px;border-radius:14px;">進入房間</button>
+          </div>
+
+          <div id="multiStatus" class="status"></div>
+        </div>
+      </div>
+
+      <div class="instructions">
+        🎯 <b>玩法說明：</b><br>
+        1️⃣ 點擊鎖定垂直位置<br>
+        2️⃣ 再點擊鎖定水平位置並發射<br>
+        ⚡ 必須剛好歸零才算獲勝！
+      </div>
+    </div>
+
+    <!-- Lobby Screen (Multiplayer) -->
+    <div class="screen hidden" id="lobbyScreen">
+      <div class="title">🔗 雙人對決</div>
+      <div class="subtitle">房間號碼：<span id="lobbyRoomCode" class="font-black text-amber-300"></span></div>
+      <div class="panel-card" style="text-align:left">
+        <div class="text-sm font-bold">玩家列表</div>
+        <div id="lobbyPlayers" class="mt-2 text-sm leading-7"></div>
+        <div id="lobbyStatus" class="status">等待另一位玩家加入...</div>
+      </div>
+      <button class="btn red" id="leaveRoomBtn" style="margin-top:16px">離開房間</button>
+      <div class="text-xs opacity-70 mt-4 max-w-[420px]">
+        提醒：此模式會即時同步分數、回合與風向；對戰結束後房間資料會自動刪除。
+      </div>
+    </div>
+
+    <!-- End Screen -->
+    <div class="screen hidden" id="endScreen">
+      <div class="title" id="endTitle">🏆 遊戲結束</div>
+      <div class="end-stats">
+        <div class="winner" id="winnerText">你獲勝！</div>
+        <div class="final-scores">
+          <div class="score-item" id="playerFinal">
+            <div class="label" id="playerFinalLabel">你</div>
+            <div class="value" id="playerFinalValue">0</div>
+          </div>
+          <div class="score-item" id="aiFinal">
+            <div class="label" id="aiFinalLabel">AI</div>
+            <div class="value" id="aiFinalValue">0</div>
+          </div>
+        </div>
+      </div>
+      <button class="btn" id="restartBtn">再玩一次</button>
+      <button class="btn blue" id="homeBtn" style="margin-top:10px">返回主頁</button>
+      <div id="cleanupHint" class="text-xs opacity-70 mt-4"></div>
+    </div>
+  </div>
+
+  <!-- Firebase (Realtime Database only) -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
+  <script>
+    // ==================== Constants ====================
+    const DART_SEGMENTS = [20,1,18,4,13,6,10,15,2,17,3,19,7,16,8,11,14,9,12,5];
+    const INDICATOR_SPEED = 1.2;
+    const DART_FLIGHT_SPEED = 18;
+    const INDICATOR_DOT_RADIUS = 12;
+    const INDICATOR_LINE_WIDTH = 3;
+
+    const AI_DIFFICULTY = {
+      amateur: { name: '業餘', accuracy: 0.8, thinkTime: 1000, smartCheckout: false },
+      pro: { name: '專業', accuracy: 0.02, thinkTime: 600, smartCheckout: true }
+    };
+
+    const WIND_DIRECTIONS = [
+      { name: '左上', x: -1, y: -1, symbol: '↖' },
+      { name: '右上', x: 1, y: -1, symbol: '↗' },
+      { name: '左下', x: -1, y: 1, symbol: '↙' },
+      { name: '右下', x: 1, y: 1, symbol: '↘' }
+    ];
+
+    const GameState = {
+      START: 'start',
+      PLAYER_AIMING_VERTICAL: 'playerAimingVertical',
+      PLAYER_AIMING_HORIZONTAL: 'playerAimingHorizontal',
+      THROWING: 'throwing',
+      SHOWING_SCORE: 'showingScore',
+      AI_THINKING: 'aiThinking',
+      WAITING_OPPONENT: 'waitingOpponent',
+      GAME_END: 'gameEnd'
+    };
+
+    // ==================== Global State ====================
+    let canvas, ctx;
+    let gameWidth, gameHeight;
+    let boardCenterX, boardCenterY, boardRadius;
+
+    let selectedMode = 501;
+    let selectedDifficulty = 'amateur';
+    let matchType = 'ai'; // 'ai' | 'multi'
+
+    let currentState = GameState.START;
+
+    // local vs opponent (AI or human)
+    let playerScore = 501;
+    let playerDartsLeft = 3;
+    let playerRoundDarts = [];
+
+    let aiScore = 501;
+    let aiDartsLeft = 3;
+    let aiRoundDarts = [];
+
+    let isPlayerTurn = true;
+    let currentLeg = 1;
+
+    // aiming
+    let verticalIndicator = 0;
+    let horizontalIndicator = 0;
+    let verticalDirection = 1;
+    let horizontalDirection = 1;
+    let lockedVertical = 0;
+    let lockedHorizontal = 0;
+
+    // dart flight
+    let dartX, dartY, targetX, targetY;
+    let dartFlying = false;
+    let thrownDarts = [];
+    let currentDartColor = '#3498db';
+
+    // wind
+    let currentWind = { directionIndex: 0, speed: 0, index: 1 };
+
+    // highlight checkout
+    let currentHighlightTarget = null;
+
+    // sounds
+    let audioCtx = null;
+
+    // multiplayer
+    let firebaseApp = null;
+    let firebaseDb = null;
+    let roomCode = null;
+    let mySeat = null; // 'p1' | 'p2'
+    let myNickname = '';
+    let joinedAt = 0;
+    let roomRef = null;
+    let throwsRef = null;
+    let processedThrowKeys = new Set();
+    let roomListenerAttached = false;
+    let throwsListenerAttached = false;
+    let roomCleanupScheduled = false;
+    let lastSeenTurnIndex = null;
+    
+    // Prevent double submission / creation loops
+    let isProcessingMulti = false;
+
+    // pending multiplayer hit display
+    let pendingThrowInfo = null; // { score, bust, bySeat, byIsMe }
+
+    // ==================== Utilities ====================
+    const $ = (id) => document.getElementById(id);
+
+    function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
+
+    function safeText(s) { return (s ?? '').toString().slice(0, 32); }
+
+    function pad4(n) { return n.toString().padStart(4, '0'); }
+
+    function once(ref) {
+      return new Promise((resolve, reject) => {
+        ref.once('value', (snap) => resolve(snap), (err) => reject(err));
+      });
+    }
+
+    function delay(ms) { return new Promise(res => setTimeout(res, ms)); }
+
+    function randomWind() {
+      return {
+        directionIndex: Math.floor(Math.random() * 4),
+        speed: Math.floor(Math.random() * 6)
+      };
+    }
+
+    function setStatus(el, msg, type) {
+      el.textContent = msg || '';
+      el.classList.remove('error', 'ok');
+      if (type) el.classList.add(type);
+    }
+
+    // ==================== Init ====================
+    function init() {
+      canvas = $('canvas');
+      ctx = canvas.getContext('2d');
+
+      initSounds();
+      resizeCanvas();
+      window.addEventListener('resize', resizeCanvas);
+
+      canvas.addEventListener('click', handleInput);
+      canvas.addEventListener('touchstart', handleTouchInput, { passive: false });
+
+      // score mode select
+      document.querySelectorAll('#scoreModeButtons .mode-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          document.querySelectorAll('#scoreModeButtons .mode-btn').forEach(b => b.classList.remove('selected'));
+          e.currentTarget.classList.add('selected');
+          selectedMode = parseInt(e.currentTarget.dataset.mode);
+        });
+      });
+
+      // match type select
+      document.querySelectorAll('#matchTypeButtons .mode-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          document.querySelectorAll('#matchTypeButtons .mode-btn').forEach(b => b.classList.remove('selected'));
+          e.currentTarget.classList.add('selected');
+          setMatchType(e.currentTarget.dataset.match);
+        });
+      });
+
+      // AI difficulty
+      document.querySelectorAll('.diff-btn[data-diff]').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          document.querySelectorAll('.diff-btn[data-diff]').forEach(b => b.classList.remove('selected'));
+          e.currentTarget.classList.add('selected');
+          selectedDifficulty = e.currentTarget.dataset.diff;
+        });
+      });
+
+      // buttons
+      $('startAiBtn').addEventListener('click', startAIGame);
+      $('restartBtn').addEventListener('click', () => {
+        if (matchType === 'ai') startAIGame();
+        else goToHome();
+      });
+      $('homeBtn').addEventListener('click', goToHome);
+      $('backBtn').addEventListener('click', goToHome);
+      $('createRoomBtn').addEventListener('click', createRoomFlow);
+      $('joinRoomBtn').addEventListener('click', joinRoomFlow);
+      $('leaveRoomBtn').addEventListener('click', () => {
+        const shouldRemoveRoom = (mySeat === 'p1');
+        leaveRoom({ endIfPlaying: false, removeRoom: shouldRemoveRoom });
+        showStart();
+      });
+
+      setMatchType('ai');
+
+      gameLoop();
+    }
+
+    function setMatchType(type) {
+      matchType = type;
+      if (type === 'ai') {
+        $('aiOptions').classList.remove('hidden');
+        $('multiOptions').classList.add('hidden');
+      } else {
+        $('aiOptions').classList.add('hidden');
+        $('multiOptions').classList.remove('hidden');
+      }
+    }
+
+    function showStart() {
+      currentState = GameState.START;
+      $('startScreen').classList.remove('hidden');
+      $('lobbyScreen').classList.add('hidden');
+      $('endScreen').classList.add('hidden');
+      $('backBtn').classList.remove('show');
+      updatePhaseIndicator('');
+    }
+
+    function goToHome() {
+      // stop multiplayer
+      if (matchType === 'multi') leaveRoom({ endIfPlaying: true, removeRoom: true });
+      else leaveRoom({ endIfPlaying: false });
+
+      // reset UI
+      showStart();
+    }
+
+    // ==================== Sounds/Vibration ====================
+    function initSounds() {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (AC) audioCtx = new AC();
+    }
+
+    function playSound(type) {
+      if (!audioCtx) return;
+      if (audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
+      const o = audioCtx.createOscillator();
+      const g = audioCtx.createGain();
+      o.connect(g); g.connect(audioCtx.destination);
+
+      switch (type) {
+        case 'throw':
+          o.frequency.setValueAtTime(200, audioCtx.currentTime);
+          o.frequency.exponentialRampToValueAtTime(100, audioCtx.currentTime + 0.1);
+          g.gain.setValueAtTime(0.3, audioCtx.currentTime);
+          g.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+          o.start(audioCtx.currentTime); o.stop(audioCtx.currentTime + 0.1);
+          break;
+        case 'hit':
+          o.frequency.setValueAtTime(400, audioCtx.currentTime);
+          g.gain.setValueAtTime(0.2, audioCtx.currentTime);
+          g.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.15);
+          o.start(audioCtx.currentTime); o.stop(audioCtx.currentTime + 0.15);
+          break;
+        case 'bullseye':
+          o.type = 'sine';
+          o.frequency.setValueAtTime(523, audioCtx.currentTime);
+          o.frequency.setValueAtTime(659, audioCtx.currentTime + 0.1);
+          o.frequency.setValueAtTime(784, audioCtx.currentTime + 0.2);
+          g.gain.setValueAtTime(0.3, audioCtx.currentTime);
+          g.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.4);
+          o.start(audioCtx.currentTime); o.stop(audioCtx.currentTime + 0.4);
+          break;
+        case 'bust':
+          o.type = 'sawtooth';
+          o.frequency.setValueAtTime(150, audioCtx.currentTime);
+          o.frequency.exponentialRampToValueAtTime(50, audioCtx.currentTime + 0.3);
+          g.gain.setValueAtTime(0.3, audioCtx.currentTime);
+          g.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+          o.start(audioCtx.currentTime); o.stop(audioCtx.currentTime + 0.3);
+          break;
+        case 'win': {
+          const notes = [523, 659, 784, 1047];
+          notes.forEach((freq, i) => {
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain); gain.connect(audioCtx.destination);
+            osc.frequency.setValueAtTime(freq, audioCtx.currentTime + i * 0.15);
+            gain.gain.setValueAtTime(0.2, audioCtx.currentTime + i * 0.15);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + i * 0.15 + 0.3);
+            osc.start(audioCtx.currentTime + i * 0.15);
+            osc.stop(audioCtx.currentTime + i * 0.15 + 0.3);
+          });
+          break;
+        }
+      }
+    }
+
+    function vibrate(pattern) { if (navigator.vibrate) navigator.vibrate(pattern); }
+
+    // ==================== Canvas/Geometry ====================
+    function resizeCanvas() {
+      gameWidth = window.innerWidth;
+      gameHeight = window.innerHeight;
+      canvas.width = gameWidth;
+      canvas.height = gameHeight;
+
+      const minDim = Math.min(gameWidth, gameHeight);
+      boardRadius = minDim * 0.32;
+      boardCenterX = gameWidth / 2;
+      boardCenterY = gameHeight * 0.38;
+      // RWD OPTIMIZATION: Increased buffer to 130 to prevent UI overlap with dartboard
+      if (boardCenterY - boardRadius < 130) boardCenterY = boardRadius + 130;
+    }
+
+    // ==================== Input ====================
+    function handleTouchInput(e) { e.preventDefault(); handleInput(e); }
+
+    function handleInput() {
+      if (matchType === 'multi' && currentState === GameState.WAITING_OPPONENT) return;
+      if (currentState === GameState.PLAYER_AIMING_VERTICAL) {
+        lockedVertical = verticalIndicator;
+        currentState = GameState.PLAYER_AIMING_HORIZONTAL;
+        updatePhaseIndicator('點擊鎖定水平位置 ↔');
+        vibrate(20);
+      } else if (currentState === GameState.PLAYER_AIMING_HORIZONTAL) {
+        lockedHorizontal = horizontalIndicator;
+        if (matchType === 'ai') {
+          throwDartLocal(true);
+        } else {
+          throwDartMultiplayer();
+        }
+        vibrate(50);
+      }
+    }
+
+    // ==================== Wind (AI uses random local; Multiplayer reads from room) ====================
+    function updateWindLocalRandom() {
+      const w = randomWind();
+      currentWind.directionIndex = w.directionIndex;
+      currentWind.speed = w.speed;
+      currentWind.index = (currentWind.index || 0) + 1;
+      updateWindUI();
+    }
+
+    function updateWindFromRoom(w) {
+      if (!w) return;
+      currentWind.directionIndex = w.directionIndex ?? 0;
+      currentWind.speed = w.speed ?? 0;
+      currentWind.index = w.index ?? currentWind.index;
+      updateWindUI();
+    }
+
+    function updateWindUI() {
+      const arrowEl = $('windDirectionArrow');
+      const speedEl = $('windSpeedValue');
+      const unitEl = $('windUnit');
+      speedEl.style.color = 'white';
+      if (currentWind.speed === 0) {
+        arrowEl.style.display = 'none';
+        unitEl.style.display = 'none';
+        speedEl.textContent = '無風';
+      } else {
+        const dir = WIND_DIRECTIONS[currentWind.directionIndex];
+        arrowEl.style.display = 'inline';
+        unitEl.style.display = 'inline';
+        arrowEl.textContent = dir.symbol;
+        speedEl.textContent = currentWind.speed;
+      }
+    }
+
+    function applyWindEffectPx(x, y) {
+      if (currentWind.speed === 0) return { x, y };
+      const dir = WIND_DIRECTIONS[currentWind.directionIndex];
+      const windFactor = boardRadius * 0.04;
+      return {
+        x: x + dir.x * currentWind.speed * windFactor,
+        y: y + dir.y * currentWind.speed * windFactor
+      };
+    }
+
+    function applyWindEffectNormalized(nx, ny) {
+      if (currentWind.speed === 0) return { nx, ny };
+      const dir = WIND_DIRECTIONS[currentWind.directionIndex];
+      const offset = 0.04 * currentWind.speed;
+      return { nx: nx + dir.x * offset, ny: ny + dir.y * offset };
+    }
+
+    // ==================== Checkout Hint ====================
+    function getCheckoutHint(score) {
+      currentHighlightTarget = null;
+      if (score > 170 || score < 2) return '';
+      const checkouts = {
+        170: 'T20 T20 BULL', 167: 'T20 T19 BULL', 164: 'T20 T18 BULL',
+        161: 'T20 T17 BULL', 160: 'T20 T20 D20', 158: 'T20 T20 D19',
+        156: 'T20 T20 D18', 150: 'T20 T18 D18', 140: 'T20 T20 D10',
+        130: 'T20 T18 D8', 121: 'T20 T11 D14', 120: 'T20 20 D20',
+        110: 'T20 10 D20', 100: 'T20 20 D10', 90: 'T18 D18',
+        80: 'T20 D10', 70: 'T18 D8', 60: '20 D20',
+        50: 'BULL', 40: 'D20', 32: 'D16', 20: 'D10', 10: 'D5', 4: 'D2', 2: 'D1'
+      };
+      let suggestion = '';
+      if (checkouts[score]) suggestion = checkouts[score];
+      else if (score <= 40 && score % 2 === 0) suggestion = 'D' + (score / 2);
+      else if (score <= 40) suggestion = '1 D' + ((score - 1) / 2);
+      if (suggestion) {
+        parseAndSetHighlight(suggestion);
+        return '推薦: ' + suggestion;
+      }
+      return '';
+    }
+
+    function parseAndSetHighlight(suggestion) {
+      const firstTarget = suggestion.split(' ')[0];
+      if (firstTarget === 'BULL') {
+        currentHighlightTarget = { type: 'bull' };
+        return;
+      }
+      let type = 'single';
+      let valueStr = firstTarget;
+      if (firstTarget.startsWith('T')) { type = 'triple'; valueStr = firstTarget.substring(1); }
+      else if (firstTarget.startsWith('D')) { type = 'double'; valueStr = firstTarget.substring(1); }
+      const val = parseInt(valueStr);
+      const idx = DART_SEGMENTS.indexOf(val);
+      if (idx !== -1) currentHighlightTarget = { type, index: idx };
+    }
+
+    // ==================== Scoring (normalized + pixel wrapper) ====================
+    function calculateScoreNormalized(nx, ny) {
+      const distance = Math.sqrt(nx * nx + ny * ny);
+
+      const bullseyeRadius = 0.05;
+      const outerBullRadius = 0.11;
+
+      const tripleOuter = 0.54;
+      const tripleInner = 0.48;
+
+      const doubleOuter = 1.02;
+      const doubleInner = 0.88;
+
+      if (distance > doubleOuter) return 0;
+      if (distance <= bullseyeRadius) return 50;
+      if (distance <= outerBullRadius) return 25;
+
+      let angle = Math.atan2(nx, -ny);
+      if (angle < 0) angle += Math.PI * 2;
+
+      const segmentAngle = Math.PI / 10;
+      const adjustedAngle = angle + segmentAngle / 2;
+      const segmentIndex = Math.floor(adjustedAngle / segmentAngle) % 20;
+      const baseScore = DART_SEGMENTS[segmentIndex];
+
+      if (distance >= tripleInner && distance <= tripleOuter) return baseScore * 3;
+      if (distance >= doubleInner && distance <= doubleOuter) return baseScore * 2;
+      return baseScore;
+    }
+
+    function calculateScorePx(x, y) {
+      const nx = (x - boardCenterX) / boardRadius;
+      const ny = (y - boardCenterY) / boardRadius;
+      return calculateScoreNormalized(nx, ny);
+    }
+
+    // ==================== Game Flow (AI) ====================
+    function startAIGame() {
+      leaveRoom({ endIfPlaying: false });
+      matchType = 'ai';
+
+      $('startScreen').classList.add('hidden');
+      $('lobbyScreen').classList.add('hidden');
+      $('endScreen').classList.add('hidden');
+      $('backBtn').classList.add('show');
+      $('cleanupHint').textContent = '';
+
+      // UI names
+      $('playerName').textContent = '👤 你';
+      $('opponentName').textContent = '🤖 AI';
+      $('aiDiffWrap').style.display = 'inline';
+      $('aiDiffLabel').textContent = AI_DIFFICULTY[selectedDifficulty].name;
+      $('playerFinalLabel').textContent = '你';
+      $('aiFinalLabel').textContent = 'AI';
+
+      playerScore = selectedMode;
+      aiScore = selectedMode;
+      playerDartsLeft = 3;
+      aiDartsLeft = 3;
+      playerRoundDarts = [];
+      aiRoundDarts = [];
+      thrownDarts = [];
+      isPlayerTurn = true;
+      currentLeg = 1;
+
+      updateWindLocalRandom();
+
+      updateUI();
+      updateScoreHistory();
+
+      if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+
+      showTurnIndicator('你的回合', '風向已更新');
+      startPlayerTurn();
+    }
+
+    function startPlayerTurn() {
+      isPlayerTurn = true;
+      playerDartsLeft = 3;
+      playerRoundDarts = [];
+      thrownDarts = [];
+      currentDartColor = '#3498db';
+      updateUI();
+      startAiming();
+    }
+
+    function startAITurn() {
+      isPlayerTurn = false;
+      aiDartsLeft = 3;
+      aiRoundDarts = [];
+      thrownDarts = [];
+      currentDartColor = '#e74c3c';
+      currentHighlightTarget = null;
+      updateUI();
+      showTurnIndicator('AI 回合', '');
+      currentState = GameState.AI_THINKING;
+      updatePhaseIndicator('AI 思考中...');
+      setTimeout(aiThink, 300);
+    }
+
+    function startAiming() {
+      currentState = GameState.PLAYER_AIMING_VERTICAL;
+      verticalIndicator = 0;
+      horizontalIndicator = 0;
+      verticalDirection = 1;
+      horizontalDirection = 1;
+      updatePhaseIndicator('點擊鎖定垂直位置 ↕');
+      $('playerPanel').classList.add('active');
+      $('aiPanel').classList.remove('active');
+    }
+
+    function throwDartLocal(isPlayer) {
+      currentState = GameState.THROWING;
+      dartFlying = true;
+
+      let aimX = boardCenterX + lockedHorizontal * boardRadius;
+      let aimY = boardCenterY + lockedVertical * boardRadius;
+
+      let finalPos = applyWindEffectPx(aimX, aimY);
+      targetX = finalPos.x;
+      targetY = finalPos.y;
+
+      dartX = gameWidth / 2;
+      dartY = gameHeight + 50;
+
+      playSound('throw');
+      updatePhaseIndicator('');
+
+      pendingThrowInfo = { score: null, bust: false, bySeat: isPlayer ? 'me' : 'ai', byIsMe: isPlayer };
+    }
+
+    function dartHit() {
+      dartFlying = false;
+      thrownDarts.push({ x: targetX, y: targetY, color: currentDartColor });
+
+      if (matchType === 'ai') {
+        const score = calculateScorePx(targetX, targetY);
+        if (isPlayerTurn) handlePlayerDartAI(score);
+        else handleAIDartAI(score);
+        return;
+      }
+
+      // multiplayer: score is from pendingThrowInfo
+      const info = pendingThrowInfo;
+      if (!info) return;
+
+      const score = info.score;
+      if (info.bust) {
+        playSound('bust');
+        showHitScore(info.byIsMe ? '爆分!' : '對手爆分!', '#e74c3c');
+      } else {
+        const txt = score === 0 ? 'MISS!' : `+${score}`;
+        const color = score >= 50 ? '#ff6b6b' : (info.byIsMe ? '#ffd700' : '#4ecdc4');
+        showHitScore(txt, color);
+        if (score >= 50) playSound('bullseye');
+        else playSound('hit');
+      }
+
+      currentState = GameState.SHOWING_SCORE;
+      setTimeout(() => {
+        hideHitScore();
+        // next state will be driven by room updates; if it's my turn and I still can throw, start aiming.
+        if (matchType === 'multi') {
+          if (isPlayerTurn && playerDartsLeft > 0) startAiming();
+          else {
+            currentState = GameState.WAITING_OPPONENT;
+            updatePhaseIndicator('等待對手...');
+          }
+        }
+      }, 900);
+    }
+
+    function handlePlayerDartAI(score) {
+      const newScore = playerScore - score;
+      if (newScore < 0 || newScore === 1) {
+        playSound('bust');
+        vibrate([100, 50, 100]);
+        showHitScore('爆分!', '#e74c3c');
+        currentState = GameState.SHOWING_SCORE;
+        setTimeout(() => { hideHitScore(); endPlayerTurnAI(true); }, 1200);
+        return;
+      }
+
+      playerScore = newScore;
+      playerRoundDarts.push(score);
+      playerDartsLeft--;
+
+      showHitScore(score === 0 ? 'MISS!' : `+${score}`, score >= 50 ? '#ff6b6b' : '#ffd700');
+      if (score >= 50) { playSound('bullseye'); vibrate([100, 50, 100]); }
+      else { playSound('hit'); vibrate(30); }
+
+      updateUI();
+      updateScoreHistory();
+
+      if (playerScore === 0) {
+        currentState = GameState.SHOWING_SCORE;
+        setTimeout(() => { hideHitScore(); endGameAI(true); }, 1100);
+        return;
+      }
+
+      currentState = GameState.SHOWING_SCORE;
+      setTimeout(() => {
+        hideHitScore();
+        if (playerDartsLeft > 0) startAiming();
+        else endPlayerTurnAI(false);
+      }, 900);
+    }
+
+    function handleAIDartAI(score) {
+      const newScore = aiScore - score;
+      if (newScore < 0 || newScore === 1) {
+        playSound('bust');
+        showHitScore('AI 爆分!', '#e74c3c');
+        currentState = GameState.SHOWING_SCORE;
+        setTimeout(() => { hideHitScore(); endAITurnAI(true); }, 1200);
+        return;
+      }
+
+      aiScore = newScore;
+      aiRoundDarts.push(score);
+      aiDartsLeft--;
+
+      showHitScore(score === 0 ? 'MISS!' : `+${score}`, score >= 50 ? '#ff6b6b' : '#4ecdc4');
+      if (score >= 50) playSound('bullseye');
+      else playSound('hit');
+
+      updateUI();
+      updateScoreHistory();
+
+      if (aiScore === 0) {
+        currentState = GameState.SHOWING_SCORE;
+        setTimeout(() => { hideHitScore(); endGameAI(false); }, 1100);
+        return;
+      }
+
+      currentState = GameState.SHOWING_SCORE;
+      setTimeout(() => {
+        hideHitScore();
+        if (aiDartsLeft > 0) aiThink();
+        else endAITurnAI(false);
+      }, 900);
+    }
+
+    function endPlayerTurnAI() {
+      updateUI();
+      startAITurn();
+    }
+
+    function endAITurnAI() {
+      updateUI();
+      // a full round completed -> update wind
+      updateWindLocalRandom();
+      showTurnIndicator('你的回合', '風向已更新');
+      setTimeout(startPlayerTurn, 700);
+    }
+
+    // ==================== AI Logic ====================
+    function aiThink() {
+      currentState = GameState.AI_THINKING;
+      $('playerPanel').classList.remove('active');
+      $('aiPanel').classList.add('active');
+      updatePhaseIndicator('AI 思考中...');
+
+      const diff = AI_DIFFICULTY[selectedDifficulty];
+      setTimeout(() => {
+        let idealTarget = { x: 0, y: 0 };
+        if (selectedDifficulty === 'amateur') {
+          idealTarget = { x: (Math.random() - 0.5) * 1.5, y: (Math.random() - 0.5) * 1.5 };
+        } else {
+          if (aiScore > 60) idealTarget = { x: 0, y: 0 };
+          else idealTarget = aiFindCheckoutTarget(aiScore);
+        }
+
+        let windCompX = 0, windCompY = 0;
+        if (selectedDifficulty === 'pro') {
+          const dir = WIND_DIRECTIONS[currentWind.directionIndex];
+          const offset = 0.04 * currentWind.speed;
+          windCompX = -(dir.x * offset);
+          windCompY = -(dir.y * offset);
+        }
+
+        const errorScale = diff.accuracy;
+        const errorX = (Math.random() - 0.5) * errorScale;
+        const errorY = (Math.random() - 0.5) * errorScale;
+
+        lockedHorizontal = clamp(idealTarget.x + windCompX + errorX, -1.5, 1.5);
+        lockedVertical = clamp(idealTarget.y + windCompY + errorY, -1.5, 1.5);
+
+        throwDartLocal(false);
+      }, diff.thinkTime);
+    }
+
+    function aiFindCheckoutTarget(score) {
+      if (score === 50) return { x: 0, y: 0 };
+      if (score === 25) return { x: 0, y: 0.08 };
+      if (score <= 40 && score % 2 === 0) return getSegmentCoordinates(score / 2, 'double');
+      let t = 20;
+      while (t >= 1) {
+        if (score - t >= 2 || score - t === 0) return getSegmentCoordinates(t, 'single');
+        t--;
+      }
+      return { x: 0, y: 0 };
+    }
+
+    function getSegmentCoordinates(number, type) {
+      const index = DART_SEGMENTS.indexOf(number);
+      if (index === -1) return { x: 0, y: 0 };
+      const segmentAngle = (Math.PI * 2) / 20;
+      const angle = index * segmentAngle - Math.PI / 2;
+      let r = 0.5;
+      if (type === 'double') r = 0.95;
+      if (type === 'triple') r = 0.52;
+      if (type === 'single') r = 0.7;
+      return { x: Math.cos(angle) * r, y: Math.sin(angle) * r };
+    }
+
+    // ==================== Multiplayer (Firebase RTDB) ====================
+        const firebaseConfig = {
+            apiKey: "AIzaSyACjxWEkXkPUBv6xiWtVWZdsFvxeKURJ1Q",
+            authDomain: "time-f681a.firebaseapp.com",
+            databaseURL: "https://time-f681a-default-rtdb.firebaseio.com",
+            projectId: "time-f681a",
+            storageBucket: "time-f681a.firebasestorage.app",
+            messagingSenderId: "486171948384",
+            appId: "1:486171948384:web:715043928d3a0a0cd39a05"
+        };
+
+    function ensureFirebase() {
+      if (firebaseDb) return true;
+
+      const bad = !firebaseConfig || !firebaseConfig.apiKey || !firebaseConfig.databaseURL ||
+        firebaseConfig.apiKey.includes('你的_') || firebaseConfig.databaseURL.includes('你的_');
+
+      if (bad) {
+        setStatus($('multiStatus'), '請先在程式碼中填好 firebaseConfig（至少 apiKey + databaseURL），再使用雙人對決。', 'error');
+        return false;
+      }
+
+      try {
+        firebaseApp = firebase.initializeApp(firebaseConfig, 'dartApp_' + Math.random().toString(16).slice(2));
+        firebaseDb = firebase.database(firebaseApp);
+        return true;
+      } catch (e) {
+        try {
+          firebaseApp = firebase.app();
+          firebaseDb = firebase.database();
+          return true;
+        } catch (e2) {
+          setStatus($('multiStatus'), 'Firebase 初始化失敗：' + (e?.message || e), 'error');
+          return false;
+        }
+      }
+    }
+
+    function validateNickname(nick) {
+      const n = safeText(nick).trim();
+      if (!n) return null;
+      if (n.length < 1 || n.length > 16) return null;
+      return n;
+    }
+
+    function validateRoomCode(code) {
+      const c = (code || '').trim();
+      if (!/^\d{4}$/.test(c)) return null;
+      return c;
+    }
+
+    // FIX: Ghost Room Creation Issue
+    // Added a global lock `isProcessingMulti` to prevent double clicks or re-entry
+    async function createRoomFlow() {
+      if (isProcessingMulti) return;
+      isProcessingMulti = true;
+      const btn = $('createRoomBtn');
+      btn.disabled = true;
+
+      setStatus($('multiStatus'), '', null);
+      if (!ensureFirebase()) {
+          isProcessingMulti = false;
+          btn.disabled = false;
+          return;
+      }
+
+      const nick = validateNickname($('nicknameInput').value);
+      if (!nick) {
+        setStatus($('multiStatus'), '請輸入暱稱（1~16字）', 'error');
+        isProcessingMulti = false;
+        btn.disabled = false;
+        return;
+      }
+
+      myNickname = nick;
+      joinedAt = Date.now();
+
+      setStatus($('multiStatus'), '正在創建房間...', null);
+
+      // Try a few random codes
+      let created = false;
+      for (let i = 0; i < 8; i++) {
+        const code = pad4(Math.floor(Math.random() * 10000));
+        const ok = await tryCreateRoom(code, nick);
+        if (ok) {
+          $('roomCodeInput').value = code;
+          setStatus($('multiStatus'), '房間已建立：' + code, 'ok');
+          created = true;
+          break;
+        }
+      }
+      
+      if (!created) {
+          setStatus($('multiStatus'), '建立房間失敗（請重試）', 'error');
+      }
+
+      isProcessingMulti = false;
+      btn.disabled = false;
+    }
+
+    async function tryCreateRoom(code, nick) {
+      roomCode = code;
+      roomRef = firebaseDb.ref('rooms/' + roomCode);
+
+      const wind = randomWind();
+      const initData = {
+        createdAt: firebase.database.ServerValue.TIMESTAMP,
+        status: 'lobby',
+        mode: selectedMode,
+        turn: 'p1',
+        turnIndex: 1,
+        wind: { directionIndex: wind.directionIndex, speed: wind.speed, index: 1 },
+        endedAt: null,
+        winner: null,
+        players: {
+          p1: {
+            nickname: nick,
+            score: selectedMode,
+            dartsLeft: 3,
+            turnStartScore: selectedMode,
+            activeTurnIndex: 1,
+            turnDarts: []
+          },
+          p2: null
+        }
+      };
+
+      const result = await new Promise((resolve) => {
+        roomRef.transaction((cur) => {
+          if (cur === null) return initData;
+          return; // abort
+        }, (err, committed) => {
+          if (err) resolve(false);
+          else resolve(!!committed);
+        });
+      });
+
+      if (!result) return false;
+
+      mySeat = 'p1';
+      attachRoomListeners();
+      showLobby();
+      setupPresence();
+      return true;
+    }
+
+    async function joinRoomFlow() {
+      if (isProcessingMulti) return;
+      isProcessingMulti = true;
+      const btn = $('joinRoomBtn');
+      btn.disabled = true;
+
+      setStatus($('multiStatus'), '', null);
+      if (!ensureFirebase()) {
+          isProcessingMulti = false;
+          btn.disabled = false;
+          return;
+      }
+
+      const nick = validateNickname($('nicknameInput').value);
+      if (!nick) {
+        setStatus($('multiStatus'), '請輸入暱稱（1~16字）', 'error');
+        isProcessingMulti = false;
+        btn.disabled = false;
+        return;
+      }
+      const code = validateRoomCode($('roomCodeInput').value);
+      if (!code) {
+        setStatus($('multiStatus'), '請輸入 4 位數房間號碼（例如 0420）', 'error');
+        isProcessingMulti = false;
+        btn.disabled = false;
+        return;
+      }
+
+      myNickname = nick;
+      joinedAt = Date.now();
+      roomCode = code;
+      roomRef = firebaseDb.ref('rooms/' + roomCode);
+
+      setStatus($('multiStatus'), '正在進入房間...', null);
+
+      const snap = await once(roomRef);
+      const data = snap.val();
+      if (!data) {
+        setStatus($('multiStatus'), '找不到此房間號碼', 'error');
+        isProcessingMulti = false;
+        btn.disabled = false;
+        return;
+      }
+      if (data.status === 'ended') {
+        setStatus($('multiStatus'), '此房間已結束（請重新建立）', 'error');
+        isProcessingMulti = false;
+        btn.disabled = false;
+        return;
+      }
+
+      // if p2 occupied, reject
+      const players = data.players || {};
+      if (players.p2 && players.p2.nickname) {
+        setStatus($('multiStatus'), '房間已滿（兩位玩家）', 'error');
+        isProcessingMulti = false;
+        btn.disabled = false;
+        return;
+      }
+
+      // Use a transaction on the entire ROOM instead of just the P2 node.
+      // This prevents "ghost rooms" where p2 is written to a room that was deleted.
+      const joined = await new Promise((resolve) => {
+        roomRef.transaction((room) => {
+          if (room === null) return; // Room doesn't exist, abort!
+          if (room.status === 'ended') return; // Room ended, abort
+          
+          // Check if p2 is taken
+          if (room.players && room.players.p2 && room.players.p2.nickname) {
+            return; // Abort
+          }
+
+          // Prepare p2
+          if (!room.players) room.players = {};
+          room.players.p2 = {
+            nickname: nick,
+            score: room.mode,
+            dartsLeft: 3,
+            turnStartScore: room.mode,
+            activeTurnIndex: 0,
+            turnDarts: []
+          };
+          return room;
+        }, (error, committed, snapshot) => {
+          if (error) {
+            resolve(false);
+          } else {
+            resolve(committed);
+          }
+        });
+      });
+
+      if (!joined) {
+        setStatus($('multiStatus'), '進入房間失敗（可能被其他人搶先加入）', 'error');
+        isProcessingMulti = false;
+        btn.disabled = false;
+        return;
+      }
+
+      mySeat = 'p2';
+      attachRoomListeners();
+      showLobby();
+      setupPresence();
+
+      // attempt to start game if both present
+      tryStartMultiplayerGame();
+
+      setStatus($('multiStatus'), '已進入房間：' + roomCode, 'ok');
+      isProcessingMulti = false;
+      btn.disabled = false;
+    }
+
+    function showLobby() {
+      $('startScreen').classList.add('hidden');
+      $('endScreen').classList.add('hidden');
+      $('lobbyScreen').classList.remove('hidden');
+      $('backBtn').classList.remove('show');
+      $('lobbyRoomCode').textContent = roomCode || '';
+    }
+
+    function attachRoomListeners() {
+      if (!roomRef) return;
+      if (roomListenerAttached) return;
+
+      roomListenerAttached = true;
+      roomRef.on('value', (snap) => {
+        const data = snap.val();
+        if (!data) {
+          // room removed (可能是對手返回主頁/離開導致房間被刪)
+          detachRoomListeners();
+          roomCode = null;
+          mySeat = null;
+          myNickname = '';
+          roomCleanupScheduled = false;
+          try { $('roomCodeInput').value = ''; $('nicknameInput').value = ''; } catch (_) {}
+
+          if (currentState !== GameState.GAME_END) {
+            // if not in end screen, return to home
+            showStart();
+          }
+          return;
+        }
+
+        // Update lobby
+        if (data.status === 'lobby') {
+          updateLobbyUI(data);
+          tryStartMultiplayerGame();
+          return;
+        }
+
+        // Playing
+        if (data.status === 'playing') {
+          startOrSyncMultiplayerFromRoom(data);
+          return;
+        }
+
+        // Ended
+        if (data.status === 'ended') {
+          // show end based on winner
+          const winner = data.winner;
+          startOrSyncMultiplayerFromRoom(data);
+          showEndMultiplayer(winner);
+          scheduleRoomCleanup();
+          return;
+        }
+      });
+
+      // listen throws (for animation)
+      if (!throwsListenerAttached) {
+        throwsListenerAttached = true;
+        throwsRef = roomRef.child('throws');
+        processedThrowKeys = new Set();
+        throwsRef.on('child_added', (snap) => {
+          const key = snap.key;
+          const ev = snap.val();
+          if (!ev) return;
+          // ignore old throws before join time to avoid replay on join
+          if (ev.ts && ev.ts < joinedAt) return;
+          if (processedThrowKeys.has(key)) return;
+          processedThrowKeys.add(key);
+          handleThrowEvent(ev);
+        });
+      }
+    }
+
+    function detachRoomListeners() {
+      if (roomRef && roomListenerAttached) {
+        roomRef.off();
+        roomListenerAttached = false;
+      }
+      if (throwsRef && throwsListenerAttached) {
+        throwsRef.off();
+        throwsListenerAttached = false;
+      }
+      roomRef = null;
+      throwsRef = null;
+    }
+
+    function updateLobbyUI(data) {
+      $('lobbyRoomCode').textContent = roomCode;
+      const p1 = data.players?.p1?.nickname;
+      const p2 = data.players?.p2?.nickname;
+      $('lobbyPlayers').innerHTML = [
+        `<div>1️⃣ ${p1 ? safeText(p1) : '<span class="opacity-60">（空位）</span>'}</div>`,
+        `<div>2️⃣ ${p2 ? safeText(p2) : '<span class="opacity-60">（等待加入）</span>'}</div>`
+      ].join('');
+
+      if (p1 && p2) setStatus($('lobbyStatus'), '兩位玩家已到齊，準備開始！', 'ok');
+      else setStatus($('lobbyStatus'), '等待另一位玩家加入...', null);
+    }
+
+    async function tryStartMultiplayerGame() {
+      if (!roomRef) return;
+      const snap = await once(roomRef);
+      const data = snap.val();
+      if (!data) return;
+      if (data.status !== 'lobby') return;
+      const p1 = data.players?.p1?.nickname;
+      const p2 = data.players?.p2?.nickname;
+      if (p1 && p2) {
+        // safe to set playing (idempotent)
+        await roomRef.update({ status: 'playing' });
+      }
+    }
+
+    async function setupPresence() {
+      if (!roomRef || !mySeat) return;
+      // mark connected (best-effort)
+      const meRef = roomRef.child('players/' + mySeat);
+      try {
+        await meRef.update({ connected: true, lastSeen: firebase.database.ServerValue.TIMESTAMP });
+      } catch (_) {}
+
+      try {
+        meRef.onDisconnect().update({ connected: false, lastSeen: firebase.database.ServerValue.TIMESTAMP });
+      } catch (_) {}
+
+      // also auto-remove p2 on disconnect while still in lobby (so others can join)
+      if (mySeat === 'p2') {
+        try {
+          const statusSnap = await once(roomRef.child('status'));
+          if (statusSnap.val() === 'lobby') {
+            meRef.onDisconnect().remove();
+          }
+        } catch (_) {}
+      }
+    }
+
+    function startOrSyncMultiplayerFromRoom(data) {
+      // set matchType
+      matchType = 'multi';
+
+      selectedMode = data.mode || selectedMode;
+      currentLeg = 1;
+
+      // derive opponent
+      const oppSeat = (mySeat === 'p1') ? 'p2' : 'p1';
+      const me = data.players?.[mySeat];
+      const opp = data.players?.[oppSeat];
+
+      if (!me || !opp) {
+        // missing player => end
+        if (data.status === 'playing') {
+          // opponent left
+          roomRef.update({ status: 'ended', winner: mySeat, endedAt: firebase.database.ServerValue.TIMESTAMP });
+          scheduleRoomCleanup();
+        }
+        return;
+      }
+
+      // update names
+      $('playerName').textContent = '👤 ' + safeText(me.nickname || '你');
+      $('opponentName').textContent = '👤 ' + safeText(opp.nickname || '對手');
+      $('aiDiffWrap').style.display = 'none';
+      $('playerFinalLabel').textContent = safeText(me.nickname || '你');
+      $('aiFinalLabel').textContent = safeText(opp.nickname || '對手');
+
+      // update scores
+      playerScore = me.score ?? playerScore;
+      aiScore = opp.score ?? aiScore;
+
+      // update darts left + turn darts
+      playerDartsLeft = me.dartsLeft ?? 3;
+      aiDartsLeft = opp.dartsLeft ?? 3;
+      playerRoundDarts = Array.isArray(me.turnDarts) ? me.turnDarts : [];
+      aiRoundDarts = Array.isArray(opp.turnDarts) ? opp.turnDarts : [];
+
+      // update wind
+      updateWindFromRoom(data.wind);
+
+      // turn
+      const turnSeat = data.turn;
+      isPlayerTurn = (turnSeat === mySeat);
+
+      // handle turnIndex reset
+      if (lastSeenTurnIndex !== data.turnIndex) {
+        lastSeenTurnIndex = data.turnIndex;
+        thrownDarts = [];
+        pendingThrowInfo = null;
+        updateScoreHistory();
+      }
+
+      // ensure my turn initialized once per turnIndex
+      if (data.status === 'playing' && isPlayerTurn) {
+        ensureMyTurnInitialized(data);
+      }
+
+      // show/hide screens
+      $('startScreen').classList.add('hidden');
+      $('lobbyScreen').classList.add('hidden');
+      $('endScreen').classList.add('hidden');
+      $('backBtn').classList.add('show');
+
+      updateUI();
+      updateScoreHistory();
+
+      if (data.status === 'ended') {
+        currentState = GameState.GAME_END;
+        return;
+      }
+
+      // drive state
+      if (dartFlying || currentState === GameState.THROWING) return;
+      if (isPlayerTurn) {
+        $('playerPanel').classList.add('active');
+        $('aiPanel').classList.remove('active');
+        if (playerDartsLeft > 0) {
+          // if currently waiting, start aiming
+          if (currentState === GameState.WAITING_OPPONENT || currentState === GameState.START) {
+            showTurnIndicator('你的回合', '');
+            startAiming();
+          }
+        } else {
+          // waiting for room turn switch
+          currentState = GameState.WAITING_OPPONENT;
+          updatePhaseIndicator('等待對手...');
+        }
+      } else {
+        $('playerPanel').classList.remove('active');
+        $('aiPanel').classList.add('active');
+        currentState = GameState.WAITING_OPPONENT;
+        updatePhaseIndicator('等待對手...');
+      }
+    }
+
+    async function ensureMyTurnInitialized(room) {
+      if (!roomRef) return;
+      const me = room.players?.[mySeat];
+      const turnIndex = room.turnIndex || 0;
+      if (!me) return;
+      if (me.activeTurnIndex === turnIndex) return; // already inited
+
+      // reset my turn data
+      const updates = {};
+      updates['players/' + mySeat + '/dartsLeft'] = 3;
+      updates['players/' + mySeat + '/turnDarts'] = [];
+      updates['players/' + mySeat + '/turnStartScore'] = me.score;
+      updates['players/' + mySeat + '/activeTurnIndex'] = turnIndex;
+      await roomRef.update(updates);
+
+      // local state
+      playerDartsLeft = 3;
+      playerRoundDarts = [];
+      thrownDarts = [];
+      updateScoreHistory();
+
+      // if this is start of new round (p1 turn), show wind updated note
+      if (mySeat === 'p1') {
+        showTurnIndicator('你的回合', '');
+      } else {
+        showTurnIndicator('你的回合', '');
+      }
+    }
+
+    async function throwDartMultiplayer() {
+      if (!roomRef || !mySeat) return;
+      const statusEl = $('multiStatus');
+      try {
+        const snap = await once(roomRef);
+        const room = snap.val();
+        if (!room || room.status !== 'playing') return;
+        if (room.turn !== mySeat) return;
+
+        const me = room.players?.[mySeat];
+        const oppSeat = (mySeat === 'p1') ? 'p2' : 'p1';
+        if (!me || !room.players?.[oppSeat]) return;
+
+        // compute normalized aim
+        let aimNx = lockedHorizontal; // -1..1
+        let aimNy = lockedVertical;
+
+        // apply wind in normalized space
+        const final = applyWindEffectNormalized(aimNx, aimNy);
+        const nx = clamp(final.nx, -1.6, 1.6);
+        const ny = clamp(final.ny, -1.6, 1.6);
+
+        const score = calculateScoreNormalized(nx, ny);
+        const newScoreCandidate = (me.score ?? selectedMode) - score;
+        const bust = (newScoreCandidate < 0 || newScoreCandidate === 1);
+        const win = (!bust && newScoreCandidate === 0);
+
+        const currentDartsLeft = me.dartsLeft ?? 3;
+        const nextDartsLeft = Math.max(0, currentDartsLeft - 1);
+
+        // build new turn darts
+        const prevTurnDarts = Array.isArray(me.turnDarts) ? me.turnDarts : [];
+        const newTurnDarts = prevTurnDarts.concat([bust ? 'BUST' : score]);
+
+        const updates = {};
+        updates['players/' + mySeat + '/turnDarts'] = newTurnDarts;
+        updates['players/' + mySeat + '/dartsLeft'] = bust ? 0 : nextDartsLeft;
+        updates['players/' + mySeat + '/score'] = bust ? (me.turnStartScore ?? me.score) : newScoreCandidate;
+
+        // decide end of turn
+        let endTurn = false;
+        if (win) {
+          updates['status'] = 'ended';
+          updates['winner'] = mySeat;
+          updates['endedAt'] = firebase.database.ServerValue.TIMESTAMP;
+        } else {
+          if (bust) endTurn = true;
+          else if (nextDartsLeft === 0) endTurn = true;
+
+          if (endTurn) {
+            const nextTurn = (mySeat === 'p1') ? 'p2' : 'p1';
+            updates['turn'] = nextTurn;
+            updates['turnIndex'] = (room.turnIndex || 1) + 1;
+
+            // if p2 finished -> new round -> update wind
+            if (mySeat === 'p2') {
+              const w = randomWind();
+              const curWindIndex = room.wind?.index || 1;
+              updates['wind'] = { directionIndex: w.directionIndex, speed: w.speed, index: curWindIndex + 1 };
+            }
+          }
+        }
+
+        // push throw event for animation
+        const ev = {
+          ts: firebase.database.ServerValue.TIMESTAMP,
+          by: mySeat,
+          nx, ny,
+          score,
+          bust,
+          roomTurnIndex: room.turnIndex || 1,
+          wind: room.wind || { directionIndex: currentWind.directionIndex, speed: currentWind.speed, index: currentWind.index }
+        };
+
+        // local immediate animation
+        pendingThrowInfo = { score, bust, bySeat: mySeat, byIsMe: true };
+        animateThrowNormalized(nx, ny, true);
+
+        // write to DB
+        await roomRef.update(updates);
+        await roomRef.child('throws').push(ev);
+
+        setStatus(statusEl, '', null);
+      } catch (e) {
+        setStatus($('multiStatus'), '投擲失敗：' + (e?.message || e), 'error');
+      }
+    }
+
+    function handleThrowEvent(ev) {
+      if (!ev) return;
+      if (!roomRef || !mySeat) return;
+      const by = ev.by;
+      if (by === mySeat) {
+        // local already animated
+        return;
+      }
+
+      // opponent throw animation
+      pendingThrowInfo = { score: ev.score, bust: !!ev.bust, bySeat: by, byIsMe: false };
+      animateThrowNormalized(ev.nx, ev.ny, false);
+    }
+
+    function animateThrowNormalized(nx, ny, byIsMe) {
+      currentState = GameState.THROWING;
+      dartFlying = true;
+      currentDartColor = byIsMe ? '#3498db' : '#e74c3c';
+
+      targetX = boardCenterX + nx * boardRadius;
+      targetY = boardCenterY + ny * boardRadius;
+      dartX = gameWidth / 2;
+      dartY = gameHeight + 50;
+
+      playSound('throw');
+      updatePhaseIndicator('');
+    }
+
+    async function leaveRoom({ endIfPlaying = false, removeRoom = false } = {}) {
+      // 允許在任何狀態呼叫（大廳/對局/結算/返回主頁）
+      if (!firebaseDb || !roomRef || !mySeat) {
+        detachRoomListeners();
+        roomCode = null;
+        mySeat = null;
+        myNickname = '';
+        roomCleanupScheduled = false;
+        try { $('roomCodeInput').value = ''; $('nicknameInput').value = ''; } catch (_) {}
+        return;
+      }
+
+      const localRoomRef = roomRef; // keep a stable ref
+      const seat = mySeat;
+
+      try {
+        const snap = await once(localRoomRef);
+        const room = snap.val();
+        if (room) {
+          // (2) 對局中任一方返回主頁 => 房間立即消失
+          // 或任何需要強制清掉房間的情境
+          if (removeRoom) {
+            await localRoomRef.remove();
+          } else if (endIfPlaying && room.status === 'playing') {
+            // 舊行為：結束對局並稍後清除（保留給需要顯示結算的流程）
+            const winner = (seat === 'p1') ? 'p2' : 'p1';
+            await localRoomRef.update({ status: 'ended', winner, endedAt: firebase.database.ServerValue.TIMESTAMP });
+            scheduleRoomCleanup();
+          } else {
+            // (1) 創建者在大廳離開 => 直接刪除房間（避免殘留）
+            if (room.status === 'lobby' && seat === 'p1') {
+              await localRoomRef.remove();
+            } else if (room.status === 'lobby') {
+              // p2 離開大廳：只移除自己座位
+              await localRoomRef.child('players/' + seat).remove();
+            } else {
+              // playing/ended：只標記離線（除非外部指定 removeRoom）
+              await localRoomRef.child('players/' + seat).update({ connected: false, lastSeen: firebase.database.ServerValue.TIMESTAMP });
+            }
+          }
+        }
+      } catch (_) {}
+
+      detachRoomListeners();
+
+      // clear local
+      roomCode = null;
+      mySeat = null;
+      myNickname = '';
+      roomCleanupScheduled = false;
+
+      // clear inputs
+      $('roomCodeInput').value = '';
+      $('nicknameInput').value = '';
+    }
+
+    function scheduleRoomCleanup() {
+      if (roomCleanupScheduled) return;
+      roomCleanupScheduled = true;
+      $('cleanupHint').textContent = '（雙人對決）房間資料將自動清除...';
+      setTimeout(async () => {
+        try {
+          if (roomRef) await roomRef.remove();
+        } catch (_) {}
+      }, 5000);
+    }
+
+    function showEndMultiplayer(winnerSeat) {
+      const iWon = (winnerSeat === mySeat);
+      endGameCommon(iWon, true);
+    }
+
+    // ==================== End Game (Common) ====================
+    function endGameAI(playerWon) { endGameCommon(playerWon, false); }
+
+    function endGameCommon(playerWon, isMultiplayer) {
+      currentState = GameState.GAME_END;
+      playSound('win');
+      vibrate([200, 100, 200, 100, 200]);
+
+      $('backBtn').classList.remove('show');
+
+      // labels
+      $('endTitle').textContent = playerWon ? '🎉 恭喜獲勝！' : (isMultiplayer ? '😢 對手獲勝' : '😢 AI 獲勝');
+      $('winnerText').textContent = playerWon ? '你成功將分數歸零！' : (isMultiplayer ? '對手先將分數歸零了' : 'AI 先將分數歸零了');
+      $('winnerText').style.color = playerWon ? '#2ecc71' : '#e74c3c';
+
+      $('playerFinalValue').textContent = playerScore;
+      $('aiFinalValue').textContent = aiScore;
+
+      $('playerFinal').classList.toggle('winner-score', playerWon);
+      $('aiFinal').classList.toggle('winner-score', !playerWon);
+
+      $('endScreen').classList.remove('hidden');
+      $('startScreen').classList.add('hidden');
+      $('lobbyScreen').classList.add('hidden');
+
+      if (isMultiplayer) {
+        // auto cleanup room + clear room/nickname
+        scheduleRoomCleanup();
+        $('roomCodeInput').value = '';
+        $('nicknameInput').value = '';
+      } else {
+        $('cleanupHint').textContent = '';
+      }
+    }
+
+    // ==================== UI Update ====================
+    function showHitScore(text, color) {
+      const el = $('hitScore');
+      el.textContent = text;
+      el.style.opacity = '1';
+      el.style.color = color || '#ffd700';
+    }
+
+    function hideHitScore() { $('hitScore').style.opacity = '0'; }
+
+    function updatePhaseIndicator(text) {
+      const el = $('phaseIndicator');
+      el.textContent = text;
+      el.style.display = text ? 'block' : 'none';
+    }
+
+    function showTurnIndicator(mainText, subText) {
+      const el = $('turnIndicator');
+      el.innerHTML = `${mainText}<div class="sub-text">${subText || ''}</div>`;
+      el.classList.add('show');
+      setTimeout(() => el.classList.remove('show'), 1000);
+    }
+
+    function updateUI() {
+      $('playerScore').textContent = playerScore;
+      $('aiScore').textContent = aiScore;
+      $('gameMode').textContent = selectedMode;
+      // LEG INFO REMOVED HERE
+
+      // checkout hint only for local player's turn
+      const hintEl = $('checkoutHint');
+      if (matchType === 'ai') {
+        if (playerScore <= 170 && isPlayerTurn) hintEl.textContent = getCheckoutHint(playerScore);
+        else { hintEl.textContent = ''; currentHighlightTarget = null; }
+      } else {
+        if (playerScore <= 170 && isPlayerTurn) hintEl.textContent = getCheckoutHint(playerScore);
+        else { hintEl.textContent = ''; currentHighlightTarget = null; }
+      }
+
+      // darts display
+      let pDisp = '';
+      for (let i = 0; i < 3; i++) pDisp += i < playerDartsLeft ? '🎯' : '⚫';
+      $('playerDarts').textContent = pDisp;
+
+      let aDisp = '';
+      for (let i = 0; i < 3; i++) aDisp += i < aiDartsLeft ? '🎯' : '⚫';
+      $('aiDarts').textContent = aDisp;
+    }
+
+    function updateScoreHistory() {
+      const container = $('scoreHistory');
+      const darts = isPlayerTurn ? playerRoundDarts : aiRoundDarts;
+      container.innerHTML = (darts || []).map(s => {
+        const t = (typeof s === 'number') ? s : (s || '');
+        const cls = (t === 'BUST') ? 'history-dart' : 'history-dart';
+        return `<div class="${cls}">${t}</div>`;
+      }).join('');
+    }
+
+    // ==================== Game Loop ====================
+    function gameLoop() {
+      update();
+      render();
+      requestAnimationFrame(gameLoop);
+    }
+
+    function update() {
+      if (currentState === GameState.PLAYER_AIMING_VERTICAL) {
+        verticalIndicator += INDICATOR_SPEED * 0.01 * verticalDirection;
+        if (verticalIndicator >= 1 || verticalIndicator <= -1) {
+          verticalDirection *= -1;
+          verticalIndicator = clamp(verticalIndicator, -1, 1);
+        }
+      }
+
+      if (currentState === GameState.PLAYER_AIMING_HORIZONTAL) {
+        horizontalIndicator += INDICATOR_SPEED * 0.01 * horizontalDirection;
+        if (horizontalIndicator >= 1 || horizontalIndicator <= -1) {
+          horizontalDirection *= -1;
+          horizontalIndicator = clamp(horizontalIndicator, -1, 1);
+        }
+      }
+
+      if (dartFlying) {
+        const dx = targetX - dartX;
+        const dy = targetY - dartY;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < DART_FLIGHT_SPEED) {
+          dartX = targetX;
+          dartY = targetY;
+          dartHit();
+        } else {
+          dartX += (dx / dist) * DART_FLIGHT_SPEED;
+          dartY += (dy / dist) * DART_FLIGHT_SPEED;
+        }
+      }
+
+      // keep UI in sync while waiting (multiplayer)
+      if (matchType === 'multi' && currentState === GameState.WAITING_OPPONENT) {
+        updateUI();
+        updateScoreHistory();
+      }
+    }
+
+    // ==================== Render ====================
+    function render() {
+      ctx.fillStyle = '#1a1a2e';
+      ctx.fillRect(0, 0, gameWidth, gameHeight);
+
+      drawBackground();
+      drawDartboard();
+
+      thrownDarts.forEach(d => drawDartOnBoard(d.x, d.y, d.color));
+
+      if (currentState === GameState.PLAYER_AIMING_VERTICAL || currentState === GameState.PLAYER_AIMING_HORIZONTAL) {
+        drawAimingIndicators();
+      }
+
+      if (dartFlying) {
+        drawFlyingDart(dartX, dartY);
+      }
+    }
+
+    function drawBackground() {
+      ctx.strokeStyle = 'rgba(255,255,255,0.03)';
+      ctx.lineWidth = 1;
+      for (let i = 0; i < 5; i++) {
+        ctx.beginPath();
+        ctx.arc(boardCenterX, boardCenterY, boardRadius * (1.2 + i * 0.1), 0, Math.PI * 2);
+        ctx.stroke();
+      }
+    }
+
+    function drawDartboard() {
+      const segments = 20;
+      const segmentAngle = (Math.PI * 2) / segments;
+
+      const doubleOuter = boardRadius * 1.02;
+      const doubleInner = boardRadius * 0.88;
+      const outerSingleOuter = doubleInner;
+      const tripleOuter = boardRadius * 0.54;
+      const tripleInner = boardRadius * 0.48;
+      const innerSingleOuter = tripleInner;
+      const innerSingleInner = boardRadius * 0.11;
+      const outerBullRadius = boardRadius * 0.11;
+      const bullseyeRadius = boardRadius * 0.05;
+
+      const isFlashOn = Math.floor(Date.now() / 600) % 2 === 0;
+
+      // shadow
+      ctx.save();
+      ctx.shadowColor = 'rgba(0,0,0,0.5)';
+      ctx.shadowBlur = 30;
+      ctx.shadowOffsetY = 10;
+      ctx.beginPath();
+      ctx.arc(boardCenterX, boardCenterY, doubleOuter, 0, Math.PI * 2);
+      ctx.fillStyle = '#000';
+      ctx.fill();
+      ctx.restore();
+
+      // border
+      ctx.beginPath();
+      ctx.arc(boardCenterX, boardCenterY, doubleOuter + 5, 0, Math.PI * 2);
+      ctx.strokeStyle = '#555';
+      ctx.lineWidth = 10;
+      ctx.stroke();
+
+      for (let i = 0; i < segments; i++) {
+        const startAngle = segmentAngle * i - Math.PI / 2 - segmentAngle / 2;
+        const endAngle = startAngle + segmentAngle;
+
+        const isEven = i % 2 === 0;
+        let darkColor = isEven ? '#1a1a1a' : '#f5f5dc';
+        let dtColor = isEven ? '#e74c3c' : '#27ae60';
+
+        let doubleColor = dtColor;
+        let tripleColor = dtColor;
+        let singleColor = darkColor;
+
+        if (currentHighlightTarget && currentHighlightTarget.index === i && isFlashOn) {
+          if (currentHighlightTarget.type === 'double') doubleColor = '#ffd700';
+          if (currentHighlightTarget.type === 'triple') tripleColor = '#ffd700';
+          if (currentHighlightTarget.type === 'single') singleColor = '#ffd700';
+        }
+
+        drawSegment(doubleOuter, doubleInner, startAngle, endAngle, doubleColor);
+        drawSegment(outerSingleOuter, tripleOuter, startAngle, endAngle, singleColor);
+        drawSegment(tripleOuter, tripleInner, startAngle, endAngle, tripleColor);
+        drawSegment(innerSingleOuter, innerSingleInner, startAngle, endAngle, singleColor);
+      }
+
+      // outer bull
+      ctx.beginPath();
+      ctx.arc(boardCenterX, boardCenterY, outerBullRadius, 0, Math.PI * 2);
+      ctx.fillStyle = '#27ae60';
+      ctx.fill();
+      ctx.strokeStyle = '#1a1a1a';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      // bull
+      let bullColor = '#e74c3c';
+      if (currentHighlightTarget && currentHighlightTarget.type === 'bull' && isFlashOn) bullColor = '#ffd700';
+      ctx.beginPath();
+      ctx.arc(boardCenterX, boardCenterY, bullseyeRadius, 0, Math.PI * 2);
+      ctx.fillStyle = bullColor;
+      ctx.fill();
+      ctx.strokeStyle = '#1a1a1a';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+
+      // segment lines
+      ctx.strokeStyle = '#666';
+      ctx.lineWidth = 1;
+      for (let i = 0; i < segments; i++) {
+        const angle = segmentAngle * i - Math.PI / 2 - segmentAngle / 2;
+        ctx.beginPath();
+        ctx.moveTo(boardCenterX + Math.cos(angle) * innerSingleInner, boardCenterY + Math.sin(angle) * innerSingleInner);
+        ctx.lineTo(boardCenterX + Math.cos(angle) * doubleOuter, boardCenterY + Math.sin(angle) * doubleOuter);
+        ctx.stroke();
+      }
+
+      // numbers
+      ctx.font = `bold ${boardRadius * 0.07}px Arial`;
+      ctx.fillStyle = '#fff';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      for (let i = 0; i < segments; i++) {
+        const angle = segmentAngle * i - Math.PI / 2;
+        const numberRadius = boardRadius * 1.15;
+        const x = boardCenterX + Math.cos(angle) * numberRadius;
+        const y = boardCenterY + Math.sin(angle) * numberRadius;
+        ctx.save();
+        ctx.shadowColor = 'rgba(0,0,0,0.8)';
+        ctx.shadowBlur = 3;
+        ctx.fillText(DART_SEGMENTS[i].toString(), x, y);
+        ctx.restore();
+      }
+    }
+
+    function drawSegment(outerRadius, innerRadius, startAngle, endAngle, color) {
+      ctx.beginPath();
+      ctx.arc(boardCenterX, boardCenterY, outerRadius, startAngle, endAngle);
+      ctx.arc(boardCenterX, boardCenterY, innerRadius, endAngle, startAngle, true);
+      ctx.closePath();
+      ctx.fillStyle = color;
+      ctx.fill();
+      ctx.strokeStyle = '#333';
+      ctx.lineWidth = 0.5;
+      ctx.stroke();
+    }
+
+    function drawIndicatorDot(x, y, color) {
+      ctx.beginPath();
+      ctx.arc(x, y, INDICATOR_DOT_RADIUS, 0, Math.PI * 2);
+      ctx.fillStyle = color;
+      ctx.fill();
+      ctx.strokeStyle = '#fff';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.arc(x - 3, y - 3, INDICATOR_DOT_RADIUS * 0.3, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(255,255,255,0.5)';
+      ctx.fill();
+    }
+
+    function drawAimingIndicators() {
+      const lineExtend = 30;
+
+      if (currentState === GameState.PLAYER_AIMING_VERTICAL) {
+        const verticalY = boardCenterY + verticalIndicator * boardRadius;
+        ctx.strokeStyle = 'rgba(255,80,80,0.9)';
+        ctx.lineWidth = INDICATOR_LINE_WIDTH;
+        ctx.setLineDash([10, 6]);
+        ctx.beginPath();
+        ctx.moveTo(boardCenterX - boardRadius - lineExtend, verticalY);
+        ctx.lineTo(boardCenterX + boardRadius + lineExtend, verticalY);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        drawIndicatorDot(boardCenterX - boardRadius - lineExtend - INDICATOR_DOT_RADIUS - 5, verticalY, '#ff5050');
+        drawIndicatorDot(boardCenterX + boardRadius + lineExtend + INDICATOR_DOT_RADIUS + 5, verticalY, '#ff5050');
+      }
+
+      if (currentState === GameState.PLAYER_AIMING_HORIZONTAL) {
+        const lockedY = boardCenterY + lockedVertical * boardRadius;
+        const horizontalX = boardCenterX + horizontalIndicator * boardRadius;
+
+        ctx.strokeStyle = 'rgba(255,200,50,0.9)';
+        ctx.lineWidth = INDICATOR_LINE_WIDTH;
+        ctx.beginPath();
+        ctx.moveTo(boardCenterX - boardRadius - lineExtend, lockedY);
+        ctx.lineTo(boardCenterX + boardRadius + lineExtend, lockedY);
+        ctx.stroke();
+
+        drawIndicatorDot(boardCenterX - boardRadius - lineExtend - INDICATOR_DOT_RADIUS - 5, lockedY, '#ffc832');
+        drawIndicatorDot(boardCenterX + boardRadius + lineExtend + INDICATOR_DOT_RADIUS + 5, lockedY, '#ffc832');
+
+        ctx.strokeStyle = 'rgba(80,255,120,0.9)';
+        ctx.lineWidth = INDICATOR_LINE_WIDTH;
+        ctx.setLineDash([10, 6]);
+        ctx.beginPath();
+        ctx.moveTo(horizontalX, boardCenterY - boardRadius - lineExtend);
+        ctx.lineTo(horizontalX, boardCenterY + boardRadius + lineExtend);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        drawIndicatorDot(horizontalX, boardCenterY - boardRadius - lineExtend - INDICATOR_DOT_RADIUS - 5, '#50ff78');
+        drawIndicatorDot(horizontalX, boardCenterY + boardRadius + lineExtend + INDICATOR_DOT_RADIUS + 5, '#50ff78');
+
+        ctx.beginPath();
+        ctx.arc(horizontalX, lockedY, 18, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(255,255,255,0.2)';
+        ctx.fill();
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 3;
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.moveTo(horizontalX - 10, lockedY);
+        ctx.lineTo(horizontalX + 10, lockedY);
+        ctx.moveTo(horizontalX, lockedY - 10);
+        ctx.lineTo(horizontalX, lockedY + 10);
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+      }
+    }
+
+    function drawFlyingDart(x, y) {
+      ctx.save();
+      const angle = Math.atan2(targetY - y, targetX - x);
+      ctx.translate(x, y);
+      ctx.rotate(angle + Math.PI / 2);
+
+      ctx.fillStyle = currentDartColor;
+      ctx.beginPath();
+      ctx.moveTo(0, 15);
+      ctx.lineTo(-10, 35);
+      ctx.lineTo(0, 28);
+      ctx.lineTo(10, 35);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.fillStyle = '#555';
+      ctx.beginPath();
+      ctx.rect(-4, -5, 8, 28);
+      ctx.fill();
+
+      ctx.fillStyle = '#bbb';
+      ctx.beginPath();
+      ctx.moveTo(-4, -5);
+      ctx.lineTo(0, -22);
+      ctx.lineTo(4, -5);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.restore();
+    }
+
+    function drawDartOnBoard(x, y, color) {
+      ctx.save();
+      ctx.shadowColor = 'rgba(0,0,0,0.5)';
+      ctx.shadowBlur = 5;
+      ctx.shadowOffsetX = 3;
+      ctx.shadowOffsetY = 3;
+
+      const tailLength = 28;
+      const tailAngle = -Math.PI / 6;
+
+      ctx.fillStyle = color || '#ff6b6b';
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      ctx.lineTo(x + Math.cos(tailAngle - 0.25) * tailLength, y + Math.sin(tailAngle - 0.25) * tailLength);
+      ctx.lineTo(x + Math.cos(tailAngle) * (tailLength - 6), y + Math.sin(tailAngle) * (tailLength - 6));
+      ctx.lineTo(x + Math.cos(tailAngle + 0.25) * tailLength, y + Math.sin(tailAngle + 0.25) * tailLength);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.fillStyle = '#444';
+      ctx.beginPath();
+      ctx.ellipse(x + 6, y + 4, 4, 10, tailAngle, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.beginPath();
+      ctx.arc(x, y, 5, 0, Math.PI * 2);
+      ctx.fillStyle = '#222';
+      ctx.fill();
+
+      ctx.restore();
+    }
+
+    window.onload = init;
+  </script>
+</body>
+</html>
