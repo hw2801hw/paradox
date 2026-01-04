@@ -20,4 +20,4 @@
 
 25. 飛鏢
 
-https://hw2801hw.github.io/paradox/index
+https://hw2801hw.github.io/paradox/list
