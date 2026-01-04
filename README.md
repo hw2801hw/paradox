@@ -18,6 +18,6 @@
 
 10. 乒乓
 
-11.
+11. 飛鏢
 
 https://hw2801hw.github.io/paradox/index
