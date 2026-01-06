@@ -396,7 +396,7 @@
                     己方狗能跳河；對方獅虎不可跳河；對方鼠不能潛水；擁有「一臂之力」：己方所有動物可瞬移至狗首領周圍
                 </div>
                 <div class="ability-item">
-                    <strong>🐺 狼吞虎嚥（狼）</strong><br>
+                    <strong>🐺 如狼似虎（狼）</strong><br>
                     己方狼等級從4升為6，同等於虎；且可直線移動1-2格（半條直線）
                 </div>
                 <div class="ability-item">
@@ -448,7 +448,7 @@
             RAT: { name: '兩鼠鬥穴', desc: '鼠免疫陷阱，可反吃' },
             CAT: { name: '貓鼠同眠', desc: '貓不被象/犀吃，尊貴移動' },
             DOG: { name: '狗急跳牆', desc: '跳河/封鎖鼠水/一臂之力' },
-            WOLF: { name: '狼吞虎嚥', desc: '狼等級6，可直線走2格' },
+            WOLF: { name: '如狼似虎', desc: '狼等級6，可直線走2格' },
             LEOPARD: { name: '熊心豹膽', desc: '豹可游河/跳河' },
             TIGER: { name: '龍精虎猛', desc: '虎吃子升級，可成龍' },
             LION: { name: '獅子搏兔', desc: '敵獅只能吃鼠' },
@@ -564,7 +564,7 @@
                 return tigerLevels[player];
             }
             
-            // 狼吞虎嚥：狼等級變6
+            // 如狼似虎：狼等級變6
             if (piece.type === 'WOLF' && leaders[player] === 'WOLF') {
                 return 6;
             }
@@ -1005,7 +1005,7 @@
                 return getRhinoMoves(row, col, piece);
             }
             
-            // 狼吞虎嚥：狼可以直線移動1-2格
+            // 如狼似虎：狼可以直線移動1-2格
             if (piece.type === 'WOLF' && leaders[piece.player] === 'WOLF') {
                 return getWolfMoves(row, col, piece);
             }
@@ -1322,7 +1322,7 @@
                                 if (piece.type === 'TIGER') score += 50; // 龍精虎猛
                                 if (piece.type === 'ELEPHANT') score += 45; // 拔犀擢象
                                 if (piece.type === 'DOG') score += 40; // 狗急跳牆
-                                if (piece.type === 'WOLF') score += 35; // 狼吞虎嚥
+                                if (piece.type === 'WOLF') score += 35; // 如狼似虎
                             }
                             
                             // 添加隨機性
@@ -1883,3 +1883,4 @@
     </script>
 </body>
 </html>
+
