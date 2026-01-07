@@ -1,0 +1,1963 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>🏹 射箭對決 - Archery Battle</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            touch-action: none;
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+        
+        html, body {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: #1a1a2e;
+            font-family: 'Arial', sans-serif;
+        }
+        
+        #gameContainer {
+            width: 100%;
+            height: 100%;
+            position: relative;
+        }
+        
+        #gameCanvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+        
+        .screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            transition: opacity 0.5s;
+            z-index: 100;
+            padding: 20px;
+        }
+        
+        .hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+        
+        h1 {
+            color: #e94560;
+            font-size: clamp(1.8rem, 7vw, 3.5rem);
+            text-shadow: 0 0 20px rgba(233, 69, 96, 0.5);
+            margin-bottom: 10px;
+            text-align: center;
+        }
+        
+        .subtitle {
+            color: #a0a0a0;
+            font-size: clamp(0.8rem, 2.5vw, 1.2rem);
+            margin-bottom: 25px;
+            text-align: center;
+        }
+        
+        .mode-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            width: 100%;
+            max-width: 320px;
+        }
+        
+        .btn {
+            background: linear-gradient(135deg, #e94560 0%, #c73e54 100%);
+            color: white;
+            border: none;
+            padding: 16px 40px;
+            font-size: clamp(1rem, 3.5vw, 1.4rem);
+            border-radius: 50px;
+            cursor: pointer;
+            box-shadow: 0 8px 25px rgba(233, 69, 96, 0.4);
+            transition: all 0.3s;
+            width: 100%;
+        }
+        
+        .btn:hover, .btn:active {
+            transform: scale(1.03);
+            box-shadow: 0 12px 35px rgba(233, 69, 96, 0.6);
+        }
+        
+        .btn.secondary {
+            background: linear-gradient(135deg, #4a90d9 0%, #357abd 100%);
+            box-shadow: 0 8px 25px rgba(74, 144, 217, 0.4);
+        }
+        
+        .btn.secondary:hover {
+            box-shadow: 0 12px 35px rgba(74, 144, 217, 0.6);
+        }
+        
+        .btn.tertiary {
+            background: linear-gradient(135deg, #27ae60 0%, #1e8449 100%);
+            box-shadow: 0 8px 25px rgba(39, 174, 96, 0.4);
+        }
+        
+        .btn.tertiary:hover {
+            box-shadow: 0 12px 35px rgba(39, 174, 96, 0.6);
+        }
+        
+        .game-info {
+            background: rgba(255,255,255,0.1);
+            border-radius: 12px;
+            padding: 15px;
+            margin: 15px 0;
+            text-align: center;
+            color: #ccc;
+            font-size: clamp(0.75rem, 2.2vw, 0.95rem);
+        }
+        
+        .game-info p {
+            margin: 5px 0;
+        }
+        
+        /* End Screen */
+        .final-score-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 30px;
+            margin: 20px 0;
+            flex-wrap: wrap;
+        }
+        
+        .player-final-score {
+            text-align: center;
+            padding: 15px 25px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 15px;
+            min-width: 120px;
+        }
+        
+        .player-final-score.winner {
+            background: rgba(255, 215, 0, 0.2);
+            border: 2px solid #ffd700;
+        }
+        
+        .player-final-score .label {
+            color: #aaa;
+            font-size: clamp(0.8rem, 2.5vw, 1rem);
+        }
+        
+        .player-final-score .score {
+            font-size: clamp(2.5rem, 10vw, 4rem);
+            font-weight: bold;
+            color: #fff;
+        }
+        
+        .winner-text {
+            font-size: clamp(1.3rem, 4.5vw, 2rem);
+            color: #ffd700;
+            margin: 10px 0 20px;
+            text-shadow: 0 0 20px rgba(255, 215, 0, 0.5);
+        }
+        
+        /* HUD */
+        #hud {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            padding: 10px 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            pointer-events: none;
+            z-index: 10;
+        }
+        
+        .hud-left, .hud-right {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        
+        .hud-center {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .hud-item {
+            background: rgba(0, 0, 0, 0.6);
+            padding: 8px 14px;
+            border-radius: 20px;
+            color: white;
+            font-size: clamp(0.85rem, 3vw, 1.1rem);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            backdrop-filter: blur(5px);
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        
+        .hud-item.active-player {
+            border: 2px solid #4ecdc4;
+            background: rgba(78, 205, 196, 0.2);
+        }
+        
+        #timer {
+            color: #ff6b6b;
+            font-weight: bold;
+            font-size: clamp(1.1rem, 4vw, 1.5rem);
+        }
+        
+        #roundInfo {
+            font-size: clamp(0.75rem, 2.5vw, 0.95rem);
+            color: #aaa;
+        }
+        
+        /* Menu Button */
+        #menuBtn {
+            position: absolute;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            margin-top: 70px;
+            background: rgba(0, 0, 0, 0.6);
+            border: 1px solid rgba(255,255,255,0.2);
+            color: #fff;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: clamp(0.75rem, 2.5vw, 0.9rem);
+            cursor: pointer;
+            pointer-events: auto;
+            backdrop-filter: blur(5px);
+            z-index: 15;
+            transition: all 0.3s;
+        }
+        
+        #menuBtn:hover, #menuBtn:active {
+            background: rgba(233, 69, 96, 0.6);
+            border-color: #e94560;
+        }
+        
+        #menuBtn.hidden {
+            display: none;
+        }
+        
+        /* Confirm Dialog */
+        #confirmDialog {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 200;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s;
+        }
+        
+        #confirmDialog.show {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        
+        #confirmDialog .dialog-box {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            padding: 30px;
+            border-radius: 20px;
+            text-align: center;
+            border: 2px solid rgba(255,255,255,0.1);
+            max-width: 90%;
+            width: 320px;
+        }
+        
+        #confirmDialog h3 {
+            color: #fff;
+            font-size: clamp(1.2rem, 4vw, 1.5rem);
+            margin-bottom: 10px;
+        }
+        
+        #confirmDialog p {
+            color: #aaa;
+            font-size: clamp(0.9rem, 3vw, 1rem);
+            margin-bottom: 25px;
+        }
+        
+        #confirmDialog .dialog-buttons {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+        }
+        
+        #confirmDialog .btn-small {
+            padding: 12px 25px;
+            font-size: clamp(0.9rem, 3vw, 1rem);
+            border-radius: 25px;
+            border: none;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        #confirmDialog .btn-confirm {
+            background: linear-gradient(135deg, #e94560 0%, #c73e54 100%);
+            color: white;
+        }
+        
+        #confirmDialog .btn-cancel {
+            background: rgba(255,255,255,0.1);
+            color: #fff;
+            border: 1px solid rgba(255,255,255,0.3);
+        }
+        
+        #confirmDialog .btn-small:hover {
+            transform: scale(1.05);
+        }
+        
+        /* Wind Indicator */
+        #windIndicator {
+            position: absolute;
+            top: 50%;
+            right: 15px;
+            transform: translateY(-50%);
+            background: rgba(0, 0, 0, 0.7);
+            padding: 12px;
+            border-radius: 15px;
+            text-align: center;
+            z-index: 10;
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+        
+        #windIndicator .wind-label {
+            color: #aaa;
+            font-size: clamp(0.65rem, 2vw, 0.8rem);
+            margin-bottom: 5px;
+        }
+        
+        #windArrow {
+            width: 50px;
+            height: 50px;
+            position: relative;
+            margin: 5px auto;
+        }
+        
+        #windArrow::after {
+            content: '➤';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) rotate(var(--wind-angle, 0deg));
+            font-size: clamp(1.5rem, 5vw, 2rem);
+            color: #4ecdc4;
+            text-shadow: 0 0 10px rgba(78, 205, 196, 0.5);
+            transition: transform 0.5s ease;
+        }
+        
+        #windSpeed {
+            color: #fff;
+            font-size: clamp(1rem, 3.5vw, 1.3rem);
+            font-weight: bold;
+        }
+        
+        #windDirection {
+            color: #4ecdc4;
+            font-size: clamp(0.7rem, 2.2vw, 0.85rem);
+            margin-top: 3px;
+        }
+        
+        /* Power Bar */
+        #powerContainer {
+            position: absolute;
+            bottom: 70px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 65%;
+            max-width: 260px;
+            height: 22px;
+            background: rgba(0, 0, 0, 0.6);
+            border-radius: 11px;
+            overflow: hidden;
+            opacity: 0;
+            transition: opacity 0.3s;
+            border: 2px solid rgba(255,255,255,0.2);
+        }
+        
+        #powerBar {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, #4ecdc4, #44bd32, #f1c40f, #e74c3c);
+            border-radius: 9px;
+            transition: width 0.05s linear;
+        }
+        
+        #powerLabel {
+            position: absolute;
+            bottom: 98px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: white;
+            font-size: clamp(0.75rem, 2.3vw, 0.9rem);
+            opacity: 0;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+        }
+        
+        .instruction {
+            position: absolute;
+            bottom: 25px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: rgba(255, 255, 255, 0.8);
+            font-size: clamp(0.75rem, 2.5vw, 1rem);
+            text-align: center;
+            pointer-events: none;
+            background: rgba(0,0,0,0.4);
+            padding: 8px 16px;
+            border-radius: 18px;
+            white-space: nowrap;
+        }
+        
+        #scorePopup {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(0.5);
+            font-size: clamp(3.5rem, 18vw, 9rem);
+            font-weight: bold;
+            color: #ffd700;
+            text-shadow: 0 0 30px rgba(255, 215, 0, 0.8), 
+                         0 0 60px rgba(255, 215, 0, 0.4),
+                         0 5px 20px rgba(0,0,0,0.5);
+            opacity: 0;
+            pointer-events: none;
+            z-index: 20;
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        
+        #scorePopup.show {
+            opacity: 1;
+            transform: translate(-50%, -50%) scale(1);
+        }
+        
+        /* Turn Transition */
+        #turnTransition {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 50;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s;
+        }
+        
+        #turnTransition.show {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        
+        #turnTransition h2 {
+            color: #4ecdc4;
+            font-size: clamp(1.8rem, 7vw, 3rem);
+            margin-bottom: 10px;
+        }
+        
+        #turnTransition p {
+            color: #fff;
+            font-size: clamp(1rem, 4vw, 1.5rem);
+        }
+        
+        #turnTransition .scores-preview {
+            display: flex;
+            gap: 40px;
+            margin-top: 20px;
+        }
+        
+        #turnTransition .score-box {
+            text-align: center;
+        }
+        
+        #turnTransition .score-box .name {
+            color: #aaa;
+            font-size: clamp(0.8rem, 2.5vw, 1rem);
+        }
+        
+        #turnTransition .score-box .pts {
+            color: #fff;
+            font-size: clamp(1.5rem, 5vw, 2rem);
+            font-weight: bold;
+        }
+        
+        /* Vignette */
+        #vignette {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            background: radial-gradient(ellipse at center, 
+                transparent 0%, 
+                transparent 60%, 
+                rgba(0,0,0,0.4) 100%);
+            z-index: 5;
+        }
+        
+        /* AI thinking indicator */
+        #aiThinking {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.8);
+            padding: 20px 40px;
+            border-radius: 15px;
+            color: #4ecdc4;
+            font-size: clamp(1rem, 3.5vw, 1.3rem);
+            z-index: 25;
+            display: none;
+        }
+        
+        #aiThinking.show {
+            display: block;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        #aiThinking span {
+            animation: pulse 1s infinite;
+        }
+    </style>
+</head>
+<body>
+    <div id="gameContainer">
+        <canvas id="gameCanvas"></canvas>
+        <div id="vignette"></div>
+        
+        <!-- HUD -->
+        <div id="hud" class="hidden">
+            <div class="hud-left">
+                <div class="hud-item" id="player1Hud">
+                    <span id="player1Icon">🎯</span>
+                    <span id="player1Name">玩家1</span>
+                    <span id="player1Score">0</span>
+                </div>
+            </div>
+            <div class="hud-center">
+                <div class="hud-item">
+                    <span>⏱️</span>
+                    <span id="timer">10.0</span>
+                </div>
+                <div id="roundInfo">第 1 回合 - 第 1 箭</div>
+            </div>
+            <div class="hud-right">
+                <div class="hud-item" id="player2Hud">
+                    <span id="player2Icon">🤖</span>
+                    <span id="player2Name">AI</span>
+                    <span id="player2Score">0</span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Menu Button -->
+        <button id="menuBtn" class="hidden">⏸️ 返回選單</button>
+        
+        <!-- Wind Indicator -->
+        <div id="windIndicator" class="hidden">
+            <div class="wind-label">風向</div>
+            <div id="windArrow"></div>
+            <div id="windSpeed">0 級</div>
+            <div id="windDirection">無風</div>
+        </div>
+        
+        <div id="powerLabel">力量</div>
+        <div id="powerContainer">
+            <div id="powerBar"></div>
+        </div>
+        
+        <p class="instruction hidden" id="instruction">👆 按住拉弓 → 移動瞄準 → 放開射箭</p>
+        
+        <div id="scorePopup"></div>
+        
+        <div id="aiThinking"><span>🤖 AI 思考中...</span></div>
+        
+        <!-- Turn Transition -->
+        <div id="turnTransition">
+            <h2 id="transitionTitle">換人</h2>
+            <p id="transitionText">輪到 玩家2</p>
+            <div class="scores-preview">
+                <div class="score-box">
+                    <div class="name" id="previewName1">玩家1</div>
+                    <div class="pts" id="previewScore1">0</div>
+                </div>
+                <div class="score-box">
+                    <div class="name" id="previewName2">玩家2</div>
+                    <div class="pts" id="previewScore2">0</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Confirm Dialog -->
+        <div id="confirmDialog">
+            <div class="dialog-box">
+                <h3>⏸️ 暫停遊戲</h3>
+                <p>確定要返回選單嗎？<br>目前的遊戲進度將會遺失。</p>
+                <div class="dialog-buttons">
+                    <button class="btn-small btn-cancel" id="cancelBtn">繼續遊戲</button>
+                    <button class="btn-small btn-confirm" id="confirmBackBtn">返回選單</button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Start Screen -->
+        <div id="startScreen" class="screen">
+            <h1>🏹 射箭對決</h1>
+            <p class="subtitle">Archery Battle - 狙擊鏡視角</p>
+            <div class="game-info">
+                <p>🎯 每人每回合射 2 箭，共 5 回合</p>
+                <p>💨 風向每 2 箭更新一次</p>
+                <p>🏆 總分高者獲勝！</p>
+            </div>
+            <div class="mode-buttons">
+                <button class="btn" id="practiceBtn">🎯 單人練習</button>
+                <button class="btn secondary" id="aiBtn">🤖 AI 對決</button>
+                <button class="btn tertiary" id="pvpBtn">👥 雙人對決</button>
+            </div>
+        </div>
+        
+        <!-- End Screen -->
+        <div id="endScreen" class="screen hidden">
+            <h1 id="endTitle">🏆 比賽結束！</h1>
+            <div class="final-score-container">
+                <div class="player-final-score" id="finalP1">
+                    <div class="label" id="finalP1Name">玩家1</div>
+                    <div class="score" id="finalP1Score">0</div>
+                </div>
+                <div class="player-final-score" id="finalP2">
+                    <div class="label" id="finalP2Name">AI</div>
+                    <div class="score" id="finalP2Score">0</div>
+                </div>
+            </div>
+            <div class="winner-text" id="winnerText">🎉 玩家1 獲勝！</div>
+            <button class="btn" id="restartBtn">再來一局 🏹</button>
+        </div>
+    </div>
+
+    <script>
+        // ========== Game Configuration ==========
+        const CONFIG = {
+            TOTAL_ROUNDS: 5,
+            ARROWS_PER_TURN: 2,
+            TIME_PER_ARROW: 10,
+            MAX_DRAW_TIME: 3,
+            OVERCHARGE_TIME: 2.5,
+            MIN_SWAY: 3,
+            MAX_SWAY: 35,
+            ARROW_FLIGHT_TIME: 0.8,
+            MAX_WIND_SPEED: 10
+        };
+
+        // ========== Canvas Setup ==========
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        // ========== DOM Elements ==========
+        const startScreen = document.getElementById('startScreen');
+        const endScreen = document.getElementById('endScreen');
+        const hud = document.getElementById('hud');
+        const instruction = document.getElementById('instruction');
+        const timerDisplay = document.getElementById('timer');
+        const roundInfo = document.getElementById('roundInfo');
+        const powerContainer = document.getElementById('powerContainer');
+        const powerBar = document.getElementById('powerBar');
+        const powerLabel = document.getElementById('powerLabel');
+        const scorePopup = document.getElementById('scorePopup');
+        const windIndicator = document.getElementById('windIndicator');
+        const windArrow = document.getElementById('windArrow');
+        const windSpeedDisplay = document.getElementById('windSpeed');
+        const windDirectionDisplay = document.getElementById('windDirection');
+        const turnTransition = document.getElementById('turnTransition');
+        const aiThinking = document.getElementById('aiThinking');
+        const menuBtn = document.getElementById('menuBtn');
+        const confirmDialog = document.getElementById('confirmDialog');
+        const cancelBtn = document.getElementById('cancelBtn');
+        const confirmBackBtn = document.getElementById('confirmBackBtn');
+        
+        // Player HUD elements
+        const player1Hud = document.getElementById('player1Hud');
+        const player2Hud = document.getElementById('player2Hud');
+        const player1Name = document.getElementById('player1Name');
+        const player2Name = document.getElementById('player2Name');
+        const player1Score = document.getElementById('player1Score');
+        const player2Score = document.getElementById('player2Score');
+        const player1Icon = document.getElementById('player1Icon');
+        const player2Icon = document.getElementById('player2Icon');
+        
+        // ========== Game State ==========
+        let gameMode = 'practice'; // 'practice', 'ai', 'pvp'
+        let gameState = 'start';
+        let gamePaused = false;
+        let currentRound = 1;
+        let currentArrowInTurn = 1; // 1 or 2
+        let totalArrowsShot = 0; // For wind update tracking
+        let currentPlayer = 1; // 1 or 2
+        let players = {
+            1: { name: '玩家1', score: 0, isAI: false },
+            2: { name: 'AI', score: 0, isAI: true }
+        };
+        
+        let timeLeft = CONFIG.TIME_PER_ARROW;
+        let lastTime = 0;
+        
+        // ========== Wind State ==========
+        let wind = {
+            speed: 0,
+            angle: 0, // in radians
+            directionName: '無風'
+        };
+        
+        // ========== Aiming State ==========
+        let isDrawing = false;
+        let drawStartTime = 0;
+        let power = 0;
+        let aimX = 0;
+        let aimY = 0;
+        let targetAimX = 0;
+        let targetAimY = 0;
+        let swayX = 0;
+        let swayY = 0;
+        let swayPhase = Math.random() * Math.PI * 2;
+        let swayAmplitude = CONFIG.MAX_SWAY;
+        
+        // ========== Arrow State ==========
+        let arrow = null;
+        let arrowTrail = [];
+        let arrowsOnTarget = [];
+        
+        // ========== Target Properties ==========
+        let targetCenterX = 0;
+        let targetCenterY = 0;
+        let targetRadius = 0;
+
+        // ========== Audio Context ==========
+        let audioContext = null;
+        
+        function initAudio() {
+            try {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                if (audioContext.state === 'suspended') {
+                    audioContext.resume();
+                }
+            } catch (e) {
+                console.log('Web Audio not supported');
+            }
+        }
+        
+        function playTone(frequency, duration, type = 'sine', volume = 0.3) {
+            if (!audioContext) return;
+            try {
+                const oscillator = audioContext.createOscillator();
+                const gainNode = audioContext.createGain();
+                oscillator.connect(gainNode);
+                gainNode.connect(audioContext.destination);
+                oscillator.frequency.value = frequency;
+                oscillator.type = type;
+                gainNode.gain.setValueAtTime(volume, audioContext.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + duration);
+                oscillator.start(audioContext.currentTime);
+                oscillator.stop(audioContext.currentTime + duration);
+            } catch (e) {}
+        }
+        
+        function playDrawSound() { playTone(180, 0.15, 'sine', 0.2); }
+        function playShootSound() {
+            playTone(120, 0.1, 'sawtooth', 0.4);
+            setTimeout(() => playTone(80, 0.2, 'triangle', 0.3), 50);
+        }
+        function playHitSound(score) {
+            if (score >= 10) {
+                playTone(523, 0.15, 'sine', 0.4);
+                setTimeout(() => playTone(659, 0.15, 'sine', 0.4), 100);
+                setTimeout(() => playTone(784, 0.3, 'sine', 0.4), 200);
+            } else if (score >= 8) {
+                playTone(587, 0.2, 'sine', 0.3);
+                setTimeout(() => playTone(698, 0.25, 'sine', 0.3), 100);
+            } else if (score >= 5) {
+                playTone(440, 0.25, 'sine', 0.3);
+            } else if (score > 0) {
+                playTone(330, 0.2, 'triangle', 0.25);
+            } else {
+                playTone(150, 0.4, 'sawtooth', 0.2);
+            }
+        }
+        function playTickSound() { playTone(800, 0.05, 'square', 0.1); }
+        function playWindSound() { playTone(200, 0.3, 'sine', 0.15); }
+
+        // ========== Wind System ==========
+        function generateWind() {
+            // Random speed 0-10
+            wind.speed = Math.floor(Math.random() * 11);
+            
+            if (wind.speed === 0) {
+                wind.angle = 0;
+                wind.directionName = '無風';
+            } else {
+                // Four diagonal directions
+                const directions = [
+                    { name: '右下', angle: Math.PI / 4 },      // 45°
+                    { name: '左下', angle: 3 * Math.PI / 4 },  // 135°
+                    { name: '左上', angle: 5 * Math.PI / 4 },  // 225°
+                    { name: '右上', angle: 7 * Math.PI / 4 }   // 315°
+                ];
+                const dir = directions[Math.floor(Math.random() * 4)];
+                wind.angle = dir.angle;
+                wind.directionName = dir.name;
+            }
+            
+            updateWindDisplay();
+            playWindSound();
+        }
+        
+        function updateWindDisplay() {
+            windSpeedDisplay.textContent = wind.speed + ' 級';
+            windDirectionDisplay.textContent = wind.directionName;
+            
+            // Convert angle to CSS rotation (adjust for arrow pointing direction)
+            const cssAngle = (wind.angle * 180 / Math.PI) - 90;
+            windArrow.style.setProperty('--wind-angle', cssAngle + 'deg');
+            
+            // Color based on wind strength
+            const arrow = windArrow;
+            if (wind.speed >= 7) {
+                arrow.style.color = '#e74c3c';
+            } else if (wind.speed >= 4) {
+                arrow.style.color = '#f39c12';
+            } else {
+                arrow.style.color = '#4ecdc4';
+            }
+        }
+        
+        function applyWindEffect(offsetX, offsetY) {
+            // Wind pushes arrow based on direction and speed
+            const windForce = wind.speed * 3; // pixels of offset
+            const windOffsetX = Math.cos(wind.angle) * windForce;
+            const windOffsetY = Math.sin(wind.angle) * windForce;
+            
+            return {
+                x: offsetX + windOffsetX,
+                y: offsetY + windOffsetY
+            };
+        }
+
+        // ========== Resize Handler ==========
+        function resize() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            
+            aimX = canvas.width / 2;
+            aimY = canvas.height / 2;
+            targetAimX = aimX;
+            targetAimY = aimY;
+            
+            targetCenterX = canvas.width / 2;
+            targetCenterY = canvas.height * 0.42;
+            targetRadius = Math.min(canvas.width, canvas.height) * 0.16;
+        }
+        
+        window.addEventListener('resize', resize);
+        resize();
+
+        // ========== Drawing Functions ==========
+        
+        function drawBackground() {
+            const skyGradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+            skyGradient.addColorStop(0, '#4A90D9');
+            skyGradient.addColorStop(0.3, '#87CEEB');
+            skyGradient.addColorStop(0.6, '#B0E0E6');
+            skyGradient.addColorStop(0.75, '#90EE90');
+            skyGradient.addColorStop(1, '#228B22');
+            ctx.fillStyle = skyGradient;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Sun
+            const sunX = canvas.width * 0.85;
+            const sunY = canvas.height * 0.12;
+            const sunGlow = ctx.createRadialGradient(sunX, sunY, 0, sunX, sunY, 80);
+            sunGlow.addColorStop(0, 'rgba(255, 255, 200, 1)');
+            sunGlow.addColorStop(0.3, 'rgba(255, 220, 100, 0.8)');
+            sunGlow.addColorStop(1, 'rgba(255, 200, 50, 0)');
+            ctx.fillStyle = sunGlow;
+            ctx.fillRect(sunX - 80, sunY - 80, 160, 160);
+            
+            ctx.beginPath();
+            ctx.arc(sunX, sunY, 30, 0, Math.PI * 2);
+            ctx.fillStyle = '#FFF8DC';
+            ctx.fill();
+            
+            // Clouds
+            drawCloud(canvas.width * 0.2, canvas.height * 0.1, 0.8);
+            drawCloud(canvas.width * 0.5, canvas.height * 0.15, 1);
+            drawCloud(canvas.width * 0.75, canvas.height * 0.08, 0.6);
+            
+            // Wind effect on clouds
+            if (wind.speed > 0) {
+                const windOffset = Math.sin(Date.now() / 500) * wind.speed;
+                drawCloud(canvas.width * 0.3 + windOffset, canvas.height * 0.2, 0.5);
+            }
+            
+            // Ground
+            const groundY = canvas.height * 0.72;
+            const groundGradient = ctx.createLinearGradient(0, groundY, 0, canvas.height);
+            groundGradient.addColorStop(0, '#7CB342');
+            groundGradient.addColorStop(0.3, '#689F38');
+            groundGradient.addColorStop(1, '#33691E');
+            ctx.fillStyle = groundGradient;
+            ctx.fillRect(0, groundY, canvas.width, canvas.height - groundY);
+            
+            // Trees
+            ctx.fillStyle = '#2E7D32';
+            const treeBaseY = groundY + 5;
+            for (let i = 0; i < 25; i++) {
+                const x = (i / 25) * canvas.width * 1.2 - canvas.width * 0.1;
+                const h = 40 + Math.sin(i * 1.5) * 20;
+                const w = 25 + Math.sin(i * 2.3) * 10;
+                ctx.beginPath();
+                ctx.moveTo(x, treeBaseY);
+                ctx.lineTo(x + w, treeBaseY);
+                ctx.lineTo(x + w/2, treeBaseY - h);
+                ctx.closePath();
+                ctx.fill();
+            }
+            
+            // Wind particles
+            if (wind.speed > 2) {
+                drawWindParticles();
+            }
+        }
+        
+        function drawWindParticles() {
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+            const time = Date.now() / 100;
+            for (let i = 0; i < wind.speed * 2; i++) {
+                const x = ((time * wind.speed + i * 100) % (canvas.width + 100)) - 50;
+                const y = (i * 73) % canvas.height;
+                const size = 2 + Math.random() * 2;
+                ctx.beginPath();
+                ctx.arc(x, y, size, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+        
+        function drawCloud(x, y, scale) {
+            ctx.save();
+            ctx.translate(x, y);
+            ctx.scale(scale, scale);
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+            ctx.beginPath();
+            ctx.arc(0, 0, 25, 0, Math.PI * 2);
+            ctx.arc(25, -5, 20, 0, Math.PI * 2);
+            ctx.arc(50, 0, 25, 0, Math.PI * 2);
+            ctx.arc(25, 10, 22, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+        }
+        
+        function drawTarget() {
+            const cx = targetCenterX + swayX * 0.3;
+            const cy = targetCenterY + swayY * 0.3;
+            const r = targetRadius;
+            
+            // Stand
+            ctx.fillStyle = '#5D4037';
+            ctx.fillRect(cx - r - 15, cy + r * 0.9, 12, canvas.height * 0.25);
+            ctx.fillRect(cx + r + 3, cy + r * 0.9, 12, canvas.height * 0.25);
+            ctx.fillRect(cx - r - 10, cy + r * 0.85, r * 2 + 20, 15);
+            
+            // Backing
+            ctx.beginPath();
+            ctx.arc(cx, cy, r + 18, 0, Math.PI * 2);
+            const hayGradient = ctx.createRadialGradient(cx - 20, cy - 20, 0, cx, cy, r + 20);
+            hayGradient.addColorStop(0, '#E8DCC8');
+            hayGradient.addColorStop(1, '#C9B896');
+            ctx.fillStyle = hayGradient;
+            ctx.fill();
+            ctx.strokeStyle = '#8D6E63';
+            ctx.lineWidth = 4;
+            ctx.stroke();
+            
+            // Shadow
+            ctx.beginPath();
+            ctx.arc(cx + 3, cy + 3, r + 2, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(0,0,0,0.2)';
+            ctx.fill();
+            
+            // Rings
+            const ringColors = [
+                '#FFFFFF', '#FFFFFF', '#222222', '#222222',
+                '#00A0DC', '#00A0DC', '#ED1C24', '#ED1C24',
+                '#FFF200', '#FFF200'
+            ];
+            
+            for (let i = 0; i < 10; i++) {
+                const ringRadius = r * (10 - i) / 10;
+                ctx.beginPath();
+                ctx.arc(cx, cy, ringRadius, 0, Math.PI * 2);
+                ctx.fillStyle = ringColors[i];
+                ctx.fill();
+                ctx.strokeStyle = 'rgba(0,0,0,0.3)';
+                ctx.lineWidth = 1;
+                ctx.stroke();
+            }
+            
+            // Bullseye center
+            const innerR = r * 0.05;
+            ctx.beginPath();
+            ctx.arc(cx, cy, innerR, 0, Math.PI * 2);
+            ctx.fillStyle = '#FFF200';
+            ctx.fill();
+            ctx.strokeStyle = '#000';
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.moveTo(cx - innerR, cy);
+            ctx.lineTo(cx + innerR, cy);
+            ctx.moveTo(cx, cy - innerR);
+            ctx.lineTo(cx, cy + innerR);
+            ctx.stroke();
+            
+            // Arrows on target
+            arrowsOnTarget.forEach(a => {
+                drawArrowOnTarget(cx + a.offsetX, cy + a.offsetY, a.angle, a.player);
+            });
+        }
+        
+        function drawArrowOnTarget(x, y, angle = 0, player = 1) {
+            ctx.save();
+            ctx.translate(x, y);
+            ctx.rotate(angle);
+            
+            // Shadow
+            ctx.fillStyle = 'rgba(0,0,0,0.3)';
+            ctx.beginPath();
+            ctx.ellipse(3, 3, 4, 2, 0, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Nock color based on player
+            const nockColor = player === 1 ? '#C62828' : '#1565C0';
+            
+            ctx.beginPath();
+            ctx.arc(0, 0, 5, 0, Math.PI * 2);
+            ctx.fillStyle = nockColor;
+            ctx.fill();
+            ctx.strokeStyle = player === 1 ? '#8B0000' : '#0D47A1';
+            ctx.lineWidth = 1;
+            ctx.stroke();
+            
+            ctx.beginPath();
+            ctx.arc(0, 0, 2.5, 0, Math.PI * 2);
+            ctx.fillStyle = '#8B4513';
+            ctx.fill();
+            
+            ctx.restore();
+        }
+        
+        function drawCrosshair() {
+            const x = aimX + swayX;
+            const y = aimY + swayY;
+            const size = Math.min(canvas.width, canvas.height) * 0.14;
+            
+            ctx.save();
+            
+            // Outer ring shadow
+            ctx.beginPath();
+            ctx.arc(x + 2, y + 2, size + 5, 0, Math.PI * 2);
+            ctx.strokeStyle = 'rgba(0, 0, 0, 0.3)';
+            ctx.lineWidth = 12;
+            ctx.stroke();
+            
+            // Outer ring
+            ctx.beginPath();
+            ctx.arc(x, y, size + 5, 0, Math.PI * 2);
+            ctx.strokeStyle = '#1a1a1a';
+            ctx.lineWidth = 10;
+            ctx.stroke();
+            
+            ctx.beginPath();
+            ctx.arc(x, y, size, 0, Math.PI * 2);
+            ctx.strokeStyle = '#333';
+            ctx.lineWidth = 6;
+            ctx.stroke();
+            
+            // Inner ring
+            ctx.beginPath();
+            ctx.arc(x, y, size * 0.75, 0, Math.PI * 2);
+            ctx.strokeStyle = 'rgba(100, 100, 100, 0.4)';
+            ctx.lineWidth = 1;
+            ctx.stroke();
+            
+            // Crosshairs
+            ctx.strokeStyle = '#222';
+            ctx.lineWidth = 2;
+            
+            ctx.beginPath();
+            ctx.moveTo(x - size, y);
+            ctx.lineTo(x - size * 0.15, y);
+            ctx.moveTo(x + size * 0.15, y);
+            ctx.lineTo(x + size, y);
+            ctx.moveTo(x, y - size);
+            ctx.lineTo(x, y - size * 0.15);
+            ctx.moveTo(x, y + size * 0.15);
+            ctx.lineTo(x, y + size);
+            ctx.stroke();
+            
+            // Range markers
+            ctx.strokeStyle = '#444';
+            ctx.lineWidth = 1.5;
+            for (let i = 1; i <= 4; i++) {
+                const dist = size * 0.2 * i;
+                const markLen = i % 2 === 0 ? 8 : 5;
+                ctx.beginPath();
+                ctx.moveTo(x - dist, y - markLen);
+                ctx.lineTo(x - dist, y + markLen);
+                ctx.moveTo(x + dist, y - markLen);
+                ctx.lineTo(x + dist, y + markLen);
+                ctx.moveTo(x - markLen, y - dist);
+                ctx.lineTo(x + markLen, y - dist);
+                ctx.moveTo(x - markLen, y + dist);
+                ctx.lineTo(x + markLen, y + dist);
+                ctx.stroke();
+            }
+            
+            // Center reticle
+            const reticleColor = currentPlayer === 1 ? '#C62828' : '#1565C0';
+            ctx.beginPath();
+            ctx.arc(x, y, 6, 0, Math.PI * 2);
+            ctx.strokeStyle = reticleColor;
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            
+            ctx.beginPath();
+            ctx.arc(x, y, 2, 0, Math.PI * 2);
+            ctx.fillStyle = reticleColor;
+            ctx.fill();
+            
+            // Stability indicator
+            if (isDrawing && swayAmplitude < 10) {
+                ctx.beginPath();
+                ctx.arc(x, y, size * 0.9, 0, Math.PI * 2);
+                ctx.strokeStyle = `rgba(76, 175, 80, ${(10 - swayAmplitude) / 10 * 0.5})`;
+                ctx.lineWidth = 3;
+                ctx.stroke();
+            }
+            
+            ctx.restore();
+        }
+        
+        function drawFlyingArrow() {
+            if (!arrow) return;
+            
+            if (arrowTrail.length > 1) {
+                ctx.beginPath();
+                ctx.moveTo(arrowTrail[0].x, arrowTrail[0].y);
+                for (let i = 1; i < arrowTrail.length; i++) {
+                    ctx.lineTo(arrowTrail[i].x, arrowTrail[i].y);
+                }
+                ctx.strokeStyle = 'rgba(139, 69, 19, 0.3)';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+            }
+            
+            ctx.save();
+            ctx.translate(arrow.x, arrow.y);
+            
+            const angle = Math.atan2(arrow.vy, arrow.vx);
+            ctx.rotate(angle);
+            
+            const scale = 0.5 + (1 - arrow.progress) * 0.5;
+            ctx.scale(scale, scale);
+            
+            // Shaft
+            ctx.beginPath();
+            ctx.moveTo(-35, 0);
+            ctx.lineTo(20, 0);
+            ctx.strokeStyle = '#8B4513';
+            ctx.lineWidth = 4;
+            ctx.stroke();
+            
+            // Head
+            ctx.beginPath();
+            ctx.moveTo(20, 0);
+            ctx.lineTo(10, -6);
+            ctx.lineTo(12, 0);
+            ctx.lineTo(10, 6);
+            ctx.closePath();
+            ctx.fillStyle = '#555';
+            ctx.fill();
+            
+            // Fletching
+            const fletchColor = arrow.player === 1 ? '#C62828' : '#1565C0';
+            ctx.fillStyle = fletchColor;
+            ctx.beginPath();
+            ctx.moveTo(-35, 0);
+            ctx.lineTo(-28, -8);
+            ctx.lineTo(-25, 0);
+            ctx.closePath();
+            ctx.fill();
+            
+            ctx.beginPath();
+            ctx.moveTo(-35, 0);
+            ctx.lineTo(-28, 8);
+            ctx.lineTo(-25, 0);
+            ctx.closePath();
+            ctx.fill();
+            
+            // Nock
+            ctx.beginPath();
+            ctx.arc(-35, 0, 3, 0, Math.PI * 2);
+            ctx.fillStyle = '#FFD700';
+            ctx.fill();
+            
+            ctx.restore();
+        }
+        
+        function drawPowerIndicator() {
+            if (isDrawing && gameState === 'playing' && !players[currentPlayer].isAI) {
+                powerContainer.style.opacity = '1';
+                powerLabel.style.opacity = '1';
+                
+                const displayPower = Math.min(power, 100);
+                powerBar.style.width = displayPower + '%';
+                
+                if (power > 100) {
+                    powerBar.style.background = '#E53935';
+                    powerLabel.textContent = '⚠️ 過度拉弓！';
+                    powerLabel.style.color = '#E53935';
+                } else if (power >= 90) {
+                    powerBar.style.background = 'linear-gradient(90deg, #4ecdc4, #44bd32, #f1c40f, #ff6b6b)';
+                    powerLabel.textContent = '🔥 完美力量！';
+                    powerLabel.style.color = '#4CAF50';
+                } else if (power >= 70) {
+                    powerBar.style.background = 'linear-gradient(90deg, #4ecdc4, #44bd32, #f1c40f)';
+                    powerLabel.textContent = '💪 力量強勁';
+                    powerLabel.style.color = '#FFC107';
+                } else {
+                    powerBar.style.background = 'linear-gradient(90deg, #4ecdc4, #44bd32)';
+                    powerLabel.textContent = '⬆️ 繼續拉弓...';
+                    powerLabel.style.color = '#4ecdc4';
+                }
+            } else {
+                powerContainer.style.opacity = '0';
+                powerLabel.style.opacity = '0';
+            }
+        }
+
+        // ========== Game Logic ==========
+        
+        function updateSway(dt) {
+            swayPhase += dt * 2.5;
+            
+            let targetSway = CONFIG.MAX_SWAY;
+            
+            if (isDrawing) {
+                const drawTime = (Date.now() - drawStartTime) / 1000;
+                targetSway = Math.max(CONFIG.MIN_SWAY, CONFIG.MAX_SWAY - drawTime * 15);
+            }
+            
+            swayAmplitude += (targetSway - swayAmplitude) * dt * 3;
+            
+            swayX = Math.sin(swayPhase) * swayAmplitude + 
+                    Math.sin(swayPhase * 1.7 + 1) * swayAmplitude * 0.4 +
+                    Math.sin(swayPhase * 0.5 + 2) * swayAmplitude * 0.2;
+            swayY = Math.cos(swayPhase * 0.9) * swayAmplitude * 0.8 + 
+                    Math.cos(swayPhase * 2.3 + 1.5) * swayAmplitude * 0.3;
+        }
+        
+        function updatePower() {
+            if (!isDrawing) {
+                power = Math.max(0, power - 5);
+                return;
+            }
+            
+            const drawTime = (Date.now() - drawStartTime) / 1000;
+            
+            if (drawTime < CONFIG.OVERCHARGE_TIME) {
+                power = (drawTime / CONFIG.OVERCHARGE_TIME) * 100;
+            } else {
+                const overTime = drawTime - CONFIG.OVERCHARGE_TIME;
+                power = Math.max(40, 100 - overTime * 30);
+            }
+        }
+        
+        function updateAim(dt) {
+            aimX += (targetAimX - aimX) * dt * 8;
+            aimY += (targetAimY - aimY) * dt * 8;
+        }
+        
+        function shootArrow() {
+            if (gameState !== 'playing') return;
+            
+            gameState = 'shooting';
+            playShootSound();
+            
+            const effectivePower = Math.min(100, power) / 100;
+            const finalAimX = aimX + swayX;
+            const finalAimY = aimY + swayY;
+            
+            arrow = {
+                x: finalAimX,
+                y: finalAimY,
+                startX: finalAimX,
+                startY: finalAimY,
+                vx: 0,
+                vy: 0,
+                progress: 0,
+                effectivePower: effectivePower,
+                player: currentPlayer
+            };
+            
+            arrowTrail = [];
+            
+            const flightDuration = CONFIG.ARROW_FLIGHT_TIME;
+            const startTime = Date.now();
+            
+            function animateFlight() {
+                if (gamePaused) {
+                    // If paused, wait and check again
+                    setTimeout(animateFlight, 100);
+                    return;
+                }
+                
+                const elapsed = (Date.now() - startTime) / 1000;
+                arrow.progress = Math.min(1, elapsed / flightDuration);
+                
+                const eased = 1 - Math.pow(1 - arrow.progress, 3);
+                
+                const targetX = targetCenterX + swayX * 0.3;
+                const targetY = targetCenterY + swayY * 0.3;
+                
+                const variance = swayAmplitude * 0.5;
+                let hitOffsetX = (finalAimX - canvas.width / 2) * 0.15 + (Math.random() - 0.5) * variance;
+                let hitOffsetY = (finalAimY - canvas.height / 2) * 0.15 + (Math.random() - 0.5) * variance;
+                
+                // Apply wind effect
+                const windEffect = applyWindEffect(hitOffsetX, hitOffsetY);
+                hitOffsetX = windEffect.x;
+                hitOffsetY = windEffect.y;
+                
+                const endX = targetX + hitOffsetX;
+                const endY = targetY + hitOffsetY - (1 - effectivePower) * 30;
+                
+                const arcHeight = 50 * (1 - effectivePower);
+                const arcY = Math.sin(arrow.progress * Math.PI) * arcHeight;
+                
+                arrow.x = arrow.startX + (endX - arrow.startX) * eased;
+                arrow.y = arrow.startY + (endY - arrow.startY) * eased - arcY;
+                
+                if (arrowTrail.length > 0) {
+                    const lastPos = arrowTrail[arrowTrail.length - 1];
+                    arrow.vx = arrow.x - lastPos.x;
+                    arrow.vy = arrow.y - lastPos.y;
+                }
+                
+                arrowTrail.push({ x: arrow.x, y: arrow.y });
+                if (arrowTrail.length > 15) arrowTrail.shift();
+                
+                if (arrow.progress >= 1) {
+                    calculateHit(endX - targetX, endY - targetY);
+                } else {
+                    requestAnimationFrame(animateFlight);
+                }
+            }
+            
+            animateFlight();
+        }
+        
+        function calculateHit(offsetX, offsetY) {
+            const distance = Math.sqrt(offsetX * offsetX + offsetY * offsetY);
+            
+            let score = 0;
+            if (distance <= targetRadius) {
+                const ringWidth = targetRadius / 10;
+                const ring = Math.floor(distance / ringWidth);
+                score = Math.max(1, 10 - ring);
+                
+                arrowsOnTarget.push({
+                    offsetX: offsetX,
+                    offsetY: offsetY,
+                    angle: (Math.random() - 0.5) * 0.3,
+                    player: currentPlayer
+                });
+            }
+            
+            arrow = null;
+            arrowTrail = [];
+            
+            showScore(score);
+            playHitSound(score);
+        }
+        
+        function showScore(score) {
+            players[currentPlayer].score += score;
+            updateScoreDisplay();
+            
+            scorePopup.textContent = score > 0 ? `+${score}` : 'MISS!';
+            scorePopup.className = 'show';
+            
+            if (score >= 10) {
+                scorePopup.style.color = '#FFD700';
+                scorePopup.textContent = '🎯 +10';
+            } else if (score >= 8) {
+                scorePopup.style.color = '#FFA500';
+            } else if (score > 0) {
+                scorePopup.style.color = '#FFF';
+            } else {
+                scorePopup.style.color = '#E53935';
+            }
+            
+            setTimeout(() => {
+                scorePopup.className = '';
+                setTimeout(() => {
+                    nextArrow();
+                }, 400);
+            }, 1200);
+        }
+        
+        function updateScoreDisplay() {
+            player1Score.textContent = players[1].score;
+            player2Score.textContent = players[2].score;
+            
+            // Highlight active player
+            if (currentPlayer === 1) {
+                player1Hud.classList.add('active-player');
+                player2Hud.classList.remove('active-player');
+            } else {
+                player2Hud.classList.add('active-player');
+                player1Hud.classList.remove('active-player');
+            }
+        }
+        
+        function updateRoundInfo() {
+            roundInfo.textContent = `第 ${currentRound} 回合 - 第 ${currentArrowInTurn} 箭`;
+        }
+        
+        function nextArrow() {
+            totalArrowsShot++;
+            
+            // Check if wind should update (every 2 arrows total)
+            if (totalArrowsShot % 2 === 0) {
+                generateWind();
+            }
+            
+            currentArrowInTurn++;
+            
+            if (currentArrowInTurn > CONFIG.ARROWS_PER_TURN) {
+                // Switch player
+                currentArrowInTurn = 1;
+                
+                if (gameMode === 'practice') {
+                    // Practice mode: just continue
+                    currentRound++;
+                    if (currentRound > CONFIG.TOTAL_ROUNDS) {
+                        endGame();
+                        return;
+                    }
+                } else {
+                    // Battle mode: switch players
+                    if (currentPlayer === 1) {
+                        currentPlayer = 2;
+                        showTurnTransition();
+                        return;
+                    } else {
+                        currentPlayer = 1;
+                        currentRound++;
+                        if (currentRound > CONFIG.TOTAL_ROUNDS) {
+                            endGame();
+                            return;
+                        }
+                        showTurnTransition();
+                        return;
+                    }
+                }
+            }
+            
+            // Continue with current player
+            resetForNextArrow();
+        }
+        
+        function showTurnTransition() {
+            const transitionTitle = document.getElementById('transitionTitle');
+            const transitionText = document.getElementById('transitionText');
+            const previewName1 = document.getElementById('previewName1');
+            const previewScore1 = document.getElementById('previewScore1');
+            const previewName2 = document.getElementById('previewName2');
+            const previewScore2 = document.getElementById('previewScore2');
+            
+            if (currentRound > CONFIG.TOTAL_ROUNDS) {
+                endGame();
+                return;
+            }
+            
+            transitionTitle.textContent = `第 ${currentRound} 回合`;
+            transitionText.textContent = `輪到 ${players[currentPlayer].name}`;
+            previewName1.textContent = players[1].name;
+            previewScore1.textContent = players[1].score;
+            previewName2.textContent = players[2].name;
+            previewScore2.textContent = players[2].score;
+            
+            turnTransition.classList.add('show');
+            
+            setTimeout(() => {
+                turnTransition.classList.remove('show');
+                resetForNextArrow();
+            }, 2000);
+        }
+        
+        function resetForNextArrow() {
+            timeLeft = CONFIG.TIME_PER_ARROW;
+            power = 0;
+            isDrawing = false;
+            gameState = 'playing';
+            
+            aimX = canvas.width / 2;
+            aimY = canvas.height / 2;
+            targetAimX = aimX;
+            targetAimY = aimY;
+            
+            updateRoundInfo();
+            updateScoreDisplay();
+            
+            // Show/hide instruction based on player type
+            if (players[currentPlayer].isAI) {
+                instruction.classList.add('hidden');
+                // Trigger AI turn after a short delay
+                setTimeout(() => {
+                    if (gameState === 'playing' && players[currentPlayer].isAI && !gamePaused) {
+                        startAITurn();
+                    }
+                }, 500);
+            } else {
+                instruction.classList.remove('hidden');
+            }
+        }
+        
+        // ========== AI System ==========
+        function startAITurn() {
+            if (gameState !== 'playing' || gamePaused) return;
+            
+            aiThinking.classList.add('show');
+            
+            // AI "thinks" for a moment
+            const thinkTime = 500 + Math.random() * 1000;
+            
+            setTimeout(() => {
+                if (gamePaused) {
+                    aiThinking.classList.remove('show');
+                    return;
+                }
+                aiThinking.classList.remove('show');
+                executeAIShot();
+            }, thinkTime);
+        }
+        
+        function executeAIShot() {
+            if (gameState !== 'playing' || gamePaused) return;
+            
+            // AI skill level (0.5 = beginner, 1.0 = perfect)
+            const aiSkill = 0.7 + Math.random() * 0.2;
+            
+            // AI aims towards center with some variance
+            const aimVariance = (1 - aiSkill) * 100;
+            targetAimX = canvas.width / 2 + (Math.random() - 0.5) * aimVariance;
+            targetAimY = canvas.height / 2 + (Math.random() - 0.5) * aimVariance;
+            
+            // Compensate for wind (AI knows about wind)
+            const windCompX = -Math.cos(wind.angle) * wind.speed * 2 * aiSkill;
+            const windCompY = -Math.sin(wind.angle) * wind.speed * 2 * aiSkill;
+            targetAimX += windCompX;
+            targetAimY += windCompY;
+            
+            // Simulate drawing
+            isDrawing = true;
+            drawStartTime = Date.now();
+            playDrawSound();
+            
+            // AI draws for optimal time
+            const drawDuration = 1500 + Math.random() * 1000;
+            
+            // Animate AI aiming
+            const aimStartX = aimX;
+            const aimStartY = aimY;
+            const aimStartTime = Date.now();
+            
+            function animateAIAim() {
+                if (gameState !== 'playing' || gamePaused) return;
+                
+                const elapsed = Date.now() - aimStartTime;
+                const progress = Math.min(1, elapsed / drawDuration);
+                const eased = 1 - Math.pow(1 - progress, 2);
+                
+                aimX = aimStartX + (targetAimX - aimStartX) * eased;
+                aimY = aimStartY + (targetAimY - aimStartY) * eased;
+                
+                if (progress < 1) {
+                    requestAnimationFrame(animateAIAim);
+                }
+            }
+            
+            animateAIAim();
+            
+            setTimeout(() => {
+                if (gameState === 'playing' && !gamePaused) {
+                    isDrawing = false;
+                    shootArrow();
+                }
+            }, drawDuration);
+        }
+        
+        // ========== Menu & Pause System ==========
+        function showConfirmDialog() {
+            gamePaused = true;
+            confirmDialog.classList.add('show');
+        }
+        
+        function hideConfirmDialog() {
+            confirmDialog.classList.remove('show');
+            gamePaused = false;
+            
+            // If it's AI's turn and we're in playing state, resume AI
+            if (gameState === 'playing' && players[currentPlayer].isAI) {
+                setTimeout(() => startAITurn(), 300);
+            }
+        }
+        
+        function returnToMenu() {
+            confirmDialog.classList.remove('show');
+            gamePaused = false;
+            gameState = 'start';
+            
+            // Hide all game UI
+            hud.classList.add('hidden');
+            instruction.classList.add('hidden');
+            windIndicator.classList.add('hidden');
+            menuBtn.classList.add('hidden');
+            aiThinking.classList.remove('show');
+            turnTransition.classList.remove('show');
+            
+            // Show start screen
+            endScreen.classList.add('hidden');
+            startScreen.classList.remove('hidden');
+            
+            // Reset game state
+            arrow = null;
+            arrowTrail = [];
+            isDrawing = false;
+        }
+        
+        // Menu button events
+        menuBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            showConfirmDialog();
+        });
+        
+        cancelBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            hideConfirmDialog();
+        });
+        
+        confirmBackBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            returnToMenu();
+        });
+        
+        // ========== Game Flow ==========
+        function startGame(mode) {
+            initAudio();
+            
+            gameMode = mode;
+            gameState = 'playing';
+            gamePaused = false;
+            currentRound = 1;
+            currentArrowInTurn = 1;
+            totalArrowsShot = 0;
+            currentPlayer = 1;
+            
+            // Setup players based on mode
+            players = {
+                1: { name: '玩家1', score: 0, isAI: false },
+                2: { name: mode === 'ai' ? 'AI' : '玩家2', score: 0, isAI: mode === 'ai' }
+            };
+            
+            if (mode === 'practice') {
+                players[2] = { name: '-', score: 0, isAI: false };
+                player2Hud.style.display = 'none';
+            } else {
+                player2Hud.style.display = 'flex';
+            }
+            
+            // Update HUD names
+            player1Name.textContent = players[1].name;
+            player2Name.textContent = players[2].name;
+            player1Icon.textContent = '🎯';
+            player2Icon.textContent = mode === 'ai' ? '🤖' : '🎯';
+            
+            timeLeft = CONFIG.TIME_PER_ARROW;
+            power = 0;
+            isDrawing = false;
+            arrowsOnTarget = [];
+            arrow = null;
+            arrowTrail = [];
+            
+            aimX = canvas.width / 2;
+            aimY = canvas.height / 2;
+            targetAimX = aimX;
+            targetAimY = aimY;
+            
+            // Generate initial wind
+            generateWind();
+            
+            startScreen.classList.add('hidden');
+            endScreen.classList.add('hidden');
+            hud.classList.remove('hidden');
+            windIndicator.classList.remove('hidden');
+            instruction.classList.remove('hidden');
+            menuBtn.classList.remove('hidden');
+            
+            updateScoreDisplay();
+            updateRoundInfo();
+            timerDisplay.textContent = CONFIG.TIME_PER_ARROW.toFixed(1);
+        }
+        
+        function endGame() {
+            gameState = 'end';
+            hud.classList.add('hidden');
+            instruction.classList.add('hidden');
+            windIndicator.classList.add('hidden');
+            menuBtn.classList.add('hidden');
+            
+            const finalP1 = document.getElementById('finalP1');
+            const finalP2 = document.getElementById('finalP2');
+            const finalP1Name = document.getElementById('finalP1Name');
+            const finalP2Name = document.getElementById('finalP2Name');
+            const finalP1Score = document.getElementById('finalP1Score');
+            const finalP2Score = document.getElementById('finalP2Score');
+            const winnerText = document.getElementById('winnerText');
+            const endTitle = document.getElementById('endTitle');
+            
+            finalP1Name.textContent = players[1].name;
+            finalP1Score.textContent = players[1].score;
+            
+            if (gameMode === 'practice') {
+                finalP2.style.display = 'none';
+                winnerText.textContent = getRank(players[1].score);
+                endTitle.textContent = '🎯 練習結束！';
+            } else {
+                finalP2.style.display = 'block';
+                finalP2Name.textContent = players[2].name;
+                finalP2Score.textContent = players[2].score;
+                endTitle.textContent = '🏆 比賽結束！';
+                
+                // Determine winner
+                finalP1.classList.remove('winner');
+                finalP2.classList.remove('winner');
+                
+                if (players[1].score > players[2].score) {
+                    finalP1.classList.add('winner');
+                    winnerText.textContent = `🎉 ${players[1].name} 獲勝！`;
+                } else if (players[2].score > players[1].score) {
+                    finalP2.classList.add('winner');
+                    winnerText.textContent = `🎉 ${players[2].name} 獲勝！`;
+                } else {
+                    winnerText.textContent = '🤝 平手！';
+                }
+            }
+            
+            endScreen.classList.remove('hidden');
+        }
+        
+        function getRank(score) {
+            const maxScore = CONFIG.TOTAL_ROUNDS * CONFIG.ARROWS_PER_TURN * 10;
+            const percentage = score / maxScore;
+            
+            if (percentage >= 0.95) return '🏆 傳奇射手！';
+            if (percentage >= 0.85) return '🥇 神射手！';
+            if (percentage >= 0.75) return '🥈 優秀射手';
+            if (percentage >= 0.60) return '🥉 合格射手';
+            if (percentage >= 0.40) return '🎯 初學者';
+            return '💪 需要練習';
+        }
+
+        // ========== Input Handling ==========
+        function getInputPosition(e) {
+            if (e.touches && e.touches.length > 0) {
+                return { x: e.touches[0].clientX, y: e.touches[0].clientY };
+            }
+            return { x: e.clientX, y: e.clientY };
+        }
+        
+        function handleStart(e) {
+            if (gameState !== 'playing' || players[currentPlayer].isAI || gamePaused) return;
+            e.preventDefault();
+            
+            const pos = getInputPosition(e);
+            isDrawing = true;
+            drawStartTime = Date.now();
+            power = 0;
+            
+            targetAimX = pos.x;
+            targetAimY = pos.y;
+            
+            playDrawSound();
+        }
+        
+        function handleMove(e) {
+            if (gameState !== 'playing' || !isDrawing || players[currentPlayer].isAI || gamePaused) return;
+            e.preventDefault();
+            
+            const pos = getInputPosition(e);
+            targetAimX = pos.x;
+            targetAimY = pos.y;
+            
+            const padding = 80;
+            targetAimX = Math.max(padding, Math.min(canvas.width - padding, targetAimX));
+            targetAimY = Math.max(padding, Math.min(canvas.height - padding, targetAimY));
+        }
+        
+        function handleEnd(e) {
+            if (gameState !== 'playing' || !isDrawing || players[currentPlayer].isAI || gamePaused) return;
+            e.preventDefault();
+            
+            isDrawing = false;
+            
+            if (power > 20) {
+                shootArrow();
+            } else {
+                power = 0;
+            }
+        }
+        
+        // Touch Events
+        canvas.addEventListener('touchstart', handleStart, { passive: false });
+        canvas.addEventListener('touchmove', handleMove, { passive: false });
+        canvas.addEventListener('touchend', handleEnd, { passive: false });
+        canvas.addEventListener('touchcancel', handleEnd, { passive: false });
+        
+        // Mouse Events
+        canvas.addEventListener('mousedown', handleStart);
+        canvas.addEventListener('mousemove', handleMove);
+        canvas.addEventListener('mouseup', handleEnd);
+        canvas.addEventListener('mouseleave', (e) => {
+            if (isDrawing && !players[currentPlayer].isAI) handleEnd(e);
+        });
+        
+        canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+        
+        // Button Events
+        document.getElementById('practiceBtn').addEventListener('click', () => startGame('practice'));
+        document.getElementById('aiBtn').addEventListener('click', () => startGame('ai'));
+        document.getElementById('pvpBtn').addEventListener('click', () => startGame('pvp'));
+        document.getElementById('restartBtn').addEventListener('click', () => {
+            endScreen.classList.add('hidden');
+            startScreen.classList.remove('hidden');
+        });
+
+        // ========== Game Loop ==========
+        function gameLoop(timestamp) {
+            const dt = Math.min((timestamp - lastTime) / 1000, 0.1);
+            lastTime = timestamp;
+            
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            if (gameState === 'playing' || gameState === 'shooting') {
+                if (!gamePaused) {
+                    updateSway(dt);
+                    updatePower();
+                    updateAim(dt);
+                    
+                    if (gameState === 'playing' && !players[currentPlayer].isAI) {
+                        const prevTimeLeft = timeLeft;
+                        timeLeft -= dt;
+                        
+                        if (timeLeft <= 3 && Math.floor(prevTimeLeft) !== Math.floor(timeLeft) && timeLeft > 0) {
+                            playTickSound();
+                        }
+                        
+                        timerDisplay.textContent = Math.max(0, timeLeft).toFixed(1);
+                        
+                        if (timeLeft <= 3) {
+                            timerDisplay.style.color = '#ff3333';
+                            timerDisplay.style.textShadow = '0 0 10px #ff3333';
+                        } else {
+                            timerDisplay.style.color = '#ff6b6b';
+                            timerDisplay.style.textShadow = 'none';
+                        }
+                        
+                        if (timeLeft <= 0) {
+                            if (isDrawing) {
+                                isDrawing = false;
+                                if (power > 20) {
+                                    shootArrow();
+                                } else {
+                                    showScore(0);
+                                    playHitSound(0);
+                                }
+                            } else {
+                                showScore(0);
+                                playHitSound(0);
+                            }
+                        }
+                    }
+                }
+                
+                drawBackground();
+                drawTarget();
+                
+                if (arrow) {
+                    drawFlyingArrow();
+                }
+                
+                if (gameState === 'playing') {
+                    drawCrosshair();
+                }
+                
+                drawPowerIndicator();
+            }
+            
+            requestAnimationFrame(gameLoop);
+        }
+        
+        requestAnimationFrame(gameLoop);
+        
+        document.body.addEventListener('touchmove', (e) => {
+            if (e.target === canvas) {
+                e.preventDefault();
+            }
+        }, { passive: false });
+    </script>
+</body>
+</html>
