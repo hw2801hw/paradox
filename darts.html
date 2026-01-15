@@ -1318,7 +1318,7 @@
       }
       const code = validateRoomCode($('roomCodeInput').value);
       if (!code) {
-        setStatus($('multiStatus'), '請輸入 4 位數房間號碼（例如 0420）', 'error');
+        setStatus($('multiStatus'), '請輸入 4 位數房間號碼（例如 1234）', 'error');
         isProcessingMulti = false;
         btn.disabled = false;
         return;
@@ -2320,3 +2320,4 @@
   </script>
 </body>
 </html>
+
