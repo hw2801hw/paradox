@@ -26,9 +26,7 @@
     .center-info-container{display:flex;flex-direction:column;align-items:center;gap:6px; flex: 1; margin: 0 4px;}
     .center-info{background:rgba(0,0,0,.7);border-radius:10px;padding:4px 8px;color:#fff;text-align:center}
     .center-info .mode{font-size:12px;color:#ffd700;font-weight:800}
-    /* .leg removed */
 
-    /* 優化後的風況顯示：字體加大，寬度增加 */
     .wind-info{background:rgba(255,255,255,.15);border-radius:10px;padding:6px 8px;color:#fff;text-align:center;border:1px solid rgba(255,255,255,.3);min-width:100px; backdrop-filter: blur(4px);}
     .wind-title{font-size:12px;opacity:.9;margin-bottom:2px; font-weight: 600;}
     .wind-display{display:flex;align-items:center;justify-content:center;gap:6px}
@@ -36,7 +34,6 @@
     .wind-speed{font-size:22px;color:#fff;font-weight:900; line-height: 1; text-shadow: 0 2px 4px rgba(0,0,0,0.5);}
     .wind-unit{font-size:12px; margin-top: 6px; opacity: 0.8;}
 
-    /* 優化後的返回按鈕：移動到右下角，避免遮擋 */
     #backBtn{
         position:absolute;
         bottom:20px;
@@ -107,7 +104,6 @@
     #scoreHistory{position:absolute;bottom:120px;left:50%;transform:translateX(-50%);display:flex;gap:8px;z-index:10;pointer-events:none;flex-wrap:wrap;justify-content:center;max-width:92vw}
     .history-dart{background:rgba(0,0,0,.7);color:#4ecdc4;padding:4px 10px;border-radius:12px;font-size:14px;font-weight:900}
 
-    /* start screen inputs */
     .panel-card{width:min(420px,92vw);background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:16px;padding:14px;text-align:left}
     .field-label{font-size:12px;opacity:.8;margin:10px 0 6px}
     .field{width:100%;padding:10px 12px;border-radius:12px;background:rgba(0,0,0,.35);border:1px solid rgba(255,255,255,.18);outline:none;color:#fff}
@@ -137,7 +133,6 @@
       <div class="center-info-container">
         <div class="center-info">
           <div class="mode" id="gameMode">501</div>
-          <!-- LEG INFO REMOVED HERE -->
         </div>
         <div class="wind-info" id="windInfo">
           <div class="wind-title">風況預報</div>
@@ -555,7 +550,6 @@
       boardRadius = minDim * 0.32;
       boardCenterX = gameWidth / 2;
       boardCenterY = gameHeight * 0.38;
-      // RWD OPTIMIZATION: Increased buffer to 130 to prevent UI overlap with dartboard
       if (boardCenterY - boardRadius < 130) boardCenterY = boardRadius + 130;
     }
 
@@ -580,7 +574,7 @@
       }
     }
 
-    // ==================== Wind (AI uses random local; Multiplayer reads from room) ====================
+    // ==================== Wind ====================
     function updateWindLocalRandom() {
       const w = randomWind();
       currentWind.directionIndex = w.directionIndex;
@@ -671,7 +665,7 @@
       if (idx !== -1) currentHighlightTarget = { type, index: idx };
     }
 
-    // ==================== Scoring (normalized + pixel wrapper) ====================
+    // ==================== Scoring ====================
     function calculateScoreNormalized(nx, ny) {
       const distance = Math.sqrt(nx * nx + ny * ny);
 
@@ -718,7 +712,6 @@
       $('backBtn').classList.add('show');
       $('cleanupHint').textContent = '';
 
-      // UI names
       $('playerName').textContent = '👤 你';
       $('opponentName').textContent = '🤖 AI';
       $('aiDiffWrap').style.display = 'inline';
@@ -813,7 +806,6 @@
         return;
       }
 
-      // multiplayer: score is from pendingThrowInfo
       const info = pendingThrowInfo;
       if (!info) return;
 
@@ -832,7 +824,6 @@
       currentState = GameState.SHOWING_SCORE;
       setTimeout(() => {
         hideHitScore();
-        // next state will be driven by room updates; if it's my turn and I still can throw, start aiming.
         if (matchType === 'multi') {
           if (isPlayerTurn && playerDartsLeft > 0) startAiming();
           else {
@@ -921,7 +912,6 @@
 
     function endAITurnAI() {
       updateUI();
-      // a full round completed -> update wind
       updateWindLocalRandom();
       showTurnIndicator('你的回合', '風向已更新');
       setTimeout(startPlayerTurn, 700);
@@ -988,15 +978,15 @@
     }
 
     // ==================== Multiplayer (Firebase RTDB) ====================
-        const firebaseConfig = {
-            apiKey: "AIzaSyACjxWEkXkPUBv6xiWtVWZdsFvxeKURJ1Q",
-            authDomain: "time-f681a.firebaseapp.com",
-            databaseURL: "https://time-f681a-default-rtdb.firebaseio.com",
-            projectId: "time-f681a",
-            storageBucket: "time-f681a.firebasestorage.app",
-            messagingSenderId: "486171948384",
-            appId: "1:486171948384:web:715043928d3a0a0cd39a05"
-        };
+    const firebaseConfig = {
+      apiKey: "AIzaSyACjxWEkXkPUBv6xiWtVWZdsFvxeKURJ1Q",
+      authDomain: "time-f681a.firebaseapp.com",
+      databaseURL: "https://time-f681a-default-rtdb.firebaseio.com",
+      projectId: "time-f681a",
+      storageBucket: "time-f681a.firebasestorage.app",
+      messagingSenderId: "486171948384",
+      appId: "1:486171948384:web:715043928d3a0a0cd39a05"
+    };
 
     function ensureFirebase() {
       if (firebaseDb) return true;
@@ -1038,8 +1028,18 @@
       return c;
     }
 
-    // FIX: Ghost Room Creation Issue
-    // Added a global lock `isProcessingMulti` to prevent double clicks or re-entry
+    // FIX: Reset all multiplayer state properly before any new operation
+    function resetMultiplayerState() {
+      detachRoomListeners();
+      roomCode = null;
+      mySeat = null;
+      myNickname = '';
+      roomCleanupScheduled = false;
+      lastSeenTurnIndex = null;
+      processedThrowKeys = new Set();
+      pendingThrowInfo = null;
+    }
+
     async function createRoomFlow() {
       if (isProcessingMulti) return;
       isProcessingMulti = true;
@@ -1047,10 +1047,14 @@
       btn.disabled = true;
 
       setStatus($('multiStatus'), '', null);
+      
+      // Reset state before creating
+      resetMultiplayerState();
+      
       if (!ensureFirebase()) {
-          isProcessingMulti = false;
-          btn.disabled = false;
-          return;
+        isProcessingMulti = false;
+        btn.disabled = false;
+        return;
       }
 
       const nick = validateNickname($('nicknameInput').value);
@@ -1066,7 +1070,6 @@
 
       setStatus($('multiStatus'), '正在創建房間...', null);
 
-      // Try a few random codes
       let created = false;
       for (let i = 0; i < 8; i++) {
         const code = pad4(Math.floor(Math.random() * 10000));
@@ -1080,7 +1083,8 @@
       }
       
       if (!created) {
-          setStatus($('multiStatus'), '建立房間失敗（請重試）', 'error');
+        setStatus($('multiStatus'), '建立房間失敗（請重試）', 'error');
+        resetMultiplayerState();
       }
 
       isProcessingMulti = false;
@@ -1124,7 +1128,12 @@
         });
       });
 
-      if (!result) return false;
+      if (!result) {
+        // Clean up the failed refs
+        roomRef = null;
+        roomCode = null;
+        return false;
+      }
 
       mySeat = 'p1';
       attachRoomListeners();
@@ -1140,10 +1149,14 @@
       btn.disabled = true;
 
       setStatus($('multiStatus'), '', null);
+      
+      // Reset state before joining
+      resetMultiplayerState();
+      
       if (!ensureFirebase()) {
-          isProcessingMulti = false;
-          btn.disabled = false;
-          return;
+        isProcessingMulti = false;
+        btn.disabled = false;
+        return;
       }
 
       const nick = validateNickname($('nicknameInput').value);
@@ -1168,64 +1181,111 @@
 
       setStatus($('multiStatus'), '正在進入房間...', null);
 
-      const snap = await once(roomRef);
+      // First verify room exists
+      let snap;
+      try {
+        snap = await once(roomRef);
+      } catch (e) {
+        setStatus($('multiStatus'), '網路錯誤，請重試', 'error');
+        resetMultiplayerState();
+        isProcessingMulti = false;
+        btn.disabled = false;
+        return;
+      }
+      
       const data = snap.val();
       if (!data) {
         setStatus($('multiStatus'), '找不到此房間號碼', 'error');
+        resetMultiplayerState();
         isProcessingMulti = false;
         btn.disabled = false;
         return;
       }
       if (data.status === 'ended') {
         setStatus($('multiStatus'), '此房間已結束（請重新建立）', 'error');
+        resetMultiplayerState();
         isProcessingMulti = false;
         btn.disabled = false;
         return;
       }
 
-      // if p2 occupied, reject
+      // Early check if p2 is occupied
       const players = data.players || {};
       if (players.p2 && players.p2.nickname) {
         setStatus($('multiStatus'), '房間已滿（兩位玩家）', 'error');
+        resetMultiplayerState();
         isProcessingMulti = false;
         btn.disabled = false;
         return;
       }
 
-      // Use a transaction on the entire ROOM instead of just the P2 node.
-      // This prevents "ghost rooms" where p2 is written to a room that was deleted.
-      const joined = await new Promise((resolve) => {
-        roomRef.transaction((room) => {
-          if (room === null) return; // Room doesn't exist, abort!
-          if (room.status === 'ended') return; // Room ended, abort
-          
-          // Check if p2 is taken
-          if (room.players && room.players.p2 && room.players.p2.nickname) {
-            return; // Abort
-          }
+      // Store room mode for use in transaction
+      const roomMode = data.mode || 501;
 
-          // Prepare p2
-          if (!room.players) room.players = {};
-          room.players.p2 = {
-            nickname: nick,
-            score: room.mode,
-            dartsLeft: 3,
-            turnStartScore: room.mode,
-            activeTurnIndex: 0,
-            turnDarts: []
-          };
-          return room;
-        }, (error, committed, snapshot) => {
-          if (error) {
-            resolve(false);
-          } else {
-            resolve(committed);
+      // FIX: Use transaction on players/p2 instead of entire room
+      // This avoids the issue where room === null on first callback
+      const p2Data = {
+        nickname: nick,
+        score: roomMode,
+        dartsLeft: 3,
+        turnStartScore: roomMode,
+        activeTurnIndex: 0,
+        turnDarts: []
+      };
+
+      const joined = await new Promise((resolve) => {
+        roomRef.child('players/p2').transaction((currentP2) => {
+          // If p2 already has a nickname, someone else took the spot
+          if (currentP2 && currentP2.nickname) {
+            return undefined; // Abort
           }
+          // Set p2 data
+          return p2Data;
+        }, (error, committed, snapshot) => {
+          resolve(!error && committed);
         });
       });
 
       if (!joined) {
         setStatus($('multiStatus'), '進入房間失敗（可能被其他人搶先加入）', 'error');
+        resetMultiplayerState();
+        isProcessingMulti = false;
+        btn.disabled = false;
+        return;
+      }
+
+      // FIX: Verify room still exists after our write (prevent ghost rooms)
+      try {
+        const verifySnap = await once(roomRef);
+        const verifyData = verifySnap.val();
+        
+        // Check if room was deleted or p1 is missing (ghost room scenario)
+        if (!verifyData || !verifyData.players?.p1?.nickname) {
+          // Clean up our ghost p2 entry
+          try {
+            await roomRef.child('players/p2').remove();
+          } catch (_) {}
+          setStatus($('multiStatus'), '房間已不存在，請重試', 'error');
+          resetMultiplayerState();
+          isProcessingMulti = false;
+          btn.disabled = false;
+          return;
+        }
+        
+        // Check if room status is invalid
+        if (verifyData.status === 'ended') {
+          try {
+            await roomRef.child('players/p2').remove();
+          } catch (_) {}
+          setStatus($('multiStatus'), '此房間已結束', 'error');
+          resetMultiplayerState();
+          isProcessingMulti = false;
+          btn.disabled = false;
+          return;
+        }
+      } catch (e) {
+        setStatus($('multiStatus'), '驗證房間失敗，請重試', 'error');
+        resetMultiplayerState();
         isProcessingMulti = false;
         btn.disabled = false;
         return;
@@ -1254,13 +1314,20 @@
 
     function attachRoomListeners() {
       if (!roomRef) return;
-      if (roomListenerAttached) return;
+      
+      // FIX: Always detach old listeners first and reset flags
+      if (roomListenerAttached) {
+        try { roomRef.off('value'); } catch (_) {}
+      }
+      if (throwsRef && throwsListenerAttached) {
+        try { throwsRef.off('child_added'); } catch (_) {}
+      }
 
       roomListenerAttached = true;
       roomRef.on('value', (snap) => {
         const data = snap.val();
         if (!data) {
-          // room removed (可能是對手返回主頁/離開導致房間被刪)
+          // room removed
           detachRoomListeners();
           roomCode = null;
           mySeat = null;
@@ -1269,7 +1336,6 @@
           try { $('roomCodeInput').value = ''; $('nicknameInput').value = ''; } catch (_) {}
 
           if (currentState !== GameState.GAME_END) {
-            // if not in end screen, return to home
             showStart();
           }
           return;
@@ -1290,7 +1356,6 @@
 
         // Ended
         if (data.status === 'ended') {
-          // show end based on winner
           const winner = data.winner;
           startOrSyncMultiplayerFromRoom(data);
           showEndMultiplayer(winner);
@@ -1300,32 +1365,32 @@
       });
 
       // listen throws (for animation)
-      if (!throwsListenerAttached) {
-        throwsListenerAttached = true;
-        throwsRef = roomRef.child('throws');
-        processedThrowKeys = new Set();
-        throwsRef.on('child_added', (snap) => {
-          const key = snap.key;
-          const ev = snap.val();
-          if (!ev) return;
-          // ignore old throws before join time to avoid replay on join
-          if (ev.ts && ev.ts < joinedAt) return;
-          if (processedThrowKeys.has(key)) return;
-          processedThrowKeys.add(key);
-          handleThrowEvent(ev);
-        });
-      }
+      throwsListenerAttached = true;
+      throwsRef = roomRef.child('throws');
+      processedThrowKeys = new Set();
+      throwsRef.on('child_added', (snap) => {
+        const key = snap.key;
+        const ev = snap.val();
+        if (!ev) return;
+        if (ev.ts && ev.ts < joinedAt) return;
+        if (processedThrowKeys.has(key)) return;
+        processedThrowKeys.add(key);
+        handleThrowEvent(ev);
+      });
     }
 
+    // FIX: Always reset flags regardless of roomRef state
     function detachRoomListeners() {
-      if (roomRef && roomListenerAttached) {
-        roomRef.off();
-        roomListenerAttached = false;
+      if (roomRef) {
+        try { roomRef.off(); } catch (_) {}
       }
-      if (throwsRef && throwsListenerAttached) {
-        throwsRef.off();
-        throwsListenerAttached = false;
+      if (throwsRef) {
+        try { throwsRef.off(); } catch (_) {}
       }
+      
+      // Always reset these flags!
+      roomListenerAttached = false;
+      throwsListenerAttached = false;
       roomRef = null;
       throwsRef = null;
     }
@@ -1345,21 +1410,23 @@
 
     async function tryStartMultiplayerGame() {
       if (!roomRef) return;
-      const snap = await once(roomRef);
-      const data = snap.val();
-      if (!data) return;
-      if (data.status !== 'lobby') return;
-      const p1 = data.players?.p1?.nickname;
-      const p2 = data.players?.p2?.nickname;
-      if (p1 && p2) {
-        // safe to set playing (idempotent)
-        await roomRef.update({ status: 'playing' });
+      try {
+        const snap = await once(roomRef);
+        const data = snap.val();
+        if (!data) return;
+        if (data.status !== 'lobby') return;
+        const p1 = data.players?.p1?.nickname;
+        const p2 = data.players?.p2?.nickname;
+        if (p1 && p2) {
+          await roomRef.update({ status: 'playing' });
+        }
+      } catch (e) {
+        console.error('tryStartMultiplayerGame error:', e);
       }
     }
 
     async function setupPresence() {
       if (!roomRef || !mySeat) return;
-      // mark connected (best-effort)
       const meRef = roomRef.child('players/' + mySeat);
       try {
         await meRef.update({ connected: true, lastSeen: firebase.database.ServerValue.TIMESTAMP });
@@ -1369,7 +1436,6 @@
         meRef.onDisconnect().update({ connected: false, lastSeen: firebase.database.ServerValue.TIMESTAMP });
       } catch (_) {}
 
-      // also auto-remove p2 on disconnect while still in lobby (so others can join)
       if (mySeat === 'p2') {
         try {
           const statusSnap = await once(roomRef.child('status'));
@@ -1381,52 +1447,42 @@
     }
 
     function startOrSyncMultiplayerFromRoom(data) {
-      // set matchType
       matchType = 'multi';
 
       selectedMode = data.mode || selectedMode;
       currentLeg = 1;
 
-      // derive opponent
       const oppSeat = (mySeat === 'p1') ? 'p2' : 'p1';
       const me = data.players?.[mySeat];
       const opp = data.players?.[oppSeat];
 
       if (!me || !opp) {
-        // missing player => end
         if (data.status === 'playing') {
-          // opponent left
           roomRef.update({ status: 'ended', winner: mySeat, endedAt: firebase.database.ServerValue.TIMESTAMP });
           scheduleRoomCleanup();
         }
         return;
       }
 
-      // update names
       $('playerName').textContent = '👤 ' + safeText(me.nickname || '你');
       $('opponentName').textContent = '👤 ' + safeText(opp.nickname || '對手');
       $('aiDiffWrap').style.display = 'none';
       $('playerFinalLabel').textContent = safeText(me.nickname || '你');
       $('aiFinalLabel').textContent = safeText(opp.nickname || '對手');
 
-      // update scores
       playerScore = me.score ?? playerScore;
       aiScore = opp.score ?? aiScore;
 
-      // update darts left + turn darts
       playerDartsLeft = me.dartsLeft ?? 3;
       aiDartsLeft = opp.dartsLeft ?? 3;
       playerRoundDarts = Array.isArray(me.turnDarts) ? me.turnDarts : [];
       aiRoundDarts = Array.isArray(opp.turnDarts) ? opp.turnDarts : [];
 
-      // update wind
       updateWindFromRoom(data.wind);
 
-      // turn
       const turnSeat = data.turn;
       isPlayerTurn = (turnSeat === mySeat);
 
-      // handle turnIndex reset
       if (lastSeenTurnIndex !== data.turnIndex) {
         lastSeenTurnIndex = data.turnIndex;
         thrownDarts = [];
@@ -1434,12 +1490,10 @@
         updateScoreHistory();
       }
 
-      // ensure my turn initialized once per turnIndex
       if (data.status === 'playing' && isPlayerTurn) {
         ensureMyTurnInitialized(data);
       }
 
-      // show/hide screens
       $('startScreen').classList.add('hidden');
       $('lobbyScreen').classList.add('hidden');
       $('endScreen').classList.add('hidden');
@@ -1453,19 +1507,16 @@
         return;
       }
 
-      // drive state
       if (dartFlying || currentState === GameState.THROWING) return;
       if (isPlayerTurn) {
         $('playerPanel').classList.add('active');
         $('aiPanel').classList.remove('active');
         if (playerDartsLeft > 0) {
-          // if currently waiting, start aiming
           if (currentState === GameState.WAITING_OPPONENT || currentState === GameState.START) {
             showTurnIndicator('你的回合', '');
             startAiming();
           }
         } else {
-          // waiting for room turn switch
           currentState = GameState.WAITING_OPPONENT;
           updatePhaseIndicator('等待對手...');
         }
@@ -1482,9 +1533,8 @@
       const me = room.players?.[mySeat];
       const turnIndex = room.turnIndex || 0;
       if (!me) return;
-      if (me.activeTurnIndex === turnIndex) return; // already inited
+      if (me.activeTurnIndex === turnIndex) return;
 
-      // reset my turn data
       const updates = {};
       updates['players/' + mySeat + '/dartsLeft'] = 3;
       updates['players/' + mySeat + '/turnDarts'] = [];
@@ -1492,13 +1542,11 @@
       updates['players/' + mySeat + '/activeTurnIndex'] = turnIndex;
       await roomRef.update(updates);
 
-      // local state
       playerDartsLeft = 3;
       playerRoundDarts = [];
       thrownDarts = [];
       updateScoreHistory();
 
-      // if this is start of new round (p1 turn), show wind updated note
       if (mySeat === 'p1') {
         showTurnIndicator('你的回合', '');
       } else {
@@ -1519,11 +1567,9 @@
         const oppSeat = (mySeat === 'p1') ? 'p2' : 'p1';
         if (!me || !room.players?.[oppSeat]) return;
 
-        // compute normalized aim
-        let aimNx = lockedHorizontal; // -1..1
+        let aimNx = lockedHorizontal;
         let aimNy = lockedVertical;
 
-        // apply wind in normalized space
         const final = applyWindEffectNormalized(aimNx, aimNy);
         const nx = clamp(final.nx, -1.6, 1.6);
         const ny = clamp(final.ny, -1.6, 1.6);
@@ -1536,7 +1582,6 @@
         const currentDartsLeft = me.dartsLeft ?? 3;
         const nextDartsLeft = Math.max(0, currentDartsLeft - 1);
 
-        // build new turn darts
         const prevTurnDarts = Array.isArray(me.turnDarts) ? me.turnDarts : [];
         const newTurnDarts = prevTurnDarts.concat([bust ? 'BUST' : score]);
 
@@ -1545,7 +1590,6 @@
         updates['players/' + mySeat + '/dartsLeft'] = bust ? 0 : nextDartsLeft;
         updates['players/' + mySeat + '/score'] = bust ? (me.turnStartScore ?? me.score) : newScoreCandidate;
 
-        // decide end of turn
         let endTurn = false;
         if (win) {
           updates['status'] = 'ended';
@@ -1560,7 +1604,6 @@
             updates['turn'] = nextTurn;
             updates['turnIndex'] = (room.turnIndex || 1) + 1;
 
-            // if p2 finished -> new round -> update wind
             if (mySeat === 'p2') {
               const w = randomWind();
               const curWindIndex = room.wind?.index || 1;
@@ -1569,7 +1612,6 @@
           }
         }
 
-        // push throw event for animation
         const ev = {
           ts: firebase.database.ServerValue.TIMESTAMP,
           by: mySeat,
@@ -1580,11 +1622,9 @@
           wind: room.wind || { directionIndex: currentWind.directionIndex, speed: currentWind.speed, index: currentWind.index }
         };
 
-        // local immediate animation
         pendingThrowInfo = { score, bust, bySeat: mySeat, byIsMe: true };
         animateThrowNormalized(nx, ny, true);
 
-        // write to DB
         await roomRef.update(updates);
         await roomRef.child('throws').push(ev);
 
@@ -1599,11 +1639,9 @@
       if (!roomRef || !mySeat) return;
       const by = ev.by;
       if (by === mySeat) {
-        // local already animated
         return;
       }
 
-      // opponent throw animation
       pendingThrowInfo = { score: ev.score, bust: !!ev.bust, bySeat: by, byIsMe: false };
       animateThrowNormalized(ev.nx, ev.ny, false);
     }
@@ -1623,7 +1661,6 @@
     }
 
     async function leaveRoom({ endIfPlaying = false, removeRoom = false } = {}) {
-      // 允許在任何狀態呼叫（大廳/對局/結算/返回主頁）
       if (!firebaseDb || !roomRef || !mySeat) {
         detachRoomListeners();
         roomCode = null;
@@ -1634,31 +1671,25 @@
         return;
       }
 
-      const localRoomRef = roomRef; // keep a stable ref
+      const localRoomRef = roomRef;
       const seat = mySeat;
 
       try {
         const snap = await once(localRoomRef);
         const room = snap.val();
         if (room) {
-          // (2) 對局中任一方返回主頁 => 房間立即消失
-          // 或任何需要強制清掉房間的情境
           if (removeRoom) {
             await localRoomRef.remove();
           } else if (endIfPlaying && room.status === 'playing') {
-            // 舊行為：結束對局並稍後清除（保留給需要顯示結算的流程）
             const winner = (seat === 'p1') ? 'p2' : 'p1';
             await localRoomRef.update({ status: 'ended', winner, endedAt: firebase.database.ServerValue.TIMESTAMP });
             scheduleRoomCleanup();
           } else {
-            // (1) 創建者在大廳離開 => 直接刪除房間（避免殘留）
             if (room.status === 'lobby' && seat === 'p1') {
               await localRoomRef.remove();
             } else if (room.status === 'lobby') {
-              // p2 離開大廳：只移除自己座位
               await localRoomRef.child('players/' + seat).remove();
             } else {
-              // playing/ended：只標記離線（除非外部指定 removeRoom）
               await localRoomRef.child('players/' + seat).update({ connected: false, lastSeen: firebase.database.ServerValue.TIMESTAMP });
             }
           }
@@ -1667,13 +1698,11 @@
 
       detachRoomListeners();
 
-      // clear local
       roomCode = null;
       mySeat = null;
       myNickname = '';
       roomCleanupScheduled = false;
 
-      // clear inputs
       $('roomCodeInput').value = '';
       $('nicknameInput').value = '';
     }
@@ -1704,7 +1733,6 @@
 
       $('backBtn').classList.remove('show');
 
-      // labels
       $('endTitle').textContent = playerWon ? '🎉 恭喜獲勝！' : (isMultiplayer ? '😢 對手獲勝' : '😢 AI 獲勝');
       $('winnerText').textContent = playerWon ? '你成功將分數歸零！' : (isMultiplayer ? '對手先將分數歸零了' : 'AI 先將分數歸零了');
       $('winnerText').style.color = playerWon ? '#2ecc71' : '#e74c3c';
@@ -1720,7 +1748,6 @@
       $('lobbyScreen').classList.add('hidden');
 
       if (isMultiplayer) {
-        // auto cleanup room + clear room/nickname
         scheduleRoomCleanup();
         $('roomCodeInput').value = '';
         $('nicknameInput').value = '';
@@ -1756,9 +1783,7 @@
       $('playerScore').textContent = playerScore;
       $('aiScore').textContent = aiScore;
       $('gameMode').textContent = selectedMode;
-      // LEG INFO REMOVED HERE
 
-      // checkout hint only for local player's turn
       const hintEl = $('checkoutHint');
       if (matchType === 'ai') {
         if (playerScore <= 170 && isPlayerTurn) hintEl.textContent = getCheckoutHint(playerScore);
@@ -1768,7 +1793,6 @@
         else { hintEl.textContent = ''; currentHighlightTarget = null; }
       }
 
-      // darts display
       let pDisp = '';
       for (let i = 0; i < 3; i++) pDisp += i < playerDartsLeft ? '🎯' : '⚫';
       $('playerDarts').textContent = pDisp;
@@ -1826,7 +1850,6 @@
         }
       }
 
-      // keep UI in sync while waiting (multiplayer)
       if (matchType === 'multi' && currentState === GameState.WAITING_OPPONENT) {
         updateUI();
         updateScoreHistory();
@@ -1878,7 +1901,6 @@
 
       const isFlashOn = Math.floor(Date.now() / 600) % 2 === 0;
 
-      // shadow
       ctx.save();
       ctx.shadowColor = 'rgba(0,0,0,0.5)';
       ctx.shadowBlur = 30;
@@ -1889,7 +1911,6 @@
       ctx.fill();
       ctx.restore();
 
-      // border
       ctx.beginPath();
       ctx.arc(boardCenterX, boardCenterY, doubleOuter + 5, 0, Math.PI * 2);
       ctx.strokeStyle = '#555';
@@ -1920,7 +1941,6 @@
         drawSegment(innerSingleOuter, innerSingleInner, startAngle, endAngle, singleColor);
       }
 
-      // outer bull
       ctx.beginPath();
       ctx.arc(boardCenterX, boardCenterY, outerBullRadius, 0, Math.PI * 2);
       ctx.fillStyle = '#27ae60';
@@ -1929,7 +1949,6 @@
       ctx.lineWidth = 2;
       ctx.stroke();
 
-      // bull
       let bullColor = '#e74c3c';
       if (currentHighlightTarget && currentHighlightTarget.type === 'bull' && isFlashOn) bullColor = '#ffd700';
       ctx.beginPath();
@@ -1940,7 +1959,6 @@
       ctx.lineWidth = 1;
       ctx.stroke();
 
-      // segment lines
       ctx.strokeStyle = '#666';
       ctx.lineWidth = 1;
       for (let i = 0; i < segments; i++) {
@@ -1951,7 +1969,6 @@
         ctx.stroke();
       }
 
-      // numbers
       ctx.font = `bold ${boardRadius * 0.07}px Arial`;
       ctx.fillStyle = '#fff';
       ctx.textAlign = 'center';
