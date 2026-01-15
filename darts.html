@@ -357,6 +357,10 @@
     // pending multiplayer hit display
     let pendingThrowInfo = null; // { score, bust, bySeat, byIsMe }
 
+    // Ghost room cleanup tracking
+    let disconnectCheckTimeout = null;
+    const DISCONNECT_TIMEOUT_MS = 8000; // 8 seconds to confirm disconnection
+
     // ==================== Utilities ====================
     const $ = (id) => document.getElementById(id);
 
@@ -455,6 +459,8 @@
       } else {
         $('aiOptions').classList.add('hidden');
         $('multiOptions').classList.remove('hidden');
+        // Run background cleanup of stale/ghost rooms when entering multi mode
+        cleanupStaleRooms();
       }
     }
 
@@ -1031,6 +1037,7 @@
     // FIX: Reset all multiplayer state properly before any new operation
     function resetMultiplayerState() {
       detachRoomListeners();
+      clearDisconnectCheck();
       roomCode = null;
       mySeat = null;
       myNickname = '';
@@ -1038,6 +1045,149 @@
       lastSeenTurnIndex = null;
       processedThrowKeys = new Set();
       pendingThrowInfo = null;
+    }
+
+    // ==================== Ghost Room Cleanup ====================
+    function clearDisconnectCheck() {
+      if (disconnectCheckTimeout) {
+        clearTimeout(disconnectCheckTimeout);
+        disconnectCheckTimeout = null;
+      }
+    }
+
+    // Check if opponent is disconnected and clean up ghost room
+    function checkAndCleanupDisconnectedPlayer(data) {
+      if (!data || !roomRef || !mySeat) return;
+      
+      const oppSeat = (mySeat === 'p1') ? 'p2' : 'p1';
+      const opponent = data.players?.[oppSeat];
+      const me = data.players?.[mySeat];
+      
+      // If we don't have both players, skip
+      if (!me || !opponent) return;
+      
+      // Check if opponent is disconnected
+      const oppConnected = opponent.connected;
+      const oppLastSeen = opponent.lastSeen || 0;
+      const now = Date.now();
+      
+      // If opponent's connected is explicitly false
+      if (oppConnected === false) {
+        // Clear any existing timeout
+        clearDisconnectCheck();
+        
+        // Schedule cleanup after timeout to confirm disconnection
+        disconnectCheckTimeout = setTimeout(async () => {
+          try {
+            // Re-check the room state
+            const snap = await once(roomRef);
+            const currentData = snap.val();
+            if (!currentData) return; // Room already deleted
+            
+            const currentOpp = currentData.players?.[oppSeat];
+            
+            // If opponent is still disconnected, clean up
+            if (currentOpp && currentOpp.connected === false) {
+              console.log('Opponent disconnected, cleaning up ghost room...');
+              
+              if (currentData.status === 'lobby') {
+                // In lobby: remove opponent's seat (p2) or delete room (if p1 left)
+                if (oppSeat === 'p2') {
+                  await roomRef.child('players/p2').remove();
+                  console.log('Removed disconnected p2 from lobby');
+                } else {
+                  // p1 left while in lobby - delete entire room
+                  await roomRef.remove();
+                  console.log('Deleted ghost room (p1 disconnected in lobby)');
+                }
+              } else if (currentData.status === 'playing') {
+                // In game: end the game with remaining player as winner
+                await roomRef.update({
+                  status: 'ended',
+                  winner: mySeat,
+                  endedAt: firebase.database.ServerValue.TIMESTAMP
+                });
+                console.log('Ended game due to opponent disconnect');
+                scheduleRoomCleanup();
+              }
+            }
+          } catch (e) {
+            console.error('Error cleaning up disconnected player:', e);
+          }
+        }, DISCONNECT_TIMEOUT_MS);
+      } else if (oppConnected === true) {
+        // Opponent is connected, clear any pending cleanup
+        clearDisconnectCheck();
+      }
+    }
+
+    // Periodic cleanup of stale/ghost rooms (runs on app init and when entering multi mode)
+    async function cleanupStaleRooms() {
+      if (!ensureFirebase()) return;
+      
+      try {
+        const roomsRef = firebaseDb.ref('rooms');
+        const snap = await once(roomsRef);
+        const rooms = snap.val();
+        
+        if (!rooms) return;
+        
+        const now = Date.now();
+        const STALE_THRESHOLD_MS = 30 * 60 * 1000; // 30 minutes
+        const DISCONNECT_STALE_MS = 60 * 1000; // 1 minute for disconnected players
+        
+        for (const [code, room] of Object.entries(rooms)) {
+          if (!room) continue;
+          
+          let shouldDelete = false;
+          let reason = '';
+          
+          // Check if room is too old
+          if (room.createdAt && (now - room.createdAt > STALE_THRESHOLD_MS)) {
+            shouldDelete = true;
+            reason = 'Room older than 30 minutes';
+          }
+          
+          // Check if room ended long ago
+          if (room.status === 'ended' && room.endedAt && (now - room.endedAt > 60000)) {
+            shouldDelete = true;
+            reason = 'Ended room not cleaned up';
+          }
+          
+          // Check for ghost rooms: p1 disconnected for too long
+          const p1 = room.players?.p1;
+          if (p1 && p1.connected === false && p1.lastSeen) {
+            if (now - p1.lastSeen > DISCONNECT_STALE_MS) {
+              shouldDelete = true;
+              reason = 'P1 disconnected for too long';
+            }
+          }
+          
+          // Check for ghost p2: p2 exists but p1 is missing or disconnected
+          const p2 = room.players?.p2;
+          if (p2 && p2.nickname && (!p1 || !p1.nickname)) {
+            shouldDelete = true;
+            reason = 'Ghost p2 without valid p1';
+          }
+          
+          // Check for rooms with no valid players
+          if (!p1?.nickname && !p2?.nickname) {
+            shouldDelete = true;
+            reason = 'No valid players in room';
+          }
+          
+          if (shouldDelete) {
+            try {
+              await firebaseDb.ref('rooms/' + code).remove();
+              console.log(`Cleaned up stale room ${code}: ${reason}`);
+            } catch (e) {
+              console.error(`Failed to clean up room ${code}:`, e);
+            }
+          }
+        }
+      } catch (e) {
+        console.error('Error during stale room cleanup:', e);
+      }
     }
 
     async function createRoomFlow() {
@@ -1329,6 +1479,7 @@
         if (!data) {
           // room removed
           detachRoomListeners();
+          clearDisconnectCheck();
           roomCode = null;
           mySeat = null;
           myNickname = '';
@@ -1340,6 +1491,9 @@
           }
           return;
         }
+
+        // Check for disconnected opponent and cleanup ghost rooms
+        checkAndCleanupDisconnectedPlayer(data);
 
         // Update lobby
         if (data.status === 'lobby') {
@@ -1393,19 +1547,37 @@
       throwsListenerAttached = false;
       roomRef = null;
       throwsRef = null;
+      
+      // Clear disconnect check timer
+      clearDisconnectCheck();
     }
 
     function updateLobbyUI(data) {
       $('lobbyRoomCode').textContent = roomCode;
-      const p1 = data.players?.p1?.nickname;
-      const p2 = data.players?.p2?.nickname;
+      const p1Data = data.players?.p1;
+      const p2Data = data.players?.p2;
+      const p1 = p1Data?.nickname;
+      const p2 = p2Data?.nickname;
+      
+      // Show connection status with colored indicators
+      const p1Status = p1 ? (p1Data.connected === false ? ' 🔴' : ' 🟢') : '';
+      const p2Status = p2 ? (p2Data.connected === false ? ' 🔴' : ' 🟢') : '';
+      
       $('lobbyPlayers').innerHTML = [
-        `<div>1️⃣ ${p1 ? safeText(p1) : '<span class="opacity-60">（空位）</span>'}</div>`,
-        `<div>2️⃣ ${p2 ? safeText(p2) : '<span class="opacity-60">（等待加入）</span>'}</div>`
+        `<div>1️⃣ ${p1 ? safeText(p1) + p1Status : '<span class="opacity-60">（空位）</span>'}</div>`,
+        `<div>2️⃣ ${p2 ? safeText(p2) + p2Status : '<span class="opacity-60">（等待加入）</span>'}</div>`
       ].join('');
 
-      if (p1 && p2) setStatus($('lobbyStatus'), '兩位玩家已到齊，準備開始！', 'ok');
-      else setStatus($('lobbyStatus'), '等待另一位玩家加入...', null);
+      if (p1 && p2) {
+        // Check if any player is disconnected
+        if (p1Data.connected === false || p2Data.connected === false) {
+          setStatus($('lobbyStatus'), '偵測到玩家離線，等待重連或自動清理...', 'error');
+        } else {
+          setStatus($('lobbyStatus'), '兩位玩家已到齊，準備開始！', 'ok');
+        }
+      } else {
+        setStatus($('lobbyStatus'), '等待另一位玩家加入...', null);
+      }
     }
 
     async function tryStartMultiplayerGame() {
@@ -1462,6 +1634,11 @@
           scheduleRoomCleanup();
         }
         return;
+      }
+
+      // Check if opponent is disconnected and show warning
+      if (opp.connected === false && data.status === 'playing') {
+        updatePhaseIndicator('⚠️ 對手已離線，等待重連...');
       }
 
       $('playerName').textContent = '👤 ' + safeText(me.nickname || '你');
