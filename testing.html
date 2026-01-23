@@ -531,6 +531,10 @@
                 <div class="results-stat-label">平均配速</div>
                 <div class="results-stat-value" id="resultPace">--:-- /km</div>
             </div>
+            <div class="results-stat">
+                <div class="results-stat-label">平均時速</div>
+                <div class="results-stat-value" id="resultSpeed">0.0 km/h</div>
+            </div>
 
             <button class="results-btn" onclick="resetRun()">🔄 重新開始</button>
         </div>
@@ -599,6 +603,7 @@
             resultDistance: document.getElementById('resultDistance'),
             resultTime: document.getElementById('resultTime'),
             resultPace: document.getElementById('resultPace'),
+            resultSpeed: document.getElementById('resultSpeed'),
             debugInfo: document.getElementById('debugInfo'),
             debugRawPoints: document.getElementById('debugRawPoints'),
             debugFilteredPoints: document.getElementById('debugFilteredPoints'),
@@ -1042,8 +1047,22 @@
             if (elapsedSeconds > 0 && totalDistanceMeters > 0) {
                 const avgSpeedMs = totalDistanceMeters / elapsedSeconds;
                 elements.resultPace.textContent = `${formatPace(avgSpeedMs, currentUnit)} ${paceUnitLabel}`;
+                
+                // 計算平均時速
+                let avgSpeedPerHour;
+                let speedUnitLabel;
+                if (currentUnit === 'km') {
+                    avgSpeedPerHour = avgSpeedMs * 3.6; // m/s 轉 km/h
+                    speedUnitLabel = 'km/h';
+                } else {
+                    avgSpeedPerHour = avgSpeedMs * 2.237; // m/s 轉 mi/h
+                    speedUnitLabel = 'mi/h';
+                }
+                elements.resultSpeed.textContent = `${avgSpeedPerHour.toFixed(1)} ${speedUnitLabel}`;
             } else {
                 elements.resultPace.textContent = `--:-- ${paceUnitLabel}`;
+                const speedUnitLabel = currentUnit === 'km' ? 'km/h' : 'mi/h';
+                elements.resultSpeed.textContent = `0.0 ${speedUnitLabel}`;
             }
             
             elements.resultsOverlay.classList.add('show');
