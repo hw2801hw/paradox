@@ -791,6 +791,23 @@
         }
 
         // ===================================================================
+        // 更新平均配速（由計時器每秒呼叫）
+        // ===================================================================
+        /**
+         * 單獨更新平均配速顯示
+         * 這個函數由計時器每秒呼叫，確保即使沒有新的GPS點，平均配速也會更新
+         */
+        function updateAveragePace() {
+            if (elapsedSeconds > 0 && totalDistanceMeters > 0) {
+                const avgSpeedMs = totalDistanceMeters / elapsedSeconds;
+                elements.avgPace.textContent = formatPace(avgSpeedMs, currentUnit);
+            } else if (elapsedSeconds > 0 && totalDistanceMeters === 0) {
+                // 有時間但沒距離（可能還在等待第一個有效移動）
+                elements.avgPace.textContent = '--:--';
+            }
+        }
+
+        // ===================================================================
         // GPS 位置處理
         // ===================================================================
         /**
@@ -976,6 +993,9 @@
                 if (isGpsReady) {
                     elapsedSeconds++;
                     elements.elapsedTime.textContent = formatTime(elapsedSeconds);
+                    
+                    // 每秒更新平均配速（即使沒有新的GPS點也要更新）
+                    updateAveragePace();
                 }
             }, 1000);
         }
