@@ -3,74 +3,91 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>跑步配速記錄器</title>
+    <title>跑步追蹤器</title>
     <style>
-        /* ===== 基礎樣式重置 ===== */
+        /* ===== 基礎樣式與深色模式 ===== */
         * {
+            box-sizing: border-box;
             margin: 0;
             padding: 0;
-            box-sizing: border-box;
+        }
+
+        :root {
+            --bg-primary: #0a0a0f;
+            --bg-secondary: #1a1a24;
+            --bg-card: #252532;
+            --text-primary: #ffffff;
+            --text-secondary: #a0a0b0;
+            --accent-green: #00d68f;
+            --accent-green-dark: #00a870;
+            --accent-red: #ff4757;
+            --accent-red-dark: #cc3a47;
+            --accent-blue: #3b82f6;
+            --accent-yellow: #fbbf24;
         }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
             min-height: 100vh;
-            color: #fff;
-            padding: 20px;
-            padding-bottom: 120px;
+            padding: 16px;
+            padding-bottom: 100px;
         }
 
-        /* ===== 標題樣式 ===== */
+        /* ===== 標題區 ===== */
         .header {
             text-align: center;
-            margin-bottom: 20px;
+            padding: 20px 0;
         }
 
         .header h1 {
-            font-size: 1.8rem;
-            font-weight: 600;
-            color: #fff;
+            font-size: 28px;
+            font-weight: 700;
+            margin-bottom: 8px;
         }
 
         .header .subtitle {
-            font-size: 0.9rem;
-            color: #8892b0;
-            margin-top: 5px;
+            color: var(--text-secondary);
+            font-size: 14px;
         }
 
-        /* ===== 狀態提示區 ===== */
+        /* ===== 狀態指示器 ===== */
         .status-bar {
-            background: rgba(255, 255, 255, 0.1);
-            border-radius: 12px;
-            padding: 12px 16px;
-            text-align: center;
-            margin-bottom: 20px;
-            font-size: 1rem;
             display: flex;
             align-items: center;
             justify-content: center;
             gap: 10px;
+            padding: 12px 20px;
+            background: var(--bg-secondary);
+            border-radius: 50px;
+            margin-bottom: 24px;
         }
 
         .status-dot {
             width: 12px;
             height: 12px;
             border-radius: 50%;
-            background: #6c757d;
+            background: var(--text-secondary);
+            animation: none;
         }
 
-        .status-dot.recording {
-            background: #22c55e;
+        .status-dot.searching {
+            background: var(--accent-yellow);
             animation: pulse 1.5s infinite;
         }
 
-        .status-dot.warning {
-            background: #f59e0b;
+        .status-dot.locked {
+            background: var(--accent-green);
+        }
+
+        .status-dot.running {
+            background: var(--accent-green);
+            animation: pulse 1s infinite;
         }
 
         .status-dot.error {
-            background: #ef4444;
+            background: var(--accent-red);
         }
 
         @keyframes pulse {
@@ -78,877 +95,1044 @@
             50% { opacity: 0.5; transform: scale(1.2); }
         }
 
-        /* ===== 主要數據顯示區 ===== */
-        .main-stats {
-            background: rgba(255, 255, 255, 0.05);
-            border-radius: 20px;
-            padding: 30px 20px;
-            margin-bottom: 20px;
+        .status-text {
+            font-size: 14px;
+            font-weight: 500;
         }
 
-        /* 配速（最大顯示） */
-        .pace-display {
+        .gps-accuracy {
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-left: 8px;
+            padding: 4px 10px;
+            background: var(--bg-card);
+            border-radius: 20px;
+        }
+
+        /* ===== 主要配速顯示 ===== */
+        .main-pace-display {
             text-align: center;
-            margin-bottom: 25px;
+            padding: 30px 0;
+            margin-bottom: 20px;
         }
 
         .pace-label {
-            font-size: 0.9rem;
-            color: #8892b0;
+            font-size: 14px;
+            color: var(--text-secondary);
             text-transform: uppercase;
             letter-spacing: 2px;
-            margin-bottom: 5px;
+            margin-bottom: 8px;
         }
 
         .pace-value {
-            font-size: 4.5rem;
+            font-size: 120px;
             font-weight: 700;
-            color: #64ffda;
             line-height: 1;
+            font-variant-numeric: tabular-nums;
+            background: linear-gradient(135deg, var(--accent-green), var(--accent-blue));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
         }
 
         .pace-unit {
-            font-size: 1.2rem;
-            color: #8892b0;
-            margin-top: 5px;
+            font-size: 24px;
+            color: var(--text-secondary);
+            margin-top: 8px;
         }
 
-        /* 次要數據網格 */
+        .unit-toggle {
+            display: inline-flex;
+            background: var(--bg-secondary);
+            border-radius: 20px;
+            padding: 4px;
+            margin-top: 16px;
+        }
+
+        .unit-toggle button {
+            padding: 8px 16px;
+            border: none;
+            background: transparent;
+            color: var(--text-secondary);
+            font-size: 14px;
+            border-radius: 16px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .unit-toggle button.active {
+            background: var(--accent-green);
+            color: var(--bg-primary);
+            font-weight: 600;
+        }
+
+        /* ===== 統計卡片網格 ===== */
         .stats-grid {
             display: grid;
             grid-template-columns: repeat(2, 1fr);
-            gap: 15px;
+            gap: 12px;
+            margin-bottom: 24px;
         }
 
         .stat-card {
-            background: rgba(255, 255, 255, 0.05);
-            border-radius: 12px;
-            padding: 15px;
+            background: var(--bg-card);
+            border-radius: 16px;
+            padding: 20px;
             text-align: center;
+        }
+
+        .stat-card.wide {
+            grid-column: span 2;
         }
 
         .stat-label {
-            font-size: 0.75rem;
-            color: #8892b0;
+            font-size: 12px;
+            color: var(--text-secondary);
             text-transform: uppercase;
             letter-spacing: 1px;
-            margin-bottom: 5px;
+            margin-bottom: 8px;
         }
 
         .stat-value {
-            font-size: 1.8rem;
-            font-weight: 600;
-            color: #fff;
+            font-size: 36px;
+            font-weight: 700;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .stat-value.time {
+            font-size: 48px;
+            color: var(--accent-blue);
         }
 
         .stat-unit {
-            font-size: 0.8rem;
-            color: #8892b0;
+            font-size: 14px;
+            color: var(--text-secondary);
+            margin-top: 4px;
         }
 
-        /* 經緯度顯示 */
-        .location-info {
-            margin-top: 20px;
-            padding-top: 15px;
-            border-top: 1px solid rgba(255, 255, 255, 0.1);
-            text-align: center;
-        }
-
-        .location-info p {
-            font-size: 0.75rem;
-            color: #6c757d;
-            margin: 3px 0;
-        }
-
-        /* ===== 結束後的總結區 ===== */
-        .summary-section {
-            display: none;
-            background: linear-gradient(135deg, rgba(100, 255, 218, 0.1) 0%, rgba(100, 255, 218, 0.05) 100%);
-            border: 1px solid rgba(100, 255, 218, 0.3);
-            border-radius: 20px;
-            padding: 25px 20px;
-            margin-bottom: 20px;
-        }
-
-        .summary-section.show {
-            display: block;
-        }
-
-        .summary-title {
-            text-align: center;
-            font-size: 1.2rem;
-            color: #64ffda;
-            margin-bottom: 20px;
-            font-weight: 600;
-        }
-
-        .summary-grid {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 10px;
-        }
-
-        .summary-item {
-            text-align: center;
-        }
-
-        .summary-item .value {
-            font-size: 1.5rem;
-            font-weight: 700;
-            color: #fff;
-        }
-
-        .summary-item .label {
-            font-size: 0.7rem;
-            color: #8892b0;
-            margin-top: 3px;
-        }
-
-        /* ===== 按鈕區 ===== */
-        .button-container {
+        /* ===== 控制按鈕 ===== */
+        .controls {
             position: fixed;
             bottom: 0;
             left: 0;
             right: 0;
-            padding: 20px;
-            background: linear-gradient(to top, #1a1a2e 80%, transparent);
+            padding: 16px;
+            background: linear-gradient(transparent, var(--bg-primary) 20%);
             display: flex;
-            gap: 15px;
+            gap: 12px;
         }
 
         .btn {
             flex: 1;
-            padding: 18px 24px;
-            font-size: 1.1rem;
-            font-weight: 600;
+            padding: 20px;
             border: none;
             border-radius: 16px;
+            font-size: 18px;
+            font-weight: 700;
             cursor: pointer;
-            transition: all 0.3s ease;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-        }
-
-        .btn-start {
-            background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
-            color: #fff;
-            box-shadow: 0 4px 15px rgba(34, 197, 94, 0.4);
-        }
-
-        .btn-start:hover:not(:disabled) {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(34, 197, 94, 0.5);
-        }
-
-        .btn-start:disabled {
-            background: #4a5568;
-            cursor: not-allowed;
-            box-shadow: none;
-        }
-
-        .btn-stop {
-            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
-            color: #fff;
-            box-shadow: 0 4px 15px rgba(239, 68, 68, 0.4);
-        }
-
-        .btn-stop:hover:not(:disabled) {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(239, 68, 68, 0.5);
-        }
-
-        .btn-stop:disabled {
-            background: #4a5568;
-            cursor: not-allowed;
-            box-shadow: none;
-            opacity: 0.6;
-        }
-
-        /* ===== 精準度指示器 ===== */
-        .accuracy-indicator {
+            transition: all 0.2s;
             display: flex;
             align-items: center;
             justify-content: center;
             gap: 8px;
-            margin-top: 10px;
-            font-size: 0.8rem;
-            color: #8892b0;
         }
 
-        .accuracy-bar {
-            width: 60px;
-            height: 6px;
-            background: rgba(255, 255, 255, 0.2);
-            border-radius: 3px;
-            overflow: hidden;
+        .btn-start {
+            background: var(--accent-green);
+            color: var(--bg-primary);
         }
 
-        .accuracy-fill {
-            height: 100%;
-            border-radius: 3px;
-            transition: width 0.3s ease, background 0.3s ease;
+        .btn-start:hover {
+            background: var(--accent-green-dark);
         }
 
-        .accuracy-fill.excellent {
-            background: #22c55e;
+        .btn-start:disabled {
+            background: var(--bg-secondary);
+            color: var(--text-secondary);
+            cursor: not-allowed;
         }
 
-        .accuracy-fill.good {
-            background: #64ffda;
+        .btn-stop {
+            background: var(--accent-red);
+            color: white;
         }
 
-        .accuracy-fill.poor {
-            background: #f59e0b;
+        .btn-stop:hover {
+            background: var(--accent-red-dark);
         }
 
-        .accuracy-fill.bad {
-            background: #ef4444;
+        .btn-stop:disabled {
+            background: var(--bg-secondary);
+            color: var(--text-secondary);
+            cursor: not-allowed;
         }
 
-        /* ===== 響應式調整 ===== */
-        @media (max-width: 360px) {
-            .pace-value {
-                font-size: 3.5rem;
-            }
-            .stat-value {
-                font-size: 1.5rem;
-            }
+        .btn-reset {
+            background: var(--bg-secondary);
+            color: var(--text-primary);
         }
 
-        @media (min-width: 768px) {
-            body {
-                max-width: 500px;
-                margin: 0 auto;
-            }
-            .button-container {
-                max-width: 500px;
-                left: 50%;
-                transform: translateX(-50%);
-            }
+        /* ===== 結果畫面 ===== */
+        .results-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.9);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            z-index: 100;
+        }
+
+        .results-overlay.show {
+            display: flex;
+        }
+
+        .results-card {
+            background: var(--bg-secondary);
+            border-radius: 24px;
+            padding: 32px;
+            width: 100%;
+            max-width: 400px;
+            text-align: center;
+        }
+
+        .results-title {
+            font-size: 24px;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+
+        .results-subtitle {
+            color: var(--text-secondary);
+            margin-bottom: 32px;
+        }
+
+        .results-stat {
+            padding: 20px 0;
+            border-bottom: 1px solid var(--bg-card);
+        }
+
+        .results-stat:last-of-type {
+            border-bottom: none;
+        }
+
+        .results-stat-label {
+            font-size: 14px;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+        }
+
+        .results-stat-value {
+            font-size: 42px;
+            font-weight: 700;
+        }
+
+        .results-btn {
+            width: 100%;
+            margin-top: 24px;
+            padding: 18px;
+            background: var(--accent-green);
+            color: var(--bg-primary);
+            border: none;
+            border-radius: 16px;
+            font-size: 18px;
+            font-weight: 700;
+            cursor: pointer;
+        }
+
+        /* ===== 錯誤/載入提示 ===== */
+        .message-box {
+            background: var(--bg-card);
+            border-radius: 16px;
+            padding: 24px;
+            text-align: center;
+            margin-bottom: 24px;
+            display: none;
+        }
+
+        .message-box.show {
+            display: block;
+        }
+
+        .message-box.error {
+            border: 2px solid var(--accent-red);
+        }
+
+        .message-box.info {
+            border: 2px solid var(--accent-blue);
+        }
+
+        .message-icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+        }
+
+        .message-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .message-text {
+            color: var(--text-secondary);
+            font-size: 14px;
+            line-height: 1.5;
+        }
+
+        /* ===== 載入動畫 ===== */
+        .loader {
+            width: 40px;
+            height: 40px;
+            border: 4px solid var(--bg-secondary);
+            border-top-color: var(--accent-green);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 16px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* ===== 調試資訊（可選顯示） ===== */
+        .debug-info {
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            padding: 16px;
+            margin-top: 20px;
+            font-size: 12px;
+            font-family: monospace;
+            display: none;
+        }
+
+        .debug-info.show {
+            display: block;
+        }
+
+        .debug-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 4px 0;
+            border-bottom: 1px solid var(--bg-card);
         }
     </style>
 </head>
 <body>
     <!-- 標題區 -->
     <header class="header">
-        <h1>🏃 跑步配速記錄器</h1>
-        <p class="subtitle">使用 GPS 追蹤您的跑步數據</p>
+        <h1>🏃 跑步追蹤器</h1>
+        <p class="subtitle">使用 GPS 精準追蹤您的跑步數據</p>
     </header>
 
-    <!-- 狀態提示列 -->
+    <!-- 狀態列 -->
     <div class="status-bar">
-        <span class="status-dot" id="statusDot"></span>
-        <span id="statusText">準備就緒，按下開始跑步</span>
+        <div class="status-dot" id="statusDot"></div>
+        <span class="status-text" id="statusText">準備就緒</span>
+        <span class="gps-accuracy" id="gpsAccuracy">GPS: --</span>
     </div>
 
-    <!-- 主要數據顯示區 -->
-    <div class="main-stats">
-        <!-- 配速（最大顯示） -->
-        <div class="pace-display">
-            <div class="pace-label">當前配速</div>
-            <div class="pace-value" id="currentPace">--:--</div>
-            <div class="pace-unit">/公里</div>
-        </div>
+    <!-- 訊息框 -->
+    <div class="message-box" id="messageBox">
+        <div class="loader" id="loader"></div>
+        <div class="message-icon" id="messageIcon"></div>
+        <div class="message-title" id="messageTitle"></div>
+        <div class="message-text" id="messageText"></div>
+    </div>
 
-        <!-- 其他數據網格 -->
-        <div class="stats-grid">
-            <div class="stat-card">
-                <div class="stat-label">速度</div>
-                <div class="stat-value" id="currentSpeed">0.0</div>
-                <div class="stat-unit">km/h</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-label">總距離</div>
-                <div class="stat-value" id="totalDistance">0.00</div>
-                <div class="stat-unit">公里</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-label">經過時間</div>
-                <div class="stat-value" id="elapsedTime">00:00</div>
-                <div class="stat-unit">時間</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-label">GPS精準度</div>
-                <div class="stat-value" id="accuracyValue">--</div>
-                <div class="stat-unit">公尺</div>
-            </div>
-        </div>
-
-        <!-- 精準度指示器 -->
-        <div class="accuracy-indicator">
-            <span>訊號品質:</span>
-            <div class="accuracy-bar">
-                <div class="accuracy-fill" id="accuracyFill" style="width: 0%"></div>
-            </div>
-            <span id="accuracyLabel">--</span>
-        </div>
-
-        <!-- 經緯度資訊 -->
-        <div class="location-info">
-            <p>緯度: <span id="latValue">--</span></p>
-            <p>經度: <span id="lonValue">--</span></p>
+    <!-- 主要配速顯示 -->
+    <div class="main-pace-display">
+        <div class="pace-label">當前配速</div>
+        <div class="pace-value" id="currentPace">--:--</div>
+        <div class="pace-unit" id="paceUnit">/km</div>
+        <div class="unit-toggle">
+            <button id="btnKm" class="active" onclick="setUnit('km')">公里</button>
+            <button id="btnMile" onclick="setUnit('mile')">英里</button>
         </div>
     </div>
 
-    <!-- 結束後的總結區 -->
-    <div class="summary-section" id="summarySection">
-        <div class="summary-title">🎉 跑步完成！</div>
-        <div class="summary-grid">
-            <div class="summary-item">
-                <div class="value" id="summaryDistance">0.00</div>
-                <div class="label">總距離 (km)</div>
-            </div>
-            <div class="summary-item">
-                <div class="value" id="summaryTime">00:00</div>
-                <div class="label">總時間</div>
-            </div>
-            <div class="summary-item">
-                <div class="value" id="summaryPace">--:--</div>
-                <div class="label">平均配速</div>
-            </div>
+    <!-- 統計數據網格 -->
+    <div class="stats-grid">
+        <div class="stat-card wide">
+            <div class="stat-label">經過時間</div>
+            <div class="stat-value time" id="elapsedTime">00:00</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">總距離</div>
+            <div class="stat-value" id="totalDistance">0.00</div>
+            <div class="stat-unit" id="distanceUnit">公里</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">平均配速</div>
+            <div class="stat-value" id="avgPace">--:--</div>
+            <div class="stat-unit" id="avgPaceUnit">/km</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">當前速度</div>
+            <div class="stat-value" id="currentSpeed">0.0</div>
+            <div class="stat-unit" id="speedUnit">km/h</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">有效點數</div>
+            <div class="stat-value" id="validPoints">0</div>
+            <div class="stat-unit">個定位點</div>
         </div>
     </div>
 
-    <!-- 按鈕區 -->
-    <div class="button-container">
+    <!-- 調試資訊（點擊5次標題可顯示） -->
+    <div class="debug-info" id="debugInfo">
+        <div class="debug-row">
+            <span>原始點數:</span>
+            <span id="debugRawPoints">0</span>
+        </div>
+        <div class="debug-row">
+            <span>過濾掉的點:</span>
+            <span id="debugFilteredPoints">0</span>
+        </div>
+        <div class="debug-row">
+            <span>最後緯度:</span>
+            <span id="debugLat">--</span>
+        </div>
+        <div class="debug-row">
+            <span>最後經度:</span>
+            <span id="debugLng">--</span>
+        </div>
+        <div class="debug-row">
+            <span>移動平均速度:</span>
+            <span id="debugMovingAvg">--</span>
+        </div>
+    </div>
+
+    <!-- 控制按鈕 -->
+    <div class="controls">
         <button class="btn btn-start" id="btnStart" onclick="startRun()">
-            開始跑步
+            ▶ 開始跑步
         </button>
         <button class="btn btn-stop" id="btnStop" onclick="stopRun()" disabled>
-            結束跑步
+            ⏹ 結束跑步
         </button>
+    </div>
+
+    <!-- 結果畫面 -->
+    <div class="results-overlay" id="resultsOverlay">
+        <div class="results-card">
+            <div class="results-title">🎉 跑步完成！</div>
+            <div class="results-subtitle">以下是您的跑步統計</div>
+            
+            <div class="results-stat">
+                <div class="results-stat-label">總距離</div>
+                <div class="results-stat-value" id="resultDistance">0.00 km</div>
+            </div>
+            <div class="results-stat">
+                <div class="results-stat-label">總時間</div>
+                <div class="results-stat-value" id="resultTime">00:00</div>
+            </div>
+            <div class="results-stat">
+                <div class="results-stat-label">平均配速</div>
+                <div class="results-stat-value" id="resultPace">--:-- /km</div>
+            </div>
+
+            <button class="results-btn" onclick="resetRun()">🔄 重新開始</button>
+        </div>
     </div>
 
     <script>
-        // ===== 全域變數定義 =====
-        let watchId = null;           // geolocation watchPosition 的 ID
-        let isRunning = false;        // 是否正在記錄中
-        let startTime = null;         // 開始時間
-        let timerInterval = null;     // 計時器 interval ID
+        // ===================================================================
+        // 全域狀態變數
+        // ===================================================================
+        let watchId = null;              // GPS 監聽器 ID
+        let isRunning = false;           // 是否正在跑步
+        let startTime = null;            // 開始時間
+        let elapsedSeconds = 0;          // 經過秒數
+        let timerInterval = null;        // 計時器 interval
+        let totalDistanceMeters = 0;     // 總距離（公尺）
+        let currentUnit = 'km';          // 當前單位 ('km' 或 'mile')
+        
+        // 位置追蹤相關
+        let positions = [];              // 所有有效定位點 [{lat, lng, timestamp, accuracy}]
+        let rawPositionCount = 0;        // 原始定位點數量
+        let filteredCount = 0;           // 被過濾掉的點數量
+        let lastValidPosition = null;    // 上一個有效位置
+        let isGpsReady = false;          // GPS 是否已準備好（精度足夠）
+        let warmupPoints = 0;            // 預熱點數量（等待GPS穩定）
+        
+        // 移動平均配速計算用
+        const MOVING_AVG_WINDOW = 5;     // 移動平均窗口大小（最近5個點）
+        let recentSpeeds = [];           // 最近的速度記錄 (m/s)
 
-        let totalDistance = 0;        // 總距離（公尺）
-        let lastPosition = null;      // 上一個有效的位置點
-        let lastPositionTime = null;  // 上一個位置點的時間
+        // 常數定義
+        const ACCURACY_THRESHOLD = 30;    // GPS 精度門檻（公尺）
+        const MIN_DISTANCE_THRESHOLD = 5; // 最小移動距離門檻（公尺）
+        const WARMUP_ACCURACY = 50;       // 預熱期精度要求（公尺）
+        const WARMUP_POINTS_REQUIRED = 3; // 預熱期需要的點數
 
-        // 速度平滑化用的陣列（取最近幾次的平均）
-        let speedHistory = [];
-        const SPEED_HISTORY_SIZE = 3;
+        // 調試模式
+        let debugClickCount = 0;
 
-        // ===== DOM 元素參考 =====
+        // ===================================================================
+        // DOM 元素引用
+        // ===================================================================
         const elements = {
             statusDot: document.getElementById('statusDot'),
             statusText: document.getElementById('statusText'),
+            gpsAccuracy: document.getElementById('gpsAccuracy'),
             currentPace: document.getElementById('currentPace'),
-            currentSpeed: document.getElementById('currentSpeed'),
-            totalDistance: document.getElementById('totalDistance'),
+            paceUnit: document.getElementById('paceUnit'),
             elapsedTime: document.getElementById('elapsedTime'),
-            accuracyValue: document.getElementById('accuracyValue'),
-            accuracyFill: document.getElementById('accuracyFill'),
-            accuracyLabel: document.getElementById('accuracyLabel'),
-            latValue: document.getElementById('latValue'),
-            lonValue: document.getElementById('lonValue'),
+            totalDistance: document.getElementById('totalDistance'),
+            distanceUnit: document.getElementById('distanceUnit'),
+            avgPace: document.getElementById('avgPace'),
+            avgPaceUnit: document.getElementById('avgPaceUnit'),
+            currentSpeed: document.getElementById('currentSpeed'),
+            speedUnit: document.getElementById('speedUnit'),
+            validPoints: document.getElementById('validPoints'),
             btnStart: document.getElementById('btnStart'),
             btnStop: document.getElementById('btnStop'),
-            summarySection: document.getElementById('summarySection'),
-            summaryDistance: document.getElementById('summaryDistance'),
-            summaryTime: document.getElementById('summaryTime'),
-            summaryPace: document.getElementById('summaryPace')
+            btnKm: document.getElementById('btnKm'),
+            btnMile: document.getElementById('btnMile'),
+            messageBox: document.getElementById('messageBox'),
+            loader: document.getElementById('loader'),
+            messageIcon: document.getElementById('messageIcon'),
+            messageTitle: document.getElementById('messageTitle'),
+            messageText: document.getElementById('messageText'),
+            resultsOverlay: document.getElementById('resultsOverlay'),
+            resultDistance: document.getElementById('resultDistance'),
+            resultTime: document.getElementById('resultTime'),
+            resultPace: document.getElementById('resultPace'),
+            debugInfo: document.getElementById('debugInfo'),
+            debugRawPoints: document.getElementById('debugRawPoints'),
+            debugFilteredPoints: document.getElementById('debugFilteredPoints'),
+            debugLat: document.getElementById('debugLat'),
+            debugLng: document.getElementById('debugLng'),
+            debugMovingAvg: document.getElementById('debugMovingAvg')
         };
 
-        // ===== Haversine 公式：計算兩個經緯度之間的距離（單位：公尺） =====
-        function calculateDistance(lat1, lon1, lat2, lon2) {
-            const R = 6371000; // 地球半徑（公尺）
-            const dLat = toRadians(lat2 - lat1);
-            const dLon = toRadians(lon2 - lon1);
+        // ===================================================================
+        // Haversine Formula - 計算兩點間的球面距離（公尺）
+        // ===================================================================
+        /**
+         * 使用 Haversine 公式計算地球表面兩點間的距離
+         * @param {number} lat1 - 第一點緯度（度）
+         * @param {number} lng1 - 第一點經度（度）
+         * @param {number} lat2 - 第二點緯度（度）
+         * @param {number} lng2 - 第二點經度（度）
+         * @returns {number} 距離（公尺）
+         */
+        function haversineDistance(lat1, lng1, lat2, lng2) {
+            const R = 6371000; // 地球平均半徑（公尺）
             
-            const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-                      Math.cos(toRadians(lat1)) * Math.cos(toRadians(lat2)) *
-                      Math.sin(dLon / 2) * Math.sin(dLon / 2);
-            
+            // 轉換為弧度
+            const φ1 = lat1 * Math.PI / 180;
+            const φ2 = lat2 * Math.PI / 180;
+            const Δφ = (lat2 - lat1) * Math.PI / 180;
+            const Δλ = (lng2 - lng1) * Math.PI / 180;
+
+            // Haversine 公式
+            const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+                      Math.cos(φ1) * Math.cos(φ2) *
+                      Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
             const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-            
-            return R * c; // 距離（公尺）
+
+            return R * c;
         }
 
-        // 角度轉弧度
-        function toRadians(degrees) {
-            return degrees * (Math.PI / 180);
-        }
-
-        // ===== 時間格式化函數 =====
-        function formatTime(seconds) {
-            const hrs = Math.floor(seconds / 3600);
-            const mins = Math.floor((seconds % 3600) / 60);
-            const secs = Math.floor(seconds % 60);
-
-            if (hrs > 0) {
-                return `${hrs}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-            }
-            return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-        }
-
-        // ===== 配速格式化函數（km/h 轉成 分:秒/公里） =====
-        function formatPace(speedKmh) {
-            if (speedKmh <= 0 || !isFinite(speedKmh)) {
-                return '--:--';
-            }
+        // ===================================================================
+        // 配速格式化函數
+        // ===================================================================
+        /**
+         * 將速度（m/s）轉換為配速字串
+         * @param {number} speedMs - 速度（公尺/秒）
+         * @param {string} unit - 單位 ('km' 或 'mile')
+         * @returns {string} 格式化的配速字串（如 "4:28"）
+         */
+        function formatPace(speedMs, unit = 'km') {
+            if (!speedMs || speedMs <= 0) return '--:--';
             
-            const paceMinutes = 60 / speedKmh; // 每公里所需分鐘數
-            
-            // 如果配速超過 30 分鐘/公里，顯示為無效
-            if (paceMinutes > 30) {
-                return '--:--';
-            }
-            
-            const mins = Math.floor(paceMinutes);
-            const secs = Math.round((paceMinutes - mins) * 60);
-            
-            // 處理進位情況
-            if (secs === 60) {
-                return `${mins + 1}:00`;
-            }
-            
-            return `${mins}:${secs.toString().padStart(2, '0')}`;
-        }
-
-        // ===== 更新狀態顯示 =====
-        function updateStatus(message, type = 'normal') {
-            elements.statusText.textContent = message;
-            elements.statusDot.className = 'status-dot';
-            
-            switch (type) {
-                case 'recording':
-                    elements.statusDot.classList.add('recording');
-                    break;
-                case 'warning':
-                    elements.statusDot.classList.add('warning');
-                    break;
-                case 'error':
-                    elements.statusDot.classList.add('error');
-                    break;
-            }
-        }
-
-        // ===== 更新精準度顯示 =====
-        function updateAccuracy(accuracy) {
-            elements.accuracyValue.textContent = accuracy.toFixed(0);
-            
-            let percentage, className, label;
-            
-            if (accuracy <= 10) {
-                percentage = 100;
-                className = 'excellent';
-                label = '極佳';
-            } else if (accuracy <= 20) {
-                percentage = 80;
-                className = 'good';
-                label = '良好';
-            } else if (accuracy <= 30) {
-                percentage = 50;
-                className = 'poor';
-                label = '普通';
+            // 計算每單位距離所需的秒數
+            let secondsPerUnit;
+            if (unit === 'km') {
+                secondsPerUnit = 1000 / speedMs; // 每公里秒數
             } else {
-                percentage = 20;
-                className = 'bad';
-                label = '較差';
+                secondsPerUnit = 1609.344 / speedMs; // 每英里秒數
             }
+
+            // 配速上限檢查（超過 30 分鐘/km 視為無效）
+            if (secondsPerUnit > 1800) return '--:--';
+
+            const minutes = Math.floor(secondsPerUnit / 60);
+            const seconds = Math.floor(secondsPerUnit % 60);
             
-            elements.accuracyFill.style.width = percentage + '%';
-            elements.accuracyFill.className = 'accuracy-fill ' + className;
-            elements.accuracyLabel.textContent = label;
+            return `${minutes}:${seconds.toString().padStart(2, '0')}`;
         }
 
-        // ===== 開始跑步 =====
-        function startRun() {
-            // 檢查瀏覽器是否支援 Geolocation
-            if (!navigator.geolocation) {
-                updateStatus('您的瀏覽器不支援定位功能', 'error');
-                alert('抱歉，您的瀏覽器不支援 GPS 定位功能！');
+        /**
+         * 格式化時間為 mm:ss 或 hh:mm:ss
+         * @param {number} totalSeconds - 總秒數
+         * @returns {string} 格式化的時間字串
+         */
+        function formatTime(totalSeconds) {
+            const hours = Math.floor(totalSeconds / 3600);
+            const minutes = Math.floor((totalSeconds % 3600) / 60);
+            const seconds = totalSeconds % 60;
+
+            if (hours > 0) {
+                return `${hours}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            }
+            return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        }
+
+        /**
+         * 將公尺轉換為指定單位
+         * @param {number} meters - 距離（公尺）
+         * @param {string} unit - 單位 ('km' 或 'mile')
+         * @returns {number} 轉換後的距離
+         */
+        function metersToUnit(meters, unit = 'km') {
+            if (unit === 'km') {
+                return meters / 1000;
+            }
+            return meters / 1609.344;
+        }
+
+        // ===================================================================
+        // 狀態更新函數
+        // ===================================================================
+        function updateStatus(status, text) {
+            elements.statusDot.className = 'status-dot ' + status;
+            elements.statusText.textContent = text;
+        }
+
+        function showMessage(type, icon, title, text, showLoader = false) {
+            elements.messageBox.className = 'message-box show ' + type;
+            elements.loader.style.display = showLoader ? 'block' : 'none';
+            elements.messageIcon.textContent = showLoader ? '' : icon;
+            elements.messageTitle.textContent = title;
+            elements.messageText.textContent = text;
+        }
+
+        function hideMessage() {
+            elements.messageBox.className = 'message-box';
+        }
+
+        // ===================================================================
+        // 單位切換
+        // ===================================================================
+        function setUnit(unit) {
+            currentUnit = unit;
+            
+            // 更新按鈕狀態
+            elements.btnKm.className = unit === 'km' ? 'active' : '';
+            elements.btnMile.className = unit === 'mile' ? 'active' : '';
+            
+            // 更新單位標籤
+            const unitLabel = unit === 'km' ? '公里' : '英里';
+            const paceUnitLabel = unit === 'km' ? '/km' : '/mi';
+            const speedUnitLabel = unit === 'km' ? 'km/h' : 'mi/h';
+            
+            elements.paceUnit.textContent = paceUnitLabel;
+            elements.distanceUnit.textContent = unitLabel;
+            elements.avgPaceUnit.textContent = paceUnitLabel;
+            elements.speedUnit.textContent = speedUnitLabel;
+            
+            // 重新計算並顯示數據
+            updateDisplay();
+        }
+
+        // ===================================================================
+        // 更新顯示
+        // ===================================================================
+        function updateDisplay() {
+            // 總距離
+            const distanceInUnit = metersToUnit(totalDistanceMeters, currentUnit);
+            elements.totalDistance.textContent = distanceInUnit.toFixed(2);
+            
+            // 當前速度（使用移動平均）
+            const avgSpeed = calculateMovingAverageSpeed();
+            let speedInUnit;
+            if (currentUnit === 'km') {
+                speedInUnit = avgSpeed * 3.6; // m/s 轉 km/h
+            } else {
+                speedInUnit = avgSpeed * 2.237; // m/s 轉 mi/h
+            }
+            elements.currentSpeed.textContent = speedInUnit.toFixed(1);
+            
+            // 當前配速（使用移動平均速度計算）
+            elements.currentPace.textContent = formatPace(avgSpeed, currentUnit);
+            
+            // 平均配速（總距離 / 總時間）
+            if (elapsedSeconds > 0 && totalDistanceMeters > 0) {
+                const avgSpeedMs = totalDistanceMeters / elapsedSeconds;
+                elements.avgPace.textContent = formatPace(avgSpeedMs, currentUnit);
+            } else {
+                elements.avgPace.textContent = '--:--';
+            }
+            
+            // 有效點數
+            elements.validPoints.textContent = positions.length;
+            
+            // 調試資訊
+            elements.debugRawPoints.textContent = rawPositionCount;
+            elements.debugFilteredPoints.textContent = filteredCount;
+            elements.debugMovingAvg.textContent = avgSpeed.toFixed(2) + ' m/s';
+        }
+
+        // ===================================================================
+        // 計算移動平均速度
+        // ===================================================================
+        /**
+         * 計算最近 N 個點的移動平均速度
+         * @returns {number} 平均速度（m/s）
+         */
+        function calculateMovingAverageSpeed() {
+            if (recentSpeeds.length === 0) return 0;
+            
+            const sum = recentSpeeds.reduce((a, b) => a + b, 0);
+            return sum / recentSpeeds.length;
+        }
+
+        // ===================================================================
+        // GPS 位置處理
+        // ===================================================================
+        /**
+         * GPS 位置更新回調函數
+         * @param {GeolocationPosition} position - 位置物件
+         */
+        function handlePositionUpdate(position) {
+            const { latitude, longitude, accuracy } = position.coords;
+            const timestamp = position.timestamp;
+            
+            rawPositionCount++;
+            
+            // 更新 GPS 精度顯示
+            elements.gpsAccuracy.textContent = `GPS: ±${Math.round(accuracy)}m`;
+            
+            // 調試資訊
+            elements.debugLat.textContent = latitude.toFixed(6);
+            elements.debugLng.textContent = longitude.toFixed(6);
+
+            // ===== GPS 預熱階段 =====
+            // 等待 GPS 精度穩定後才開始正式計算
+            if (!isGpsReady) {
+                if (accuracy <= WARMUP_ACCURACY) {
+                    warmupPoints++;
+                    updateStatus('searching', `GPS 校準中... (${warmupPoints}/${WARMUP_POINTS_REQUIRED})`);
+                    
+                    if (warmupPoints >= WARMUP_POINTS_REQUIRED) {
+                        isGpsReady = true;
+                        hideMessage();
+                        updateStatus('running', '跑步中');
+                    }
+                } else {
+                    updateStatus('searching', `GPS 精度不足 (±${Math.round(accuracy)}m)`);
+                }
                 return;
             }
 
-            // 重置所有數據
-            resetData();
-            
-            // 更新按鈕狀態
-            elements.btnStart.disabled = true;
-            elements.btnStop.disabled = false;
-            
-            // 隱藏總結區
-            elements.summarySection.classList.remove('show');
-            
-            // 更新狀態
-            updateStatus('GPS 訊號搜尋中...', 'warning');
-            
-            isRunning = true;
-            startTime = Date.now();
-            
-            // 開始計時器
-            timerInterval = setInterval(updateTimer, 1000);
-            
-            // 定位選項設定（高精度模式）
-            const geoOptions = {
-                enableHighAccuracy: true,  // 啟用高精度定位
-                maximumAge: 0,             // 不使用快取的位置
-                timeout: 5000              // 5秒超時
-            };
-            
-            // 開始持續追蹤位置
-            watchId = navigator.geolocation.watchPosition(
-                handlePositionSuccess,
-                handlePositionError,
-                geoOptions
-            );
-        }
-
-        // ===== 位置更新成功處理 =====
-        function handlePositionSuccess(position) {
-            const { latitude, longitude, accuracy } = position.coords;
-            const currentTime = Date.now();
-            
-            // 更新經緯度顯示
-            elements.latValue.textContent = latitude.toFixed(6);
-            elements.lonValue.textContent = longitude.toFixed(6);
-            
-            // 更新精準度顯示
-            updateAccuracy(accuracy);
-            
-            // 如果精準度太差（> 30公尺），顯示警告但仍記錄
-            if (accuracy > 30) {
-                updateStatus('定位精準度較低，請到開闊處', 'warning');
-            } else {
-                updateStatus('正在記錄中...', 'recording');
+            // ===== 精度過濾 =====
+            // 只接受精度 ≤ 30 公尺的點
+            if (accuracy > ACCURACY_THRESHOLD) {
+                filteredCount++;
+                updateStatus('running', `精度過濾 (±${Math.round(accuracy)}m)`);
+                return;
             }
-            
-            // 如果有上一個位置，計算距離和速度
-            if (lastPosition !== null && lastPositionTime !== null) {
-                // 計算與上一個點的距離（公尺）
-                const distance = calculateDistance(
-                    lastPosition.lat, lastPosition.lon,
-                    latitude, longitude
+
+            // ===== 計算與上一個有效點的距離 =====
+            if (lastValidPosition) {
+                const distance = haversineDistance(
+                    lastValidPosition.lat,
+                    lastValidPosition.lng,
+                    latitude,
+                    longitude
                 );
-                
-                // 計算時間差（秒）
-                const timeDiff = (currentTime - lastPositionTime) / 1000;
-                
-                // 過濾掉不合理的數據
-                // 1. 距離太小（< 1公尺）可能是定位誤差
-                // 2. 距離太大（> 100公尺）可能是 GPS 跳點
-                // 3. 精準度太差（> 30公尺）時要小心
-                if (distance >= 1 && distance <= 100 && timeDiff > 0) {
-                    // 如果精準度在可接受範圍內，累加距離
-                    if (accuracy <= 30) {
-                        totalDistance += distance;
-                    } else if (distance >= 3) {
-                        // 精準度差但移動距離較大時，仍累加（可能在隧道等處）
-                        totalDistance += distance;
+
+                // ===== 最小移動距離過濾 =====
+                // 距離需 > 5 公尺才計入（避免原地抖動）
+                if (distance <= MIN_DISTANCE_THRESHOLD) {
+                    filteredCount++;
+                    return;
+                }
+
+                // ===== 異常距離過濾 =====
+                // 如果瞬間移動超過 100 公尺（可能是 GPS 跳點），忽略
+                const timeDiff = (timestamp - lastValidPosition.timestamp) / 1000;
+                if (timeDiff > 0) {
+                    const instantSpeed = distance / timeDiff;
+                    // 超過 15 m/s (54 km/h) 的速度視為異常
+                    if (instantSpeed > 15) {
+                        filteredCount++;
+                        return;
                     }
                     
-                    // 計算即時速度（公尺/秒 → 公里/小時）
-                    const speedMs = distance / timeDiff;
-                    const speedKmh = speedMs * 3.6;
-                    
-                    // 加入速度歷史記錄（用於平滑化）
-                    speedHistory.push(speedKmh);
-                    if (speedHistory.length > SPEED_HISTORY_SIZE) {
-                        speedHistory.shift();
-                    }
-                    
-                    // 計算平均速度（平滑化）
-                    const avgSpeed = speedHistory.reduce((a, b) => a + b, 0) / speedHistory.length;
-                    
-                    // 更新速度顯示
-                    elements.currentSpeed.textContent = avgSpeed.toFixed(1);
-                    
-                    // 更新配速顯示（速度太低時顯示 --:--）
-                    if (avgSpeed >= 1) {
-                        elements.currentPace.textContent = formatPace(avgSpeed);
-                    } else {
-                        elements.currentPace.textContent = '--:--';
+                    // ===== 記錄速度用於移動平均 =====
+                    recentSpeeds.push(instantSpeed);
+                    if (recentSpeeds.length > MOVING_AVG_WINDOW) {
+                        recentSpeeds.shift(); // 保持窗口大小
                     }
                 }
-                
-                // 更新總距離顯示（轉換為公里）
-                elements.totalDistance.textContent = (totalDistance / 1000).toFixed(2);
+
+                // ===== 累加距離 =====
+                totalDistanceMeters += distance;
             }
+
+            // ===== 記錄有效位置 =====
+            const validPosition = {
+                lat: latitude,
+                lng: longitude,
+                timestamp: timestamp,
+                accuracy: accuracy
+            };
             
-            // 更新上一個位置記錄
-            lastPosition = { lat: latitude, lon: longitude };
-            lastPositionTime = currentTime;
+            positions.push(validPosition);
+            lastValidPosition = validPosition;
+            
+            updateStatus('running', '跑步中');
+            updateDisplay();
         }
 
-        // ===== 位置更新失敗處理 =====
+        /**
+         * GPS 錯誤處理回調函數
+         * @param {GeolocationPositionError} error - 錯誤物件
+         */
         function handlePositionError(error) {
-            let message = '';
+            let errorMessage = '';
+            let errorTitle = 'GPS 錯誤';
             
             switch (error.code) {
                 case error.PERMISSION_DENIED:
-                    message = '定位權限被拒絕，請開啟定位權限';
-                    updateStatus(message, 'error');
-                    alert('請允許網頁存取您的位置資訊，才能記錄跑步路線！\n\n請在瀏覽器設定中開啟定位權限後重試。');
-                    stopRun();
+                    errorTitle = '權限被拒絕';
+                    errorMessage = '請在瀏覽器設定中允許存取位置資訊，然後重新整理頁面。';
                     break;
-                    
                 case error.POSITION_UNAVAILABLE:
-                    message = '無法取得位置資訊';
-                    updateStatus(message, 'error');
+                    errorTitle = '無法取得位置';
+                    errorMessage = '目前無法取得您的位置資訊，請確認您在開闊的戶外環境。';
                     break;
-                    
                 case error.TIMEOUT:
-                    message = 'GPS 訊號搜尋逾時，請確保在戶外';
-                    updateStatus(message, 'warning');
+                    errorTitle = 'GPS 逾時';
+                    errorMessage = 'GPS 訊號搜尋逾時，請稍後再試或移至開闊區域。';
                     break;
-                    
                 default:
-                    message = '發生未知錯誤';
-                    updateStatus(message, 'error');
-                    break;
+                    errorMessage = '發生未知錯誤，請重新整理頁面後再試。';
             }
             
-            console.error('Geolocation error:', error.message);
-        }
-
-        // ===== 更新計時器顯示 =====
-        function updateTimer() {
-            if (!startTime) return;
+            updateStatus('error', errorTitle);
+            showMessage('error', '📍', errorTitle, errorMessage);
             
-            const elapsed = Math.floor((Date.now() - startTime) / 1000);
-            elements.elapsedTime.textContent = formatTime(elapsed);
+            // 如果是嚴重錯誤，停止追蹤
+            if (error.code === error.PERMISSION_DENIED) {
+                if (watchId !== null) {
+                    navigator.geolocation.clearWatch(watchId);
+                    watchId = null;
+                }
+                elements.btnStart.disabled = false;
+                elements.btnStop.disabled = true;
+            }
         }
 
-        // ===== 結束跑步 =====
+        // ===================================================================
+        // 開始跑步
+        // ===================================================================
+        function startRun() {
+            // 檢查 Geolocation API 支援
+            if (!navigator.geolocation) {
+                showMessage('error', '❌', '不支援 GPS', '您的瀏覽器不支援地理定位功能，請使用現代瀏覽器。');
+                return;
+            }
+
+            // 重置狀態
+            isRunning = true;
+            isGpsReady = false;
+            warmupPoints = 0;
+            positions = [];
+            recentSpeeds = [];
+            rawPositionCount = 0;
+            filteredCount = 0;
+            totalDistanceMeters = 0;
+            elapsedSeconds = 0;
+            lastValidPosition = null;
+
+            // 更新 UI
+            elements.btnStart.disabled = true;
+            elements.btnStop.disabled = false;
+            updateStatus('searching', 'GPS 搜尋中...');
+            showMessage('info', '', '正在取得 GPS 定位', '請在戶外開闊區域使用，首次定位可能需要 10-30 秒...', true);
+
+            // 開始 GPS 追蹤
+            // 使用高精度選項以獲得最佳定位結果
+            const options = {
+                enableHighAccuracy: true,  // 啟用高精度模式（使用 GPS）
+                maximumAge: 0,             // 不使用快取的位置
+                timeout: 5000              // 5 秒逾時
+            };
+
+            watchId = navigator.geolocation.watchPosition(
+                handlePositionUpdate,
+                handlePositionError,
+                options
+            );
+
+            // 開始計時器（每秒更新）
+            startTime = Date.now();
+            timerInterval = setInterval(() => {
+                if (isGpsReady) {
+                    elapsedSeconds++;
+                    elements.elapsedTime.textContent = formatTime(elapsedSeconds);
+                }
+            }, 1000);
+        }
+
+        // ===================================================================
+        // 結束跑步
+        // ===================================================================
         function stopRun() {
             isRunning = false;
-            
-            // 停止位置追蹤
+
+            // 停止 GPS 追蹤
             if (watchId !== null) {
                 navigator.geolocation.clearWatch(watchId);
                 watchId = null;
             }
-            
+
             // 停止計時器
             if (timerInterval !== null) {
                 clearInterval(timerInterval);
                 timerInterval = null;
             }
-            
+
             // 更新按鈕狀態
+            elements.btnStart.disabled = true;
+            elements.btnStop.disabled = true;
+            updateStatus('locked', '已完成');
+            hideMessage();
+
+            // 顯示結果
+            showResults();
+        }
+
+        // ===================================================================
+        // 顯示結果
+        // ===================================================================
+        function showResults() {
+            const distanceInUnit = metersToUnit(totalDistanceMeters, currentUnit);
+            const unitLabel = currentUnit === 'km' ? 'km' : 'mi';
+            const paceUnitLabel = currentUnit === 'km' ? '/km' : '/mi';
+            
+            elements.resultDistance.textContent = `${distanceInUnit.toFixed(2)} ${unitLabel}`;
+            elements.resultTime.textContent = formatTime(elapsedSeconds);
+            
+            if (elapsedSeconds > 0 && totalDistanceMeters > 0) {
+                const avgSpeedMs = totalDistanceMeters / elapsedSeconds;
+                elements.resultPace.textContent = `${formatPace(avgSpeedMs, currentUnit)} ${paceUnitLabel}`;
+            } else {
+                elements.resultPace.textContent = `--:-- ${paceUnitLabel}`;
+            }
+            
+            elements.resultsOverlay.classList.add('show');
+        }
+
+        // ===================================================================
+        // 重新開始
+        // ===================================================================
+        function resetRun() {
+            // 隱藏結果畫面
+            elements.resultsOverlay.classList.remove('show');
+            
+            // 重置所有狀態
+            isRunning = false;
+            isGpsReady = false;
+            warmupPoints = 0;
+            positions = [];
+            recentSpeeds = [];
+            rawPositionCount = 0;
+            filteredCount = 0;
+            totalDistanceMeters = 0;
+            elapsedSeconds = 0;
+            lastValidPosition = null;
+            
+            // 重置 UI
             elements.btnStart.disabled = false;
             elements.btnStop.disabled = true;
-            
-            // 更新狀態
-            updateStatus('跑步已結束', 'normal');
-            
-            // 計算並顯示總結
-            showSummary();
-        }
-
-        // ===== 顯示跑步總結 =====
-        function showSummary() {
-            if (!startTime) return;
-            
-            const totalSeconds = Math.floor((Date.now() - startTime) / 1000);
-            const distanceKm = totalDistance / 1000;
-            
-            // 計算平均配速（總時間 / 總距離）
-            let avgPace = '--:--';
-            if (distanceKm > 0) {
-                const avgSpeedKmh = distanceKm / (totalSeconds / 3600);
-                avgPace = formatPace(avgSpeedKmh);
-            }
-            
-            // 更新總結區
-            elements.summaryDistance.textContent = distanceKm.toFixed(2);
-            elements.summaryTime.textContent = formatTime(totalSeconds);
-            elements.summaryPace.textContent = avgPace;
-            
-            // 顯示總結區
-            elements.summarySection.classList.add('show');
-        }
-
-        // ===== 重置所有數據 =====
-        function resetData() {
-            totalDistance = 0;
-            lastPosition = null;
-            lastPositionTime = null;
-            speedHistory = [];
-            startTime = null;
-            
-            // 重置顯示
             elements.currentPace.textContent = '--:--';
-            elements.currentSpeed.textContent = '0.0';
-            elements.totalDistance.textContent = '0.00';
             elements.elapsedTime.textContent = '00:00';
-            elements.accuracyValue.textContent = '--';
-            elements.accuracyFill.style.width = '0%';
-            elements.accuracyLabel.textContent = '--';
-            elements.latValue.textContent = '--';
-            elements.lonValue.textContent = '--';
+            elements.totalDistance.textContent = '0.00';
+            elements.avgPace.textContent = '--:--';
+            elements.currentSpeed.textContent = '0.0';
+            elements.validPoints.textContent = '0';
+            elements.gpsAccuracy.textContent = 'GPS: --';
+            
+            updateStatus('', '準備就緒');
+            hideMessage();
         }
 
-        // ===== 頁面載入時自動請求定位權限 =====
-        window.onload = function() {
-            if (!navigator.geolocation) {
-                updateStatus('瀏覽器不支援定位功能', 'error');
-                elements.btnStart.disabled = true;
-                return;
+        // ===================================================================
+        // 調試模式切換（點擊標題5次）
+        // ===================================================================
+        document.querySelector('.header h1').addEventListener('click', () => {
+            debugClickCount++;
+            if (debugClickCount >= 5) {
+                elements.debugInfo.classList.toggle('show');
+                debugClickCount = 0;
             }
-            
-            // 自動請求定位權限（會彈出授權對話框）
-            updateStatus('正在請求定位權限...', 'warning');
-            
-            navigator.geolocation.getCurrentPosition(
-                // 成功取得位置 = 權限已授予
-                function(position) {
-                    updateStatus('✅ 定位權限已開啟，準備就緒！', 'normal');
-                    
-                    // 顯示初始位置
-                    elements.latValue.textContent = position.coords.latitude.toFixed(6);
-                    elements.lonValue.textContent = position.coords.longitude.toFixed(6);
-                    updateAccuracy(position.coords.accuracy);
-                    
-                    // 短暫顯示後恢復
-                    setTimeout(() => {
-                        updateStatus('準備就緒，按下開始跑步', 'normal');
-                    }, 2000);
-                },
-                // 失敗 = 權限被拒或其他錯誤
-                function(error) {
-                    switch (error.code) {
-                        case error.PERMISSION_DENIED:
-                            updateStatus('⚠️ 定位權限被拒絕', 'error');
-                            showPermissionHelp();
-                            break;
-                        case error.POSITION_UNAVAILABLE:
-                            updateStatus('無法取得位置，請確認 GPS 已開啟', 'error');
-                            break;
-                        case error.TIMEOUT:
-                            updateStatus('GPS 訊號搜尋逾時，請到戶外開闊處', 'warning');
-                            break;
-                    }
-                },
-                {
-                    enableHighAccuracy: true,
-                    timeout: 10000,
-                    maximumAge: 0
-                }
-            );
-        };
-        
-        // ===== 顯示權限開啟說明 =====
-        function showPermissionHelp() {
-            const helpDiv = document.createElement('div');
-            helpDiv.id = 'permissionHelp';
-            helpDiv.innerHTML = `
-                <div style="
-                    background: linear-gradient(135deg, #ff6b6b 0%, #ee5a5a 100%);
-                    border-radius: 16px;
-                    padding: 20px;
-                    margin: 20px 0;
-                    text-align: left;
-                ">
-                    <h3 style="margin-bottom: 15px; font-size: 1.1rem;">📍 如何開啟定位權限？</h3>
-                    
-                    <div style="font-size: 0.9rem; line-height: 1.6;">
-                        <p style="margin-bottom: 10px;"><strong>iPhone Safari：</strong></p>
-                        <ol style="margin-left: 20px; margin-bottom: 15px;">
-                            <li>開啟「設定」App</li>
-                            <li>往下滑找到「Safari」</li>
-                            <li>點擊「位置」</li>
-                            <li>選擇「允許」或「詢問」</li>
-                            <li>回到此頁面重新整理</li>
-                        </ol>
-                        
-                        <p style="margin-bottom: 10px;"><strong>Android Chrome：</strong></p>
-                        <ol style="margin-left: 20px; margin-bottom: 15px;">
-                            <li>點擊網址列左邊的 🔒 圖示</li>
-                            <li>點擊「網站設定」或「權限」</li>
-                            <li>找到「位置」，改為「允許」</li>
-                            <li>重新整理頁面</li>
-                        </ol>
-                        
-                        <p style="margin-bottom: 10px;"><strong>或者更簡單的方法：</strong></p>
-                        <p>點擊下方按鈕重新請求權限 👇</p>
-                    </div>
-                    
-                    <button onclick="retryPermission()" style="
-                        width: 100%;
-                        padding: 15px;
-                        margin-top: 15px;
-                        background: #fff;
-                        color: #ee5a5a;
-                        border: none;
-                        border-radius: 10px;
-                        font-size: 1rem;
-                        font-weight: 600;
-                        cursor: pointer;
-                    ">
-                        🔄 重新請求定位權限
-                    </button>
-                </div>
-            `;
-            
-            // 插入到狀態列之後
-            const statusBar = document.querySelector('.status-bar');
-            statusBar.after(helpDiv);
-        }
-        
-        // ===== 重新請求權限 =====
-        function retryPermission() {
-            // 移除說明區塊
-            const helpDiv = document.getElementById('permissionHelp');
-            if (helpDiv) {
-                helpDiv.remove();
-            }
-            
-            updateStatus('正在重新請求定位權限...', 'warning');
-            
-            // 嘗試再次請求
-            navigator.geolocation.getCurrentPosition(
-                function(position) {
-                    updateStatus('✅ 定位權限已開啟！', 'normal');
-                    elements.latValue.textContent = position.coords.latitude.toFixed(6);
-                    elements.lonValue.textContent = position.coords.longitude.toFixed(6);
-                    updateAccuracy(position.coords.accuracy);
-                    
-                    setTimeout(() => {
-                        updateStatus('準備就緒，按下開始跑步', 'normal');
-                    }, 2000);
-                },
-                function(error) {
-                    if (error.code === error.PERMISSION_DENIED) {
-                        updateStatus('⚠️ 權限仍被拒絕，請依照說明手動開啟', 'error');
-                        showPermissionHelp();
-                    } else {
-                        updateStatus('定位失敗：' + error.message, 'error');
-                    }
-                },
-                {
-                    enableHighAccuracy: true,
-                    timeout: 10000,
-                    maximumAge: 0
-                }
-            );
-        }
-
-        // ===== 防止頁面意外關閉 =====
-        window.onbeforeunload = function(e) {
-            if (isRunning) {
-                e.preventDefault();
-                e.returnValue = '跑步記錄尚未結束，確定要離開嗎？';
-                return e.returnValue;
-            }
-        };
-
-        // ===== 處理頁面可見性變化（背景運行） =====
-        document.addEventListener('visibilitychange', function() {
-            if (document.hidden && isRunning) {
-                console.log('頁面進入背景，GPS 追蹤繼續中...');
-            } else if (!document.hidden && isRunning) {
-                console.log('頁面回到前景');
-                updateStatus('正在記錄中...', 'recording');
-            }
+            // 3秒後重置計數
+            setTimeout(() => { debugClickCount = 0; }, 3000);
         });
+
+        // ===================================================================
+        // 頁面載入時初始化
+        // ===================================================================
+        document.addEventListener('DOMContentLoaded', () => {
+            // 檢查 Geolocation 支援
+            if (!navigator.geolocation) {
+                showMessage('error', '❌', '不支援 GPS', '您的瀏覽器不支援地理定位功能。');
+                elements.btnStart.disabled = true;
+            }
+            
+            // 防止頁面意外關閉（跑步中）
+            window.addEventListener('beforeunload', (e) => {
+                if (isRunning) {
+                    e.preventDefault();
+                    e.returnValue = '跑步正在進行中，確定要離開嗎？';
+                    return e.returnValue;
+                }
+            });
+        });
+
+        // ===================================================================
+        // 保持螢幕常亮（如果支援 Wake Lock API）
+        // ===================================================================
+        let wakeLock = null;
+
+        async function requestWakeLock() {
+            try {
+                if ('wakeLock' in navigator) {
+                    wakeLock = await navigator.wakeLock.request('screen');
+                    console.log('螢幕常亮已啟用');
+                }
+            } catch (err) {
+                console.log('螢幕常亮無法啟用:', err);
+            }
+        }
+
+        function releaseWakeLock() {
+            if (wakeLock !== null) {
+                wakeLock.release();
+                wakeLock = null;
+                console.log('螢幕常亮已釋放');
+            }
+        }
+
+        // 當開始跑步時請求螢幕常亮
+        const originalStartRun = startRun;
+        startRun = function() {
+            requestWakeLock();
+            originalStartRun();
+        };
+
+        // 當結束跑步時釋放
+        const originalStopRun = stopRun;
+        stopRun = function() {
+            releaseWakeLock();
+            originalStopRun();
+        };
     </script>
 </body>
 </html>
