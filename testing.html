@@ -272,6 +272,83 @@
             color: var(--text-primary);
         }
 
+        /* ===== 確認對話框 ===== */
+        .confirm-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.9);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            z-index: 100;
+        }
+
+        .confirm-overlay.show {
+            display: flex;
+        }
+
+        .confirm-card {
+            background: var(--bg-secondary);
+            border-radius: 24px;
+            padding: 32px;
+            width: 100%;
+            max-width: 400px;
+            text-align: center;
+        }
+
+        .confirm-icon {
+            font-size: 64px;
+            margin-bottom: 16px;
+        }
+
+        .confirm-title {
+            font-size: 24px;
+            font-weight: 700;
+            margin-bottom: 12px;
+        }
+
+        .confirm-text {
+            color: var(--text-secondary);
+            font-size: 16px;
+            line-height: 1.6;
+            margin-bottom: 32px;
+        }
+
+        .confirm-buttons {
+            display: flex;
+            gap: 12px;
+        }
+
+        .confirm-btn {
+            flex: 1;
+            padding: 18px;
+            border: none;
+            border-radius: 16px;
+            font-size: 18px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .confirm-btn.confirm {
+            background: var(--accent-green);
+            color: var(--bg-primary);
+        }
+
+        .confirm-btn.confirm:hover {
+            background: var(--accent-green-dark);
+        }
+
+        .confirm-btn.cancel {
+            background: var(--bg-card);
+            color: var(--text-primary);
+        }
+
+        .confirm-btn.cancel:hover {
+            background: var(--accent-red);
+        }
+
         /* ===== 結果畫面 ===== */
         .results-overlay {
             position: fixed;
@@ -513,6 +590,22 @@
         </button>
     </div>
 
+    <!-- 確認開始跑步對話框 -->
+    <div class="confirm-overlay" id="confirmOverlay">
+        <div class="confirm-card">
+            <div class="confirm-icon">🏃‍♂️</div>
+            <div class="confirm-title">GPS 定位完成！</div>
+            <div class="confirm-text">
+                已取得精確的 GPS 定位。<br>
+                再次確認，您現在是否要開始跑步？
+            </div>
+            <div class="confirm-buttons">
+                <button class="confirm-btn cancel" onclick="cancelRun()">取消</button>
+                <button class="confirm-btn confirm" onclick="confirmStartRun()">✓ 確認開始</button>
+            </div>
+        </div>
+    </div>
+
     <!-- 結果畫面 -->
     <div class="results-overlay" id="resultsOverlay">
         <div class="results-card">
@@ -559,6 +652,8 @@
         let lastValidPosition = null;    // 上一個有效位置
         let isGpsReady = false;          // GPS 是否已準備好（精度足夠）
         let warmupPoints = 0;            // 預熱點數量（等待GPS穩定）
+        let isWaitingConfirm = false;    // 是否正在等待用戶確認開始
+        let isConfirmed = false;         // 用戶是否已確認開始跑步
         
         // 移動平均配速計算用
         const MOVING_AVG_WINDOW = 5;     // 移動平均窗口大小（最近5個點）
@@ -604,6 +699,7 @@
             resultTime: document.getElementById('resultTime'),
             resultPace: document.getElementById('resultPace'),
             resultSpeed: document.getElementById('resultSpeed'),
+            confirmOverlay: document.getElementById('confirmOverlay'),
             debugInfo: document.getElementById('debugInfo'),
             debugRawPoints: document.getElementById('debugRawPoints'),
             debugFilteredPoints: document.getElementById('debugFilteredPoints'),
@@ -842,11 +938,22 @@
                     if (warmupPoints >= WARMUP_POINTS_REQUIRED) {
                         isGpsReady = true;
                         hideMessage();
-                        updateStatus('running', '跑步中');
+                        
+                        // 顯示確認對話框，等待用戶確認
+                        if (!isWaitingConfirm && !isConfirmed) {
+                            isWaitingConfirm = true;
+                            updateStatus('locked', 'GPS 已定位');
+                            elements.confirmOverlay.classList.add('show');
+                        }
                     }
                 } else {
                     updateStatus('searching', `GPS 精度不足 (±${Math.round(accuracy)}m)`);
                 }
+                return;
+            }
+            
+            // ===== 等待用戶確認中，不處理位置更新 =====
+            if (isWaitingConfirm || !isConfirmed) {
                 return;
             }
 
@@ -963,6 +1070,8 @@
             // 重置狀態
             isRunning = true;
             isGpsReady = false;
+            isWaitingConfirm = false;
+            isConfirmed = false;
             warmupPoints = 0;
             positions = [];
             recentSpeeds = [];
@@ -993,9 +1102,11 @@
             );
 
             // 開始計時器（每秒更新）
+            // 注意：實際計時只在用戶確認後才開始
             startTime = Date.now();
             timerInterval = setInterval(() => {
-                if (isGpsReady) {
+                // 只有在 GPS 準備好且用戶已確認後才計時
+                if (isGpsReady && isConfirmed) {
                     elapsedSeconds++;
                     elements.elapsedTime.textContent = formatTime(elapsedSeconds);
                     
@@ -1069,6 +1180,53 @@
         }
 
         // ===================================================================
+        // 確認開始跑步
+        // ===================================================================
+        function confirmStartRun() {
+            // 隱藏確認對話框
+            elements.confirmOverlay.classList.remove('show');
+            
+            // 設置確認狀態
+            isWaitingConfirm = false;
+            isConfirmed = true;
+            
+            // 重置計時相關變數（從確認後開始計時）
+            elapsedSeconds = 0;
+            startTime = Date.now();
+            
+            // 更新狀態
+            updateStatus('running', '跑步中');
+            
+            console.log('用戶已確認開始跑步，計時開始！');
+        }
+
+        // ===================================================================
+        // 取消跑步（刷新頁面）
+        // ===================================================================
+        function cancelRun() {
+            // 隱藏確認對話框
+            elements.confirmOverlay.classList.remove('show');
+            
+            // 停止 GPS 追蹤
+            if (watchId !== null) {
+                navigator.geolocation.clearWatch(watchId);
+                watchId = null;
+            }
+
+            // 停止計時器
+            if (timerInterval !== null) {
+                clearInterval(timerInterval);
+                timerInterval = null;
+            }
+
+            // 釋放螢幕常亮
+            releaseWakeLock();
+
+            // 刷新頁面
+            window.location.reload();
+        }
+
+        // ===================================================================
         // 重新開始
         // ===================================================================
         function resetRun() {
@@ -1078,6 +1236,8 @@
             // 重置所有狀態
             isRunning = false;
             isGpsReady = false;
+            isWaitingConfirm = false;
+            isConfirmed = false;
             warmupPoints = 0;
             positions = [];
             recentSpeeds = [];
