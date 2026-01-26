@@ -1,0 +1,2780 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>霦 - Break Brick Roguelike</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            touch-action: none;
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+
+        html, body {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: #1a1a2e;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        #gameContainer {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+        }
+
+        #gameCanvas {
+            background: #0f0f23;
+            border-radius: 8px;
+            box-shadow: 0 0 30px rgba(0, 255, 255, 0.2);
+        }
+    </style>
+</head>
+<body>
+    <div id="gameContainer">
+        <canvas id="gameCanvas"></canvas>
+    </div>
+
+    <script>
+        // ========================================
+        // 霦 - Break Brick Roguelike
+        // ========================================
+        
+        const CONFIG = {
+            GAME_WIDTH: 400,
+            GAME_HEIGHT: 700,
+            BRICK_COLS: 7,
+            BRICK_PADDING: 4,
+            BALL_RADIUS: 8,
+            BALL_SPEED: 12,
+            LAUNCHER_SIZE: 30,
+            PLAYER_MAX_HP: 100,
+            BASE_BRICK_HP: 20,
+            BRICK_HP_INCREMENT: 20,
+            CROSS_LASER_COUNT: 3,
+            CROSS_LASER_DAMAGE: 2,
+            MAX_ICE_WALLS: 5,
+            
+            COLORS: {
+                background: '#0f0f23',
+                launcher: '#00d4ff',
+                ball: '#ffffff',
+                aimLine: 'rgba(255, 255, 255, 0.5)',
+                text: '#ffffff',
+                accent: '#ff6b6b',
+                hp: '#22c55e',
+                hpBg: '#374151',
+                boss: '#ff0000',
+                laser: '#ff00ff',
+                combo: '#ffd700',
+                triangle: '#ff8c00'
+            }
+        };
+
+        // 特殊球類型定義
+        const BALL_TYPES = {
+            normal: { name: '普通球', description: '基礎攻擊球', color: '#ffffff', damage: 1 },
+            piercing: { name: '穿透球', description: '穿透磚塊不反彈，造成50點傷害', color: '#00ffff', damage: 50 },
+            explosive: { name: '爆炸球', description: '全屏爆炸，對所有磚塊造成5點傷害', color: '#ff6600', damage: 5 },
+            lightning: { name: '雷電球', description: '碰撞時連鎖攻擊，造成10點傷害', color: '#ffff00', damage: 10, chainCount: 5 },
+            frozen: { name: '冰凍球', description: '10%機率凍結磚塊2回合', color: '#87ceeb', damage: 0, freezeChance: 0.1 },
+            split: { name: '分裂球', description: '造成2點傷害，分裂後1%機率再分裂', color: '#ff00ff', damage: 2, reSplitChance: 0.01 },
+            assist: { name: '助攻球', description: '隨機擊敗最上排的非Boss磚塊', color: '#ffd700', damage: 1 },
+            healing: { name: '治療球', description: '每次碰撞回復1點生命', color: '#00ff00', damage: 1, healAmount: 1 },
+            antimatter: { name: '反物質球', description: '體積3倍大，落回底線時所有球變普通球', color: '#9400d3', damage: 0 }
+        };
+
+        // Combo系統定義
+        const COMBO_TYPES = {
+            piercing: {
+                name: '穿透Combo',
+                description: '每100次碰撞發射2顆穿透球',
+                threshold: 100,
+                color: '#00ffff',
+                icon: '🔷'
+            },
+            explosive: {
+                name: '爆炸Combo',
+                description: '每200次碰撞全屏50點傷害',
+                threshold: 200,
+                color: '#ff6600',
+                icon: '💥'
+            },
+            lightning: {
+                name: '雷電Combo',
+                description: '每50次碰撞對5個非Boss磚塊造成20%傷害',
+                threshold: 50,
+                color: '#ffff00',
+                icon: '⚡'
+            },
+            frozen: {
+                name: '冰凍Combo',
+                description: '每300次碰撞生成冰牆(最多5塊)',
+                threshold: 300,
+                color: '#87ceeb',
+                icon: '❄️'
+            },
+            split: {
+                name: '分裂Combo',
+                description: '每2000次碰撞+1%分裂機率(最多3%)',
+                threshold: 2000,
+                color: '#ff00ff',
+                icon: '✨'
+            },
+            assist: {
+                name: '助攻Combo',
+                description: '每10次碰撞所有球+1攻擊(最多+100)',
+                threshold: 10,
+                color: '#ffd700',
+                icon: '🎯'
+            },
+            healing: {
+                name: '治療Combo',
+                description: '每500次碰撞回復5點生命(可超上限)',
+                threshold: 500,
+                color: '#00ff00',
+                icon: '💚'
+            },
+            antimatter: {
+                name: '反物質Combo',
+                description: '達到54321次碰撞直接勝利',
+                threshold: 54321,
+                color: '#9400d3',
+                icon: '🌀'
+            }
+        };
+
+        // 音效系統
+        class AudioSystem {
+            constructor() {
+                this.ctx = null;
+                this.enabled = true;
+            }
+
+            init() {
+                try {
+                    this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+                } catch (e) {
+                    this.enabled = false;
+                }
+            }
+
+            play(type) {
+                if (!this.enabled || !this.ctx) return;
+                if (this.ctx.state === 'suspended') this.ctx.resume();
+
+                const oscillator = this.ctx.createOscillator();
+                const gainNode = this.ctx.createGain();
+                oscillator.connect(gainNode);
+                gainNode.connect(this.ctx.destination);
+
+                switch(type) {
+                    case 'hit':
+                        oscillator.frequency.value = 440 + Math.random() * 200;
+                        oscillator.type = 'sine';
+                        gainNode.gain.setValueAtTime(0.1, this.ctx.currentTime);
+                        oscillator.start();
+                        oscillator.stop(this.ctx.currentTime + 0.05);
+                        break;
+                    case 'destroy':
+                        oscillator.frequency.value = 880;
+                        oscillator.type = 'square';
+                        gainNode.gain.setValueAtTime(0.15, this.ctx.currentTime);
+                        oscillator.start();
+                        oscillator.stop(this.ctx.currentTime + 0.1);
+                        break;
+                    case 'launch':
+                        oscillator.frequency.value = 220;
+                        oscillator.type = 'triangle';
+                        gainNode.gain.setValueAtTime(0.1, this.ctx.currentTime);
+                        oscillator.start();
+                        oscillator.stop(this.ctx.currentTime + 0.15);
+                        break;
+                    case 'powerup':
+                        oscillator.frequency.value = 660;
+                        oscillator.type = 'sine';
+                        gainNode.gain.setValueAtTime(0.15, this.ctx.currentTime);
+                        oscillator.frequency.exponentialRampToValueAtTime(1320, this.ctx.currentTime + 0.2);
+                        oscillator.start();
+                        oscillator.stop(this.ctx.currentTime + 0.2);
+                        break;
+                    case 'damage':
+                        oscillator.frequency.value = 150;
+                        oscillator.type = 'sawtooth';
+                        gainNode.gain.setValueAtTime(0.2, this.ctx.currentTime);
+                        oscillator.start();
+                        oscillator.stop(this.ctx.currentTime + 0.15);
+                        break;
+                    case 'combo':
+                        oscillator.frequency.value = 880;
+                        oscillator.type = 'sine';
+                        gainNode.gain.setValueAtTime(0.2, this.ctx.currentTime);
+                        oscillator.frequency.exponentialRampToValueAtTime(1760, this.ctx.currentTime + 0.1);
+                        oscillator.start();
+                        oscillator.stop(this.ctx.currentTime + 0.15);
+                        break;
+                    case 'boss':
+                        oscillator.frequency.value = 100;
+                        oscillator.type = 'square';
+                        gainNode.gain.setValueAtTime(0.3, this.ctx.currentTime);
+                        oscillator.frequency.exponentialRampToValueAtTime(50, this.ctx.currentTime + 0.5);
+                        oscillator.start();
+                        oscillator.stop(this.ctx.currentTime + 0.5);
+                        break;
+                    case 'victory':
+                        oscillator.frequency.value = 523;
+                        oscillator.type = 'sine';
+                        gainNode.gain.setValueAtTime(0.2, this.ctx.currentTime);
+                        oscillator.frequency.setValueAtTime(659, this.ctx.currentTime + 0.15);
+                        oscillator.frequency.setValueAtTime(784, this.ctx.currentTime + 0.3);
+                        oscillator.start();
+                        oscillator.stop(this.ctx.currentTime + 0.5);
+                        break;
+                    case 'gameover':
+                        oscillator.frequency.value = 440;
+                        oscillator.type = 'sawtooth';
+                        gainNode.gain.setValueAtTime(0.2, this.ctx.currentTime);
+                        oscillator.frequency.exponentialRampToValueAtTime(110, this.ctx.currentTime + 0.5);
+                        oscillator.start();
+                        oscillator.stop(this.ctx.currentTime + 0.5);
+                        break;
+                    case 'freeze':
+                        oscillator.frequency.value = 1000;
+                        oscillator.type = 'sine';
+                        gainNode.gain.setValueAtTime(0.15, this.ctx.currentTime);
+                        oscillator.frequency.exponentialRampToValueAtTime(500, this.ctx.currentTime + 0.2);
+                        oscillator.start();
+                        oscillator.stop(this.ctx.currentTime + 0.2);
+                        break;
+                    case 'laser':
+                        oscillator.frequency.value = 800;
+                        oscillator.type = 'sawtooth';
+                        gainNode.gain.setValueAtTime(0.2, this.ctx.currentTime);
+                        oscillator.frequency.exponentialRampToValueAtTime(1600, this.ctx.currentTime + 0.1);
+                        oscillator.start();
+                        oscillator.stop(this.ctx.currentTime + 0.15);
+                        break;
+                }
+            }
+        }
+
+        // 冰牆類別
+        class IceWall {
+            constructor(x, width) {
+                this.x = x;
+                this.y = CONFIG.GAME_HEIGHT - 15;
+                this.width = width;
+                this.height = 10;
+                this.bounceCount = 10;
+                this.active = true;
+            }
+
+            draw(ctx) {
+                if (!this.active) return;
+                
+                ctx.fillStyle = `rgba(135, 206, 235, ${0.5 + this.bounceCount / 20})`;
+                ctx.beginPath();
+                ctx.roundRect(this.x, this.y, this.width, this.height, 3);
+                ctx.fill();
+                
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 1;
+                ctx.stroke();
+                
+                ctx.fillStyle = '#ffffff';
+                ctx.font = 'bold 8px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText(this.bounceCount.toString(), this.x + this.width / 2, this.y + 8);
+            }
+        }
+
+        // 十字雷射器類別
+        class CrossLaser {
+            constructor(col, row, brickWidth, brickHeight, topOffset) {
+                this.col = col;
+                this.row = row;
+                this.brickWidth = brickWidth;
+                this.brickHeight = brickHeight;
+                this.x = CONFIG.BRICK_PADDING + col * (brickWidth + CONFIG.BRICK_PADDING) + brickWidth / 2;
+                this.y = topOffset + CONFIG.BRICK_PADDING + row * (brickHeight + CONFIG.BRICK_PADDING) + brickHeight / 2;
+                this.radius = 12;
+                this.remainingShots = 0;
+                this.laserAlpha = 0;
+                this.pulse = 0;
+                this.hitCooldown = 0;
+            }
+
+            setShots(normalBallCount) {
+                this.remainingShots = normalBallCount * 2;
+            }
+
+            checkBallCollision(ball) {
+                if (this.hitCooldown > 0) return false;
+                const dx = ball.x - this.x;
+                const dy = ball.y - this.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                return distance < this.radius + ball.radius;
+            }
+
+            activate(game) {
+                if (this.remainingShots <= 0) return;
+                this.remainingShots--;
+                this.laserAlpha = 1;
+                this.hitCooldown = 10;
+                
+                game.audio.play('laser');
+                
+                const laserDamage = CONFIG.CROSS_LASER_DAMAGE;
+                for (let brick of game.bricks) {
+                    if (!brick.active) continue;
+                    
+                    const brickCenterX = brick.x + brick.width / 2;
+                    const brickCenterY = brick.y + brick.height / 2;
+                    
+                    const inHorizontal = Math.abs(brickCenterY - this.y) < brick.height / 2 + 5;
+                    const inVertical = Math.abs(brickCenterX - this.x) < brick.width / 2 + 5;
+                    
+                    if (inHorizontal || inVertical) {
+                        if (brick.isBoss && brick.bossWave === 10 && brick.hasShield) {
+                            if (inHorizontal && !inVertical) {
+                                brick.hit(laserDamage);
+                                game.createFloatingText(brickCenterX, brickCenterY, `✚-${laserDamage}`, CONFIG.COLORS.laser);
+                            } else if (inVertical && brickCenterY < this.y) {
+                                brick.hit(laserDamage);
+                                game.createFloatingText(brickCenterX, brickCenterY, `✚-${laserDamage}`, CONFIG.COLORS.laser);
+                            } else {
+                                game.createFloatingText(brickCenterX, brickCenterY, '🛡️擋住!', '#ffff00');
+                            }
+                        } else {
+                            brick.hit(laserDamage);
+                            game.createFloatingText(brickCenterX, brickCenterY, `✚-${laserDamage}`, CONFIG.COLORS.laser);
+                        }
+                    }
+                }
+                
+                game.laserEffects.push({ x: this.x, y: this.y, alpha: 1 });
+            }
+
+            update() {
+                this.pulse += 0.1;
+                if (this.laserAlpha > 0) {
+                    this.laserAlpha -= 0.05;
+                }
+                if (this.hitCooldown > 0) {
+                    this.hitCooldown--;
+                }
+            }
+
+            moveDown(amount) {
+                this.y += amount;
+            }
+
+            draw(ctx) {
+                if (this.remainingShots <= 0) return;
+                
+                const pulseSize = Math.sin(this.pulse) * 2;
+                
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius + pulseSize + 4, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(255, 0, 255, 0.2)';
+                ctx.fill();
+                
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius + pulseSize, 0, Math.PI * 2);
+                ctx.fillStyle = CONFIG.COLORS.laser;
+                ctx.fill();
+                
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(this.x - 6, this.y);
+                ctx.lineTo(this.x + 6, this.y);
+                ctx.moveTo(this.x, this.y - 6);
+                ctx.lineTo(this.x, this.y + 6);
+                ctx.stroke();
+                
+                ctx.fillStyle = '#ffffff';
+                ctx.font = 'bold 8px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText(this.remainingShots.toString(), this.x, this.y + 20);
+                
+                if (this.laserAlpha > 0) {
+                    ctx.globalAlpha = this.laserAlpha;
+                    ctx.fillStyle = CONFIG.COLORS.laser;
+                    ctx.fillRect(0, this.y - 2, CONFIG.GAME_WIDTH, 4);
+                    ctx.fillRect(this.x - 2, 0, 4, CONFIG.GAME_HEIGHT);
+                    ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+                    ctx.fillRect(0, this.y - 4, CONFIG.GAME_WIDTH, 2);
+                    ctx.fillRect(0, this.y + 2, CONFIG.GAME_WIDTH, 2);
+                    ctx.fillRect(this.x - 4, 0, 2, CONFIG.GAME_HEIGHT);
+                    ctx.fillRect(this.x + 2, 0, 2, CONFIG.GAME_HEIGHT);
+                    ctx.globalAlpha = 1;
+                }
+            }
+        }
+
+        // 球類別
+        class Ball {
+            constructor(x, y, vx, vy, type = 'normal', damage = null) {
+                this.x = x;
+                this.y = y;
+                this.vx = vx;
+                this.vy = vy;
+                this.type = type;
+                this.typeData = BALL_TYPES[type];
+                // 反物質球體積是普通球的3倍
+                this.radius = type === 'antimatter' ? CONFIG.BALL_RADIUS * 3 : CONFIG.BALL_RADIUS;
+                this.active = true;
+                this.returned = false;
+                this.hasSplit = false;
+                this.hitCooldown = 0;
+                this.customDamage = damage;
+                this.bonusDamage = 0; // 本回合助攻Combo加成
+            }
+
+            getDamage() {
+                let baseDamage = this.customDamage !== null ? this.customDamage : this.typeData.damage;
+                return baseDamage + this.bonusDamage;
+            }
+
+            update(game) {
+                if (!this.active) return;
+
+                if (this.hitCooldown > 0) this.hitCooldown--;
+
+                this.x += this.vx;
+                this.y += this.vy;
+
+                const isPiercing = this.type === 'piercing';
+                const isAntimatter = this.type === 'antimatter';
+
+                // 牆壁碰撞
+                if (this.x - this.radius <= 0) {
+                    this.x = this.radius + 1;
+                    this.vx = Math.abs(this.vx);
+                    game.addComboHit(this.type);
+                }
+                if (this.x + this.radius >= CONFIG.GAME_WIDTH) {
+                    this.x = CONFIG.GAME_WIDTH - this.radius - 1;
+                    this.vx = -Math.abs(this.vx);
+                    game.addComboHit(this.type);
+                }
+                if (this.y - this.radius <= game.topOffset) {
+                    this.y = game.topOffset + this.radius + 1;
+                    this.vy = Math.abs(this.vy);
+                    game.addComboHit(this.type);
+                }
+
+                // 冰牆碰撞 - 穿透球、反物質球和普通球不反彈冰牆
+                const isNormal = this.type === 'normal';
+                if (!isPiercing && !isAntimatter && !isNormal) {
+                    for (let wall of game.iceWalls) {
+                        if (!wall.active) continue;
+                        if (this.y + this.radius >= wall.y && 
+                            this.y - this.radius <= wall.y + wall.height &&
+                            this.x >= wall.x && this.x <= wall.x + wall.width) {
+                            this.vy = -Math.abs(this.vy);
+                            this.y = wall.y - this.radius - 1;
+                            wall.bounceCount--;
+                            if (wall.bounceCount <= 0) wall.active = false;
+                            game.addComboHit(this.type);
+                        }
+                    }
+                }
+
+                // 底部回收
+                if (this.y + this.radius >= CONFIG.GAME_HEIGHT - 10) {
+                    this.active = false;
+                    this.returned = true;
+                    
+                    // 反物質球落回底線時，所有場上的球變成普通球
+                    if (isAntimatter) {
+                        game.convertAllBallsToNormal();
+                        game.createFloatingText(this.x, this.y - 30, '⚛️ 反物質轉換!', '#9400d3');
+                    }
+                    
+                    if (game.nextLauncherX === null) {
+                        game.nextLauncherX = Math.max(this.radius + 10, Math.min(CONFIG.GAME_WIDTH - this.radius - 10, this.x));
+                    }
+                }
+
+                // 十字雷射器碰撞
+                for (let laser of game.crossLasers) {
+                    if (laser.remainingShots > 0 && laser.checkBallCollision(this)) {
+                        laser.activate(game);
+                    }
+                }
+
+                this.checkBrickCollision(game);
+                this.checkPowerupCollision(game);
+            }
+
+            checkBrickCollision(game) {
+                if (this.hitCooldown > 0) return;
+                
+                const isPiercing = this.type === 'piercing';
+                
+                for (let brick of game.bricks) {
+                    if (!brick.active) continue;
+
+                    const collision = brick.isTriangle ? this.triangleCollision(brick) : this.rectCircleCollision(brick);
+                    if (collision) {
+                        this.hitCooldown = 3;
+                        game.addComboHit(this.type);
+                        
+                        let damage = this.getDamage();
+                        
+                        // 普通球傷害計算
+                        if (this.type === 'normal') {
+                            if (game.ballDamageMode === 'wave') {
+                                damage = game.wave + this.bonusDamage;
+                            } else if (game.ballDamageMode === 'random') {
+                                damage = Math.floor(Math.random() * 4) + this.bonusDamage; // 0~3
+                            } else if (game.ballDamageMode === 'combo10') {
+                                damage = 1 + this.bonusDamage; // combo10模式傷害為1，但combo+10
+                            }
+                        }
+                        
+                        let blocked = false;
+                        
+                        // Boss盾牌檢查
+                        if (brick.isBoss && brick.bossWave === 10 && brick.hasShield) {
+                            const brickCenterY = brick.y + brick.height / 2;
+                            if (this.vy < 0 && this.y > brickCenterY) {
+                                blocked = true;
+                                game.createFloatingText(this.x, this.y, '🛡️擋住!', '#ffff00');
+                            }
+                        }
+                        
+                        // 反物質球0傷害（不再對Boss造成百分比傷害）
+                        if (this.type === 'antimatter') {
+                            damage = 0;
+                        }
+                        
+                        // 第20波Boss免疫普通球
+                        if (brick.isBoss && brick.bossWave === 20 && this.type === 'normal') {
+                            damage = 0;
+                            game.createFloatingText(this.x, this.y, '免疫!', '#ff0000');
+                        }
+                        
+                        if (damage > 0 && !blocked) {
+                            brick.hit(damage);
+                            game.audio.play('hit');
+                            
+                            if (this.type === 'healing') {
+                                // 治療球：有治療Combo時可超上限，否則不能超上限
+                                const hasHealingCombo = game.selectedCombos.includes('healing');
+                                if (hasHealingCombo) {
+                                    game.playerHp += this.typeData.healAmount;
+                                } else {
+                                    game.playerHp = Math.min(game.maxHp, game.playerHp + this.typeData.healAmount);
+                                }
+                                game.createFloatingText(this.x, this.y, '+1 HP', '#00ff00');
+                            }
+                        }
+                        
+                        // 冰凍球 - 現在凍結2回合
+                        if (this.type === 'frozen' && !blocked) {
+                            if (Math.random() < this.typeData.freezeChance) {
+                                brick.frozen = true;
+                                brick.frozenTurns = 2; // 改為2回合
+                                game.audio.play('freeze');
+                                game.createFloatingText(brick.x + brick.width/2, brick.y + brick.height/2, '❄️凍結2回合!', '#87ceeb');
+                            }
+                        }
+                        
+                        // 雷電球連鎖
+                        if (this.type === 'lightning' && !blocked) {
+                            this.chainLightning(game, brick);
+                        }
+                        
+                        // 爆炸球全屏傷害
+                        if (this.type === 'explosive') {
+                            this.explodeFullScreen(game);
+                        }
+                        
+                        if (!brick.active) {
+                            game.audio.play('destroy');
+                        }
+
+                        // 穿透球不反彈
+                        if (!isPiercing) {
+                            if (brick.isTriangle) {
+                                // 三角形反彈
+                                this.bounceFromTriangle(brick);
+                            } else {
+                                if (collision === 'horizontal') {
+                                    this.vx = -this.vx;
+                                    if (this.x < brick.x + brick.width / 2) {
+                                        this.x = brick.x - this.radius - 2;
+                                    } else {
+                                        this.x = brick.x + brick.width + this.radius + 2;
+                                    }
+                                } else {
+                                    this.vy = -this.vy;
+                                    if (this.y < brick.y + brick.height / 2) {
+                                        this.y = brick.y - this.radius - 2;
+                                    } else {
+                                        this.y = brick.y + brick.height + this.radius + 2;
+                                    }
+                                }
+                            }
+                        }
+                        
+                        // 分裂球 + Combo分裂機率（普通球不受分裂Combo影響）
+                        if (this.type === 'split' || (game.comboSplitChance > 0 && this.type !== 'normal')) {
+                            let splitChance = this.type === 'split' ? 0.01 : 0;
+                            splitChance += game.comboSplitChance;
+                            
+                            if (!this.hasSplit || Math.random() < splitChance) {
+                                this.hasSplit = true;
+                                const angle1 = Math.atan2(this.vy, this.vx) + 0.5;
+                                const angle2 = Math.atan2(this.vy, this.vx) - 0.5;
+                                const speed = Math.sqrt(this.vx * this.vx + this.vy * this.vy);
+                                
+                                const splitBall1 = new Ball(this.x, this.y, Math.cos(angle1) * speed, Math.sin(angle1) * speed, this.type);
+                                const splitBall2 = new Ball(this.x, this.y, Math.cos(angle2) * speed, Math.sin(angle2) * speed, this.type);
+                                splitBall1.hasSplit = true;
+                                splitBall2.hasSplit = true;
+                                splitBall1.bonusDamage = this.bonusDamage;
+                                splitBall2.bonusDamage = this.bonusDamage;
+                                game.balls.push(splitBall1);
+                                game.balls.push(splitBall2);
+                            }
+                        }
+                        
+                        if (!isPiercing) break;
+                    }
+                }
+            }
+
+            triangleCollision(brick) {
+                // 三角形碰撞檢測
+                const p1 = { x: brick.x + brick.width / 2, y: brick.y }; // 頂點
+                const p2 = { x: brick.x, y: brick.y + brick.height }; // 左下
+                const p3 = { x: brick.x + brick.width, y: brick.y + brick.height }; // 右下
+                
+                // 檢查球心是否在三角形內或邊緣附近
+                const distToEdge1 = this.pointToLineDistance(this.x, this.y, p1.x, p1.y, p2.x, p2.y);
+                const distToEdge2 = this.pointToLineDistance(this.x, this.y, p2.x, p2.y, p3.x, p3.y);
+                const distToEdge3 = this.pointToLineDistance(this.x, this.y, p3.x, p3.y, p1.x, p1.y);
+                
+                if (distToEdge1 < this.radius || distToEdge2 < this.radius || distToEdge3 < this.radius) {
+                    if (this.pointInTriangle(this.x, this.y, p1, p2, p3) || 
+                        distToEdge1 < this.radius || distToEdge2 < this.radius || distToEdge3 < this.radius) {
+                        return 'triangle';
+                    }
+                }
+                return null;
+            }
+
+            pointToLineDistance(px, py, x1, y1, x2, y2) {
+                const A = px - x1;
+                const B = py - y1;
+                const C = x2 - x1;
+                const D = y2 - y1;
+                
+                const dot = A * C + B * D;
+                const lenSq = C * C + D * D;
+                let param = -1;
+                
+                if (lenSq !== 0) param = dot / lenSq;
+                
+                let xx, yy;
+                if (param < 0) {
+                    xx = x1;
+                    yy = y1;
+                } else if (param > 1) {
+                    xx = x2;
+                    yy = y2;
+                } else {
+                    xx = x1 + param * C;
+                    yy = y1 + param * D;
+                }
+                
+                const dx = px - xx;
+                const dy = py - yy;
+                return Math.sqrt(dx * dx + dy * dy);
+            }
+
+            pointInTriangle(px, py, p1, p2, p3) {
+                const d1 = this.sign(px, py, p1.x, p1.y, p2.x, p2.y);
+                const d2 = this.sign(px, py, p2.x, p2.y, p3.x, p3.y);
+                const d3 = this.sign(px, py, p3.x, p3.y, p1.x, p1.y);
+                
+                const hasNeg = (d1 < 0) || (d2 < 0) || (d3 < 0);
+                const hasPos = (d1 > 0) || (d2 > 0) || (d3 > 0);
+                
+                return !(hasNeg && hasPos);
+            }
+
+            sign(px, py, x1, y1, x2, y2) {
+                return (px - x2) * (y1 - y2) - (x1 - x2) * (py - y2);
+            }
+
+            bounceFromTriangle(brick) {
+                const p1 = { x: brick.x + brick.width / 2, y: brick.y };
+                const p2 = { x: brick.x, y: brick.y + brick.height };
+                const p3 = { x: brick.x + brick.width, y: brick.y + brick.height };
+                
+                const distToEdge1 = this.pointToLineDistance(this.x, this.y, p1.x, p1.y, p2.x, p2.y);
+                const distToEdge2 = this.pointToLineDistance(this.x, this.y, p2.x, p2.y, p3.x, p3.y);
+                const distToEdge3 = this.pointToLineDistance(this.x, this.y, p3.x, p3.y, p1.x, p1.y);
+                
+                let normal;
+                if (distToEdge2 <= distToEdge1 && distToEdge2 <= distToEdge3) {
+                    // 底邊
+                    normal = { x: 0, y: -1 };
+                } else if (distToEdge1 <= distToEdge3) {
+                    // 左斜邊
+                    const dx = p2.x - p1.x;
+                    const dy = p2.y - p1.y;
+                    const len = Math.sqrt(dx * dx + dy * dy);
+                    normal = { x: dy / len, y: -dx / len };
+                } else {
+                    // 右斜邊
+                    const dx = p1.x - p3.x;
+                    const dy = p1.y - p3.y;
+                    const len = Math.sqrt(dx * dx + dy * dy);
+                    normal = { x: dy / len, y: -dx / len };
+                }
+                
+                // 反射向量
+                const dot = this.vx * normal.x + this.vy * normal.y;
+                this.vx = this.vx - 2 * dot * normal.x;
+                this.vy = this.vy - 2 * dot * normal.y;
+                
+                // 推出球
+                this.x += normal.x * (this.radius + 2);
+                this.y += normal.y * (this.radius + 2);
+            }
+
+            chainLightning(game, sourceBrick) {
+                const nearbyBricks = game.bricks.filter(b => 
+                    b.active && b !== sourceBrick
+                ).sort((a, b) => {
+                    const distA = Math.abs(a.x - sourceBrick.x) + Math.abs(a.y - sourceBrick.y);
+                    const distB = Math.abs(b.x - sourceBrick.x) + Math.abs(b.y - sourceBrick.y);
+                    return distA - distB;
+                }).slice(0, this.typeData.chainCount);
+                
+                // 雷電球連鎖傷害也受助攻Combo加成影響
+                const chainDamage = this.typeData.damage + this.bonusDamage;
+                
+                for (let brick of nearbyBricks) {
+                    brick.hit(chainDamage);
+                    game.createFloatingText(brick.x + brick.width/2, brick.y + brick.height/2, `⚡-${chainDamage}`, '#ffff00');
+                    
+                    game.lightningEffects.push({
+                        startX: sourceBrick.x + sourceBrick.width/2,
+                        startY: sourceBrick.y + sourceBrick.height/2,
+                        endX: brick.x + brick.width/2,
+                        endY: brick.y + brick.height/2,
+                        alpha: 1
+                    });
+                }
+            }
+
+            explodeFullScreen(game) {
+                // 爆炸球傷害也受助攻Combo加成影響
+                const explosiveDamage = this.typeData.damage + this.bonusDamage;
+                
+                for (let brick of game.bricks) {
+                    if (!brick.active) continue;
+                    brick.hit(explosiveDamage);
+                    game.createFloatingText(brick.x + brick.width/2, brick.y + brick.height/2, `💥-${explosiveDamage}`, '#ff6600');
+                }
+                
+                game.explosionEffects.push({
+                    x: CONFIG.GAME_WIDTH / 2,
+                    y: CONFIG.GAME_HEIGHT / 2,
+                    radius: 0,
+                    maxRadius: Math.max(CONFIG.GAME_WIDTH, CONFIG.GAME_HEIGHT),
+                    alpha: 0.8
+                });
+            }
+
+            checkPowerupCollision(game) {
+                // 隨機模式不出現+球道具
+                if (game.ballDamageMode === 'random') return;
+                
+                for (let i = game.powerups.length - 1; i >= 0; i--) {
+                    const p = game.powerups[i];
+                    const dx = this.x - p.x;
+                    const dy = this.y - p.y;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+                    
+                    if (distance < this.radius + p.radius) {
+                        game.powerups.splice(i, 1);
+                        game.normalBallCount++;
+                        game.audio.play('powerup');
+                        game.createFloatingText(p.x, p.y, '+1 球', '#00ff88');
+                    }
+                }
+            }
+
+            rectCircleCollision(brick) {
+                const closestX = Math.max(brick.x, Math.min(this.x, brick.x + brick.width));
+                const closestY = Math.max(brick.y, Math.min(this.y, brick.y + brick.height));
+                
+                const dx = this.x - closestX;
+                const dy = this.y - closestY;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                
+                if (distance < this.radius) {
+                    const centerX = brick.x + brick.width / 2;
+                    const centerY = brick.y + brick.height / 2;
+                    const ballToCenterX = this.x - centerX;
+                    const ballToCenterY = this.y - centerY;
+                    
+                    if (Math.abs(ballToCenterX) / brick.width > Math.abs(ballToCenterY) / brick.height) {
+                        return 'horizontal';
+                    } else {
+                        return 'vertical';
+                    }
+                }
+                return null;
+            }
+
+            draw(ctx) {
+                if (!this.active) return;
+                
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fillStyle = this.typeData.color;
+                ctx.fill();
+                
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius + 2, 0, Math.PI * 2);
+                ctx.strokeStyle = this.typeData.color + '80';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+                
+                // 反物質球額外標記
+                if (this.type === 'antimatter') {
+                    ctx.fillStyle = '#ffffff';
+                    ctx.font = 'bold 16px Arial';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText('⚛️', this.x, this.y);
+                }
+            }
+        }
+
+        // 磚塊類別
+        class Brick {
+            constructor(x, y, width, height, hp, canAttack = false, isBoss = false, bossWave = 0, isTriangle = false) {
+                this.x = x;
+                this.y = y;
+                this.width = width;
+                this.height = height;
+                this.hp = hp;
+                this.maxHp = hp;
+                this.active = true;
+                this.canAttack = canAttack;
+                this.isBoss = isBoss;
+                this.bossWave = bossWave;
+                this.frozen = false;
+                this.frozenTurns = 0;
+                this.hasShield = isBoss && bossWave === 10;
+                this.isTriangle = isTriangle;
+            }
+
+            hit(damage = 1) {
+                this.hp -= damage;
+                if (this.hp <= 0) {
+                    this.hp = 0;
+                    this.active = false;
+                }
+            }
+
+            moveDown(amount) {
+                // 被冰凍的磚塊不移動
+                if (this.frozen && this.frozenTurns > 0) return;
+                this.y += amount;
+            }
+
+            processTurnEnd() {
+                if (this.frozenTurns > 0) {
+                    this.frozenTurns--;
+                    if (this.frozenTurns <= 0) {
+                        this.frozen = false;
+                    }
+                }
+            }
+
+            getColor() {
+                if (this.isBoss) {
+                    const pulse = Math.sin(Date.now() / 200) * 0.3 + 0.7;
+                    return `rgba(255, 0, 0, ${pulse})`;
+                }
+                if (this.frozen) return '#87ceeb';
+                if (this.isTriangle) return CONFIG.COLORS.triangle;
+                if (this.canAttack) return '#ff1493';
+                
+                if (this.hp <= 20) return '#ff6b6b';
+                if (this.hp <= 60) return '#ffa502';
+                if (this.hp <= 120) return '#a855f7';
+                if (this.hp <= 200) return '#3b82f6';
+                return '#22c55e';
+            }
+
+            draw(ctx) {
+                if (!this.active) return;
+
+                const color = this.getColor();
+                
+                if (this.isTriangle) {
+                    // 繪製三角形
+                    ctx.fillStyle = color;
+                    ctx.beginPath();
+                    ctx.moveTo(this.x + this.width / 2, this.y);
+                    ctx.lineTo(this.x, this.y + this.height);
+                    ctx.lineTo(this.x + this.width, this.y + this.height);
+                    ctx.closePath();
+                    ctx.fill();
+                    
+                    ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+                    
+                    if (this.frozen) {
+                        ctx.fillStyle = 'rgba(135, 206, 235, 0.5)';
+                        ctx.beginPath();
+                        ctx.moveTo(this.x + this.width / 2, this.y);
+                        ctx.lineTo(this.x, this.y + this.height);
+                        ctx.lineTo(this.x + this.width, this.y + this.height);
+                        ctx.closePath();
+                        ctx.fill();
+                    }
+                    
+                    // 血量文字
+                    ctx.fillStyle = '#ffffff';
+                    const fontSize = Math.min(this.width, this.height) * 0.3;
+                    ctx.font = `bold ${fontSize}px Arial`;
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText(this.hp.toString(), this.x + this.width / 2, this.y + this.height * 0.65);
+                    
+                    if (this.canAttack && !this.frozen) {
+                        ctx.fillStyle = '#ff0000';
+                        ctx.beginPath();
+                        ctx.arc(this.x + this.width / 2, this.y + 10, 5, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+                } else {
+                    ctx.fillStyle = color;
+                    ctx.beginPath();
+                    ctx.roundRect(this.x, this.y, this.width, this.height, this.isBoss ? 12 : 6);
+                    ctx.fill();
+                    
+                    ctx.strokeStyle = this.isBoss ? '#ff0000' : 'rgba(255, 255, 255, 0.3)';
+                    ctx.lineWidth = this.isBoss ? 3 : 1;
+                    ctx.stroke();
+                    
+                    if (this.frozen) {
+                        ctx.fillStyle = 'rgba(135, 206, 235, 0.5)';
+                        ctx.beginPath();
+                        ctx.roundRect(this.x, this.y, this.width, this.height, this.isBoss ? 12 : 6);
+                        ctx.fill();
+                        
+                        ctx.fillStyle = '#ffffff';
+                        ctx.font = `${this.width * 0.3}px Arial`;
+                        ctx.textAlign = 'center';
+                        ctx.textBaseline = 'middle';
+                        ctx.fillText('❄️', this.x + this.width / 2, this.y + this.height / 2 - 10);
+                    }
+                    
+                    if (this.hasShield && this.isBoss) {
+                        ctx.fillStyle = 'rgba(255, 215, 0, 0.3)';
+                        ctx.fillRect(this.x, this.y + this.height * 0.7, this.width, this.height * 0.3);
+                        ctx.fillStyle = '#ffd700';
+                        ctx.font = `${this.width * 0.15}px Arial`;
+                        ctx.textAlign = 'center';
+                        ctx.fillText('🛡️ 前方盾牌', this.x + this.width / 2, this.y + this.height * 0.85);
+                    }
+                    
+                    if (this.canAttack && !this.frozen) {
+                        ctx.fillStyle = '#ff0000';
+                        ctx.beginPath();
+                        ctx.arc(this.x + this.width - 8, this.y + 8, 5, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+                    
+                    if (this.isBoss) {
+                        ctx.fillStyle = '#ffffff';
+                        ctx.font = `bold ${this.width * 0.12}px Arial`;
+                        ctx.textAlign = 'center';
+                        ctx.textBaseline = 'top';
+                        ctx.fillText('BOSS', this.x + this.width / 2, this.y + 5);
+                        
+                        const hpBarWidth = this.width - 20;
+                        const hpBarHeight = 8;
+                        const hpRatio = this.hp / this.maxHp;
+                        ctx.fillStyle = '#333';
+                        ctx.fillRect(this.x + 10, this.y + this.height - 20, hpBarWidth, hpBarHeight);
+                        ctx.fillStyle = '#ff0000';
+                        ctx.fillRect(this.x + 10, this.y + this.height - 20, hpBarWidth * hpRatio, hpBarHeight);
+                    }
+                    
+                    ctx.fillStyle = '#ffffff';
+                    const fontSize = this.isBoss ? this.width * 0.15 : Math.min(this.width, this.height) * 0.35;
+                    ctx.font = `bold ${fontSize}px Arial`;
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    const yOffset = this.frozen ? 8 : 0;
+                    ctx.fillText(this.hp.toString(), this.x + this.width / 2, this.y + this.height / 2 + yOffset);
+                }
+            }
+        }
+
+        // 道具類別
+        class Powerup {
+            constructor(x, y) {
+                this.x = x;
+                this.y = y;
+                this.radius = 12;
+                this.pulse = 0;
+            }
+
+            update() {
+                this.pulse += 0.1;
+            }
+
+            moveDown(amount) {
+                this.y += amount;
+            }
+
+            draw(ctx) {
+                const pulseRadius = this.radius + Math.sin(this.pulse) * 3;
+                
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, pulseRadius + 5, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(0, 255, 136, 0.2)';
+                ctx.fill();
+                
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, pulseRadius, 0, Math.PI * 2);
+                ctx.fillStyle = '#00ff88';
+                ctx.fill();
+                
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(this.x - 6, this.y - 2, 12, 4);
+                ctx.fillRect(this.x - 2, this.y - 6, 4, 12);
+            }
+        }
+
+        // 發射器類別
+        class Launcher {
+            constructor(x, y) {
+                this.x = x;
+                this.y = y;
+                this.size = CONFIG.LAUNCHER_SIZE;
+                this.eyeOffset = { x: 0, y: 0 };
+            }
+
+            updateEyes(targetX, targetY) {
+                const dx = targetX - this.x;
+                const dy = targetY - this.y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                
+                if (dist > 0) {
+                    this.eyeOffset.x = (dx / dist) * 3;
+                    this.eyeOffset.y = (dy / dist) * 3;
+                }
+            }
+
+            isPointInside(x, y) {
+                const dx = x - this.x;
+                const dy = y - this.y;
+                return Math.sqrt(dx * dx + dy * dy) <= this.size + 10;
+            }
+
+            draw(ctx, hp, maxHp) {
+                const hpRatio = hp / Math.max(maxHp, hp);
+                let bodyColor = CONFIG.COLORS.launcher;
+                if (hpRatio < 0.3) bodyColor = '#ff0000';
+                else if (hpRatio < 0.6) bodyColor = '#ffa500';
+                
+                ctx.fillStyle = bodyColor;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fill();
+                
+                ctx.beginPath();
+                ctx.arc(this.x - 5, this.y - 8, this.size * 0.4, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+                ctx.fill();
+                
+                ctx.fillStyle = '#ffffff';
+                ctx.beginPath();
+                ctx.arc(this.x - 10, this.y - 5, 8, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.beginPath();
+                ctx.arc(this.x + 10, this.y - 5, 8, 0, Math.PI * 2);
+                ctx.fill();
+                
+                ctx.fillStyle = '#1a1a2e';
+                ctx.beginPath();
+                ctx.arc(this.x - 10 + this.eyeOffset.x, this.y - 5 + this.eyeOffset.y, 4, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.beginPath();
+                ctx.arc(this.x + 10 + this.eyeOffset.x, this.y - 5 + this.eyeOffset.y, 4, 0, Math.PI * 2);
+                ctx.fill();
+                
+                ctx.beginPath();
+                if (hpRatio < 0.3) {
+                    ctx.arc(this.x, this.y + 12, 10, Math.PI + 0.2, -0.2);
+                } else {
+                    ctx.arc(this.x, this.y + 5, 10, 0.2, Math.PI - 0.2);
+                }
+                ctx.strokeStyle = '#1a1a2e';
+                ctx.lineWidth = 3;
+                ctx.stroke();
+                
+                ctx.beginPath();
+                ctx.moveTo(this.x, this.y - this.size);
+                ctx.lineTo(this.x, this.y - this.size - 10);
+                ctx.strokeStyle = bodyColor;
+                ctx.lineWidth = 3;
+                ctx.stroke();
+                
+                ctx.beginPath();
+                ctx.arc(this.x, this.y - this.size - 13, 5, 0, Math.PI * 2);
+                ctx.fillStyle = hpRatio < 0.3 ? '#ff0000' : '#ff6b6b';
+                ctx.fill();
+                
+                // 血條在機器人下方
+                const hpBarWidth = 80;
+                const hpBarHeight = 10;
+                const hpBarX = this.x - hpBarWidth / 2;
+                const hpBarY = this.y + this.size + 10;
+                
+                ctx.fillStyle = CONFIG.COLORS.hpBg;
+                ctx.beginPath();
+                ctx.roundRect(hpBarX, hpBarY, hpBarWidth, hpBarHeight, 5);
+                ctx.fill();
+                
+                let hpColor = CONFIG.COLORS.hp;
+                if (hpRatio < 0.3) hpColor = '#ff0000';
+                else if (hpRatio < 0.6) hpColor = '#ffa500';
+                
+                const displayRatio = Math.min(1, hpRatio);
+                if (displayRatio > 0) {
+                    ctx.fillStyle = hpColor;
+                    ctx.beginPath();
+                    ctx.roundRect(hpBarX, hpBarY, hpBarWidth * displayRatio, hpBarHeight, 5);
+                    ctx.fill();
+                }
+                
+                ctx.fillStyle = '#ffffff';
+                ctx.font = 'bold 9px Arial';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(`${Math.floor(hp)}/${maxHp}`, this.x, hpBarY + hpBarHeight / 2);
+            }
+        }
+
+        // 主遊戲類別
+        class Game {
+            constructor() {
+                this.canvas = document.getElementById('gameCanvas');
+                this.ctx = this.canvas.getContext('2d');
+                this.audio = new AudioSystem();
+                
+                this.state = 'menu';
+                this.menuTab = 'combo';
+                this.menuScrollY = 0;
+                this.wave = 1;
+                this.playerHp = CONFIG.PLAYER_MAX_HP;
+                this.maxHp = CONFIG.PLAYER_MAX_HP;
+                
+                this.normalBallCount = 1;
+                this.specialBalls = [];
+                this.ballDamageMode = '20balls'; // '20balls', 'wave', 'random', 'combo10'
+                
+                // Combo系統
+                this.selectedCombos = [];
+                this.comboCount = 0;
+                this.comboThresholds = {};
+                this.comboSplitChance = 0;
+                this.comboAssistDamage = 1;
+                this.comboAssistBonus = 0; // 本回合助攻Combo加成（最多100）
+                
+                this.balls = [];
+                this.bricks = [];
+                this.powerups = [];
+                this.iceWalls = [];
+                this.launcher = null;
+                this.nextLauncherX = null;
+                
+                this.crossLasers = [];
+                
+                this.floatingTexts = [];
+                this.explosionEffects = [];
+                this.attackEffects = [];
+                this.lightningEffects = [];
+                this.laserEffects = [];
+                
+                this.aimAngle = -Math.PI / 2;
+                
+                this.launchQueue = [];
+                this.launchDelay = 0;
+                this.launchInterval = 5;
+                
+                this.skillChoices = [];
+                this.showingSkillSelect = false;
+                this.refreshCount = 3;
+                
+                this.currentBoss = null;
+                
+                this.scale = 1;
+                this.topOffset = 80;
+                
+                this.lastClickTime = 0;
+                this.lastClickPos = null;
+                this.doubleClickThreshold = 300;
+                
+                this.resize();
+                this.setupEvents();
+                this.audio.init();
+                
+                requestAnimationFrame((t) => this.gameLoop(t));
+            }
+
+            resize() {
+                const container = document.getElementById('gameContainer');
+                const containerWidth = container.clientWidth;
+                const containerHeight = container.clientHeight;
+                
+                const scaleX = containerWidth / CONFIG.GAME_WIDTH;
+                const scaleY = containerHeight / CONFIG.GAME_HEIGHT;
+                this.scale = Math.min(scaleX, scaleY) * 0.95;
+                
+                this.canvas.width = CONFIG.GAME_WIDTH * this.scale;
+                this.canvas.height = CONFIG.GAME_HEIGHT * this.scale;
+            }
+
+            setupEvents() {
+                window.addEventListener('resize', () => this.resize());
+                
+                this.canvas.addEventListener('mousedown', (e) => this.onPointerDown(e));
+                this.canvas.addEventListener('mousemove', (e) => this.onPointerMove(e));
+                this.canvas.addEventListener('mouseup', (e) => this.onPointerUp(e));
+                
+                this.canvas.addEventListener('touchstart', (e) => {
+                    e.preventDefault();
+                    this.onPointerDown(e.touches[0]);
+                });
+                this.canvas.addEventListener('touchmove', (e) => {
+                    e.preventDefault();
+                    this.onPointerMove(e.touches[0]);
+                });
+                this.canvas.addEventListener('touchend', (e) => {
+                    e.preventDefault();
+                    this.onPointerUp(e.changedTouches[0]);
+                });
+            }
+
+            getGameCoords(e) {
+                const rect = this.canvas.getBoundingClientRect();
+                return {
+                    x: (e.clientX - rect.left) / this.scale,
+                    y: (e.clientY - rect.top) / this.scale
+                };
+            }
+
+            onPointerDown(e) {
+                const pos = this.getGameCoords(e);
+                const now = Date.now();
+                
+                if (this.state === 'menu') {
+                    this.handleMenuClick(pos);
+                    return;
+                }
+                
+                if (this.state === 'gameover' || this.state === 'victory') {
+                    this.state = 'menu';
+                    return;
+                }
+                
+                if (this.state === 'skillSelect') {
+                    this.handleSkillSelect(pos);
+                    return;
+                }
+                
+                if (this.checkMenuButton(pos)) {
+                    this.state = 'menu';
+                    return;
+                }
+                
+                // 雙擊機器人回收球
+                if ((this.state === 'flying' || this.state === 'launching') && this.launcher) {
+                    if (this.launcher.isPointInside(pos.x, pos.y)) {
+                        if (this.lastClickPos && 
+                            now - this.lastClickTime < this.doubleClickThreshold &&
+                            this.launcher.isPointInside(this.lastClickPos.x, this.lastClickPos.y)) {
+                            this.forceRecallBalls();
+                            this.lastClickTime = 0;
+                            return;
+                        }
+                        this.lastClickTime = now;
+                        this.lastClickPos = pos;
+                        return;
+                    }
+                }
+                
+                if (this.state === 'waiting') {
+                    this.state = 'aiming';
+                    this.updateAimAngle(pos);
+                }
+                
+                this.lastClickTime = now;
+                this.lastClickPos = pos;
+            }
+
+            handleMenuClick(pos) {
+                // 底部導航按鈕
+                const navY = CONFIG.GAME_HEIGHT - 60;
+                const navHeight = 50;
+                
+                if (pos.y >= navY && pos.y <= navY + navHeight) {
+                    if (pos.x < CONFIG.GAME_WIDTH / 2) {
+                        this.menuTab = 'combo';
+                    } else {
+                        this.menuTab = 'ball';
+                    }
+                    return;
+                }
+                
+                // Combo選擇 - 每行2個
+                if (this.menuTab === 'combo') {
+                    const comboTypes = Object.keys(COMBO_TYPES);
+                    const cardWidth = 180;
+                    const cardHeight = 105;
+                    const cols = 2;
+                    const spacing = 6;
+                    const startX = (CONFIG.GAME_WIDTH - cols * (cardWidth + spacing)) / 2;
+                    const startY = 140;
+                    
+                    for (let i = 0; i < comboTypes.length; i++) {
+                        const col = i % cols;
+                        const row = Math.floor(i / cols);
+                        const cardX = startX + col * (cardWidth + spacing);
+                        const cardY = startY + row * (cardHeight + spacing);
+                        
+                        if (pos.x >= cardX && pos.x <= cardX + cardWidth &&
+                            pos.y >= cardY && pos.y <= cardY + cardHeight) {
+                            const type = comboTypes[i];
+                            if (this.selectedCombos.includes(type)) {
+                                this.selectedCombos = this.selectedCombos.filter(t => t !== type);
+                            } else if (this.selectedCombos.length < 2) {
+                                this.selectedCombos.push(type);
+                            }
+                            this.audio.play('powerup');
+                            return;
+                        }
+                    }
+                }
+                
+                // 普通球模式選擇 - 4種模式
+                if (this.menuTab === 'ball') {
+                    const btnWidth = 160;
+                    const btnHeight = 60;
+                    const startY = 160;
+                    const centerX = CONFIG.GAME_WIDTH / 2 - btnWidth / 2;
+                    const gap = 15;
+                    
+                    const modes = ['20balls', 'wave', 'random', 'combo10'];
+                    
+                    for (let i = 0; i < modes.length; i++) {
+                        const btnY = startY + i * (btnHeight + gap);
+                        if (pos.x >= centerX && pos.x <= centerX + btnWidth &&
+                            pos.y >= btnY && pos.y <= btnY + btnHeight) {
+                            this.ballDamageMode = modes[i];
+                            this.audio.play('powerup');
+                            return;
+                        }
+                    }
+                }
+                
+                // 開始遊戲按鈕
+                const startBtnW = 160;
+                const startBtnH = 50;
+                const startBtnX = CONFIG.GAME_WIDTH / 2 - startBtnW / 2;
+                const startBtnY = CONFIG.GAME_HEIGHT - 120;
+                
+                if (pos.x >= startBtnX && pos.x <= startBtnX + startBtnW &&
+                    pos.y >= startBtnY && pos.y <= startBtnY + startBtnH) {
+                    if (this.selectedCombos.length === 2) {
+                        this.startGame();
+                    }
+                }
+            }
+
+            checkMenuButton(pos) {
+                const btnX = CONFIG.GAME_WIDTH - 50;
+                const btnY = 20;
+                const btnW = 40;
+                const btnH = 25;
+                
+                return pos.x >= btnX && pos.x <= btnX + btnW &&
+                       pos.y >= btnY - btnH/2 && pos.y <= btnY + btnH/2;
+            }
+
+            forceRecallBalls() {
+                for (let ball of this.balls) {
+                    ball.active = false;
+                    ball.returned = true;
+                }
+                this.launchQueue = [];
+                this.audio.play('powerup');
+                this.createFloatingText(this.launcher.x, this.launcher.y - 50, '回收!', '#ffd700');
+            }
+
+            handleSkillSelect(pos) {
+                const cardWidth = 115;
+                const cardHeight = 180;
+                const spacing = 15;
+                const totalWidth = 3 * cardWidth + 2 * spacing;
+                const startX = (CONFIG.GAME_WIDTH - totalWidth) / 2;
+                const startY = CONFIG.GAME_HEIGHT / 2 - cardHeight / 2 - 10;
+                
+                const refreshBtnX = CONFIG.GAME_WIDTH / 2 - 80;
+                const refreshBtnY = startY + cardHeight + 25;
+                const refreshBtnW = 160;
+                const refreshBtnH = 45;
+                
+                if (pos.x >= refreshBtnX && pos.x <= refreshBtnX + refreshBtnW &&
+                    pos.y >= refreshBtnY && pos.y <= refreshBtnY + refreshBtnH) {
+                    if (this.refreshCount > 0 && this.normalBallCount >= 10) {
+                        this.refreshCount--;
+                        this.normalBallCount -= 10;
+                        this.generateSkillChoices();
+                        this.audio.play('powerup');
+                        return;
+                    } else if (this.normalBallCount < 10) {
+                        this.createFloatingText(CONFIG.GAME_WIDTH / 2, refreshBtnY, '普通球不足10個!', '#ff0000');
+                    } else {
+                        this.createFloatingText(CONFIG.GAME_WIDTH / 2, refreshBtnY, '刷新次數已用完!', '#ff0000');
+                    }
+                    return;
+                }
+                
+                for (let i = 0; i < 3; i++) {
+                    const cardX = startX + i * (cardWidth + spacing);
+                    if (pos.x >= cardX && pos.x <= cardX + cardWidth &&
+                        pos.y >= startY && pos.y <= startY + cardHeight) {
+                        const selectedType = this.skillChoices[i];
+                        this.specialBalls.push(selectedType);
+                        this.state = 'waiting';
+                        this.showingSkillSelect = false;
+                        this.audio.play('powerup');
+                        this.createFloatingText(CONFIG.GAME_WIDTH / 2, CONFIG.GAME_HEIGHT / 2, 
+                            `獲得 ${BALL_TYPES[selectedType].name}!`, BALL_TYPES[selectedType].color);
+                        break;
+                    }
+                }
+            }
+
+            updateAimAngle(pos) {
+                const dx = pos.x - this.launcher.x;
+                const dy = pos.y - this.launcher.y;
+                
+                let angle = Math.atan2(dy, dx);
+                const minAngle = -Math.PI + 0.17;
+                const maxAngle = -0.17;
+                
+                if (angle < minAngle) angle = minAngle;
+                if (angle > maxAngle) angle = maxAngle;
+                if (dy >= 0) angle = -Math.PI / 2;
+                
+                this.aimAngle = angle;
+                
+                if (this.launcher) {
+                    this.launcher.updateEyes(pos.x, pos.y);
+                }
+            }
+
+            onPointerMove(e) {
+                const pos = this.getGameCoords(e);
+                
+                if (this.state === 'aiming') {
+                    this.updateAimAngle(pos);
+                }
+                
+                if (this.state === 'waiting' && this.launcher) {
+                    this.launcher.updateEyes(pos.x, pos.y);
+                }
+            }
+
+            onPointerUp(e) {
+                if (this.state === 'aiming') {
+                    this.launchBalls();
+                }
+            }
+
+            startGame() {
+                this.state = 'waiting';
+                this.wave = 1;
+                this.playerHp = CONFIG.PLAYER_MAX_HP;
+                this.maxHp = CONFIG.PLAYER_MAX_HP;
+                
+                // 根據模式設置初始球數
+                if (this.ballDamageMode === '20balls') {
+                    this.normalBallCount = 20;
+                } else if (this.ballDamageMode === 'random') {
+                    this.normalBallCount = Math.floor(Math.random() * 99) + 1;
+                } else {
+                    this.normalBallCount = 1;
+                }
+                this.specialBalls = [];
+                
+                this.balls = [];
+                this.bricks = [];
+                this.powerups = [];
+                this.iceWalls = [];
+                this.floatingTexts = [];
+                this.explosionEffects = [];
+                this.attackEffects = [];
+                this.lightningEffects = [];
+                this.laserEffects = [];
+                this.nextLauncherX = null;
+                this.showingSkillSelect = false;
+                this.currentBoss = null;
+                this.refreshCount = 3;
+                this.crossLasers = [];
+                
+                // 重置Combo
+                this.comboCount = 0;
+                this.comboThresholds = {};
+                this.comboSplitChance = 0;
+                this.comboAssistDamage = 1;
+                this.comboAssistBonus = 0;
+                for (let combo of this.selectedCombos) {
+                    this.comboThresholds[combo] = 0;
+                }
+                
+                this.launcher = new Launcher(CONFIG.GAME_WIDTH / 2, CONFIG.GAME_HEIGHT - 70);
+                this.spawnWave();
+                
+                this.audio.play('launch');
+            }
+
+            // 反物質球效果：將所有場上的球轉為普通球（包括其他反物質球）
+            convertAllBallsToNormal() {
+                for (let ball of this.balls) {
+                    if (ball.active && ball.type !== 'normal') {
+                        ball.type = 'normal';
+                        ball.typeData = BALL_TYPES['normal'];
+                        ball.radius = CONFIG.BALL_RADIUS;
+                        ball.customDamage = null;
+                    }
+                }
+            }
+
+            addComboHit(ballType = 'normal', multiplier = 1) {
+                // combo10模式：只有普通球才+10 Combo
+                let comboAdd = 1;
+                if (this.ballDamageMode === 'combo10' && ballType === 'normal') {
+                    comboAdd = 10;
+                }
+                this.comboCount += comboAdd * multiplier;
+                
+                for (let comboType of this.selectedCombos) {
+                    const comboData = COMBO_TYPES[comboType];
+                    this.comboThresholds[comboType] += comboAdd * multiplier;
+                    
+                    // 可能觸發多次
+                    while (this.comboThresholds[comboType] >= comboData.threshold) {
+                        this.comboThresholds[comboType] -= comboData.threshold;
+                        this.triggerComboEffect(comboType);
+                    }
+                }
+            }
+
+            triggerComboEffect(comboType) {
+                this.audio.play('combo');
+                
+                switch(comboType) {
+                    case 'piercing':
+                        // 上調：發射2顆穿透球，也受助攻Combo加成影響
+                        if (this.launcher) {
+                            for (let i = 0; i < 2; i++) {
+                                const angle = -Math.PI / 2 + (Math.random() - 0.5) * 0.5;
+                                const speed = CONFIG.BALL_SPEED;
+                                const ball = new Ball(
+                                    this.launcher.x,
+                                    this.launcher.y - this.launcher.size,
+                                    Math.cos(angle) * speed,
+                                    Math.sin(angle) * speed,
+                                    'piercing'
+                                );
+                                // 穿透Combo發射的穿透球也受助攻Combo加成
+                                ball.bonusDamage = this.comboAssistBonus;
+                                this.balls.push(ball);
+                            }
+                            const displayDamage = 50 + this.comboAssistBonus;
+                            this.createFloatingText(this.launcher.x, this.launcher.y - 60, `穿透Combo x2! (${displayDamage}傷害)`, '#00ffff');
+                        }
+                        break;
+                        
+                    case 'explosive':
+                        for (let brick of this.bricks) {
+                            if (!brick.active) continue;
+                            brick.hit(50);
+                            this.createFloatingText(brick.x + brick.width/2, brick.y + brick.height/2, '-50', '#ff6600');
+                        }
+                        this.explosionEffects.push({
+                            x: CONFIG.GAME_WIDTH / 2,
+                            y: CONFIG.GAME_HEIGHT / 2,
+                            radius: 0,
+                            maxRadius: Math.max(CONFIG.GAME_WIDTH, CONFIG.GAME_HEIGHT),
+                            alpha: 0.8
+                        });
+                        this.createFloatingText(CONFIG.GAME_WIDTH / 2, 150, '爆炸Combo!', '#ff6600');
+                        break;
+                        
+                    case 'lightning':
+                        // 上調：對5個不同非Boss磚塊造成20%傷害
+                        const nonBossTargets = this.bricks.filter(b => b.active && !b.isBoss);
+                        const shuffled = nonBossTargets.sort(() => Math.random() - 0.5);
+                        const targets = shuffled.slice(0, 5);
+                        
+                        for (let target of targets) {
+                            const damage = Math.ceil(target.maxHp * 0.2);
+                            target.hit(damage);
+                            this.createFloatingText(target.x + target.width/2, target.y + target.height/2, `⚡-${damage}`, '#ffff00');
+                            this.lightningEffects.push({
+                                startX: CONFIG.GAME_WIDTH / 2,
+                                startY: this.topOffset,
+                                endX: target.x + target.width / 2,
+                                endY: target.y + target.height / 2,
+                                alpha: 1
+                            });
+                        }
+                        if (targets.length > 0) {
+                            this.createFloatingText(CONFIG.GAME_WIDTH / 2, 120, `雷電Combo x${targets.length}!`, '#ffff00');
+                        }
+                        break;
+                        
+                    case 'frozen':
+                        // 限制最多5塊冰牆
+                        const activeWalls = this.iceWalls.filter(w => w.active).length;
+                        if (activeWalls < CONFIG.MAX_ICE_WALLS) {
+                            const brickWidth = (CONFIG.GAME_WIDTH - CONFIG.BRICK_PADDING * (CONFIG.BRICK_COLS + 1)) / CONFIG.BRICK_COLS;
+                            const wallX = Math.random() * (CONFIG.GAME_WIDTH - brickWidth);
+                            this.iceWalls.push(new IceWall(wallX, brickWidth));
+                            this.createFloatingText(wallX + brickWidth / 2, CONFIG.GAME_HEIGHT - 30, `❄️冰牆! (${activeWalls + 1}/${CONFIG.MAX_ICE_WALLS})`, '#87ceeb');
+                        } else {
+                            this.createFloatingText(CONFIG.GAME_WIDTH / 2, CONFIG.GAME_HEIGHT - 30, '冰牆已達上限!', '#87ceeb');
+                        }
+                        break;
+                        
+                    case 'split':
+                        if (this.comboSplitChance < 0.03) {
+                            this.comboSplitChance += 0.01;
+                            this.createFloatingText(CONFIG.GAME_WIDTH / 2, 150, `分裂+1%! (${Math.round(this.comboSplitChance * 100)}%)`, '#ff00ff');
+                        }
+                        break;
+                        
+                    case 'assist':
+                        // 重製：每10次碰撞所有球+1攻擊力(最多+100,本回合即時生效)
+                        if (this.comboAssistBonus < 100) {
+                            this.comboAssistBonus++;
+                            // 對所有場上的球加傷害（包括普通球、穿透球、雷電球、爆炸球、分裂球等所有類型）
+                            for (let ball of this.balls) {
+                                if (ball.active) {
+                                    ball.bonusDamage = this.comboAssistBonus;
+                                }
+                            }
+                            // 每次觸發都顯示提示
+                            this.createFloatingText(CONFIG.GAME_WIDTH / 2, 150, `全體攻擊+1! (本回合+${this.comboAssistBonus})`, '#ffd700');
+                        } else {
+                            this.createFloatingText(CONFIG.GAME_WIDTH / 2, 150, '攻擊加成已達上限+100!', '#ff6600');
+                        }
+                        break;
+                        
+                    case 'healing':
+                        // 治療Combo可以超上限
+                        this.playerHp += 5;
+                        this.createFloatingText(this.launcher.x, this.launcher.y - 60, '+5 HP!', '#00ff00');
+                        break;
+                        
+                    case 'antimatter':
+                        this.victory();
+                        break;
+                }
+            }
+
+            launchBalls() {
+                this.state = 'launching';
+                
+                // 重置本回合Combo和加成
+                this.comboCount = 0;
+                this.comboSplitChance = 0;
+                this.comboAssistDamage = 1;
+                this.comboAssistBonus = 0; // 每回合重置
+                for (let combo of this.selectedCombos) {
+                    this.comboThresholds[combo] = 0;
+                }
+                
+                // 設置十字雷射器次數
+                for (let laser of this.crossLasers) {
+                    laser.setShots(this.normalBallCount);
+                }
+                
+                // 處理助攻球
+                const assistBalls = this.specialBalls.filter(t => t === 'assist');
+                const otherSpecialBalls = this.specialBalls.filter(t => t !== 'assist');
+                
+                for (let assistType of assistBalls) {
+                    this.executeAssistBall();
+                }
+                
+                this.launchQueue = [];
+                for (let i = 0; i < this.normalBallCount; i++) {
+                    this.launchQueue.push('normal');
+                }
+                for (let type of otherSpecialBalls) {
+                    this.launchQueue.push(type);
+                }
+                
+                this.launchDelay = 0;
+                this.nextLauncherX = null;
+                this.audio.play('launch');
+            }
+
+            executeAssistBall() {
+                const nonBossBricks = this.bricks.filter(b => b.active && !b.isBoss);
+                if (nonBossBricks.length === 0) return;
+                
+                const minY = Math.min(...nonBossBricks.map(b => b.y));
+                const topRowBricks = nonBossBricks.filter(b => b.y === minY);
+                const targetBrick = topRowBricks[Math.floor(Math.random() * topRowBricks.length)];
+                
+                targetBrick.active = false;
+                this.audio.play('destroy');
+                this.createFloatingText(targetBrick.x + targetBrick.width/2, targetBrick.y + targetBrick.height/2, '💫擊敗!', '#ffd700');
+                
+                const spawnX = targetBrick.x + targetBrick.width / 2;
+                const spawnY = targetBrick.y + targetBrick.height / 2;
+                
+                const angle = -Math.PI / 2 + (Math.random() - 0.5) * Math.PI * 0.8;
+                const speed = CONFIG.BALL_SPEED;
+                
+                const assistBall = new Ball(spawnX, spawnY, Math.cos(angle) * speed, Math.sin(angle) * speed, 'assist', this.comboAssistDamage);
+                this.balls.push(assistBall);
+            }
+
+            spawnWave() {
+                const brickWidth = (CONFIG.GAME_WIDTH - CONFIG.BRICK_PADDING * (CONFIG.BRICK_COLS + 1)) / CONFIG.BRICK_COLS;
+                const brickHeight = brickWidth;
+                
+                if (this.wave === 10 || this.wave === 20) {
+                    this.spawnBoss();
+                    this.spawnCrossLasers(brickWidth, brickHeight);
+                    return;
+                }
+                
+                const baseHp = CONFIG.BASE_BRICK_HP + (this.wave - 1) * CONFIG.BRICK_HP_INCREMENT;
+                
+                // 20波後所有磚塊都能攻擊
+                const allCanAttack = this.wave > 20;
+                
+                const attackerCount = allCanAttack ? CONFIG.BRICK_COLS : Math.floor(Math.random() * 3) + 1;
+                const attackerIndices = [];
+                while (attackerIndices.length < attackerCount && attackerIndices.length < CONFIG.BRICK_COLS) {
+                    const idx = Math.floor(Math.random() * CONFIG.BRICK_COLS);
+                    if (!attackerIndices.includes(idx)) {
+                        attackerIndices.push(idx);
+                    }
+                }
+                
+                // 隨機選擇一個位置放置三角形磚塊
+                const triangleCol = Math.floor(Math.random() * CONFIG.BRICK_COLS);
+                
+                let bricksSpawned = 0;
+                let trianglePlaced = false;
+                
+                for (let col = 0; col < CONFIG.BRICK_COLS; col++) {
+                    if (Math.random() < 0.7) {
+                        const x = CONFIG.BRICK_PADDING + col * (brickWidth + CONFIG.BRICK_PADDING);
+                        const y = this.topOffset + CONFIG.BRICK_PADDING;
+                        const canAttack = allCanAttack || attackerIndices.includes(col);
+                        const isTriangle = (col === triangleCol) && !trianglePlaced;
+                        
+                        if (isTriangle) trianglePlaced = true;
+                        
+                        this.bricks.push(new Brick(x, y, brickWidth, brickHeight, baseHp, canAttack, false, 0, isTriangle));
+                        bricksSpawned++;
+                    }
+                    
+                    // 隨機模式不生成+球道具
+                    if (this.ballDamageMode !== 'random' && Math.random() < 0.1) {
+                        const x = CONFIG.BRICK_PADDING + col * (brickWidth + CONFIG.BRICK_PADDING) + brickWidth / 2;
+                        const y = this.topOffset + CONFIG.BRICK_PADDING + brickHeight / 2;
+                        this.powerups.push(new Powerup(x, y));
+                    }
+                }
+                
+                // 確保至少有一個磚塊，且有一個三角形
+                if (bricksSpawned === 0) {
+                    const col = Math.floor(CONFIG.BRICK_COLS / 2);
+                    const x = CONFIG.BRICK_PADDING + col * (brickWidth + CONFIG.BRICK_PADDING);
+                    const y = this.topOffset + CONFIG.BRICK_PADDING;
+                    this.bricks.push(new Brick(x, y, brickWidth, brickHeight, baseHp, true, false, 0, true));
+                } else if (!trianglePlaced) {
+                    // 如果還沒放三角形，在已有的磚塊中隨機選一個變成三角形
+                    const regularBricks = this.bricks.filter(b => !b.isBoss && !b.isTriangle && b.y === this.topOffset + CONFIG.BRICK_PADDING);
+                    if (regularBricks.length > 0) {
+                        const randomBrick = regularBricks[Math.floor(Math.random() * regularBricks.length)];
+                        randomBrick.isTriangle = true;
+                    }
+                }
+                
+                this.spawnCrossLasers(brickWidth, brickHeight);
+            }
+
+            spawnCrossLasers(brickWidth, brickHeight) {
+                this.crossLasers = [];
+                const maxRow = 5;
+                const laserCount = CONFIG.CROSS_LASER_COUNT;
+                let placed = 0;
+                let attempts = 0;
+                
+                while (placed < laserCount && attempts < 50) {
+                    const col = Math.floor(Math.random() * CONFIG.BRICK_COLS);
+                    const row = Math.floor(Math.random() * maxRow);
+                    
+                    const laserX = CONFIG.BRICK_PADDING + col * (brickWidth + CONFIG.BRICK_PADDING) + brickWidth / 2;
+                    const laserY = this.topOffset + CONFIG.BRICK_PADDING + row * (brickHeight + CONFIG.BRICK_PADDING) + brickHeight / 2;
+                    
+                    let overlaps = false;
+                    for (let brick of this.bricks) {
+                        if (laserX > brick.x && laserX < brick.x + brick.width &&
+                            laserY > brick.y && laserY < brick.y + brick.height) {
+                            overlaps = true;
+                            break;
+                        }
+                    }
+                    
+                    // 檢查與其他雷射器是否重疊
+                    for (let laser of this.crossLasers) {
+                        if (Math.abs(laser.x - laserX) < brickWidth && Math.abs(laser.y - laserY) < brickHeight) {
+                            overlaps = true;
+                            break;
+                        }
+                    }
+                    
+                    if (!overlaps) {
+                        this.crossLasers.push(new CrossLaser(col, row, brickWidth, brickHeight, this.topOffset));
+                        placed++;
+                    }
+                    
+                    attempts++;
+                }
+            }
+
+            spawnBoss() {
+                const brickWidth = (CONFIG.GAME_WIDTH - CONFIG.BRICK_PADDING * (CONFIG.BRICK_COLS + 1)) / CONFIG.BRICK_COLS;
+                
+                let bossSize, bossHp, canAttack;
+                if (this.wave === 10) {
+                    bossSize = 3;
+                    bossHp = 1000;
+                    canAttack = true;
+                } else {
+                    bossSize = 5;
+                    bossHp = 1234567; // 上調到1234567血
+                    canAttack = false;
+                }
+                
+                const bossWidth = bossSize * brickWidth + (bossSize - 1) * CONFIG.BRICK_PADDING;
+                const bossHeight = bossWidth;
+                const bossX = (CONFIG.GAME_WIDTH - bossWidth) / 2;
+                const bossY = this.topOffset + CONFIG.BRICK_PADDING;
+                
+                const boss = new Brick(bossX, bossY, bossWidth, bossHeight, bossHp, canAttack, true, this.wave);
+                this.bricks.push(boss);
+                this.currentBoss = boss;
+                
+                this.audio.play('boss');
+            }
+
+            moveBricksDown() {
+                const brickWidth = (CONFIG.GAME_WIDTH - CONFIG.BRICK_PADDING * (CONFIG.BRICK_COLS + 1)) / CONFIG.BRICK_COLS;
+                const moveAmount = brickWidth + CONFIG.BRICK_PADDING;
+                
+                for (let brick of this.bricks) {
+                    brick.moveDown(moveAmount);
+                    
+                    if (brick.active && brick.isBoss && brick.bossWave === 20) {
+                        if (brick.y + brick.height >= CONFIG.GAME_HEIGHT - 80) {
+                            this.gameOver();
+                            return;
+                        }
+                    }
+                    
+                    if (brick.active && !brick.isBoss && brick.y + brick.height >= CONFIG.GAME_HEIGHT - 80) {
+                        this.gameOver();
+                        return;
+                    }
+                }
+                
+                for (let powerup of this.powerups) {
+                    powerup.moveDown(moveAmount);
+                }
+                
+                for (let laser of this.crossLasers) {
+                    laser.moveDown(moveAmount);
+                }
+                
+                this.powerups = this.powerups.filter(p => p.y < CONFIG.GAME_HEIGHT - 70);
+            }
+
+            enemyAttack() {
+                for (let brick of this.bricks) {
+                    // 被冰凍的磚塊不攻擊
+                    if (!brick.active || !brick.canAttack || brick.frozen) continue;
+                    
+                    let damage = 1;
+                    if (brick.isBoss && brick.bossWave === 10) {
+                        damage = 10;
+                    }
+                    
+                    this.playerHp -= damage;
+                    this.audio.play('damage');
+                    this.createFloatingText(this.launcher.x, this.launcher.y - 50, `-${damage}`, '#ff0000');
+                    
+                    this.attackEffects.push({
+                        startX: brick.x + brick.width / 2,
+                        startY: brick.y + brick.height,
+                        endX: this.launcher.x,
+                        endY: this.launcher.y,
+                        progress: 0
+                    });
+                }
+                
+                // 第20波Boss回血
+                for (let brick of this.bricks) {
+                    if (brick.active && brick.isBoss && brick.bossWave === 20) {
+                        const healAmount = Math.floor(brick.maxHp * 0.1);
+                        brick.hp = Math.min(brick.maxHp, brick.hp + healAmount);
+                        this.createFloatingText(brick.x + brick.width/2, brick.y + brick.height/2, `+${healAmount}`, '#00ff00');
+                    }
+                }
+                
+                // 處理凍結回合（在敵人行動後減少）
+                for (let brick of this.bricks) {
+                    brick.processTurnEnd();
+                }
+                
+                if (this.playerHp <= 0) {
+                    this.playerHp = 0;
+                    this.gameOver();
+                }
+            }
+
+            gameOver() {
+                this.state = 'gameover';
+                this.audio.play('gameover');
+            }
+
+            victory() {
+                this.state = 'victory';
+                this.audio.play('victory');
+            }
+
+            generateSkillChoices() {
+                const availableTypes = Object.keys(BALL_TYPES).filter(t => 
+                    t !== 'normal' && !this.selectedCombos.includes(t)
+                );
+                this.skillChoices = [];
+                
+                const shuffled = [...availableTypes].sort(() => Math.random() - 0.5);
+                this.skillChoices = shuffled.slice(0, 3);
+            }
+
+            showSkillSelection() {
+                this.generateSkillChoices();
+                this.state = 'skillSelect';
+                this.showingSkillSelect = true;
+            }
+
+            createFloatingText(x, y, text, color) {
+                this.floatingTexts.push({
+                    x, y, text, color,
+                    alpha: 1,
+                    vy: -2
+                });
+            }
+
+            update() {
+                if (this.state === 'menu' || this.state === 'gameover' || 
+                    this.state === 'victory' || this.state === 'skillSelect') return;
+
+                for (let powerup of this.powerups) {
+                    powerup.update();
+                }
+
+                for (let laser of this.crossLasers) {
+                    laser.update();
+                }
+
+                this.iceWalls = this.iceWalls.filter(w => w.active);
+
+                if (this.state === 'launching') {
+                    this.launchDelay++;
+                    if (this.launchDelay >= this.launchInterval && this.launchQueue.length > 0) {
+                        const ballType = this.launchQueue.shift();
+                        const speed = CONFIG.BALL_SPEED;
+                        const vx = Math.cos(this.aimAngle) * speed;
+                        const vy = Math.sin(this.aimAngle) * speed;
+                        
+                        const newBall = new Ball(
+                            this.launcher.x, 
+                            this.launcher.y - this.launcher.size, 
+                            vx, vy, 
+                            ballType
+                        );
+                        // 應用本回合助攻Combo加成
+                        newBall.bonusDamage = this.comboAssistBonus;
+                        this.balls.push(newBall);
+                        this.launchDelay = 0;
+                    }
+                    
+                    if (this.launchQueue.length <= 0) {
+                        this.state = 'flying';
+                    }
+                }
+
+                for (let ball of this.balls) {
+                    ball.update(this);
+                }
+
+                if (this.state === 'flying') {
+                    const allReturned = this.balls.every(b => b.returned);
+                    if (allReturned) {
+                        this.onWaveEnd();
+                    }
+                }
+
+                this.bricks = this.bricks.filter(b => b.active);
+                
+                if (this.currentBoss && !this.currentBoss.active) {
+                    if (this.currentBoss.bossWave === 20) {
+                        this.victory();
+                        return;
+                    }
+                    this.currentBoss = null;
+                }
+                
+                // 更新特效
+                for (let i = this.floatingTexts.length - 1; i >= 0; i--) {
+                    const ft = this.floatingTexts[i];
+                    ft.y += ft.vy;
+                    ft.alpha -= 0.02;
+                    if (ft.alpha <= 0) {
+                        this.floatingTexts.splice(i, 1);
+                    }
+                }
+                
+                for (let i = this.explosionEffects.length - 1; i >= 0; i--) {
+                    const exp = this.explosionEffects[i];
+                    exp.radius += 15;
+                    exp.alpha -= 0.03;
+                    if (exp.alpha <= 0) {
+                        this.explosionEffects.splice(i, 1);
+                    }
+                }
+                
+                for (let i = this.attackEffects.length - 1; i >= 0; i--) {
+                    const atk = this.attackEffects[i];
+                    atk.progress += 0.1;
+                    if (atk.progress >= 1) {
+                        this.attackEffects.splice(i, 1);
+                    }
+                }
+                
+                for (let i = this.lightningEffects.length - 1; i >= 0; i--) {
+                    const l = this.lightningEffects[i];
+                    l.alpha -= 0.1;
+                    if (l.alpha <= 0) {
+                        this.lightningEffects.splice(i, 1);
+                    }
+                }
+                
+                for (let i = this.laserEffects.length - 1; i >= 0; i--) {
+                    const l = this.laserEffects[i];
+                    l.alpha -= 0.05;
+                    if (l.alpha <= 0) {
+                        this.laserEffects.splice(i, 1);
+                    }
+                }
+            }
+
+            onWaveEnd() {
+                if (this.nextLauncherX !== null) {
+                    this.launcher.x = this.nextLauncherX;
+                }
+                
+                this.balls = [];
+                this.iceWalls = [];
+                
+                this.enemyAttack();
+                
+                if (this.state === 'gameover') return;
+                
+                this.moveBricksDown();
+                
+                if (this.state === 'gameover') return;
+                
+                this.wave++;
+                
+                // 隨機模式：每波重新隨機球數
+                if (this.ballDamageMode === 'random') {
+                    this.normalBallCount = Math.floor(Math.random() * 99) + 1;
+                }
+                
+                if (this.wave > 20 && !this.currentBoss) {
+                    this.victory();
+                    return;
+                }
+                
+                if (this.wave % 2 === 0 && this.wave <= 20) {
+                    this.showSkillSelection();
+                    this.spawnWave();
+                    return;
+                }
+                
+                this.spawnWave();
+                
+                if (this.state !== 'gameover' && this.state !== 'victory' && this.state !== 'skillSelect') {
+                    this.state = 'waiting';
+                }
+            }
+
+            drawAimLine() {
+                if (this.state !== 'aiming') return;
+
+                const ctx = this.ctx;
+                const startX = this.launcher.x;
+                const startY = this.launcher.y - this.launcher.size;
+                
+                let x = startX;
+                let y = startY;
+                let vx = Math.cos(this.aimAngle);
+                let vy = Math.sin(this.aimAngle);
+                
+                ctx.strokeStyle = CONFIG.COLORS.aimLine;
+                ctx.lineWidth = 2;
+                ctx.setLineDash([10, 10]);
+                ctx.beginPath();
+                ctx.moveTo(x, y);
+                
+                let bounces = 0;
+                const maxBounces = 9;
+                const maxDist = 3000;
+                let totalDist = 0;
+                
+                while (bounces < maxBounces && totalDist < maxDist) {
+                    const step = 5;
+                    const nextX = x + vx * step;
+                    const nextY = y + vy * step;
+                    totalDist += step;
+                    
+                    if (nextX <= CONFIG.BALL_RADIUS) {
+                        x = CONFIG.BALL_RADIUS;
+                        vx = -vx;
+                        bounces++;
+                        ctx.lineTo(x, y);
+                    } else if (nextX >= CONFIG.GAME_WIDTH - CONFIG.BALL_RADIUS) {
+                        x = CONFIG.GAME_WIDTH - CONFIG.BALL_RADIUS;
+                        vx = -vx;
+                        bounces++;
+                        ctx.lineTo(x, y);
+                    } else {
+                        x = nextX;
+                    }
+                    
+                    if (nextY <= this.topOffset + CONFIG.BALL_RADIUS) {
+                        y = this.topOffset + CONFIG.BALL_RADIUS;
+                        vy = -vy;
+                        bounces++;
+                        ctx.lineTo(x, y);
+                    } else {
+                        y = nextY;
+                    }
+                    
+                    let hitBrick = null;
+                    for (let brick of this.bricks) {
+                        if (!brick.active) continue;
+                        if (x > brick.x - CONFIG.BALL_RADIUS && 
+                            x < brick.x + brick.width + CONFIG.BALL_RADIUS &&
+                            y > brick.y - CONFIG.BALL_RADIUS && 
+                            y < brick.y + brick.height + CONFIG.BALL_RADIUS) {
+                            hitBrick = brick;
+                            break;
+                        }
+                    }
+                    
+                    if (hitBrick) {
+                        ctx.lineTo(x, y);
+                        
+                        const centerX = hitBrick.x + hitBrick.width / 2;
+                        const centerY = hitBrick.y + hitBrick.height / 2;
+                        const ballToCenterX = x - centerX;
+                        const ballToCenterY = y - centerY;
+                        
+                        if (Math.abs(ballToCenterX) / hitBrick.width > Math.abs(ballToCenterY) / hitBrick.height) {
+                            vx = -vx;
+                            if (x < centerX) {
+                                x = hitBrick.x - CONFIG.BALL_RADIUS - 1;
+                            } else {
+                                x = hitBrick.x + hitBrick.width + CONFIG.BALL_RADIUS + 1;
+                            }
+                        } else {
+                            vy = -vy;
+                            if (y < centerY) {
+                                y = hitBrick.y - CONFIG.BALL_RADIUS - 1;
+                            } else {
+                                y = hitBrick.y + hitBrick.height + CONFIG.BALL_RADIUS + 1;
+                            }
+                        }
+                        bounces++;
+                    }
+                }
+                
+                ctx.lineTo(x, y);
+                ctx.stroke();
+                ctx.setLineDash([]);
+                
+                ctx.beginPath();
+                ctx.arc(x, y, 5, 0, Math.PI * 2);
+                ctx.fillStyle = CONFIG.COLORS.aimLine;
+                ctx.fill();
+            }
+
+            drawUI() {
+                const ctx = this.ctx;
+                
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+                ctx.fillRect(0, 0, CONFIG.GAME_WIDTH, this.topOffset);
+                
+                ctx.fillStyle = CONFIG.COLORS.text;
+                ctx.font = 'bold 18px Arial';
+                ctx.textAlign = 'left';
+                
+                let waveText = `第 ${this.wave} 波`;
+                if (this.wave === 10 || this.wave === 20) {
+                    waveText = `⚔️ BOSS ${this.wave} ⚔️`;
+                    ctx.fillStyle = '#ff0000';
+                }
+                ctx.fillText(waveText, 10, 25);
+                
+                ctx.fillStyle = CONFIG.COLORS.combo;
+                ctx.font = 'bold 16px Arial';
+                ctx.fillText(`Combo: ${this.comboCount}`, 10, 48);
+                
+                ctx.font = '12px Arial';
+                let comboX = 10;
+                for (let combo of this.selectedCombos) {
+                    const comboData = COMBO_TYPES[combo];
+                    ctx.fillStyle = comboData.color;
+                    ctx.fillText(comboData.icon, comboX, 68);
+                    comboX += 25;
+                }
+                
+                ctx.fillStyle = '#ffffff';
+                ctx.font = 'bold 14px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText(`🔵 ${this.normalBallCount}`, CONFIG.GAME_WIDTH / 2, 25);
+                
+                ctx.font = '10px Arial';
+                ctx.fillStyle = '#888888';
+                let modeText = '固定傷害';
+                if (this.ballDamageMode === 'wave') modeText = `波數傷害: ${this.wave}`;
+                else if (this.ballDamageMode === 'random') modeText = `每波隨機球數 傷害0~3`;
+                else if (this.ballDamageMode === 'combo10') modeText = '每次碰撞+10 Combo';
+                ctx.fillText(modeText, CONFIG.GAME_WIDTH / 2, 40);
+                
+                // 顯示本回合助攻加成
+                if (this.comboAssistBonus > 0) {
+                    ctx.fillStyle = '#ffd700';
+                    ctx.fillText(`攻擊+${this.comboAssistBonus}`, CONFIG.GAME_WIDTH / 2, 55);
+                }
+                
+                const btnX = CONFIG.GAME_WIDTH - 50;
+                const btnY = 20;
+                ctx.fillStyle = 'rgba(255, 100, 100, 0.8)';
+                ctx.beginPath();
+                ctx.roundRect(btnX, btnY - 10, 40, 20, 5);
+                ctx.fill();
+                ctx.fillStyle = '#ffffff';
+                ctx.font = 'bold 10px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText('返回', btnX + 20, btnY + 4);
+            }
+
+            drawEffects() {
+                const ctx = this.ctx;
+                
+                for (let exp of this.explosionEffects) {
+                    ctx.beginPath();
+                    ctx.arc(exp.x, exp.y, exp.radius, 0, Math.PI * 2);
+                    ctx.fillStyle = `rgba(255, 100, 0, ${exp.alpha * 0.3})`;
+                    ctx.fill();
+                    ctx.strokeStyle = `rgba(255, 200, 0, ${exp.alpha})`;
+                    ctx.lineWidth = 5;
+                    ctx.stroke();
+                }
+                
+                for (let l of this.lightningEffects) {
+                    ctx.beginPath();
+                    ctx.moveTo(l.startX, l.startY);
+                    
+                    const segments = 5;
+                    for (let i = 1; i <= segments; i++) {
+                        const t = i / segments;
+                        const x = l.startX + (l.endX - l.startX) * t + (Math.random() - 0.5) * 20;
+                        const y = l.startY + (l.endY - l.startY) * t + (Math.random() - 0.5) * 20;
+                        ctx.lineTo(x, y);
+                    }
+                    
+                    ctx.strokeStyle = `rgba(255, 255, 0, ${l.alpha})`;
+                    ctx.lineWidth = 3;
+                    ctx.stroke();
+                }
+                
+                for (let l of this.laserEffects) {
+                    ctx.globalAlpha = l.alpha;
+                    ctx.fillStyle = CONFIG.COLORS.laser;
+                    ctx.fillRect(0, l.y - 2, CONFIG.GAME_WIDTH, 4);
+                    ctx.fillRect(l.x - 2, 0, 4, CONFIG.GAME_HEIGHT);
+                    ctx.globalAlpha = 1;
+                }
+                
+                for (let atk of this.attackEffects) {
+                    const x = atk.startX + (atk.endX - atk.startX) * atk.progress;
+                    const y = atk.startY + (atk.endY - atk.startY) * atk.progress;
+                    
+                    ctx.beginPath();
+                    ctx.arc(x, y, 8, 0, Math.PI * 2);
+                    ctx.fillStyle = '#ff0000';
+                    ctx.fill();
+                    
+                    ctx.beginPath();
+                    ctx.moveTo(atk.startX, atk.startY);
+                    ctx.lineTo(x, y);
+                    ctx.strokeStyle = 'rgba(255, 0, 0, 0.5)';
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+                }
+                
+                for (let ft of this.floatingTexts) {
+                    ctx.globalAlpha = ft.alpha;
+                    ctx.fillStyle = ft.color;
+                    ctx.font = 'bold 14px Arial';
+                    ctx.textAlign = 'center';
+                    ctx.fillText(ft.text, ft.x, ft.y);
+                    ctx.globalAlpha = 1;
+                }
+            }
+
+            drawMenuScreen() {
+                const ctx = this.ctx;
+                
+                ctx.fillStyle = CONFIG.COLORS.background;
+                ctx.fillRect(0, 0, CONFIG.GAME_WIDTH, CONFIG.GAME_HEIGHT);
+                
+                ctx.fillStyle = CONFIG.COLORS.launcher;
+                ctx.font = 'bold 60px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText('霦', CONFIG.GAME_WIDTH / 2, 80);
+                
+                ctx.fillStyle = '#888888';
+                ctx.font = '14px Arial';
+                ctx.fillText('Break Brick Roguelike', CONFIG.GAME_WIDTH / 2, 105);
+                
+                const navY = CONFIG.GAME_HEIGHT - 60;
+                const navHeight = 50;
+                
+                ctx.fillStyle = this.menuTab === 'combo' ? '#00d4ff' : '#333333';
+                ctx.fillRect(0, navY, CONFIG.GAME_WIDTH / 2, navHeight);
+                ctx.fillStyle = this.menuTab === 'combo' ? '#000000' : '#888888';
+                ctx.font = 'bold 16px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText('Combo', CONFIG.GAME_WIDTH / 4, navY + 30);
+                
+                ctx.fillStyle = this.menuTab === 'ball' ? '#00d4ff' : '#333333';
+                ctx.fillRect(CONFIG.GAME_WIDTH / 2, navY, CONFIG.GAME_WIDTH / 2, navHeight);
+                ctx.fillStyle = this.menuTab === 'ball' ? '#000000' : '#888888';
+                ctx.fillText('普通球', CONFIG.GAME_WIDTH * 3 / 4, navY + 30);
+                
+                if (this.menuTab === 'combo') {
+                    this.drawComboSelection(ctx);
+                } else {
+                    this.drawBallSelection(ctx);
+                }
+                
+                // 開始遊戲按鈕與提示文字
+                const startBtnW = 160;
+                const startBtnH = 50;
+                const startBtnY = CONFIG.GAME_HEIGHT - 120;
+                const startBtnX = (CONFIG.GAME_WIDTH / 2) - (startBtnW / 2);
+                
+                const canStart = this.selectedCombos.length === 2;
+                ctx.fillStyle = canStart ? '#00ff88' : '#444444';
+                ctx.beginPath();
+                ctx.roundRect(startBtnX, startBtnY, startBtnW, startBtnH, 10);
+                ctx.fill();
+                
+                ctx.fillStyle = canStart ? '#000000' : '#888888';
+                ctx.font = 'bold 18px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText('開始遊戲', CONFIG.GAME_WIDTH / 2, startBtnY + 30);
+                
+                if (!canStart) {
+                    ctx.fillStyle = '#ff6666';
+                    ctx.font = '12px Arial';
+                    ctx.textAlign = 'center';
+                    ctx.fillText('請選擇2個Combo', CONFIG.GAME_WIDTH / 2, startBtnY + 65);
+                }
+            }
+
+            drawComboSelection(ctx) {
+                ctx.fillStyle = '#ffffff';
+                ctx.font = 'bold 16px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText(`選擇2個Combo (已選: ${this.selectedCombos.length}/2)`, CONFIG.GAME_WIDTH / 2, 125);
+                
+                const comboTypes = Object.keys(COMBO_TYPES);
+                const cardWidth = 180;
+                const cardHeight = 105;
+                const cols = 2;
+                const spacing = 6;
+                const totalWidth = cols * cardWidth + (cols - 1) * spacing;
+                const startX = (CONFIG.GAME_WIDTH - totalWidth) / 2;
+                const startY = 140;
+                
+                for (let i = 0; i < comboTypes.length; i++) {
+                    const type = comboTypes[i];
+                    const comboData = COMBO_TYPES[type];
+                    const col = i % cols;
+                    const row = Math.floor(i / cols);
+                    const cardX = startX + col * (cardWidth + spacing);
+                    const cardY = startY + row * (cardHeight + spacing);
+                    
+                    const isSelected = this.selectedCombos.includes(type);
+                    
+                    ctx.fillStyle = isSelected ? comboData.color : '#1a1a3e';
+                    ctx.beginPath();
+                    ctx.roundRect(cardX, cardY, cardWidth, cardHeight, 10);
+                    ctx.fill();
+                    
+                    if (isSelected) {
+                        ctx.strokeStyle = '#ffffff';
+                        ctx.lineWidth = 3;
+                        ctx.stroke();
+                    }
+                    
+                    // 圖示 - 放大
+                    ctx.fillStyle = isSelected ? '#000000' : comboData.color;
+                    ctx.font = '36px Arial';
+                    ctx.textAlign = 'left';
+                    ctx.fillText(comboData.icon, cardX + 8, cardY + 40);
+                    
+                    // 名稱 - 放大
+                    ctx.font = 'bold 16px Arial';
+                    ctx.fillText(comboData.name, cardX + 55, cardY + 32);
+                    
+                    // 描述 - 放大兩倍
+                    ctx.font = '13px Arial';
+                    ctx.fillStyle = isSelected ? '#222222' : '#cccccc';
+                    const desc = comboData.description;
+                    const maxWidth = cardWidth - 16;
+                    let words = desc.split('');
+                    let line = '';
+                    let lineY = cardY + 58;
+                    for (let char of words) {
+                        const testLine = line + char;
+                        const metrics = ctx.measureText(testLine);
+                        if (metrics.width > maxWidth && line.length > 0) {
+                            ctx.fillText(line, cardX + 8, lineY);
+                            line = char;
+                            lineY += 16;
+                        } else {
+                            line = testLine;
+                        }
+                    }
+                    if (line) ctx.fillText(line, cardX + 8, lineY);
+                    
+                    // 觸發條件 - 放大
+                    ctx.font = 'bold 11px Arial';
+                    ctx.fillStyle = isSelected ? '#444444' : '#888888';
+                    ctx.fillText(`觸發: ${comboData.threshold}次碰撞`, cardX + 8, cardY + 98);
+                }
+            }
+
+            drawBallSelection(ctx) {
+                ctx.fillStyle = '#ffffff';
+                ctx.font = 'bold 16px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText('選擇普通球模式', CONFIG.GAME_WIDTH / 2, 140);
+                
+                const btnWidth = 160;
+                const btnHeight = 60;
+                const startY = 160;
+                const centerX = CONFIG.GAME_WIDTH / 2 - btnWidth / 2;
+                const gap = 15;
+                
+                const modes = [
+                    { id: '20balls', title: '20顆普通球', desc: '固定1點傷害' },
+                    { id: 'wave', title: '1顆普通球', desc: '傷害 = 當前波數' },
+                    { id: 'random', title: '每波1~99顆', desc: '傷害0~3，無+球道具' },
+                    { id: 'combo10', title: '1顆普通球', desc: '每次碰撞+10 Combo' }
+                ];
+                
+                for (let i = 0; i < modes.length; i++) {
+                    const mode = modes[i];
+                    const btnY = startY + i * (btnHeight + gap);
+                    
+                    ctx.fillStyle = this.ballDamageMode === mode.id ? '#00d4ff' : '#333333';
+                    ctx.beginPath();
+                    ctx.roundRect(centerX, btnY, btnWidth, btnHeight, 10);
+                    ctx.fill();
+                    
+                    ctx.fillStyle = this.ballDamageMode === mode.id ? '#000000' : '#ffffff';
+                    ctx.font = 'bold 16px Arial';
+                    ctx.textAlign = 'center';
+                    ctx.fillText(mode.title, CONFIG.GAME_WIDTH / 2, btnY + 25);
+                    ctx.font = '12px Arial';
+                    ctx.fillText(mode.desc, CONFIG.GAME_WIDTH / 2, btnY + 45);
+                }
+            }
+
+            drawSkillSelectScreen() {
+                const ctx = this.ctx;
+                
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.85)';
+                ctx.fillRect(0, 0, CONFIG.GAME_WIDTH, CONFIG.GAME_HEIGHT);
+                
+                ctx.fillStyle = '#ffd700';
+                ctx.font = 'bold 28px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText('🎁 選擇技能 🎁', CONFIG.GAME_WIDTH / 2, 80);
+                
+                ctx.fillStyle = CONFIG.COLORS.text;
+                ctx.font = '16px Arial';
+                ctx.fillText('選擇一個特殊球加入你的武器庫', CONFIG.GAME_WIDTH / 2, 115);
+                
+                const cardWidth = 115;
+                const cardHeight = 180;
+                const spacing = 15;
+                const totalWidth = 3 * cardWidth + 2 * spacing;
+                const startX = (CONFIG.GAME_WIDTH - totalWidth) / 2;
+                const startY = CONFIG.GAME_HEIGHT / 2 - cardHeight / 2 - 10;
+                
+                for (let i = 0; i < 3; i++) {
+                    const type = this.skillChoices[i];
+                    const typeData = BALL_TYPES[type];
+                    const cardX = startX + i * (cardWidth + spacing);
+                    
+                    ctx.fillStyle = '#1a1a3e';
+                    ctx.beginPath();
+                    ctx.roundRect(cardX, startY, cardWidth, cardHeight, 10);
+                    ctx.fill();
+                    
+                    ctx.strokeStyle = typeData.color;
+                    ctx.lineWidth = 3;
+                    ctx.stroke();
+                    
+                    // 球的圖示
+                    ctx.beginPath();
+                    ctx.arc(cardX + cardWidth / 2, startY + 40, 25, 0, Math.PI * 2);
+                    ctx.fillStyle = typeData.color;
+                    ctx.fill();
+                    
+                    // 球名稱 - 放大
+                    ctx.fillStyle = '#ffffff';
+                    ctx.font = 'bold 16px Arial';
+                    ctx.textAlign = 'center';
+                    ctx.fillText(typeData.name, cardX + cardWidth / 2, startY + 85);
+                    
+                    // 描述 - 放大到14px
+                    ctx.font = '14px Arial';
+                    ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+                    const desc = typeData.description;
+                    const maxWidth = cardWidth - 12;
+                    let words = desc.split('');
+                    let line = '';
+                    let lineY = startY + 108;
+                    for (let char of words) {
+                        const testLine = line + char;
+                        const metrics = ctx.measureText(testLine);
+                        if (metrics.width > maxWidth && line.length > 0) {
+                            ctx.fillText(line, cardX + cardWidth / 2, lineY);
+                            line = char;
+                            lineY += 18;
+                        } else {
+                            line = testLine;
+                        }
+                    }
+                    if (line) ctx.fillText(line, cardX + cardWidth / 2, lineY);
+                }
+                
+                const refreshBtnX = CONFIG.GAME_WIDTH / 2 - 80;
+                const refreshBtnY = startY + cardHeight + 25;
+                const refreshBtnW = 160;
+                const refreshBtnH = 45;
+                
+                const canRefresh = this.refreshCount > 0 && this.normalBallCount >= 10;
+                ctx.fillStyle = canRefresh ? 'rgba(100, 200, 255, 0.8)' : 'rgba(100, 100, 100, 0.5)';
+                ctx.beginPath();
+                ctx.roundRect(refreshBtnX, refreshBtnY, refreshBtnW, refreshBtnH, 8);
+                ctx.fill();
+                
+                ctx.fillStyle = '#ffffff';
+                ctx.font = 'bold 14px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText(`🔄 刷新 (${this.refreshCount}/3)`, CONFIG.GAME_WIDTH / 2, refreshBtnY + 18);
+                ctx.font = '12px Arial';
+                ctx.fillStyle = canRefresh ? '#ffff00' : '#888888';
+                ctx.fillText('消耗 10 普通球', CONFIG.GAME_WIDTH / 2, refreshBtnY + 36);
+            }
+
+            drawGameOverScreen() {
+                const ctx = this.ctx;
+                
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.85)';
+                ctx.fillRect(0, 0, CONFIG.GAME_WIDTH, CONFIG.GAME_HEIGHT);
+                
+                ctx.fillStyle = CONFIG.COLORS.accent;
+                ctx.font = 'bold 48px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText('GAME OVER', CONFIG.GAME_WIDTH / 2, CONFIG.GAME_HEIGHT / 3);
+                
+                ctx.fillStyle = CONFIG.COLORS.text;
+                ctx.font = '24px Arial';
+                ctx.fillText(`到達第 ${this.wave} 波`, CONFIG.GAME_WIDTH / 2, CONFIG.GAME_HEIGHT / 2);
+                
+                const time = Date.now() / 1000;
+                const alpha = 0.5 + Math.sin(time * 3) * 0.5;
+                ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
+                ctx.font = '20px Arial';
+                ctx.fillText('點擊螢幕返回主選單', CONFIG.GAME_WIDTH / 2, CONFIG.GAME_HEIGHT * 0.7);
+            }
+
+            drawVictoryScreen() {
+                const ctx = this.ctx;
+                
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.85)';
+                ctx.fillRect(0, 0, CONFIG.GAME_WIDTH, CONFIG.GAME_HEIGHT);
+                
+                const time = Date.now() / 500;
+                ctx.fillStyle = `hsl(${(time * 50) % 360}, 70%, 60%)`;
+                ctx.font = 'bold 48px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText('🎉 勝利！🎉', CONFIG.GAME_WIDTH / 2, CONFIG.GAME_HEIGHT / 3);
+                
+                ctx.fillStyle = '#ffd700';
+                ctx.font = 'bold 24px Arial';
+                ctx.fillText('恭喜擊敗所有Boss！', CONFIG.GAME_WIDTH / 2, CONFIG.GAME_HEIGHT / 2);
+                
+                const alpha = 0.5 + Math.sin(time * 3) * 0.5;
+                ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
+                ctx.font = '20px Arial';
+                ctx.fillText('點擊螢幕返回主選單', CONFIG.GAME_WIDTH / 2, CONFIG.GAME_HEIGHT * 0.7);
+            }
+
+            draw() {
+                const ctx = this.ctx;
+                
+                ctx.save();
+                ctx.scale(this.scale, this.scale);
+                
+                if (this.state === 'menu') {
+                    this.drawMenuScreen();
+                    ctx.restore();
+                    return;
+                }
+                
+                ctx.fillStyle = CONFIG.COLORS.background;
+                ctx.fillRect(0, 0, CONFIG.GAME_WIDTH, CONFIG.GAME_HEIGHT);
+                
+                ctx.strokeStyle = 'rgba(0, 212, 255, 0.3)';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(1, this.topOffset, CONFIG.GAME_WIDTH - 2, CONFIG.GAME_HEIGHT - this.topOffset - 1);
+                
+                for (let laser of this.crossLasers) {
+                    laser.draw(ctx);
+                }
+                
+                for (let wall of this.iceWalls) {
+                    wall.draw(ctx);
+                }
+                
+                for (let brick of this.bricks) {
+                    brick.draw(ctx);
+                }
+                
+                for (let powerup of this.powerups) {
+                    powerup.draw(ctx);
+                }
+                
+                this.drawAimLine();
+                
+                for (let ball of this.balls) {
+                    ball.draw(ctx);
+                }
+                
+                if (this.launcher) {
+                    this.launcher.draw(ctx, this.playerHp, this.maxHp);
+                }
+                
+                this.drawEffects();
+                this.drawUI();
+                
+                if (this.state === 'skillSelect') {
+                    this.drawSkillSelectScreen();
+                }
+                
+                if (this.state === 'gameover') {
+                    this.drawGameOverScreen();
+                }
+                
+                if (this.state === 'victory') {
+                    this.drawVictoryScreen();
+                }
+                
+                ctx.restore();
+            }
+
+            gameLoop(timestamp) {
+                this.update();
+                this.draw();
+                requestAnimationFrame((t) => this.gameLoop(t));
+            }
+        }
+
+        // 啟動遊戲
+        window.addEventListener('load', () => {
+            new Game();
+        });
+
+        document.addEventListener('touchmove', (e) => {
+            e.preventDefault();
+        }, { passive: false });
+    </script>
+</body>
+</html>
