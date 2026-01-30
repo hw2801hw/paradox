@@ -1,0 +1,2595 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>職業象棋</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <style>
+        * {
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+        
+        :root {
+            --board-size: min(95vw, calc(95vh - 280px));
+            --cell-size: calc(var(--board-size) / 8);
+        }
+        
+        body {
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            overflow-x: hidden;
+        }
+        
+        .board-container {
+            width: var(--board-size);
+            max-width: 560px;
+            aspect-ratio: 1;
+            margin: 0 auto;
+        }
+        
+        .chess-board {
+            display: grid;
+            grid-template-columns: repeat(8, 1fr);
+            grid-template-rows: repeat(8, 1fr);
+            width: 100%;
+            height: 100%;
+            border: 4px solid #e94560;
+            border-radius: 8px;
+            box-shadow: 0 0 30px rgba(233, 69, 96, 0.5);
+            position: relative;
+        }
+        
+        .cell {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: clamp(24px, 6vw, 48px);
+            cursor: pointer;
+            position: relative;
+            transition: all 0.2s;
+            user-select: none;
+        }
+        
+        .cell.light { background: #f0d9b5; }
+        .cell.dark { background: #b58863; }
+        .cell.selected { background: #7fff00 !important; box-shadow: inset 0 0 20px rgba(0,255,0,0.5); }
+        .cell.valid-move::after {
+            content: '';
+            position: absolute;
+            width: 30%;
+            height: 30%;
+            background: rgba(0, 255, 0, 0.6);
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 5;
+        }
+        .cell.valid-capture { 
+            background: rgba(255, 100, 100, 0.6) !important; 
+        }
+        .cell.check { 
+            background: #ff4444 !important; 
+            animation: checkPulse 0.5s infinite alternate; 
+        }
+        
+        .cell.last-move-from {
+            background: rgba(100, 200, 100, 0.5) !important;
+            box-shadow: inset 0 0 15px rgba(0, 255, 0, 0.4);
+        }
+        
+        .cell.last-move-to {
+            background: rgba(100, 180, 255, 0.5) !important;
+            box-shadow: inset 0 0 15px rgba(0, 150, 255, 0.4);
+        }
+        
+        .move-marker {
+            position: absolute;
+            top: 2px;
+            right: 2px;
+            font-size: 14px;
+            z-index: 20;
+            line-height: 1;
+            text-shadow: 0 0 3px #000;
+            animation: markerPulse 1s infinite alternate;
+        }
+        
+        @keyframes markerPulse {
+            from { transform: scale(1); }
+            to { transform: scale(1.2); }
+        }
+        
+        .piece {
+            position: relative;
+            z-index: 1;
+            transition: transform 0.1s, opacity 0.3s;
+            line-height: 1;
+        }
+        
+        .piece.white-piece { 
+            color: #ffffff;
+            text-shadow: 2px 2px 3px #000, -2px -2px 3px #000, 2px -2px 3px #000, -2px 2px 3px #000;
+        }
+        .piece.black-piece { 
+            color: #1a1a1a;
+            text-shadow: 1px 1px 2px #fff, -1px -1px 2px #fff, 1px -1px 2px #fff, -1px 1px 2px #fff;
+        }
+        
+        .piece.wounded { opacity: 0.6; }
+        .piece.stunned { filter: grayscale(0.8) brightness(0.7); }
+        .piece.ghost { 
+            opacity: 0.5; 
+            animation: ghostFloat 2s infinite ease-in-out;
+            filter: drop-shadow(0 0 10px rgba(150, 100, 255, 0.8));
+        }
+        .piece.goblin { font-size: 0.8em; }
+        .piece.immune { animation: immuneGlow 1.5s infinite alternate; }
+        
+        @keyframes ghostFloat {
+            0%, 100% { transform: translateY(0); opacity: 0.4; }
+            50% { transform: translateY(-3px); opacity: 0.7; }
+        }
+        
+        @keyframes immuneGlow {
+            from { filter: drop-shadow(0 0 3px #00ffff); }
+            to { filter: drop-shadow(0 0 8px #00ffff); }
+        }
+        
+        .status-mark {
+            position: absolute;
+            bottom: 2px;
+            right: 2px;
+            font-size: 14px;
+            z-index: 10;
+            line-height: 1;
+            text-shadow: none;
+        }
+        
+        .wounded-mark {
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            font-size: 12px;
+            z-index: 10;
+            line-height: 1;
+        }
+        
+        .immune-mark {
+            position: absolute;
+            bottom: 2px;
+            left: 2px;
+            font-size: 12px;
+            z-index: 10;
+            line-height: 1;
+        }
+        
+        .frozen-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(100, 200, 255, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 28px;
+            z-index: 15;
+            animation: frozenPulse 1s infinite alternate;
+            pointer-events: none;
+        }
+        
+        .frozen-overlay.white-frozen {
+            border: 4px solid #ffffff;
+            box-shadow: 0 0 10px #ffffff;
+        }
+        
+        .frozen-overlay.black-frozen {
+            border: 4px solid #000000;
+            box-shadow: 0 0 10px #000000;
+        }
+        
+        @keyframes frozenPulse {
+            from { background: rgba(100, 200, 255, 0.4); }
+            to { background: rgba(100, 200, 255, 0.6); }
+        }
+        
+        .trap-marker {
+            position: absolute;
+            width: 70%;
+            height: 70%;
+            border-radius: 50%;
+            animation: trapPulsePermanent 2s infinite;
+            pointer-events: none;
+            z-index: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            box-shadow: 0 0 10px rgba(255, 0, 0, 0.5);
+        }
+        
+        .trap-marker.white-trap {
+            background: radial-gradient(circle, rgba(0,150,255,0.7) 0%, transparent 70%);
+        }
+        
+        .trap-marker.black-trap {
+            background: radial-gradient(circle, rgba(255,100,0,0.7) 0%, transparent 70%);
+        }
+        
+        @keyframes checkPulse {
+            from { box-shadow: inset 0 0 20px rgba(255,0,0,0.8); }
+            to { box-shadow: inset 0 0 40px rgba(255,0,0,1); }
+        }
+        
+        @keyframes trapPulsePermanent {
+            0%, 100% { transform: scale(1); opacity: 0.7; }
+            50% { transform: scale(1.15); opacity: 0.9; }
+        }
+        
+        .fx-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            pointer-events: none;
+            z-index: 1000;
+        }
+        
+        .fx-overlay.shake { animation: shake 0.5s; }
+        .fx-overlay.red-flash { animation: redFlash 0.3s 3; }
+        
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            10%, 30%, 50%, 70%, 90% { transform: translateX(-10px); }
+            20%, 40%, 60%, 80% { transform: translateX(10px); }
+        }
+        
+        @keyframes redFlash {
+            0%, 100% { background: transparent; }
+            50% { background: rgba(255,0,0,0.5); }
+        }
+        
+        .ultimate-text {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: clamp(32px, 10vw, 80px);
+            font-weight: bold;
+            color: #fff;
+            text-shadow: 0 0 20px #ff0000, 0 0 40px #ff0000, 0 0 60px #ff0000;
+            z-index: 1001;
+            animation: ultimateTextPop 1.5s ease-out forwards;
+            pointer-events: none;
+            white-space: nowrap;
+        }
+        
+        @keyframes ultimateTextPop {
+            0% { transform: translate(-50%, -50%) scale(0); opacity: 0; }
+            30% { transform: translate(-50%, -50%) scale(1.3); opacity: 1; }
+            60% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+            100% { transform: translate(-50%, -50%) scale(1); opacity: 0; }
+        }
+        
+        .particle {
+            position: fixed;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            pointer-events: none;
+            animation: particleFly 1s forwards;
+            z-index: 1002;
+        }
+        
+        @keyframes particleFly {
+            0% { transform: translate(0, 0) scale(1); opacity: 1; }
+            100% { transform: translate(var(--dx), var(--dy)) scale(0); opacity: 0; }
+        }
+        
+        .arrow-projectile {
+            position: fixed;
+            font-size: 32px;
+            z-index: 1003;
+            pointer-events: none;
+            transition: all 3s ease-out;
+            filter: drop-shadow(0 0 10px #ff6600);
+        }
+        
+        .status-panel {
+            background: rgba(0,0,0,0.7);
+            border-radius: 12px;
+            padding: 12px;
+            margin: 10px;
+            color: #fff;
+            backdrop-filter: blur(10px);
+        }
+        
+        .skill-btn {
+            padding: 8px 16px;
+            margin: 4px;
+            border: none;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 12px;
+            color: white;
+        }
+        
+        .skill-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .skill-btn.ready {
+            background: linear-gradient(45deg, #ff6b6b, #feca57) !important;
+            color: #000;
+            animation: skillReady 1s infinite alternate;
+        }
+        
+        @keyframes skillReady {
+            from { box-shadow: 0 0 10px #ff6b6b; }
+            to { box-shadow: 0 0 20px #feca57; }
+        }
+        
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(0,0,0,0.85);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+        }
+        
+        .modal.show { display: flex !important; }
+        
+        .modal-content {
+            background: linear-gradient(135deg, #2d2d44 0%, #1a1a2e 100%);
+            padding: 24px;
+            border-radius: 16px;
+            text-align: center;
+            color: #fff;
+            border: 2px solid #e94560;
+            max-width: 90vw;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+        
+        .promotion-choice {
+            font-size: 48px;
+            padding: 16px;
+            margin: 8px;
+            cursor: pointer;
+            border-radius: 12px;
+            background: rgba(255,255,255,0.1);
+            border: 2px solid transparent;
+            transition: all 0.3s;
+            display: inline-block;
+        }
+        
+        .promotion-choice:hover {
+            background: rgba(255,255,255,0.3);
+            border-color: #e94560;
+            transform: scale(1.1);
+        }
+        
+        .game-over {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(0,0,0,0.9);
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 3000;
+            color: #fff;
+        }
+        
+        .game-over.show { display: flex !important; }
+        
+        .game-over h1 {
+            font-size: clamp(36px, 10vw, 72px);
+            margin-bottom: 20px;
+            animation: victoryText 1s ease-out;
+        }
+        
+        @keyframes victoryText {
+            0% { transform: scale(0) rotate(-180deg); opacity: 0; }
+            100% { transform: scale(1) rotate(0); opacity: 1; }
+        }
+        
+        .taunt-counter {
+            position: fixed;
+            top: 50%;
+            right: 10px;
+            transform: translateY(-50%);
+            background: linear-gradient(45deg, #ff0000, #ff6600);
+            color: white;
+            padding: 15px;
+            border-radius: 16px;
+            font-size: 18px;
+            font-weight: bold;
+            z-index: 500;
+            animation: tauntPulse 0.5s infinite alternate;
+            display: none;
+        }
+        
+        .taunt-counter.show { display: block !important; }
+        
+        @keyframes tauntPulse {
+            from { transform: translateY(-50%) scale(1); box-shadow: 0 0 20px #ff0000; }
+            to { transform: translateY(-50%) scale(1.05); box-shadow: 0 0 40px #ff6600; }
+        }
+        
+        .escort-hint {
+            position: fixed;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: linear-gradient(45deg, #ffd700, #ff8c00);
+            color: #000;
+            padding: 12px 20px;
+            border-radius: 12px;
+            font-weight: bold;
+            z-index: 500;
+            text-align: center;
+            box-shadow: 0 0 20px rgba(255, 215, 0, 0.8);
+            display: none;
+        }
+        
+        .escort-hint.show { display: block !important; }
+        
+        .cell.escort-valid {
+            box-shadow: inset 0 0 20px rgba(255, 215, 0, 0.8) !important;
+            animation: escortPulse 0.5s infinite alternate;
+        }
+        
+        .cell.escort-king {
+            box-shadow: inset 0 0 25px rgba(255, 100, 0, 0.9) !important;
+        }
+        
+        @keyframes escortPulse {
+            from { background: rgba(255, 215, 0, 0.3); }
+            to { background: rgba(255, 215, 0, 0.5); }
+        }
+        
+        .ghost-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            font-size: 0.5em;
+            z-index: 3;
+            opacity: 0.7;
+            animation: ghostFloat 2s infinite ease-in-out;
+        }
+        
+        /* Main Menu Styles */
+        .main-menu {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 5000;
+        }
+        
+        .main-menu.hidden { display: none !important; }
+        
+        .menu-title {
+            font-size: clamp(28px, 8vw, 60px);
+            font-weight: bold;
+            color: #fff;
+            text-shadow: 0 0 20px #e94560, 0 0 40px #e94560;
+            margin-bottom: 20px;
+            text-align: center;
+            animation: menuTitleGlow 2s infinite alternate;
+        }
+        
+        @keyframes menuTitleGlow {
+            from { text-shadow: 0 0 20px #e94560, 0 0 40px #e94560; }
+            to { text-shadow: 0 0 30px #ff6b6b, 0 0 60px #feca57; }
+        }
+        
+        .menu-subtitle {
+            font-size: clamp(14px, 4vw, 20px);
+            color: #aaa;
+            margin-bottom: 40px;
+            text-align: center;
+        }
+        
+        .menu-btn {
+            padding: 16px 48px;
+            margin: 10px;
+            border: none;
+            border-radius: 12px;
+            font-size: clamp(16px, 4vw, 24px);
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+            min-width: 280px;
+        }
+        
+        .menu-btn-ai {
+            background: linear-gradient(45deg, #e94560, #ff6b6b);
+            color: white;
+            box-shadow: 0 0 20px rgba(233, 69, 96, 0.5);
+        }
+        
+        .menu-btn-ai:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 30px rgba(233, 69, 96, 0.8);
+        }
+        
+        .menu-btn-local {
+            background: linear-gradient(45deg, #4ecdc4, #44a08d);
+            color: white;
+            box-shadow: 0 0 20px rgba(78, 205, 196, 0.5);
+        }
+        
+        .menu-btn-local:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 30px rgba(78, 205, 196, 0.8);
+        }
+        
+        .menu-pieces {
+            font-size: 40px;
+            margin-top: 30px;
+            animation: menuPiecesFloat 3s infinite ease-in-out;
+        }
+        
+        @keyframes menuPiecesFloat {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+        
+        .player-indicator {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 10px;
+            margin-left: 4px;
+        }
+        
+        .player-indicator.white-player {
+            background: linear-gradient(45deg, #ffd700, #ff8c00);
+            color: #000;
+        }
+        
+        .player-indicator.black-player {
+            background: linear-gradient(45deg, #333, #666);
+            color: #fff;
+        }
+        
+        @media (max-width: 600px) {
+            :root { --board-size: 95vw; }
+            .cell { font-size: clamp(20px, 10vw, 40px); }
+            .status-panel { padding: 8px; margin: 5px; }
+            .status-mark { font-size: 12px; }
+            .frozen-overlay { font-size: 22px; }
+            .move-marker { font-size: 12px; }
+        }
+        
+        @media (orientation: landscape) and (max-height: 500px) {
+            :root { --board-size: min(50vw, 85vh); }
+            .main-container { flex-direction: row !important; padding: 5px !important; }
+        }
+    </style>
+</head>
+<body class="min-h-screen">
+    <!-- Main Menu -->
+    <div id="mainMenu" class="main-menu">
+        <div class="menu-title">⚔️ 職業象棋 ⚔️</div>
+        <div class="menu-subtitle">選擇遊戲模式</div>
+        <button class="menu-btn menu-btn-ai" onclick="startGame('ai')">
+            🤖 對戰電腦
+        </button>
+        <button class="menu-btn menu-btn-local" onclick="startGame('local')">
+            👥 本地雙人對決
+        </button>
+        <div class="menu-pieces">♔ ♕ ♖ ♗ ♘ ♙</div>
+    </div>
+
+    <div id="fxOverlay" class="fx-overlay"></div>
+    
+    <div id="gameContainer" class="main-container flex flex-col items-center justify-start min-h-screen p-2" style="display: none;">
+        <h1 class="text-lg md:text-2xl font-bold text-white text-center mb-2 drop-shadow-lg">
+            ⚔️ 職業象棋 ⚔️
+        </h1>
+        
+        <div class="status-panel w-full max-w-xl">
+            <div class="flex justify-between items-center flex-wrap gap-2">
+                <div id="turnIndicator" class="text-lg font-bold">回合：<span class="text-yellow-400">白方</span></div>
+                <div id="checkIndicator" class="text-red-500 font-bold" style="display:none;">⚠️ 將軍！</div>
+                <div class="flex gap-2">
+                    <button onclick="game.undo()" id="undoBtn" class="skill-btn bg-orange-600 text-white">↩️ 悔棋</button>
+                    <button onclick="backToMenu()" class="skill-btn bg-gray-600 text-white">🏠 主選單</button>
+                </div>
+            </div>
+            
+            <div class="mt-2 text-sm">
+                <div id="currentPlayerLabel" class="text-center font-bold mb-2 text-yellow-400">當前玩家技能狀態</div>
+                <div class="grid grid-cols-2 md:grid-cols-3 gap-2">
+                    <div class="bg-green-900/50 p-2 rounded">
+                        <div class="font-bold text-green-400">🛡️ 坦克(兵)</div>
+                        <div id="tankStatus" class="text-xs">嘲諷：敵兵動0/4次</div>
+                    </div>
+                    <div class="bg-red-900/50 p-2 rounded">
+                        <div class="font-bold text-red-400">🏹 射手(車)</div>
+                        <div id="archerStatus" class="text-xs">貫矢：0/10步</div>
+                    </div>
+                    <div class="bg-purple-900/50 p-2 rounded">
+                        <div class="font-bold text-purple-400">🗡️ 刺客(馬)</div>
+                        <div id="assassinStatus" class="text-xs">隱身：0/2觸發</div>
+                    </div>
+                    <div class="bg-blue-900/50 p-2 rounded">
+                        <div class="font-bold text-blue-400">💫 輔助(象)</div>
+                        <div id="supportStatus" class="text-xs">淨化：0/2己象亡</div>
+                    </div>
+                    <div class="bg-yellow-900/50 p-2 rounded">
+                        <div class="font-bold text-yellow-400">🔮 法師(后)</div>
+                        <div id="mageStatus" class="text-xs">詛咒：0/3己兵亡</div>
+                    </div>
+                    <div class="bg-gray-700/50 p-2 rounded">
+                        <div class="font-bold text-gray-300">👑 戰士(王)</div>
+                        <div id="warriorStatus" class="text-xs">護駕：隨時可用</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div id="skillButtons" class="mt-2 flex flex-wrap justify-center">
+                <button id="btnAura" class="skill-btn bg-gray-700" onclick="game.activateEscort()">👑 護駕</button>
+                <button id="btnTaunt" class="skill-btn bg-green-600" disabled onclick="game.activateTaunt()">🛡️ 嘲諷</button>
+                <button id="btnArrow" class="skill-btn bg-red-600" disabled onclick="game.activatePiercingArrow()">🏹 貫矢</button>
+                <button id="btnStealth" class="skill-btn bg-purple-600" disabled onclick="game.activateStealth()">🗡️ 隱身</button>
+                <button id="btnReveal" class="skill-btn bg-orange-500" disabled onclick="game.revealAllGhosts()" style="display:none;">👁️ 現身</button>
+                <button id="btnPurify" class="skill-btn bg-blue-600" disabled onclick="game.activatePurify()">💫 淨化</button>
+                <button id="btnCurse" class="skill-btn bg-yellow-600" disabled onclick="game.activateCurse()">🔮 詛咒</button>
+            </div>
+        </div>
+        
+        <div class="board-container mt-2">
+            <div id="chessBoard" class="chess-board"></div>
+        </div>
+        
+        <div class="status-panel w-full max-w-xl mt-2 max-h-24 overflow-y-auto">
+            <div class="font-bold mb-1 text-sm">📜 遊戲日誌</div>
+            <div id="gameLog" class="text-xs space-y-1"></div>
+        </div>
+    </div>
+    
+    <div id="promotionModal" class="modal">
+        <div class="modal-content">
+            <h2 class="text-2xl font-bold mb-4">🎉 兵升變！選擇變身</h2>
+            <div class="flex flex-wrap justify-center">
+                <div class="promotion-choice" data-piece="q">♕</div>
+                <div class="promotion-choice" data-piece="r">♖</div>
+                <div class="promotion-choice" data-piece="b">♗</div>
+                <div class="promotion-choice" data-piece="n">♘</div>
+            </div>
+        </div>
+    </div>
+    
+    <div id="gameOverModal" class="game-over">
+        <h1 id="gameOverText">遊戲結束</h1>
+        <p id="gameOverReason" class="text-xl mb-6"></p>
+        <div class="flex gap-4 flex-wrap justify-center">
+            <button onclick="restartGame()" class="skill-btn bg-blue-600 text-white text-xl px-8 py-4">🔄 重新開始</button>
+            <button onclick="backToMenu()" class="skill-btn bg-gray-600 text-white text-xl px-8 py-4">🏠 主選單</button>
+        </div>
+    </div>
+    
+    <div id="escortHint" class="escort-hint">
+        <div>👑 護駕模式</div>
+        <div class="text-sm">點擊一個友方棋子與王交換位置</div>
+        <button onclick="game.cancelEscort()" class="skill-btn bg-gray-600 mt-2">取消</button>
+    </div>
+    
+    <div id="tauntCounter" class="taunt-counter">
+        <div>⚠️ 嘲諷！</div>
+        <div id="tauntTurns">剩餘 2 回合</div>
+        <div id="tauntOwner" class="text-sm"></div>
+    </div>
+    
+    <div id="pieceSelectionModal" class="modal">
+        <div class="modal-content">
+            <h2 class="text-2xl font-bold mb-4">👻 選擇要移動的棋子</h2>
+            <p class="text-sm mb-4">此格有多個己方棋子，請選擇要移動哪一個：</p>
+            <div id="pieceSelectionChoices" class="flex flex-wrap justify-center gap-4"></div>
+            <button onclick="game.cancelPieceSelection()" class="skill-btn bg-gray-600 mt-4">取消</button>
+        </div>
+    </div>
+
+<script>
+/**
+ * 職業特性版國際象棋 - 完整實作 v12
+ * 修復：護駕交換時，王不會繼承被交換棋子的控制狀態
+ */
+
+let game = null;
+let gameMode = 'ai'; // 'ai' or 'local'
+
+function startGame(mode) {
+    gameMode = mode;
+    document.getElementById('mainMenu').classList.add('hidden');
+    document.getElementById('gameContainer').style.display = 'flex';
+    game = new ChessGame(mode);
+}
+
+function backToMenu() {
+    document.getElementById('gameOverModal').classList.remove('show');
+    document.getElementById('gameContainer').style.display = 'none';
+    document.getElementById('mainMenu').classList.remove('hidden');
+    game = null;
+}
+
+function restartGame() {
+    document.getElementById('gameOverModal').classList.remove('show');
+    game = new ChessGame(gameMode);
+}
+
+const PIECES = {
+    'K': '♔', 'Q': '♕', 'R': '♖', 'B': '♗', 'N': '♘', 'P': '♙',
+    'k': '♚', 'q': '♛', 'r': '♜', 'b': '♝', 'n': '♞', 'p': '♟'
+};
+
+const GOBLIN = '👺';
+const GHOST = '👻';
+
+const STUN_TYPES = {
+    MAGE_FREEZE: 'mage',
+    TRAP_SKULL: 'trap',
+    ARCHER_DIZZY: 'archer',
+    KNIGHT_DEATH: 'knight_death'
+};
+
+const STUN_ICONS = {
+    'mage': '🥶',
+    'trap': '💀',
+    'archer': '😵‍💫',
+    'knight_death': '🚫'
+};
+
+// 創建一個玩家的終極技模板
+function createPlayerUltimates() {
+    return {
+        taunt: { 
+            unlocked: false, 
+            used: false, 
+            active: false, 
+            turnsRemaining: 0,
+            enemyPawnMoves: 0,
+            pawnKillsRequired: 2,
+            pawnKillsCount: 0
+        },
+        arrow: { moves: 0, available: false, used: false },
+        stealth: { triggers: 0, available: false, used: false, active: false },
+        purify: { ownBishopDeaths: 0, available: false, used: false, permanentImmunity: false },
+        curse: { deadPawns: 0, available: false, used: false },
+        escort: { available: true, used: false }
+    };
+}
+
+class GameState {
+    constructor() {
+        this.reset();
+    }
+    
+    reset() {
+        this.board = this.createInitialBoard();
+        this.turn = 'w';
+        this.turnNumber = 1;
+        this.castling = { K: true, Q: true, k: true, q: true };
+        this.enPassant = null;
+        this.selectedPos = null;
+        this.selectedGhostKey = null;
+        this.pieceStates = {};
+        this.initPieceStates();
+        this.traps = {};
+        this.trapsDisabled = false;
+        
+        this.ghostPieces = {};
+        
+        this.lastMove = { from: null, to: null, owner: null };
+        this.revealedKnightsThisTurn = new Set();
+        
+        // 雙方各自擁有獨立的終極技
+        this.ultimates = {
+            w: createPlayerUltimates(),
+            b: createPlayerUltimates()
+        };
+        
+        this.stunned = {};
+        this.gameOver = false;
+        this.winner = null;
+        this.pendingPromotion = null;
+        this.pendingTrapTrigger = null;
+    }
+    
+    createInitialBoard() {
+        const board = [];
+        const backRow = ['r', 'n', 'b', 'q', 'k', 'b', 'n', 'r'];
+        
+        for (let row = 0; row < 8; row++) {
+            board[row] = [];
+            for (let col = 0; col < 8; col++) {
+                if (row === 0) board[row][col] = backRow[col];
+                else if (row === 1) board[row][col] = 'p';
+                else if (row === 6) board[row][col] = 'P';
+                else if (row === 7) board[row][col] = backRow[col].toUpperCase();
+                else board[row][col] = null;
+            }
+        }
+        return board;
+    }
+    
+    initPieceStates() {
+        let id = 0;
+        for (let row = 0; row < 8; row++) {
+            for (let col = 0; col < 8; col++) {
+                const piece = this.board[row][col];
+                if (piece) {
+                    const key = `${row},${col}`;
+                    this.pieceStates[key] = {
+                        id: id++,
+                        wounded: false,
+                        invisible: false,
+                        isGoblin: false,
+                        originalOwner: piece === piece.toUpperCase() ? 'w' : 'b',
+                        moveCount: 0
+                    };
+                }
+            }
+        }
+    }
+    
+    isWhite(piece) {
+        return piece && piece === piece.toUpperCase();
+    }
+    
+    isBlack(piece) {
+        return piece && piece === piece.toLowerCase();
+    }
+    
+    getOwner(piece) {
+        if (!piece) return null;
+        return this.isWhite(piece) ? 'w' : 'b';
+    }
+    
+    // 獲取當前玩家的終極技
+    getCurrentUltimates() {
+        return this.ultimates[this.turn];
+    }
+    
+    // 獲取指定玩家的終極技
+    getPlayerUltimates(player) {
+        return this.ultimates[player];
+    }
+    
+    clone() {
+        const cloned = new GameState();
+        cloned.board = this.board.map(row => [...row]);
+        cloned.turn = this.turn;
+        cloned.turnNumber = this.turnNumber;
+        cloned.castling = { ...this.castling };
+        cloned.enPassant = this.enPassant ? { ...this.enPassant } : null;
+        cloned.selectedPos = null;
+        cloned.selectedGhostKey = null;
+        cloned.pieceStates = JSON.parse(JSON.stringify(this.pieceStates));
+        cloned.traps = JSON.parse(JSON.stringify(this.traps));
+        cloned.trapsDisabled = this.trapsDisabled;
+        cloned.ghostPieces = JSON.parse(JSON.stringify(this.ghostPieces));
+        cloned.lastMove = JSON.parse(JSON.stringify(this.lastMove));
+        cloned.ultimates = JSON.parse(JSON.stringify(this.ultimates));
+        cloned.stunned = JSON.parse(JSON.stringify(this.stunned));
+        cloned.gameOver = this.gameOver;
+        cloned.winner = this.winner;
+        cloned.pendingPromotion = null;
+        cloned.pendingTrapTrigger = null;
+        cloned.revealedKnightsThisTurn = new Set();
+        return cloned;
+    }
+}
+
+class ChessGame {
+    constructor(mode = 'ai') {
+        this.gameMode = mode;
+        this.state = new GameState();
+        this.boardEl = document.getElementById('chessBoard');
+        this.validMoves = [];
+        this.escortMode = false;
+        this.history = [];
+        this.init();
+    }
+    
+    init() {
+        this.render();
+        this.setupEventListeners();
+        if (this.gameMode === 'ai') {
+            this.log('遊戲開始！白方先手，對戰電腦。');
+        } else {
+            this.log('遊戲開始！本地雙人對決，白方先手。');
+            this.log('💡 雙方各自擁有獨立的終極技！');
+        }
+    }
+    
+    saveState() {
+        this.history.push(this.state.clone());
+        if (this.history.length > 20) {
+            this.history.shift();
+        }
+    }
+    
+    undo() {
+        if (this.history.length === 0) {
+            this.log('⚠️ 無法悔棋！');
+            this.showFX('shake');
+            return;
+        }
+        
+        if (this.state.gameOver) {
+            this.log('⚠️ 遊戲已結束，無法悔棋');
+            return;
+        }
+        
+        this.escortMode = false;
+        document.getElementById('escortHint').classList.remove('show');
+        
+        this.state = this.history.pop();
+        this.validMoves = [];
+        
+        this.log('↩️ 已悔棋！');
+        this.render();
+    }
+    
+    render() {
+        this.boardEl.innerHTML = '';
+        const currentOwner = this.state.turn;
+        
+        for (let row = 0; row < 8; row++) {
+            for (let col = 0; col < 8; col++) {
+                const cell = document.createElement('div');
+                cell.className = `cell ${(row + col) % 2 === 0 ? 'light' : 'dark'}`;
+                cell.dataset.row = row;
+                cell.dataset.col = col;
+                
+                const piece = this.state.board[row][col];
+                const key = `${row},${col}`;
+                const pieceState = this.state.pieceStates[key];
+                const stunnedInfo = this.state.stunned[key];
+                const ghostHere = this.state.ghostPieces[key];
+                
+                const lastMove = this.state.lastMove;
+                if (lastMove.from && lastMove.from.row === row && lastMove.from.col === col) {
+                    cell.classList.add('last-move-from');
+                }
+                if (lastMove.to && lastMove.to.row === row && lastMove.to.col === col) {
+                    cell.classList.add('last-move-to');
+                }
+                
+                if (this.state.traps[key]) {
+                    const trapInfo = this.state.traps[key];
+                    const trap = document.createElement('div');
+                    trap.className = `trap-marker ${trapInfo.owner === 'w' ? 'white-trap' : 'black-trap'}`;
+                    trap.textContent = trapInfo.owner === 'w' ? '💀' : '☠️';
+                    cell.appendChild(trap);
+                }
+                
+                if (this.state.selectedPos || this.state.selectedGhostKey) {
+                    const isValidMove = this.validMoves.some(m => m.row === row && m.col === col);
+                    if (isValidMove) {
+                        if (piece && this.state.getOwner(piece) !== this.state.turn) {
+                            cell.classList.add('valid-capture');
+                        } else {
+                            cell.classList.add('valid-move');
+                        }
+                    }
+                }
+                
+                if (ghostHere) {
+                    const ghostEl = document.createElement('span');
+                    ghostEl.className = `piece ghost ${this.state.isWhite(ghostHere.piece) ? 'white-piece' : 'black-piece'}`;
+                    ghostEl.textContent = GHOST;
+                    if (piece) {
+                        ghostEl.classList.add('ghost-overlay');
+                    }
+                    cell.appendChild(ghostEl);
+                }
+                
+                if (piece) {
+                    const pieceEl = document.createElement('span');
+                    pieceEl.className = `piece ${this.state.isWhite(piece) ? 'white-piece' : 'black-piece'}`;
+                    const pieceOwner = this.state.getOwner(piece);
+                    
+                    if (pieceState && pieceState.isGoblin) {
+                        pieceEl.textContent = GOBLIN;
+                        pieceEl.classList.add('goblin');
+                    } else {
+                        pieceEl.textContent = PIECES[piece];
+                    }
+                    
+                    if (pieceState && pieceState.wounded) {
+                        pieceEl.classList.add('wounded');
+                        const mark = document.createElement('span');
+                        mark.className = 'wounded-mark';
+                        mark.textContent = '💔';
+                        cell.appendChild(mark);
+                    }
+                    
+                    // 檢查該棋子所屬方是否有永久免疫
+                    const ownerUlt = this.state.getPlayerUltimates(pieceOwner);
+                    if (ownerUlt.purify.permanentImmunity) {
+                        pieceEl.classList.add('immune');
+                        const immuneMark = document.createElement('span');
+                        immuneMark.className = 'immune-mark';
+                        immuneMark.textContent = '🛡️';
+                        cell.appendChild(immuneMark);
+                    }
+                    
+                    // 王(K/k)永遠免疫控制，不顯示控制效果
+                    const isKing = piece.toLowerCase() === 'k';
+                    if (stunnedInfo && !isKing && !(ownerUlt.purify.permanentImmunity)) {
+                        pieceEl.classList.add('stunned');
+                        const statusMark = document.createElement('span');
+                        statusMark.className = 'status-mark';
+                        statusMark.textContent = STUN_ICONS[stunnedInfo.type] || '🚫';
+                        cell.appendChild(statusMark);
+                        
+                        const frozenOverlay = document.createElement('div');
+                        frozenOverlay.className = `frozen-overlay ${pieceOwner === 'w' ? 'white-frozen' : 'black-frozen'}`;
+                        frozenOverlay.textContent = STUN_ICONS[stunnedInfo.type] || '🚫';
+                        cell.appendChild(frozenOverlay);
+                    }
+                    
+                    cell.appendChild(pieceEl);
+                }
+                
+                if (this.state.selectedPos && 
+                    this.state.selectedPos.row === row && 
+                    this.state.selectedPos.col === col) {
+                    cell.classList.add('selected');
+                }
+                if (this.state.selectedGhostKey === key) {
+                    cell.classList.add('selected');
+                }
+                
+                if (piece && (piece === 'K' || piece === 'k')) {
+                    if (this.isInCheck(this.state.getOwner(piece))) {
+                        cell.classList.add('check');
+                    }
+                }
+                
+                if (this.escortMode && piece) {
+                    const kingPiece = currentOwner === 'w' ? 'K' : 'k';
+                    if (piece === kingPiece) {
+                        cell.classList.add('escort-king');
+                    } else if (this.state.getOwner(piece) === currentOwner) {
+                        cell.classList.add('escort-valid');
+                    }
+                }
+                
+                this.boardEl.appendChild(cell);
+            }
+        }
+        
+        this.updateUI();
+    }
+    
+    updateUI() {
+        const currentOwner = this.state.turn;
+        const turnEl = document.getElementById('turnIndicator');
+        let turnText = currentOwner === 'w' ? '白方' : '黑方';
+        if (this.gameMode === 'ai') {
+            turnText += currentOwner === 'w' ? ' (你)' : ' (AI)';
+        }
+        turnEl.innerHTML = `回合 ${this.state.turnNumber}：<span class="${currentOwner === 'w' ? 'text-yellow-400' : 'text-gray-400'}">${turnText}</span>`;
+        
+        // 更新當前玩家標籤
+        const playerLabel = document.getElementById('currentPlayerLabel');
+        if (this.gameMode === 'local') {
+            playerLabel.innerHTML = `<span class="${currentOwner === 'w' ? 'text-yellow-400' : 'text-gray-400'}">${currentOwner === 'w' ? '⚪ 白方' : '⚫ 黑方'}</span> 技能狀態`;
+        } else {
+            playerLabel.textContent = '當前玩家技能狀態';
+        }
+        
+        const checkEl = document.getElementById('checkIndicator');
+        checkEl.style.display = this.isInCheck(currentOwner) ? 'block' : 'none';
+        
+        // 使用當前玩家的終極技狀態
+        const ult = this.state.getCurrentUltimates();
+        const enemy = currentOwner === 'w' ? 'b' : 'w';
+        const enemyUlt = this.state.getPlayerUltimates(enemy);
+        
+        // 更新狀態顯示（顯示當前玩家的技能狀態）
+        if (ult.taunt.used) {
+            document.getElementById('tankStatus').textContent = '嘲諷：已使用';
+        } else if (ult.taunt.active) {
+            document.getElementById('tankStatus').textContent = `嘲諷中！需殺${ult.taunt.pawnKillsRequired - ult.taunt.pawnKillsCount}兵，剩${ult.taunt.turnsRemaining}回合`;
+        } else if (ult.taunt.unlocked) {
+            document.getElementById('tankStatus').textContent = '嘲諷：可用';
+        } else {
+            document.getElementById('tankStatus').textContent = `嘲諷：敵兵動${ult.taunt.enemyPawnMoves || 0}/4次`;
+        }
+        
+        document.getElementById('archerStatus').textContent = 
+            ult.arrow.used ? '貫矢：已使用' : `貫矢：${ult.arrow.moves}/10步`;
+        
+        if (this.state.trapsDisabled) {
+            document.getElementById('assassinStatus').textContent = 
+                ult.stealth.active ? '隱身：👻進行中（陷阱已禁用）' : (ult.stealth.used ? '隱身：已使用' : `隱身：${ult.stealth.triggers}/2觸發`);
+        } else {
+            document.getElementById('assassinStatus').textContent = 
+                ult.stealth.used ? '隱身：已使用' : (ult.stealth.active ? '隱身：👻進行中' : `隱身：${ult.stealth.triggers}/2觸發`);
+        }
+        
+        if (ult.purify.permanentImmunity) {
+            document.getElementById('supportStatus').textContent = '淨化：永久免控中！';
+        } else if (ult.purify.used) {
+            document.getElementById('supportStatus').textContent = '淨化：已使用';
+        } else if (ult.purify.available) {
+            document.getElementById('supportStatus').textContent = '淨化：可用';
+        } else {
+            document.getElementById('supportStatus').textContent = `淨化：${ult.purify.ownBishopDeaths}/2己象亡`;
+        }
+        
+        document.getElementById('mageStatus').textContent = 
+            ult.curse.used ? '詛咒：已使用' : `詛咒：${ult.curse.deadPawns}/3己兵亡`;
+        
+        document.getElementById('warriorStatus').textContent = 
+            ult.escort.used ? '護駕：已使用' : '護駕：可用';
+        
+        const isPlayerTurn = this.gameMode === 'local' || currentOwner === 'w';
+        
+        document.getElementById('undoBtn').disabled = this.history.length === 0 || this.state.gameOver;
+        document.getElementById('btnAura').disabled = ult.escort.used || !isPlayerTurn || this.escortMode;
+        document.getElementById('btnTaunt').disabled = !ult.taunt.unlocked || ult.taunt.used || ult.taunt.active || !isPlayerTurn;
+        document.getElementById('btnArrow').disabled = !ult.arrow.available || ult.arrow.used || !isPlayerTurn;
+        document.getElementById('btnPurify').disabled = !ult.purify.available || ult.purify.used || !isPlayerTurn;
+        document.getElementById('btnCurse').disabled = !ult.curse.available || ult.curse.used || !isPlayerTurn;
+        
+        const btnStealth = document.getElementById('btnStealth');
+        const btnReveal = document.getElementById('btnReveal');
+        
+        if (ult.stealth.active) {
+            btnStealth.style.display = 'none';
+            btnReveal.style.display = 'inline-block';
+            btnReveal.disabled = !isPlayerTurn;
+        } else {
+            btnStealth.style.display = 'inline-block';
+            btnReveal.style.display = 'none';
+            btnStealth.disabled = !ult.stealth.available || ult.stealth.used || !isPlayerTurn;
+        }
+        
+        document.querySelectorAll('.skill-btn:not([onclick*="backToMenu"]):not(#undoBtn)').forEach(btn => {
+            btn.classList.remove('ready');
+            if (!btn.disabled && btn.style.display !== 'none') btn.classList.add('ready');
+        });
+        
+        // 嘲諷計數器 - 檢查任一方的嘲諷是否激活
+        const tauntCounter = document.getElementById('tauntCounter');
+        const wTaunt = this.state.getPlayerUltimates('w').taunt;
+        const bTaunt = this.state.getPlayerUltimates('b').taunt;
+        
+        if (wTaunt.active || bTaunt.active) {
+            tauntCounter.classList.add('show');
+            if (wTaunt.active) {
+                document.getElementById('tauntTurns').textContent = `剩餘 ${wTaunt.turnsRemaining} 回合`;
+                document.getElementById('tauntOwner').textContent = '⚪ 白方發動';
+            } else {
+                document.getElementById('tauntTurns').textContent = `剩餘 ${bTaunt.turnsRemaining} 回合`;
+                document.getElementById('tauntOwner').textContent = '⚫ 黑方發動';
+            }
+        } else {
+            tauntCounter.classList.remove('show');
+        }
+    }
+    
+    setupEventListeners() {
+        this.boardEl.addEventListener('click', (e) => {
+            if (this.state.gameOver) return;
+            if (this.gameMode === 'ai' && this.state.turn !== 'w') return;
+            
+            const cell = e.target.closest('.cell');
+            if (!cell) return;
+            
+            const row = parseInt(cell.dataset.row);
+            const col = parseInt(cell.dataset.col);
+            this.handleCellClick(row, col);
+        });
+        
+        document.querySelectorAll('.promotion-choice').forEach(el => {
+            el.addEventListener('click', () => {
+                const piece = el.dataset.piece;
+                this.handlePromotion(piece);
+            });
+        });
+    }
+    
+    isImmuneToControl(row, col, owner) {
+        // 王永遠免疫控制
+        const piece = this.state.board[row][col];
+        if (piece && piece.toLowerCase() === 'k') {
+            return true;
+        }
+        
+        const ownerUlt = this.state.getPlayerUltimates(owner);
+        if (ownerUlt.purify.permanentImmunity) {
+            return true;
+        }
+        if (this.isInBishopAura(row, col, owner)) {
+            return true;
+        }
+        return false;
+    }
+    
+    handleCellClick(row, col) {
+        const piece = this.state.board[row][col];
+        const key = `${row},${col}`;
+        const pieceState = this.state.pieceStates[key];
+        const ghostHere = this.state.ghostPieces[key];
+        const currentOwner = this.state.turn;
+        
+        if (this.escortMode) {
+            const kingPiece = currentOwner === 'w' ? 'K' : 'k';
+            if (piece && this.state.getOwner(piece) === currentOwner && piece !== kingPiece) {
+                this.executeEscortDirect(row, col);
+            } else if (piece === kingPiece) {
+                this.log('👑 不能選擇王本身！');
+                this.showFX('shake');
+            } else {
+                this.log('請選擇一個友方棋子！');
+                this.showFX('shake');
+            }
+            return;
+        }
+        
+        if (this.state.selectedPos || this.state.selectedGhostKey) {
+            if (this.validMoves.some(m => m.row === row && m.col === col)) {
+                if (this.state.selectedGhostKey) {
+                    this.makeGhostMove(this.state.selectedGhostKey, row, col);
+                } else {
+                    this.makeMove(this.state.selectedPos.row, this.state.selectedPos.col, row, col);
+                }
+                return;
+            }
+        }
+        
+        this.state.selectedPos = null;
+        this.state.selectedGhostKey = null;
+        this.validMoves = [];
+        
+        const isOwnPiece = piece && this.state.getOwner(piece) === currentOwner;
+        const isOwnGhost = ghostHere && this.state.getOwner(ghostHere.piece) === currentOwner;
+        
+        if (isOwnPiece && isOwnGhost) {
+            this.showPieceSelectionModal(row, col);
+            this.render();
+            return;
+        }
+        
+        if (isOwnGhost && !isOwnPiece) {
+            const ghostId = ghostHere.state.id;
+            if (this.state.revealedKnightsThisTurn.has(ghostId)) {
+                this.log('👻 此馬本回合已現身，無法行動');
+                this.showFX('shake');
+                this.render();
+                return;
+            }
+            this.state.selectedGhostKey = key;
+            this.validMoves = this.getGhostMoves(row, col);
+            this.render();
+            return;
+        }
+        
+        if (isOwnPiece) {
+            if (piece.toLowerCase() === 'n' && pieceState && this.state.revealedKnightsThisTurn.has(pieceState.id)) {
+                this.log('🗡️ 此刺客本回合已現身，無法行動！');
+                this.showFX('shake');
+                this.render();
+                return;
+            }
+            
+            if (this.state.stunned[key] && !this.isImmuneToControl(row, col, currentOwner)) {
+                const stunType = this.state.stunned[key].type;
+                this.log(`該棋子被${stunType === 'mage' ? '冰凍' : '眩暈'}，無法移動！`);
+                this.showFX('shake');
+                this.render();
+                return;
+            }
+            this.state.selectedPos = { row, col };
+            this.validMoves = this.getValidMoves(row, col);
+        }
+        
+        this.render();
+    }
+    
+    showPieceSelectionModal(row, col) {
+        const key = `${row},${col}`;
+        const piece = this.state.board[row][col];
+        const pieceState = this.state.pieceStates[key];
+        const ghostHere = this.state.ghostPieces[key];
+        const currentOwner = this.state.turn;
+        
+        const modal = document.getElementById('pieceSelectionModal');
+        const choicesDiv = document.getElementById('pieceSelectionChoices');
+        choicesDiv.innerHTML = '';
+        
+        if (piece && pieceState) {
+            const isStunned = this.state.stunned[key] && !this.isImmuneToControl(row, col, currentOwner);
+            const isRevealedKnight = piece.toLowerCase() === 'n' && this.state.revealedKnightsThisTurn.has(pieceState.id);
+            const isDisabled = isStunned || isRevealedKnight;
+            
+            const btn = document.createElement('button');
+            btn.className = `skill-btn ${isDisabled ? 'bg-gray-500' : 'bg-blue-600'} text-white text-lg py-4 px-6`;
+            let statusText = '';
+            if (isStunned) statusText = ' (眩暈中)';
+            else if (isRevealedKnight) statusText = ' (已現身)';
+            btn.textContent = `${pieceState.isGoblin ? GOBLIN : PIECES[piece]} 主棋子${statusText}`;
+            btn.disabled = isDisabled;
+            btn.onclick = () => {
+                modal.classList.remove('show');
+                this.state.selectedPos = { row, col };
+                this.validMoves = this.getValidMoves(row, col);
+                this.render();
+            };
+            choicesDiv.appendChild(btn);
+        }
+        
+        if (ghostHere) {
+            const ghostId = ghostHere.state.id;
+            const isRevealed = this.state.revealedKnightsThisTurn.has(ghostId);
+            const btn = document.createElement('button');
+            btn.className = `skill-btn ${isRevealed ? 'bg-gray-500' : 'bg-purple-600'} text-white text-lg py-4 px-6`;
+            btn.textContent = `👻 幽靈刺客${isRevealed ? ' (已現身)' : ''}`;
+            btn.disabled = isRevealed;
+            btn.onclick = () => {
+                modal.classList.remove('show');
+                this.state.selectedGhostKey = key;
+                this.validMoves = this.getGhostMoves(row, col);
+                this.render();
+            };
+            choicesDiv.appendChild(btn);
+        }
+        
+        modal.classList.add('show');
+    }
+    
+    cancelPieceSelection() {
+        document.getElementById('pieceSelectionModal').classList.remove('show');
+    }
+    
+    getGhostMoves(row, col) {
+        const moves = [];
+        const offsets = [[-2,-1],[-2,1],[-1,-2],[-1,2],[1,-2],[1,2],[2,-1],[2,1]];
+        
+        for (const [dr, dc] of offsets) {
+            const r = row + dr, c = col + dc;
+            if (r >= 0 && r < 8 && c >= 0 && c < 8) {
+                const targetKey = `${r},${c}`;
+                // 幽靈不能移動到已有幽靈的格子
+                if (!this.state.ghostPieces[targetKey]) {
+                    moves.push({ row: r, col: c });
+                }
+            }
+        }
+        
+        return moves;
+    }
+    
+    getValidMoves(row, col) {
+        const piece = this.state.board[row][col];
+        if (!piece) return [];
+        
+        const moves = [];
+        const owner = this.state.getOwner(piece);
+        const key = `${row},${col}`;
+        const pieceState = this.state.pieceStates[key];
+        
+        if (pieceState && pieceState.isGoblin) {
+            for (let r = 0; r < 8; r++) {
+                for (let c = 0; c < 8; c++) {
+                    if (!this.state.board[r][c]) {
+                        moves.push({ row: r, col: c });
+                    }
+                }
+            }
+            return this.filterKingSafety(moves, row, col, owner);
+        }
+        
+        const type = piece.toLowerCase();
+        
+        switch (type) {
+            case 'p': this.getPawnMoves(row, col, owner, moves); break;
+            case 'r': this.getSlidingMoves(row, col, owner, [[0,1],[0,-1],[1,0],[-1,0]], moves); break;
+            case 'n': this.getKnightMoves(row, col, owner, moves); break;
+            case 'b': this.getSlidingMoves(row, col, owner, [[1,1],[1,-1],[-1,1],[-1,-1]], moves); break;
+            case 'q': this.getSlidingMoves(row, col, owner, [[0,1],[0,-1],[1,0],[-1,0],[1,1],[1,-1],[-1,1],[-1,-1]], moves); break;
+            case 'k': this.getKingMoves(row, col, owner, moves); break;
+        }
+        
+        return this.filterKingSafety(moves, row, col, owner);
+    }
+    
+    getPawnMoves(row, col, owner, moves) {
+        const dir = owner === 'w' ? -1 : 1;
+        const startRow = owner === 'w' ? 6 : 1;
+        
+        const nextRow = row + dir;
+        if (nextRow >= 0 && nextRow < 8 && !this.state.board[nextRow][col]) {
+            moves.push({ row: nextRow, col });
+            if (row === startRow) {
+                const twoAhead = row + dir * 2;
+                if (!this.state.board[twoAhead][col]) {
+                    moves.push({ row: twoAhead, col });
+                }
+            }
+        }
+        
+        for (const dc of [-1, 1]) {
+            const newCol = col + dc;
+            if (newCol >= 0 && newCol < 8 && nextRow >= 0 && nextRow < 8) {
+                const target = this.state.board[nextRow][newCol];
+                if (target && this.state.getOwner(target) !== owner) {
+                    moves.push({ row: nextRow, col: newCol });
+                }
+                if (this.state.enPassant && 
+                    this.state.enPassant.row === nextRow && 
+                    this.state.enPassant.col === newCol) {
+                    moves.push({ row: nextRow, col: newCol, enPassant: true });
+                }
+            }
+        }
+    }
+    
+    getSlidingMoves(row, col, owner, directions, moves) {
+        for (const [dr, dc] of directions) {
+            let r = row + dr, c = col + dc;
+            while (r >= 0 && r < 8 && c >= 0 && c < 8) {
+                const target = this.state.board[r][c];
+                if (!target) {
+                    moves.push({ row: r, col: c });
+                } else {
+                    if (this.state.getOwner(target) !== owner) {
+                        moves.push({ row: r, col: c });
+                    }
+                    break;
+                }
+                r += dr; c += dc;
+            }
+        }
+    }
+    
+    getKnightMoves(row, col, owner, moves) {
+        const offsets = [[-2,-1],[-2,1],[-1,-2],[-1,2],[1,-2],[1,2],[2,-1],[2,1]];
+        
+        for (const [dr, dc] of offsets) {
+            const r = row + dr, c = col + dc;
+            if (r >= 0 && r < 8 && c >= 0 && c < 8) {
+                const target = this.state.board[r][c];
+                if (!target || this.state.getOwner(target) !== owner) {
+                    moves.push({ row: r, col: c });
+                }
+            }
+        }
+    }
+    
+    getKingMoves(row, col, owner, moves) {
+        for (let dr = -1; dr <= 1; dr++) {
+            for (let dc = -1; dc <= 1; dc++) {
+                if (dr === 0 && dc === 0) continue;
+                const r = row + dr, c = col + dc;
+                if (r >= 0 && r < 8 && c >= 0 && c < 8) {
+                    const target = this.state.board[r][c];
+                    if (!target || this.state.getOwner(target) !== owner) {
+                        moves.push({ row: r, col: c });
+                    }
+                }
+            }
+        }
+        
+        if (owner === 'w' && row === 7 && col === 4) {
+            if (this.state.castling.K && this.canCastle(7, 4, 7, 7)) {
+                moves.push({ row: 7, col: 6, castle: 'K' });
+            }
+            if (this.state.castling.Q && this.canCastle(7, 4, 7, 0)) {
+                moves.push({ row: 7, col: 2, castle: 'Q' });
+            }
+        } else if (owner === 'b' && row === 0 && col === 4) {
+            if (this.state.castling.k && this.canCastle(0, 4, 0, 7)) {
+                moves.push({ row: 0, col: 6, castle: 'k' });
+            }
+            if (this.state.castling.q && this.canCastle(0, 4, 0, 0)) {
+                moves.push({ row: 0, col: 2, castle: 'q' });
+            }
+        }
+    }
+    
+    canCastle(kingRow, kingCol, rookRow, rookCol) {
+        const owner = this.state.turn;
+        if (this.isInCheck(owner)) return false;
+        
+        const rook = this.state.board[rookRow][rookCol];
+        if (!rook || rook.toLowerCase() !== 'r') return false;
+        
+        const dir = rookCol > kingCol ? 1 : -1;
+        for (let c = kingCol + dir; c !== rookCol; c += dir) {
+            if (this.state.board[kingRow][c]) return false;
+        }
+        
+        const enemy = owner === 'w' ? 'b' : 'w';
+        for (let i = 0; i <= 2; i++) {
+            if (this.isSquareAttacked(kingRow, kingCol + dir * i, enemy)) return false;
+        }
+        
+        return true;
+    }
+    
+    filterKingSafety(moves, fromRow, fromCol, owner) {
+        return moves.filter(move => {
+            const backup = this.state.board[move.row][move.col];
+            const piece = this.state.board[fromRow][fromCol];
+            this.state.board[move.row][move.col] = piece;
+            this.state.board[fromRow][fromCol] = null;
+            
+            let epBackup = null;
+            if (move.enPassant) {
+                const epRow = owner === 'w' ? move.row + 1 : move.row - 1;
+                epBackup = this.state.board[epRow][move.col];
+                this.state.board[epRow][move.col] = null;
+            }
+            
+            const inCheck = this.isInCheck(owner);
+            
+            this.state.board[fromRow][fromCol] = piece;
+            this.state.board[move.row][move.col] = backup;
+            if (move.enPassant) {
+                const epRow = owner === 'w' ? move.row + 1 : move.row - 1;
+                this.state.board[epRow][move.col] = epBackup;
+            }
+            
+            return !inCheck;
+        });
+    }
+    
+    isInCheck(owner) {
+        const king = owner === 'w' ? 'K' : 'k';
+        let kingPos = null;
+        
+        for (let r = 0; r < 8; r++) {
+            for (let c = 0; c < 8; c++) {
+                if (this.state.board[r][c] === king) {
+                    kingPos = { row: r, col: c };
+                    break;
+                }
+            }
+            if (kingPos) break;
+        }
+        
+        if (!kingPos) return false;
+        return this.isSquareAttacked(kingPos.row, kingPos.col, owner === 'w' ? 'b' : 'w');
+    }
+    
+    isSquareAttacked(row, col, byOwner) {
+        for (let r = 0; r < 8; r++) {
+            for (let c = 0; c < 8; c++) {
+                const piece = this.state.board[r][c];
+                if (piece && this.state.getOwner(piece) === byOwner) {
+                    const key = `${r},${c}`;
+                    const pieceState = this.state.pieceStates[key];
+                    if (pieceState && pieceState.isGoblin) continue;
+                    
+                    if (this.canPieceAttack(r, c, row, col, piece)) {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
+    }
+    
+    canPieceAttack(fromRow, fromCol, toRow, toCol, piece) {
+        const type = piece.toLowerCase();
+        const dr = toRow - fromRow;
+        const dc = toCol - fromCol;
+        
+        switch (type) {
+            case 'p': {
+                const dir = this.state.isWhite(piece) ? -1 : 1;
+                return dr === dir && Math.abs(dc) === 1;
+            }
+            case 'r':
+                return (dr === 0 || dc === 0) && this.isPathClear(fromRow, fromCol, toRow, toCol);
+            case 'n':
+                return (Math.abs(dr) === 2 && Math.abs(dc) === 1) || (Math.abs(dr) === 1 && Math.abs(dc) === 2);
+            case 'b':
+                return Math.abs(dr) === Math.abs(dc) && dr !== 0 && this.isPathClear(fromRow, fromCol, toRow, toCol);
+            case 'q':
+                return ((dr === 0 || dc === 0) || (Math.abs(dr) === Math.abs(dc) && dr !== 0)) && 
+                       this.isPathClear(fromRow, fromCol, toRow, toCol);
+            case 'k':
+                return Math.abs(dr) <= 1 && Math.abs(dc) <= 1;
+        }
+        return false;
+    }
+    
+    isPathClear(fromRow, fromCol, toRow, toCol) {
+        const dr = Math.sign(toRow - fromRow);
+        const dc = Math.sign(toCol - fromCol);
+        let r = fromRow + dr, c = fromCol + dc;
+        
+        while (r !== toRow || c !== toCol) {
+            if (r < 0 || r > 7 || c < 0 || c > 7) return false;
+            if (this.state.board[r][c]) return false;
+            r += dr;
+            c += dc;
+        }
+        return true;
+    }
+    
+    makeMove(fromRow, fromCol, toRow, toCol) {
+        this.saveState();
+        
+        const piece = this.state.board[fromRow][fromCol];
+        const captured = this.state.board[toRow][toCol];
+        const fromKey = `${fromRow},${fromCol}`;
+        const toKey = `${toRow},${toCol}`;
+        const owner = this.state.getOwner(piece);
+        const pieceState = this.state.pieceStates[fromKey];
+        const enemy = owner === 'w' ? 'b' : 'w';
+        
+        const move = this.validMoves.find(m => m.row === toRow && m.col === toCol);
+        
+        // 獲取雙方的終極技
+        const ownerUlt = this.state.getPlayerUltimates(owner);
+        const enemyUlt = this.state.getPlayerUltimates(enemy);
+        
+        if (captured) {
+            const capturedState = this.state.pieceStates[toKey];
+            const capturedOwner = this.state.getOwner(captured);
+            
+            if (captured.toLowerCase() === 'k') {
+                this.state.board[toRow][toCol] = piece;
+                this.state.board[fromRow][fromCol] = null;
+                this.state.gameOver = true;
+                this.state.winner = owner;
+                this.log(`👑 ${PIECES[captured]} 被吃掉！`);
+                this.createParticles(toCol, toRow, '#ff0000', 20);
+                this.showGameOver(`${owner === 'w' ? '白方' : '黑方'}勝利！`, '王被吃掉！');
+                this.render();
+                return;
+            }
+            
+            if (captured.toLowerCase() === 'p' && capturedState && !capturedState.wounded && !capturedState.isGoblin) {
+                capturedState.wounded = true;
+                this.log(`🛡️ 坦克兵受傷但存活！`);
+                this.showFX('shake');
+                this.state.selectedPos = null;
+                this.validMoves = [];
+                this.state.lastMove = { from: { row: fromRow, col: fromCol }, to: { row: toRow, col: toCol }, owner };
+                this.render();
+                this.finishTurn();
+                return;
+            }
+            
+            if (captured.toLowerCase() === 'n' && capturedState && !capturedState.isGoblin) {
+                this.state.pendingTrapTrigger = { row: toRow, col: toCol, owner: capturedOwner };
+            }
+            
+            // 嘲諷計數 - 檢查敵方是否有激活的嘲諷
+            if (enemyUlt.taunt.active) {
+                // 檢查是否吃掉了敵方的兵
+                const enemyPawn = enemy === 'w' ? 'P' : 'p';
+                if (captured === enemyPawn) {
+                    enemyUlt.taunt.pawnKillsCount++;
+                    if (enemyUlt.taunt.pawnKillsCount >= enemyUlt.taunt.pawnKillsRequired) {
+                        enemyUlt.taunt.active = false;
+                        this.log('🛡️ 完成嘲諷挑戰！');
+                    }
+                }
+            }
+            
+            this.log(`${capturedState?.isGoblin ? GOBLIN : PIECES[captured]} 被吃掉！`);
+            this.createParticles(toCol, toRow, '#ff0000', 10);
+            
+            // 詛咒解鎖 - 己方兵被吃時給己方加進度
+            if (captured.toLowerCase() === 'p' && !capturedState?.isGoblin) {
+                const capturedOwnerUlt = this.state.getPlayerUltimates(capturedOwner);
+                capturedOwnerUlt.curse.deadPawns++;
+                if (capturedOwnerUlt.curse.deadPawns >= 3 && !capturedOwnerUlt.curse.available) {
+                    capturedOwnerUlt.curse.available = true;
+                    this.log(`🔮 ${capturedOwner === 'w' ? '白方' : '黑方'}詛咒解鎖！`);
+                    this.showUltimateEffect('🔮 詛咒解鎖！');
+                }
+            }
+            
+            // 淨化解鎖 - 己方象被吃時給己方加進度
+            if (captured.toLowerCase() === 'b' && !capturedState?.isGoblin) {
+                const capturedOwnerUlt = this.state.getPlayerUltimates(capturedOwner);
+                capturedOwnerUlt.purify.ownBishopDeaths++;
+                if (capturedOwnerUlt.purify.ownBishopDeaths >= 2 && !capturedOwnerUlt.purify.available) {
+                    capturedOwnerUlt.purify.available = true;
+                    this.log(`💫 ${capturedOwner === 'w' ? '白方' : '黑方'}淨化解鎖！`);
+                    this.showUltimateEffect('💫 淨化解鎖！');
+                }
+            }
+            
+            delete this.state.stunned[toKey];
+            delete this.state.pieceStates[toKey];
+        }
+        
+        // 馬放置陷阱
+        if (piece.toLowerCase() === 'n' && pieceState && !pieceState.isGoblin && !this.state.trapsDisabled) {
+            let trapCount = 0;
+            for (let dr = -1; dr <= 1; dr++) {
+                for (let dc = -1; dc <= 1; dc++) {
+                    const tr = fromRow + dr, tc = fromCol + dc;
+                    if (tr >= 0 && tr < 8 && tc >= 0 && tc < 8) {
+                        const trapKey = `${tr},${tc}`;
+                        if (!this.state.board[tr][tc] && !this.state.traps[trapKey]) {
+                            this.state.traps[trapKey] = { owner };
+                            trapCount++;
+                        }
+                    }
+                }
+            }
+            if (trapCount > 0) {
+                this.log(`🗡️ 刺客放置${trapCount}個永久陷阱！`);
+            }
+        }
+        
+        if (move && move.enPassant) {
+            const epRow = owner === 'w' ? toRow + 1 : toRow - 1;
+            const epKey = `${epRow},${toCol}`;
+            const epPiece = this.state.board[epRow][toCol];
+            if (epPiece) {
+                const epState = this.state.pieceStates[epKey];
+                if (epPiece.toLowerCase() === 'p' && epState && !epState.wounded && !epState.isGoblin) {
+                    epState.wounded = true;
+                    this.log(`🛡️ 坦克兵受傷但存活！`);
+                    this.state.selectedPos = null;
+                    this.validMoves = [];
+                    this.state.lastMove = { from: { row: fromRow, col: fromCol }, to: { row: toRow, col: toCol }, owner };
+                    this.render();
+                    this.finishTurn();
+                    return;
+                }
+                this.log(`${PIECES[epPiece]} 被吃過路兵吃掉！`);
+                this.state.board[epRow][toCol] = null;
+                delete this.state.pieceStates[epKey];
+            }
+        }
+        
+        this.state.board[toRow][toCol] = piece;
+        this.state.board[fromRow][fromCol] = null;
+        
+        this.state.lastMove = { from: { row: fromRow, col: fromCol }, to: { row: toRow, col: toCol }, owner };
+        
+        if (pieceState) {
+            this.state.pieceStates[toKey] = pieceState;
+            delete this.state.pieceStates[fromKey];
+            pieceState.moveCount++;
+        }
+        
+        if (this.state.stunned[fromKey]) {
+            this.state.stunned[toKey] = this.state.stunned[fromKey];
+            delete this.state.stunned[fromKey];
+        }
+        
+        // 敵方兵移動解鎖己方嘲諷
+        if (piece.toLowerCase() === 'p' && !(pieceState?.isGoblin)) {
+            // 當敵方兵移動時，給對手加嘲諷解鎖進度
+            if (!enemyUlt.taunt.unlocked && !enemyUlt.taunt.used) {
+                enemyUlt.taunt.enemyPawnMoves++;
+                if (enemyUlt.taunt.enemyPawnMoves >= 4) {
+                    enemyUlt.taunt.unlocked = true;
+                    this.log(`🛡️ ${enemy === 'w' ? '白方' : '黑方'}嘲諷解鎖！`);
+                    this.showUltimateEffect('🛡️ 嘲諷解鎖！');
+                }
+            }
+        }
+        
+        // 車移動解鎖己方貫矢
+        if (piece.toLowerCase() === 'r' && !(pieceState?.isGoblin)) {
+            ownerUlt.arrow.moves++;
+            if (ownerUlt.arrow.moves >= 10 && !ownerUlt.arrow.available) {
+                ownerUlt.arrow.available = true;
+                this.log(`🏹 ${owner === 'w' ? '白方' : '黑方'}貫矢解鎖！`);
+                this.showUltimateEffect('🏹 貫矢解鎖！');
+            }
+            this.archerPassiveShot(toRow, toCol, owner);
+        }
+        
+        if (move && move.castle) {
+            this.handleCastling(move.castle, toRow);
+        }
+        
+        if (piece === 'K') { this.state.castling.K = false; this.state.castling.Q = false; }
+        else if (piece === 'k') { this.state.castling.k = false; this.state.castling.q = false; }
+        else if (piece === 'R') {
+            if (fromCol === 0) this.state.castling.Q = false;
+            if (fromCol === 7) this.state.castling.K = false;
+        } else if (piece === 'r') {
+            if (fromCol === 0) this.state.castling.q = false;
+            if (fromCol === 7) this.state.castling.k = false;
+        }
+        
+        this.state.enPassant = null;
+        if (piece.toLowerCase() === 'p' && Math.abs(toRow - fromRow) === 2) {
+            this.state.enPassant = { row: (fromRow + toRow) / 2, col: toCol };
+        }
+        
+        if (this.state.traps[toKey] && this.state.traps[toKey].owner !== owner) {
+            this.triggerTrap(toRow, toCol, piece);
+        }
+        
+        if (this.state.pendingTrapTrigger) {
+            const trap = this.state.pendingTrapTrigger;
+            delete this.state.pendingTrapTrigger;
+            
+            if (piece.toLowerCase() !== 'k' && !this.isImmuneToControl(toRow, toCol, owner)) {
+                this.log(`🗡️ ${PIECES[piece]} 觸發死亡陷阱！眩暈3回合！`);
+                this.state.stunned[toKey] = { type: STUN_TYPES.KNIGHT_DEATH, turns: 3 };
+                
+                // 給被殺馬的擁有者加隱身解鎖進度
+                const trapOwnerUlt = this.state.getPlayerUltimates(trap.owner);
+                trapOwnerUlt.stealth.triggers++;
+                if (trapOwnerUlt.stealth.triggers >= 2 && !trapOwnerUlt.stealth.available) {
+                    trapOwnerUlt.stealth.available = true;
+                    this.log(`🗡️ ${trap.owner === 'w' ? '白方' : '黑方'}隱身解鎖！`);
+                    this.showUltimateEffect('🗡️ 隱身解鎖！');
+                }
+                this.showFX('shake');
+            }
+        }
+        
+        if (piece.toLowerCase() === 'p' && (toRow === 0 || toRow === 7)) {
+            if (this.gameMode === 'local' || owner === 'w') {
+                this.state.pendingPromotion = { row: toRow, col: toCol };
+                this.state.selectedPos = null;
+                this.validMoves = [];
+                document.getElementById('promotionModal').classList.add('show');
+                this.render();
+                return;
+            } else {
+                this.doPromotion(toRow, toCol, 'q');
+            }
+        }
+        
+        this.state.selectedPos = null;
+        this.state.selectedGhostKey = null;
+        this.validMoves = [];
+        
+        this.finishTurn();
+    }
+    
+    makeGhostMove(fromKey, toRow, toCol) {
+        this.saveState();
+        
+        const toKey = `${toRow},${toCol}`;
+        const ghost = this.state.ghostPieces[fromKey];
+        const owner = this.state.getOwner(ghost.piece);
+        
+        delete this.state.ghostPieces[fromKey];
+        
+        this.state.ghostPieces[toKey] = ghost;
+        
+        this.state.lastMove = { 
+            from: { row: parseInt(fromKey.split(',')[0]), col: parseInt(fromKey.split(',')[1]) }, 
+            to: { row: toRow, col: toCol }, 
+            owner 
+        };
+        
+        this.log(`👻 幽靈馬移動到 ${this.posToNotation(toRow, toCol)}`);
+        
+        this.state.selectedPos = null;
+        this.state.selectedGhostKey = null;
+        this.validMoves = [];
+        
+        this.finishTurn();
+    }
+    
+    archerPassiveShot(rookRow, rookCol, owner) {
+        const directions = [[-1,0],[1,0],[0,-1],[0,1],[-1,-1],[-1,1],[1,-1],[1,1]];
+        const enemy = owner === 'w' ? 'b' : 'w';
+        let stunCount = 0;
+        
+        for (const [dr, dc] of directions) {
+            let r = rookRow + dr, c = rookCol + dc;
+            while (r >= 0 && r < 8 && c >= 0 && c < 8) {
+                const targetPiece = this.state.board[r][c];
+                const targetKey = `${r},${c}`;
+                
+                if (targetPiece && this.state.getOwner(targetPiece) === enemy && targetPiece.toLowerCase() !== 'k') {
+                    if (!this.isImmuneToControl(r, c, enemy)) {
+                        this.state.stunned[targetKey] = { type: STUN_TYPES.ARCHER_DIZZY, turns: 2 };
+                        stunCount++;
+                        this.createParticles(c, r, '#ff6600', 5);
+                    }
+                }
+                r += dr;
+                c += dc;
+            }
+        }
+        
+        if (stunCount > 0) {
+            this.log(`🏹 射手眩暈${stunCount}個敵方棋子！`);
+        }
+    }
+    
+    handleCastling(type, row) {
+        if (type === 'K' || type === 'k') {
+            this.state.board[row][5] = this.state.board[row][7];
+            this.state.board[row][7] = null;
+            if (this.state.pieceStates[`${row},7`]) {
+                this.state.pieceStates[`${row},5`] = this.state.pieceStates[`${row},7`];
+                delete this.state.pieceStates[`${row},7`];
+            }
+        } else {
+            this.state.board[row][3] = this.state.board[row][0];
+            this.state.board[row][0] = null;
+            if (this.state.pieceStates[`${row},0`]) {
+                this.state.pieceStates[`${row},3`] = this.state.pieceStates[`${row},0`];
+                delete this.state.pieceStates[`${row},0`];
+            }
+        }
+        this.log('🏰 王車易位！');
+    }
+    
+    triggerTrap(row, col, piece) {
+        const key = `${row},${col}`;
+        const trapOwner = this.state.traps[key].owner;
+        const pieceOwner = this.state.getOwner(piece);
+        
+        if (piece.toLowerCase() === 'k') {
+            this.log('👑 戰士無視陷阱！');
+            return;
+        }
+        
+        if (this.isImmuneToControl(row, col, pieceOwner)) {
+            this.log('💫 免疫控制，無視陷阱！');
+            return;
+        }
+        
+        this.log(`🗡️ ${PIECES[piece]} 觸發陷阱！眩暈3回合！`);
+        this.state.stunned[key] = { type: STUN_TYPES.TRAP_SKULL, turns: 3 };
+        
+        // 給陷阱擁有者加隱身解鎖進度
+        const trapOwnerUlt = this.state.getPlayerUltimates(trapOwner);
+        trapOwnerUlt.stealth.triggers++;
+        if (trapOwnerUlt.stealth.triggers >= 2 && !trapOwnerUlt.stealth.available) {
+            trapOwnerUlt.stealth.available = true;
+            this.log(`🗡️ ${trapOwner === 'w' ? '白方' : '黑方'}隱身解鎖！`);
+            this.showUltimateEffect('🗡️ 隱身解鎖！');
+        }
+        
+        this.showFX('shake');
+    }
+    
+    handlePromotion(choice) {
+        const pos = this.state.pendingPromotion;
+        if (!pos) return;
+        
+        this.doPromotion(pos.row, pos.col, choice);
+        
+        document.getElementById('promotionModal').classList.remove('show');
+        this.state.pendingPromotion = null;
+        this.finishTurn();
+    }
+    
+    doPromotion(row, col, pieceType) {
+        const key = `${row},${col}`;
+        const owner = this.state.getOwner(this.state.board[row][col]);
+        this.state.board[row][col] = owner === 'w' ? pieceType.toUpperCase() : pieceType.toLowerCase();
+        this.log(`🎉 兵升變為 ${PIECES[this.state.board[row][col]]}！`);
+    }
+    
+    finishTurn() {
+        this.processEndTurnEffects();
+        
+        if (this.state.turn === 'w') {
+            this.state.turn = 'b';
+        } else {
+            this.state.turn = 'w';
+            this.state.turnNumber++;
+            this.state.revealedKnightsThisTurn.clear();
+        }
+        
+        this.processStartTurnEffects();
+        
+        if (this.checkGameEnd()) {
+            this.render();
+            return;
+        }
+        
+        this.render();
+        
+        if (this.gameMode === 'ai' && this.state.turn === 'b' && !this.state.gameOver) {
+            setTimeout(() => this.aiMove(), 600);
+        }
+    }
+    
+    processEndTurnEffects() {
+        for (const key in this.state.stunned) {
+            this.state.stunned[key].turns--;
+            if (this.state.stunned[key].turns <= 0) {
+                delete this.state.stunned[key];
+            }
+        }
+        
+        // 檢查雙方的嘲諷
+        const currentOwner = this.state.turn;
+        const currentUlt = this.state.getCurrentUltimates();
+        
+        if (currentUlt.taunt.active) {
+            currentUlt.taunt.turnsRemaining--;
+            if (currentUlt.taunt.turnsRemaining <= 0) {
+                this.executeTauntPunishment(currentOwner);
+            }
+        }
+    }
+    
+    processStartTurnEffects() {
+        // 法師冰凍：當前玩家的后冰凍對方一個棋子
+        const currentOwner = this.state.turn;
+        const queenPiece = currentOwner === 'w' ? 'Q' : 'q';
+        const targetOwner = currentOwner === 'w' ? 'b' : 'w';
+        this.mageRandomFreeze(queenPiece, targetOwner);
+    }
+    
+    mageRandomFreeze(queenPiece, targetOwner) {
+        let queenExists = false;
+        for (let r = 0; r < 8; r++) {
+            for (let c = 0; c < 8; c++) {
+                if (this.state.board[r][c] === queenPiece) {
+                    queenExists = true;
+                    break;
+                }
+            }
+            if (queenExists) break;
+        }
+        
+        if (!queenExists) return;
+        
+        const enemies = [];
+        for (let r = 0; r < 8; r++) {
+            for (let c = 0; c < 8; c++) {
+                const p = this.state.board[r][c];
+                if (p && this.state.getOwner(p) === targetOwner && p.toLowerCase() !== 'k') {
+                    enemies.push({ row: r, col: c });
+                }
+            }
+        }
+        
+        if (enemies.length > 0) {
+            const target = enemies[Math.floor(Math.random() * enemies.length)];
+            const key = `${target.row},${target.col}`;
+            
+            if (!this.isImmuneToControl(target.row, target.col, targetOwner)) {
+                this.state.stunned[key] = { type: STUN_TYPES.MAGE_FREEZE, turns: 2 };
+                this.log(`🔮 法師冰凍 ${this.posToNotation(target.row, target.col)}！🥶`);
+            }
+        }
+    }
+    
+    isInBishopAura(row, col, owner) {
+        for (let dr = -1; dr <= 1; dr++) {
+            for (let dc = -1; dc <= 1; dc++) {
+                const r = row + dr, c = col + dc;
+                if (r >= 0 && r < 8 && c >= 0 && c < 8) {
+                    const piece = this.state.board[r][c];
+                    const key = `${r},${c}`;
+                    const pieceState = this.state.pieceStates[key];
+                    if (piece && piece.toLowerCase() === 'b' && this.state.getOwner(piece) === owner && 
+                        !(pieceState && pieceState.isGoblin)) {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
+    }
+    
+    checkGameEnd() {
+        const currentPlayer = this.state.turn;
+        let hasLegalMove = false;
+        
+        for (let r = 0; r < 8 && !hasLegalMove; r++) {
+            for (let c = 0; c < 8 && !hasLegalMove; c++) {
+                const piece = this.state.board[r][c];
+                if (piece && this.state.getOwner(piece) === currentPlayer) {
+                    const key = `${r},${c}`;
+                    if (this.state.stunned[key] && !this.isImmuneToControl(r, c, currentPlayer)) {
+                        continue;
+                    }
+                    const moves = this.getValidMoves(r, c);
+                    if (moves.length > 0) {
+                        hasLegalMove = true;
+                    }
+                }
+            }
+        }
+        
+        for (const key in this.state.ghostPieces) {
+            if (hasLegalMove) break;
+            const ghost = this.state.ghostPieces[key];
+            if (this.state.getOwner(ghost.piece) === currentPlayer) {
+                const [r, c] = key.split(',').map(Number);
+                const moves = this.getGhostMoves(r, c);
+                if (moves.length > 0) {
+                    hasLegalMove = true;
+                }
+            }
+        }
+        
+        if (!hasLegalMove) {
+            this.state.gameOver = true;
+            if (this.isInCheck(currentPlayer)) {
+                this.state.winner = currentPlayer === 'w' ? 'b' : 'w';
+                this.showGameOver(`${this.state.winner === 'w' ? '白方' : '黑方'}勝利！`, '將死！');
+            } else {
+                this.showGameOver('和棋！', '無子可動');
+            }
+            return true;
+        }
+        
+        return false;
+    }
+    
+    aiMove() {
+        if (this.state.gameOver) return;
+        
+        const allMoves = [];
+        
+        for (let r = 0; r < 8; r++) {
+            for (let c = 0; c < 8; c++) {
+                const piece = this.state.board[r][c];
+                if (piece && this.state.isBlack(piece)) {
+                    const key = `${r},${c}`;
+                    if (this.state.stunned[key] && !this.isImmuneToControl(r, c, 'b')) {
+                        continue;
+                    }
+                    
+                    const moves = this.getValidMoves(r, c);
+                    for (const move of moves) {
+                        let value = Math.random() * 0.5;
+                        const target = this.state.board[move.row][move.col];
+                        if (target) {
+                            value += this.getPieceValue(target) * 10;
+                        }
+                        allMoves.push({ from: { row: r, col: c }, to: move, value });
+                    }
+                }
+            }
+        }
+        
+        if (allMoves.length === 0) {
+            this.finishTurn();
+            return;
+        }
+        
+        allMoves.sort((a, b) => b.value - a.value);
+        const selectedMove = allMoves[0];
+        
+        this.state.selectedPos = selectedMove.from;
+        this.validMoves = this.getValidMoves(selectedMove.from.row, selectedMove.from.col);
+        this.makeMove(selectedMove.from.row, selectedMove.from.col, selectedMove.to.row, selectedMove.to.col);
+    }
+    
+    getPieceValue(piece) {
+        const values = { 'p': 1, 'n': 3, 'b': 3, 'r': 5, 'q': 9, 'k': 100 };
+        return values[piece.toLowerCase()] || 0;
+    }
+    
+    activateTaunt() {
+        const currentOwner = this.state.turn;
+        const ult = this.state.getCurrentUltimates();
+        
+        if (!ult.taunt.unlocked || ult.taunt.used) return;
+        
+        this.saveState();
+        ult.taunt.active = true;
+        ult.taunt.used = true;
+        ult.taunt.turnsRemaining = 5;
+        ult.taunt.pawnKillsCount = 0;
+        
+        this.showUltimateEffect('⚡ 嘲諷！');
+        this.log(`🛡️ ${currentOwner === 'w' ? '白方' : '黑方'}嘲諷！對手需5回合內殺2兵！`);
+        this.render();
+    }
+    
+    executeTauntPunishment(tauntOwner) {
+        const enemy = tauntOwner === 'w' ? 'b' : 'w';
+        const enemyPawn = enemy === 'w' ? 'P' : 'p';
+        
+        this.log(`⚠️ 嘲諷懲罰！${enemy === 'w' ? '白方' : '黑方'}兵全滅！`);
+        this.showUltimateEffect('💀 嘲諷制裁！');
+        
+        for (let r = 0; r < 8; r++) {
+            for (let c = 0; c < 8; c++) {
+                if (this.state.board[r][c] === enemyPawn) {
+                    this.state.board[r][c] = null;
+                    delete this.state.pieceStates[`${r},${c}`];
+                    this.createParticles(c, r, '#ff0000', 5);
+                }
+            }
+        }
+        
+        const tauntUlt = this.state.getPlayerUltimates(tauntOwner);
+        tauntUlt.taunt.active = false;
+        this.showFX('red-flash shake');
+    }
+    
+    activatePiercingArrow() {
+        const currentOwner = this.state.turn;
+        const ult = this.state.getCurrentUltimates();
+        
+        if (!ult.arrow.available || ult.arrow.used) return;
+        
+        const rookPiece = currentOwner === 'w' ? 'R' : 'r';
+        let rookPos = null;
+        for (let r = 0; r < 8; r++) {
+            for (let c = 0; c < 8; c++) {
+                if (this.state.board[r][c] === rookPiece) {
+                    rookPos = { row: r, col: c };
+                    break;
+                }
+            }
+            if (rookPos) break;
+        }
+        
+        if (!rookPos) {
+            this.log('沒有車！');
+            return;
+        }
+        
+        this.saveState();
+        this.showUltimateEffect('🏹 貫矢！');
+        ult.arrow.used = true;
+        
+        const directions = [[0,1],[0,-1],[1,0],[-1,0]];
+        let kills = 0;
+        
+        for (const [dr, dc] of directions) {
+            let r = rookPos.row + dr, c = rookPos.col + dc;
+            while (r >= 0 && r < 8 && c >= 0 && c < 8) {
+                const piece = this.state.board[r][c];
+                if (piece && piece.toLowerCase() !== 'k') {
+                    this.state.board[r][c] = null;
+                    delete this.state.pieceStates[`${r},${c}`];
+                    kills++;
+                    this.createParticles(c, r, '#00ffff', 15);
+                }
+                r += dr;
+                c += dc;
+            }
+        }
+        
+        this.log(`🏹 貫矢殺死${kills}個棋子！`);
+        this.showFX('shake');
+        this.render();
+    }
+    
+    activateStealth() {
+        const currentOwner = this.state.turn;
+        const ult = this.state.getCurrentUltimates();
+        
+        if (!ult.stealth.available || ult.stealth.used) return;
+        
+        this.saveState();
+        this.showUltimateEffect('🗡️ 隱身！');
+        ult.stealth.used = true;
+        ult.stealth.active = true;
+        
+        const trapCount = Object.keys(this.state.traps).length;
+        this.state.traps = {};
+        this.state.trapsDisabled = true;
+        if (trapCount > 0) {
+            this.log(`💨 所有${trapCount}個陷阱已消失！`);
+        }
+        this.log('🚫 雙方馬不再能設置陷阱！');
+        
+        // 將己方的馬變成幽靈
+        const knightPiece = currentOwner === 'w' ? 'N' : 'n';
+        for (let r = 0; r < 8; r++) {
+            for (let c = 0; c < 8; c++) {
+                const piece = this.state.board[r][c];
+                const key = `${r},${c}`;
+                const state = this.state.pieceStates[key];
+                if (piece === knightPiece && state && !state.isGoblin) {
+                    this.state.board[r][c] = null;
+                    delete this.state.pieceStates[key];
+                    
+                    this.state.ghostPieces[key] = {
+                        piece: knightPiece,
+                        state: { ...state, invisible: true }
+                    };
+                    
+                    this.createParticles(c, r, '#9b59b6', 15);
+                }
+            }
+        }
+        
+        this.log(`🗡️ ${currentOwner === 'w' ? '白方' : '黑方'}所有馬變成幽靈👻！`);
+        this.render();
+    }
+    
+    revealAllGhosts() {
+        const currentOwner = this.state.turn;
+        const ult = this.state.getCurrentUltimates();
+        
+        if (!ult.stealth.active) return;
+        
+        this.saveState();
+        this.showUltimateEffect('👁️ 現身！');
+        ult.stealth.active = false;
+        
+        const knightPiece = currentOwner === 'w' ? 'N' : 'n';
+        
+        for (const key in this.state.ghostPieces) {
+            const ghost = this.state.ghostPieces[key];
+            if (ghost.piece === knightPiece) {
+                const [r, c] = key.split(',').map(Number);
+                
+                this.state.revealedKnightsThisTurn.add(ghost.state.id);
+                
+                if (!this.state.board[r][c]) {
+                    this.state.board[r][c] = ghost.piece;
+                    ghost.state.invisible = false;
+                    this.state.pieceStates[key] = ghost.state;
+                    delete this.state.ghostPieces[key];
+                } else {
+                    let placed = false;
+                    for (let dr = -1; dr <= 1 && !placed; dr++) {
+                        for (let dc = -1; dc <= 1 && !placed; dc++) {
+                            const nr = r + dr, nc = c + dc;
+                            if (nr >= 0 && nr < 8 && nc >= 0 && nc < 8 && !this.state.board[nr][nc]) {
+                                this.state.board[nr][nc] = ghost.piece;
+                                ghost.state.invisible = false;
+                                this.state.pieceStates[`${nr},${nc}`] = ghost.state;
+                                delete this.state.ghostPieces[key];
+                                placed = true;
+                            }
+                        }
+                    }
+                }
+                
+                this.createParticles(c, r, '#ff6600', 15);
+            }
+        }
+        
+        this.log('👁️ 所有刺客現身！本回合刺客無法行動。');
+        this.render();
+    }
+    
+    activatePurify() {
+        const currentOwner = this.state.turn;
+        const ult = this.state.getCurrentUltimates();
+        
+        if (!ult.purify.available || ult.purify.used) return;
+        
+        this.saveState();
+        this.showUltimateEffect('💫 淨化！');
+        ult.purify.used = true;
+        ult.purify.permanentImmunity = true;
+        
+        for (let r = 0; r < 8; r++) {
+            for (let c = 0; c < 8; c++) {
+                const piece = this.state.board[r][c];
+                if (piece && this.state.getOwner(piece) === currentOwner) {
+                    const key = `${r},${c}`;
+                    delete this.state.stunned[key];
+                    this.createParticles(c, r, '#00ffff', 10);
+                }
+            }
+        }
+        
+        this.log(`💫 ${currentOwner === 'w' ? '白方' : '黑方'}永久免疫控制！`);
+        this.render();
+    }
+    
+    activateCurse() {
+        const currentOwner = this.state.turn;
+        const ult = this.state.getCurrentUltimates();
+        const enemy = currentOwner === 'w' ? 'b' : 'w';
+        
+        if (!ult.curse.available || ult.curse.used) return;
+        
+        this.saveState();
+        this.showUltimateEffect('🔮 詛咒！');
+        ult.curse.used = true;
+        
+        const enemies = [];
+        for (let r = 0; r < 8; r++) {
+            for (let c = 0; c < 8; c++) {
+                const piece = this.state.board[r][c];
+                const key = `${r},${c}`;
+                const state = this.state.pieceStates[key];
+                if (piece && this.state.getOwner(piece) === enemy && piece.toLowerCase() !== 'k' && !(state?.isGoblin)) {
+                    enemies.push({ row: r, col: c });
+                }
+            }
+        }
+        
+        const count = Math.min(2, enemies.length);
+        for (let i = 0; i < count; i++) {
+            const idx = Math.floor(Math.random() * enemies.length);
+            const target = enemies.splice(idx, 1)[0];
+            const key = `${target.row},${target.col}`;
+            if (this.state.pieceStates[key]) {
+                this.state.pieceStates[key].isGoblin = true;
+                this.log(`🔮 ${this.posToNotation(target.row, target.col)} 變成哥布林！`);
+                this.createParticles(target.col, target.row, '#00ff00', 15);
+            }
+        }
+        
+        this.render();
+    }
+    
+    activateEscort() {
+        const currentOwner = this.state.turn;
+        const ult = this.state.getCurrentUltimates();
+        
+        if (ult.escort.used) return;
+        if (this.gameMode === 'ai' && currentOwner !== 'w') return;
+        
+        this.escortMode = true;
+        this.state.selectedPos = null;
+        this.validMoves = [];
+        document.getElementById('escortHint').classList.add('show');
+        this.log('👑 護駕模式：點擊友方棋子與王交換');
+        this.render();
+    }
+    
+    executeEscortDirect(targetRow, targetCol) {
+        this.saveState();
+        
+        const currentOwner = this.state.turn;
+        const kingPiece = currentOwner === 'w' ? 'K' : 'k';
+        const ult = this.state.getCurrentUltimates();
+        
+        let kingPos = null;
+        for (let r = 0; r < 8; r++) {
+            for (let c = 0; c < 8; c++) {
+                if (this.state.board[r][c] === kingPiece) {
+                    kingPos = { row: r, col: c };
+                    break;
+                }
+            }
+            if (kingPos) break;
+        }
+        
+        if (!kingPos) {
+            this.cancelEscort();
+            return;
+        }
+        
+        const kingKey = `${kingPos.row},${kingPos.col}`;
+        const targetKey = `${targetRow},${targetCol}`;
+        
+        // 交換棋盤上的棋子
+        const temp = this.state.board[kingPos.row][kingPos.col];
+        this.state.board[kingPos.row][kingPos.col] = this.state.board[targetRow][targetCol];
+        this.state.board[targetRow][targetCol] = temp;
+        
+        // 交換 pieceStates
+        const tempState = this.state.pieceStates[kingKey];
+        this.state.pieceStates[kingKey] = this.state.pieceStates[targetKey];
+        this.state.pieceStates[targetKey] = tempState;
+        
+        // 【修復】正確處理控制狀態：
+        // 被交換的棋子原本在 targetKey，現在移到 kingKey
+        // 王原本在 kingKey，現在移到 targetKey
+        // 控制狀態應該跟隨棋子移動，而不是停留在原位置
+        const targetStunned = this.state.stunned[targetKey];
+        const kingStunned = this.state.stunned[kingKey]; // 王不應該被控制，但以防萬一
+        
+        // 清除兩個位置的控制狀態
+        delete this.state.stunned[targetKey];
+        delete this.state.stunned[kingKey];
+        
+        // 將被交換棋子的控制狀態移到其新位置(kingKey)
+        if (targetStunned) {
+            this.state.stunned[kingKey] = targetStunned;
+        }
+        // 王移到 targetKey，但王免疫控制，所以不設置任何控制狀態
+        // (即使原本有 kingStunned 也不移動，因為王免疫)
+        
+        ult.escort.used = true;
+        this.escortMode = false;
+        document.getElementById('escortHint').classList.remove('show');
+        
+        if (currentOwner === 'w') {
+            this.state.castling.K = false;
+            this.state.castling.Q = false;
+        } else {
+            this.state.castling.k = false;
+            this.state.castling.q = false;
+        }
+        
+        this.showUltimateEffect('👑 護駕！');
+        this.log('👑 王與友方棋子交換位置！');
+        this.render();
+    }
+    
+    cancelEscort() {
+        this.escortMode = false;
+        document.getElementById('escortHint').classList.remove('show');
+        this.render();
+    }
+    
+    showFX(type) {
+        const overlay = document.getElementById('fxOverlay');
+        overlay.className = 'fx-overlay ' + type;
+        setTimeout(() => overlay.className = 'fx-overlay', 600);
+    }
+    
+    showUltimateEffect(text) {
+        this.showFX('red-flash shake');
+        
+        const textEl = document.createElement('div');
+        textEl.className = 'ultimate-text';
+        textEl.textContent = text;
+        document.body.appendChild(textEl);
+        
+        setTimeout(() => textEl.remove(), 1500);
+    }
+    
+    createParticles(col, row, color, count) {
+        const board = this.boardEl.getBoundingClientRect();
+        const cellSize = board.width / 8;
+        
+        for (let i = 0; i < count; i++) {
+            const particle = document.createElement('div');
+            particle.className = 'particle';
+            particle.style.background = color;
+            particle.style.left = `${board.left + col * cellSize + cellSize/2}px`;
+            particle.style.top = `${board.top + row * cellSize + cellSize/2}px`;
+            particle.style.setProperty('--dx', `${(Math.random() - 0.5) * 150}px`);
+            particle.style.setProperty('--dy', `${(Math.random() - 0.5) * 150}px`);
+            document.body.appendChild(particle);
+            setTimeout(() => particle.remove(), 1000);
+        }
+    }
+    
+    showGameOver(title, reason) {
+        const modal = document.getElementById('gameOverModal');
+        document.getElementById('gameOverText').textContent = title;
+        document.getElementById('gameOverReason').textContent = reason;
+        modal.classList.add('show');
+        this.showUltimateEffect(title);
+    }
+    
+    posToNotation(row, col) {
+        return `${'abcdefgh'[col]}${8 - row}`;
+    }
+    
+    log(message) {
+        const logEl = document.getElementById('gameLog');
+        const entry = document.createElement('div');
+        entry.textContent = `[${this.state.turnNumber}] ${message}`;
+        entry.className = 'text-gray-300';
+        logEl.insertBefore(entry, logEl.firstChild);
+        while (logEl.children.length > 30) {
+            logEl.removeChild(logEl.lastChild);
+        }
+    }
+}
+</script>
+</body>
+</html>
