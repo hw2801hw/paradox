@@ -1,0 +1,1545 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Mirror Duel - 鏡面對決</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            touch-action: none;
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+        
+        html, body {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: #0d0d1a;
+            font-family: 'Segoe UI', 'Microsoft JhengHei', sans-serif;
+        }
+        
+        .container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            height: 100dvh;
+            width: 100vw;
+        }
+        
+        .player-top {
+            flex: 0 0 auto;
+            height: 18vh;
+            background: linear-gradient(to bottom, #1a1a2e, #16213e);
+            transform: rotate(180deg);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 8px;
+            border-bottom: 3px solid #333;
+        }
+        
+        .player-top.ai-controlled {
+            background: linear-gradient(to bottom, #2a1a2e, #3e1640);
+            border-bottom-color: #663366;
+        }
+        
+        .player-bottom {
+            flex: 0 0 auto;
+            height: 18vh;
+            background: linear-gradient(to top, #e8e8e8, #c0c0c0);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 8px;
+            border-top: 3px solid #999;
+        }
+        
+        .game-area {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: linear-gradient(to bottom, #16213e 0%, #0d0d1a 50%, #16213e 100%);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        canvas {
+            display: block;
+            background: transparent;
+        }
+        
+        .player-label {
+            font-size: 14px;
+            font-weight: bold;
+            margin-bottom: 4px;
+        }
+        
+        .player-top .player-label { color: #888; }
+        .player-top.ai-controlled .player-label { color: #cc99cc; }
+        .player-bottom .player-label { color: #444; }
+        
+        .player-stats {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+            max-width: 400px;
+            margin-bottom: 6px;
+            gap: 10px;
+        }
+        
+        .stat {
+            font-size: 13px;
+            font-weight: bold;
+            white-space: nowrap;
+        }
+        
+        .player-top .stat { color: #ddd; }
+        .player-bottom .stat { color: #222; }
+        
+        .energy-display { font-size: 15px; }
+        
+        .hp-container {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .hp-bar {
+            flex: 1;
+            height: 16px;
+            background: #333;
+            border-radius: 8px;
+            overflow: hidden;
+            border: 2px solid #555;
+        }
+        
+        .player-bottom .hp-bar {
+            background: #888;
+            border-color: #666;
+        }
+        
+        .hp-fill {
+            height: 100%;
+            transition: width 0.15s ease-out;
+            border-radius: 6px;
+        }
+        
+        .player-top .hp-fill {
+            background: linear-gradient(to right, #ff4757, #ff6b6b);
+        }
+        
+        .player-top.ai-controlled .hp-fill {
+            background: linear-gradient(to right, #9b59b6, #8e44ad);
+        }
+        
+        .player-bottom .hp-fill {
+            background: linear-gradient(to right, #2ed573, #7bed9f);
+        }
+        
+        .hp-text {
+            font-size: 11px;
+            min-width: 75px;
+            text-align: right;
+        }
+        
+        .upgrade-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 6px;
+            width: 100%;
+            max-width: 400px;
+        }
+        
+        .upgrade-btn {
+            flex: 1;
+            max-width: 110px;
+            padding: 6px 4px;
+            font-size: 11px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            line-height: 1.3;
+            transition: all 0.1s;
+        }
+        
+        .player-top .upgrade-btn {
+            background: linear-gradient(to bottom, #4a4a6a, #3a3a5a);
+            color: #fff;
+            border: 2px solid #666;
+        }
+        
+        .player-top.ai-controlled .upgrade-btn {
+            background: linear-gradient(to bottom, #5a3a6a, #4a2a5a);
+            border-color: #885588;
+            cursor: default;
+        }
+        
+        .player-top .upgrade-btn:active:not(:disabled) {
+            background: linear-gradient(to bottom, #6a6a8a, #5a5a7a);
+            transform: scale(0.95);
+        }
+        
+        .player-bottom .upgrade-btn {
+            background: linear-gradient(to bottom, #fff, #e0e0e0);
+            color: #222;
+            border: 2px solid #999;
+        }
+        
+        .player-bottom .upgrade-btn:active:not(:disabled) {
+            background: linear-gradient(to bottom, #ddd, #ccc);
+            transform: scale(0.95);
+        }
+        
+        .upgrade-btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+        
+        .upgrade-btn .btn-icon { font-size: 16px; }
+        .upgrade-btn .btn-level { display: block; font-size: 12px; }
+        .upgrade-btn .btn-cost { display: block; font-size: 10px; opacity: 0.8; }
+        
+        .game-over {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.92);
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+        }
+        
+        .game-over h1 {
+            font-size: 28px;
+            color: #fff;
+            margin-bottom: 15px;
+            text-align: center;
+            text-shadow: 0 0 20px rgba(255,255,255,0.5);
+        }
+        
+        .game-over .winner-icon {
+            font-size: 60px;
+            margin-bottom: 20px;
+        }
+        
+        .game-over-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        
+        .restart-btn {
+            padding: 15px 50px;
+            font-size: 20px;
+            background: linear-gradient(to bottom, #4CAF50, #45a049);
+            color: #fff;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            font-weight: bold;
+            box-shadow: 0 4px 15px rgba(76, 175, 80, 0.4);
+        }
+        
+        .restart-btn:active {
+            transform: scale(0.95);
+            background: linear-gradient(to bottom, #45a049, #3d8b40);
+        }
+        
+        .menu-btn {
+            padding: 12px 40px;
+            font-size: 16px;
+            background: linear-gradient(to bottom, #666, #555);
+            color: #fff;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        
+        .menu-btn:active {
+            transform: scale(0.95);
+        }
+        
+        .start-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+            padding: 20px;
+        }
+        
+        .start-screen h1 {
+            font-size: 32px;
+            color: #fff;
+            margin-bottom: 10px;
+            text-align: center;
+        }
+        
+        .start-screen h2 {
+            font-size: 18px;
+            color: #888;
+            margin-bottom: 25px;
+        }
+        
+        .start-screen .instructions {
+            color: #aaa;
+            font-size: 12px;
+            text-align: center;
+            margin-bottom: 25px;
+            padding: 0 15px;
+            line-height: 1.6;
+            max-width: 350px;
+        }
+        
+        .mode-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            width: 100%;
+            max-width: 280px;
+        }
+        
+        .mode-btn {
+            padding: 18px 30px;
+            font-size: 18px;
+            color: #fff;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            font-weight: bold;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .mode-btn .mode-icon {
+            font-size: 28px;
+        }
+        
+        .mode-btn .mode-desc {
+            font-size: 11px;
+            opacity: 0.8;
+        }
+        
+        .pvp-btn {
+            background: linear-gradient(to bottom, #e94560, #c73659);
+            box-shadow: 0 4px 20px rgba(233, 69, 96, 0.4);
+        }
+        
+        .pve-btn {
+            background: linear-gradient(to bottom, #9b59b6, #8e44ad);
+            box-shadow: 0 4px 20px rgba(155, 89, 182, 0.4);
+        }
+        
+        .mode-btn:active { transform: scale(0.95); }
+        
+        .difficulty-select {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            gap: 15px;
+            width: 100%;
+            max-width: 280px;
+        }
+        
+        .difficulty-select h3 {
+            color: #fff;
+            font-size: 20px;
+            margin-bottom: 10px;
+        }
+        
+        .difficulty-btn {
+            width: 100%;
+            padding: 15px 20px;
+            font-size: 16px;
+            color: #fff;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        
+        .diff-easy {
+            background: linear-gradient(to bottom, #2ecc71, #27ae60);
+        }
+        
+        .diff-insane {
+            background: linear-gradient(to bottom, #8e44ad, #6c3483);
+        }
+        
+        .back-btn {
+            margin-top: 10px;
+            padding: 10px 30px;
+            font-size: 14px;
+            background: #444;
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+        
+        .difficulty-btn:active, .back-btn:active {
+            transform: scale(0.95);
+        }
+        
+        .damage-popup {
+            position: absolute;
+            font-size: 18px;
+            font-weight: bold;
+            pointer-events: none;
+            animation: popUp 1s ease-out forwards;
+            z-index: 50;
+            text-shadow: 0 0 5px rgba(0,0,0,0.5);
+        }
+        
+        @keyframes popUp {
+            0% { opacity: 1; transform: translateY(0) scale(1); }
+            100% { opacity: 0; transform: translateY(-30px) scale(1.2); }
+        }
+        
+        .heal-popup {
+            position: absolute;
+            font-size: 16px;
+            font-weight: bold;
+            pointer-events: none;
+            animation: healUp 1s ease-out forwards;
+            z-index: 50;
+            color: #2ed573;
+            text-shadow: 0 0 5px rgba(0,0,0,0.5);
+        }
+        
+        @keyframes healUp {
+            0% { opacity: 1; transform: translateY(0) scale(1); }
+            100% { opacity: 0; transform: translateY(-25px) scale(1.1); }
+        }
+        
+        .ai-indicator {
+            position: absolute;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(155, 89, 182, 0.8);
+            color: #fff;
+            padding: 5px 15px;
+            border-radius: 15px;
+            font-size: 12px;
+            font-weight: bold;
+            z-index: 10;
+        }
+        
+        .in-game-menu {
+            position: absolute;
+            bottom: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 10;
+        }
+        
+        .in-game-back-btn {
+            padding: 8px 20px;
+            font-size: 12px;
+            background: rgba(100, 100, 100, 0.8);
+            color: #fff;
+            border: 2px solid rgba(150, 150, 150, 0.5);
+            border-radius: 20px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.2s;
+        }
+        
+        .in-game-back-btn:hover {
+            background: rgba(150, 100, 100, 0.9);
+            border-color: rgba(200, 100, 100, 0.7);
+        }
+        
+        .in-game-back-btn:active {
+            transform: translateX(-50%) scale(0.95);
+        }
+    </style>
+</head>
+<body>
+    <!-- 開始畫面 -->
+    <div class="start-screen" id="startScreen">
+        <h1>⚔️ Mirror Duel ⚔️</h1>
+        <h2>鏡面對決</h2>
+        <div class="instructions">
+            🎮 即時對戰遊戲 🎮<br><br>
+            👆 觸控螢幕左右移動擋板<br>
+            ⚡ 收集能量來升級屬性<br><br>
+            ⚔️ 進攻：球落到對方底邊 = 全額傷害 + 回血<br>
+            🛡️ 防守：用擋板接球 = 減傷10%（滿級50%）<br><br>
+            ❤️ 生命：+HP上限 & 回血量<br>
+            ⚔️ 攻擊：+傷害 & +20%球速（滿級額外+100%速+300%傷）<br>
+            🛡️ 防禦：+擋板長度（滿級護甲50%）<br><br>
+            先將對方HP扣到0者獲勝！
+        </div>
+        
+        <div class="mode-buttons" id="modeButtons">
+            <button class="mode-btn pvp-btn" onclick="selectMode('pvp')">
+                <span class="mode-icon">👥</span>
+                <span>本地雙人對戰</span>
+                <span class="mode-desc">兩位玩家面對面對戰</span>
+            </button>
+            <button class="mode-btn pve-btn" onclick="showDifficultySelect()">
+                <span class="mode-icon">🤖</span>
+                <span>人機對決</span>
+                <span class="mode-desc">挑戰 AI 電腦對手</span>
+            </button>
+        </div>
+        
+        <div class="difficulty-select" id="difficultySelect">
+            <h3>🤖 選擇 AI 難度</h3>
+            <button class="difficulty-btn diff-easy" onclick="selectMode('pve', 'easy')">
+                😊 簡單 - 輕鬆練習
+            </button>
+            <button class="difficulty-btn diff-insane" onclick="selectMode('pve', 'insane')">
+                👹 地獄 - 極限挑戰
+            </button>
+            <button class="back-btn" onclick="hideDifficultySelect()">← 返回</button>
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- 頂部玩家區域（黑方）- 整個區域旋轉180度 -->
+        <div class="player-top" id="playerTopUI">
+            <div class="player-label" id="topLabel">⚫ 黑方</div>
+            <div class="player-stats">
+                <div class="stat energy-display">
+                    ⚡ <span id="energyTop">0</span>
+                </div>
+                <div class="hp-container">
+                    <div class="hp-bar">
+                        <div class="hp-fill" id="hpFillTop" style="width: 100%"></div>
+                    </div>
+                    <div class="stat hp-text" id="hpTextTop">1000/1000</div>
+                </div>
+            </div>
+            <div class="upgrade-buttons">
+                <button class="upgrade-btn" id="btnVitTop" onclick="upgrade('top', 'vitality')">
+                    <span class="btn-icon">❤️</span>
+                    <span class="btn-level">生命 Lv1</span>
+                    <span class="btn-cost">需 1⚡</span>
+                </button>
+                <button class="upgrade-btn" id="btnAtkTop" onclick="upgrade('top', 'attack')">
+                    <span class="btn-icon">⚔️</span>
+                    <span class="btn-level">攻擊 Lv1</span>
+                    <span class="btn-cost">需 1⚡</span>
+                </button>
+                <button class="upgrade-btn" id="btnDefTop" onclick="upgrade('top', 'defense')">
+                    <span class="btn-icon">🛡️</span>
+                    <span class="btn-level">防禦 Lv1</span>
+                    <span class="btn-cost">需 1⚡</span>
+                </button>
+            </div>
+        </div>
+        
+        <!-- 遊戲畫布區域 -->
+        <div class="game-area" id="gameArea">
+            <div class="ai-indicator" id="aiIndicator" style="display: none;">🤖 AI 對手</div>
+            <canvas id="gameCanvas"></canvas>
+            <div class="in-game-menu">
+                <button class="in-game-back-btn" onclick="confirmBackToMenu()">⏸️ 返回選單</button>
+            </div>
+        </div>
+        
+        <!-- 底部玩家區域（白方）- 正常方向 -->
+        <div class="player-bottom" id="playerBottomUI">
+            <div class="player-label">⚪ 白方（你）</div>
+            <div class="player-stats">
+                <div class="stat energy-display">
+                    ⚡ <span id="energyBottom">0</span>
+                </div>
+                <div class="hp-container">
+                    <div class="hp-bar">
+                        <div class="hp-fill" id="hpFillBottom" style="width: 100%"></div>
+                    </div>
+                    <div class="stat hp-text" id="hpTextBottom">1000/1000</div>
+                </div>
+            </div>
+            <div class="upgrade-buttons">
+                <button class="upgrade-btn" id="btnVitBottom" onclick="upgrade('bottom', 'vitality')">
+                    <span class="btn-icon">❤️</span>
+                    <span class="btn-level">生命 Lv1</span>
+                    <span class="btn-cost">需 1⚡</span>
+                </button>
+                <button class="upgrade-btn" id="btnAtkBottom" onclick="upgrade('bottom', 'attack')">
+                    <span class="btn-icon">⚔️</span>
+                    <span class="btn-level">攻擊 Lv1</span>
+                    <span class="btn-cost">需 1⚡</span>
+                </button>
+                <button class="upgrade-btn" id="btnDefBottom" onclick="upgrade('bottom', 'defense')">
+                    <span class="btn-icon">🛡️</span>
+                    <span class="btn-level">防禦 Lv1</span>
+                    <span class="btn-cost">需 1⚡</span>
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 遊戲結束畫面 -->
+    <div class="game-over" id="gameOver">
+        <div class="winner-icon" id="winnerIcon">🏆</div>
+        <h1 id="winnerText">玩家獲勝！</h1>
+        <div class="game-over-buttons">
+            <button class="restart-btn" onclick="restartGame()">🔄 再來一局</button>
+            <button class="menu-btn" onclick="backToMenu()">📋 返回主選單</button>
+        </div>
+    </div>
+    
+    <script>
+        // ==================== 遊戲配置常數 ====================
+        const CONFIG = {
+            BALL_RADIUS: 12,
+            BALL_BASE_SPEED: 3,          // 基礎球速（固定常數）
+            PADDLE_BASE_WIDTH: 30,
+            PADDLE_WIDTH_PER_LEVEL: 2,
+            PADDLE_HEIGHT: 15,
+            PADDLE_MARGIN: 15,
+            BASE_HP: 1000,
+            BASE_DAMAGE: 20,
+            HP_PER_LEVEL: 0.10,
+            DAMAGE_PER_LEVEL: 0.10,
+            SPEED_PER_LEVEL: 0.20,
+            REGEN_BASE_PERCENT: 0.05,
+            REGEN_PER_LEVEL: 0.01,
+            ARMOR_REDUCTION: 0.10,
+            ARMOR_MAX_REDUCTION: 0.50,
+            ENERGY_PER_SECOND: 2,
+            ENERGY_ON_HIT: 100,
+            MAX_LEVEL: 10,
+            MAX_LEVEL_SPEED_BONUS: 5.0,
+            MAX_LEVEL_DAMAGE_BONUS: 2.0,
+            UPGRADE_COSTS: [1, 2, 4, 8, 16, 32, 64, 128, 256]
+        };
+        
+        // AI 難度配置
+        const AI_CONFIG = {
+            easy: {
+                reactionSpeed: 0.03,          // 極慢反應
+                accuracy: 0.40,               // 準確度 40%
+                upgradeDelay: 3000,
+                mistakeChance: 0.95,          // 犯錯機率 95%
+                paddleSpeedLimit: 5,          // 移動速度極慢
+                noDefenseUpgrade: true        // 禁止升級防禦
+            },
+            insane: {
+                reactionSpeed: 0.20,
+                accuracy: 0.05,
+                upgradeDelay: 500,
+                mistakeChance: 0.75,
+                paddleSpeedLimit: 50,
+                playerEnergyPerSecond: 5,
+                playerStartEnergy: 200
+            }
+        };
+        
+        // ==================== 遊戲狀態變數 ====================
+        let canvas, ctx;
+        let gameRunning = false;
+        let gameLoopId = null;  // 【修復】追蹤 requestAnimationFrame ID
+        let lastTime = 0;
+        let energyTimer = 0;
+        
+        // 遊戲模式
+        let gameMode = 'pvp';
+        let aiDifficulty = 'easy';
+        let aiState = null;
+        
+        // 球陣列
+        let balls = [];
+        
+        // 兩位玩家狀態
+        let players = null;
+        
+        // ==================== 初始化玩家狀態 ====================
+        function createInitialPlayerState() {
+            return {
+                top: {
+                    hp: CONFIG.BASE_HP,
+                    maxHp: CONFIG.BASE_HP,
+                    energy: 0,
+                    paddleX: 0,
+                    levels: { vitality: 1, attack: 1, defense: 1 }
+                },
+                bottom: {
+                    hp: CONFIG.BASE_HP,
+                    maxHp: CONFIG.BASE_HP,
+                    energy: 0,
+                    paddleX: 0,
+                    levels: { vitality: 1, attack: 1, defense: 1 }
+                }
+            };
+        }
+        
+        // ==================== UI 控制函式 ====================
+        function showDifficultySelect() {
+            document.getElementById('modeButtons').style.display = 'none';
+            document.getElementById('difficultySelect').style.display = 'flex';
+        }
+        
+        function hideDifficultySelect() {
+            document.getElementById('modeButtons').style.display = 'flex';
+            document.getElementById('difficultySelect').style.display = 'none';
+        }
+        
+        function selectMode(mode, difficulty = 'easy') {
+            gameMode = mode;
+            aiDifficulty = difficulty;
+            startGame();
+        }
+        
+        function backToMenu() {
+            stopGameLoop();
+            document.getElementById('gameOver').style.display = 'none';
+            document.getElementById('startScreen').style.display = 'flex';
+            hideDifficultySelect();
+        }
+        
+        function confirmBackToMenu() {
+            if (confirm('確定要返回主選單嗎？\n當前對局將會結束！')) {
+                stopGameLoop();
+                document.getElementById('startScreen').style.display = 'flex';
+                hideDifficultySelect();
+            }
+        }
+        
+        // 【修復】停止遊戲循環
+        function stopGameLoop() {
+            gameRunning = false;
+            if (gameLoopId !== null) {
+                cancelAnimationFrame(gameLoopId);
+                gameLoopId = null;
+            }
+        }
+        
+        // ==================== 輔助函式 ====================
+        function getPaddleWidth(side) {
+            const defLevel = players[side].levels.defense;
+            return CONFIG.PADDLE_BASE_WIDTH + (defLevel - 1) * CONFIG.PADDLE_WIDTH_PER_LEVEL;
+        }
+        
+        function calculateDamage(atkLevel) {
+            let damage = CONFIG.BASE_DAMAGE * (1 + CONFIG.DAMAGE_PER_LEVEL * (atkLevel - 1));
+            if (atkLevel >= CONFIG.MAX_LEVEL) {
+                damage *= (1 + CONFIG.MAX_LEVEL_DAMAGE_BONUS);
+            }
+            return damage;
+        }
+        
+        function calculateBallSpeed(atkLevel) {
+            let speedMultiplier = 1 + CONFIG.SPEED_PER_LEVEL * (atkLevel - 1);
+            if (atkLevel >= CONFIG.MAX_LEVEL) {
+                speedMultiplier += CONFIG.MAX_LEVEL_SPEED_BONUS;
+            }
+            return CONFIG.BALL_BASE_SPEED * speedMultiplier;
+        }
+        
+        function calculateArmorReduction(defLevel) {
+            if (defLevel >= CONFIG.MAX_LEVEL) {
+                return CONFIG.ARMOR_MAX_REDUCTION;
+            }
+            return CONFIG.ARMOR_REDUCTION;
+        }
+        
+        // 【修復】創建球 - 使用固定基礎速度
+        function createBall(direction) {
+            // 角度在 60-120 度之間（主要向上或向下）
+            const angle = (Math.random() * 60 + 60) * (Math.PI / 180);
+            
+            // 【關鍵】始終使用固定的基礎速度常數
+            const speed = CONFIG.BALL_BASE_SPEED;
+            
+            const vx = Math.cos(angle) * speed * (Math.random() < 0.5 ? 1 : -1);
+            const vy = Math.sin(angle) * speed * direction;
+            
+            return {
+                x: canvas.width / 2,
+                y: canvas.height / 2,
+                vx: vx,
+                vy: vy,
+                color: direction > 0 ? '#1a1a1a' : '#ffffff',
+                direction: direction,
+                trail: [],
+                active: true
+            };
+        }
+        
+        // ==================== AI 系統 ====================
+        function updateAI(deltaTime) {
+            if (gameMode !== 'pve' || !aiState) return;
+            
+            const ai = AI_CONFIG[aiDifficulty];
+            const topWidth = getPaddleWidth('top');
+            const paddleCenterTarget = topWidth / 2;
+            
+            let targetBall = null;
+            let minY = canvas.height;
+            
+            balls.forEach(ball => {
+                if (ball.active && ball.vy < 0) {
+                    if (ball.y < minY) {
+                        minY = ball.y;
+                        targetBall = ball;
+                    }
+                }
+            });
+            
+            if (targetBall) {
+                const paddleY = CONFIG.PADDLE_MARGIN + CONFIG.PADDLE_HEIGHT;
+                const timeToReach = Math.abs(targetBall.y - paddleY) / Math.abs(targetBall.vy);
+                let predictedX = targetBall.x + targetBall.vx * timeToReach;
+                
+                // 模擬牆壁反彈
+                let bounces = 0;
+                while ((predictedX < 0 || predictedX > canvas.width) && bounces < 10) {
+                    if (predictedX < 0) {
+                        predictedX = -predictedX;
+                    }
+                    if (predictedX > canvas.width) {
+                        predictedX = 2 * canvas.width - predictedX;
+                    }
+                    bounces++;
+                }
+                
+                // 準確度偏移
+                const accuracyOffset = (1 - ai.accuracy) * 150 * (Math.random() - 0.5);
+                predictedX += accuracyOffset;
+                
+                // 犯錯機率
+                if (Math.random() < ai.mistakeChance * 0.1) {
+                    predictedX = canvas.width - predictedX;
+                }
+                
+                aiState.targetX = predictedX - paddleCenterTarget;
+            } else {
+                aiState.targetX = canvas.width / 2 - paddleCenterTarget;
+            }
+            
+            // 移動擋板
+            const currentX = players.top.paddleX;
+            const diff = aiState.targetX - currentX;
+            const moveSpeed = Math.min(Math.abs(diff) * ai.reactionSpeed * (deltaTime / 16), ai.paddleSpeedLimit);
+            
+            if (Math.abs(diff) > 2) {
+                players.top.paddleX = clampPaddleX(currentX + Math.sign(diff) * moveSpeed, 'top');
+            }
+            
+            // AI 升級決策
+            if (Date.now() - aiState.lastUpgradeTime > ai.upgradeDelay) {
+                aiUpgradeDecision();
+                aiState.lastUpgradeTime = Date.now();
+            }
+        }
+        
+        function aiUpgradeDecision() {
+            const player = players.top;
+            const ai = AI_CONFIG[aiDifficulty];
+            
+            // 簡單模式禁止升級防禦
+            const stats = ai.noDefenseUpgrade 
+                ? ['vitality', 'attack'] 
+                : ['vitality', 'attack', 'defense'];
+            
+            let weights = {
+                vitality: 1,
+                attack: 1.5,
+                defense: ai.noDefenseUpgrade ? 0 : 1  // 簡單模式防禦權重為0
+            };
+            
+            const hpRatio = player.hp / player.maxHp;
+            if (hpRatio < 0.5) weights.vitality += 2;
+            
+            const enemyHpRatio = players.bottom.hp / players.bottom.maxHp;
+            if (enemyHpRatio < 0.5) weights.attack += 2;
+            
+            if (!ai.noDefenseUpgrade && player.levels.defense < 5) weights.defense += 1;
+            if (player.levels.attack >= 7 && player.levels.attack < 10) weights.attack += 4;
+            
+            let bestStat = null;
+            let bestScore = -1;
+            
+            stats.forEach(stat => {
+                const level = player.levels[stat];
+                if (level >= CONFIG.MAX_LEVEL) return;
+                
+                const cost = CONFIG.UPGRADE_COSTS[level - 1];
+                if (player.energy >= cost) {
+                    const score = weights[stat] + Math.random() * 0.5;
+                    if (score > bestScore) {
+                        bestScore = score;
+                        bestStat = stat;
+                    }
+                }
+            });
+            
+            if (bestStat) {
+                performUpgrade('top', bestStat);
+            }
+        }
+        
+        // ==================== 初始化函式 ====================
+        function init() {
+            canvas = document.getElementById('gameCanvas');
+            ctx = canvas.getContext('2d');
+            
+            resizeCanvas();
+            window.addEventListener('resize', resizeCanvas);
+            window.addEventListener('orientationchange', () => {
+                setTimeout(resizeCanvas, 100);
+            });
+            
+            canvas.addEventListener('touchmove', handleTouch, { passive: false });
+            canvas.addEventListener('touchstart', handleTouch, { passive: false });
+            canvas.addEventListener('mousemove', handleMouse);
+            
+            // 初始化玩家狀態
+            players = createInitialPlayerState();
+            resetPlayerPositions();
+        }
+        
+        function resizeCanvas() {
+            const gameArea = document.getElementById('gameArea');
+            canvas.width = gameArea.clientWidth;
+            canvas.height = gameArea.clientHeight;
+            if (players) {
+                resetPlayerPositions();
+            }
+        }
+        
+        function resetPlayerPositions() {
+            if (!players) return;
+            const topWidth = getPaddleWidth('top');
+            const bottomWidth = getPaddleWidth('bottom');
+            players.top.paddleX = canvas.width / 2 - topWidth / 2;
+            players.bottom.paddleX = canvas.width / 2 - bottomWidth / 2;
+        }
+        
+        function startGame() {
+            document.getElementById('startScreen').style.display = 'none';
+            
+            const topUI = document.getElementById('playerTopUI');
+            const aiIndicator = document.getElementById('aiIndicator');
+            const topLabel = document.getElementById('topLabel');
+            
+            if (gameMode === 'pve') {
+                topUI.classList.add('ai-controlled');
+                aiIndicator.style.display = 'block';
+                const diffNames = { easy: '簡單', insane: '地獄' };
+                aiIndicator.textContent = `🤖 AI (${diffNames[aiDifficulty]})`;
+                topLabel.textContent = '🤖 AI 電腦';
+            } else {
+                topUI.classList.remove('ai-controlled');
+                aiIndicator.style.display = 'none';
+                topLabel.textContent = '⚫ 黑方';
+            }
+            
+            // 【修復】先停止任何現有的遊戲循環
+            stopGameLoop();
+            
+            // 完全重置遊戲狀態
+            resetGame();
+            
+            // 開始新的遊戲循環
+            gameRunning = true;
+            lastTime = 0;
+            gameLoopId = requestAnimationFrame(gameLoop);
+        }
+        
+        function resetGame() {
+            // 【修復】完全重新創建玩家狀態對象
+            players = createInitialPlayerState();
+            
+            // 地獄模式玩家初始能量
+            if (gameMode === 'pve' && aiDifficulty === 'insane') {
+                players.bottom.energy = AI_CONFIG.insane.playerStartEnergy;
+            }
+            
+            // 重置擋板位置
+            resetPlayerPositions();
+            
+            // 【修復】完全清空球陣列並創建新球
+            balls = [];
+            const direction = Math.random() < 0.5 ? 1 : -1;
+            balls.push(createBall(direction));
+            
+            // 重置 AI 狀態
+            aiState = {
+                targetX: canvas.width / 2,
+                lastUpgradeTime: Date.now()
+            };
+            
+            // 【修復】重置所有計時器
+            energyTimer = 0;
+            lastTime = 0;
+            
+            document.getElementById('gameOver').style.display = 'none';
+            
+            updateUI();
+        }
+        
+        // 【修復】發射新球 - 使用固定基礎速度
+        function launchNewBall() {
+            const direction = Math.random() < 0.5 ? 1 : -1;
+            balls.push(createBall(direction));
+        }
+        
+        // ==================== 輸入處理 ====================
+        function handleTouch(e) {
+            e.preventDefault();
+            if (!gameRunning || !players) return;
+            
+            const rect = canvas.getBoundingClientRect();
+            
+            for (let touch of e.touches) {
+                const x = touch.clientX - rect.left;
+                const y = touch.clientY - rect.top;
+                
+                if (gameMode === 'pve') {
+                    const width = getPaddleWidth('bottom');
+                    players.bottom.paddleX = clampPaddleX(x - width / 2, 'bottom');
+                } else {
+                    if (y < canvas.height / 2) {
+                        const width = getPaddleWidth('top');
+                        players.top.paddleX = clampPaddleX(x - width / 2, 'top');
+                    } else {
+                        const width = getPaddleWidth('bottom');
+                        players.bottom.paddleX = clampPaddleX(x - width / 2, 'bottom');
+                    }
+                }
+            }
+        }
+        
+        function handleMouse(e) {
+            if (!gameRunning || !players) return;
+            
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            
+            if (x >= 0 && x <= canvas.width && y >= 0 && y <= canvas.height) {
+                if (gameMode === 'pve') {
+                    const width = getPaddleWidth('bottom');
+                    players.bottom.paddleX = clampPaddleX(x - width / 2, 'bottom');
+                } else {
+                    if (y < canvas.height / 2) {
+                        const width = getPaddleWidth('top');
+                        players.top.paddleX = clampPaddleX(x - width / 2, 'top');
+                    } else {
+                        const width = getPaddleWidth('bottom');
+                        players.bottom.paddleX = clampPaddleX(x - width / 2, 'bottom');
+                    }
+                }
+            }
+        }
+        
+        function clampPaddleX(x, side) {
+            const width = getPaddleWidth(side);
+            return Math.max(0, Math.min(canvas.width - width, x));
+        }
+        
+        // ==================== 遊戲主迴圈 ====================
+        function gameLoop(timestamp) {
+            // 【修復】檢查遊戲是否應該繼續
+            if (!gameRunning) {
+                gameLoopId = null;
+                return;
+            }
+            
+            // 計算 deltaTime
+            if (lastTime === 0) {
+                lastTime = timestamp;
+            }
+            const deltaTime = Math.min(timestamp - lastTime, 50);
+            lastTime = timestamp;
+            
+            update(deltaTime);
+            render();
+            
+            // 繼續下一幀
+            gameLoopId = requestAnimationFrame(gameLoop);
+        }
+        
+        function update(deltaTime) {
+            if (!players) return;
+            
+            // 能量累積
+            energyTimer += deltaTime;
+            if (energyTimer >= 1000) {
+                players.top.energy += CONFIG.ENERGY_PER_SECOND;
+                
+                if (gameMode === 'pve' && aiDifficulty === 'insane') {
+                    players.bottom.energy += AI_CONFIG.insane.playerEnergyPerSecond;
+                } else {
+                    players.bottom.energy += CONFIG.ENERGY_PER_SECOND;
+                }
+                energyTimer -= 1000;
+            }
+            
+            // 更新 AI
+            updateAI(deltaTime);
+            
+            // 更新所有球
+            for (let i = balls.length - 1; i >= 0; i--) {
+                const ball = balls[i];
+                if (ball.active) {
+                    updateBall(ball);
+                }
+                if (!ball.active) {
+                    balls.splice(i, 1);
+                }
+            }
+            
+            // 如果沒有球了，發射新球
+            if (balls.length === 0 && gameRunning) {
+                launchNewBall();
+            }
+            
+            updateUI();
+        }
+        
+        function updateBall(ball) {
+            // 更新軌跡
+            ball.trail.push({ x: ball.x, y: ball.y });
+            if (ball.trail.length > 10) {
+                ball.trail.shift();
+            }
+            
+            // 【關鍵】直接使用球自己的速度，不做任何調整
+            ball.x += ball.vx;
+            ball.y += ball.vy;
+            
+            // 牆壁反彈（只改變方向，不改變速度大小）
+            if (ball.x - CONFIG.BALL_RADIUS <= 0) {
+                ball.x = CONFIG.BALL_RADIUS;
+                ball.vx = Math.abs(ball.vx);
+            }
+            if (ball.x + CONFIG.BALL_RADIUS >= canvas.width) {
+                ball.x = canvas.width - CONFIG.BALL_RADIUS;
+                ball.vx = -Math.abs(ball.vx);
+            }
+            
+            // 檢查擋板碰撞
+            checkPaddleCollision(ball);
+            
+            // 檢查邊界（得分）
+            checkBoundaryHit(ball);
+        }
+        
+        function checkPaddleCollision(ball) {
+            const paddleTopY = CONFIG.PADDLE_MARGIN;
+            const paddleBottomY = canvas.height - CONFIG.PADDLE_MARGIN - CONFIG.PADDLE_HEIGHT;
+            
+            // 底部擋板碰撞
+            if (ball.vy > 0) {
+                const ballBottom = ball.y + CONFIG.BALL_RADIUS;
+                const bottomWidth = getPaddleWidth('bottom');
+                
+                if (ballBottom >= paddleBottomY && ball.y - CONFIG.BALL_RADIUS < paddleBottomY + CONFIG.PADDLE_HEIGHT) {
+                    if (ball.x >= players.bottom.paddleX - CONFIG.BALL_RADIUS && 
+                        ball.x <= players.bottom.paddleX + bottomWidth + CONFIG.BALL_RADIUS) {
+                        
+                        // 造成減傷傷害
+                        dealDamage('bottom', 'top', true);
+                        
+                        // 【關鍵】反彈後根據新攻擊方等級計算新速度
+                        const atkLevel = players.bottom.levels.attack;
+                        const newSpeed = calculateBallSpeed(atkLevel);
+                        
+                        // 設置新位置
+                        ball.y = paddleBottomY - CONFIG.BALL_RADIUS;
+                        ball.direction = -1;
+                        ball.color = '#ffffff';
+                        
+                        // 計算反彈角度
+                        const hitPos = (ball.x - players.bottom.paddleX) / bottomWidth;
+                        const angleOffset = (hitPos - 0.5) * 0.6;
+                        
+                        // 【關鍵】使用新計算的速度設置 vx 和 vy
+                        ball.vx = angleOffset * newSpeed;
+                        ball.vy = -Math.sqrt(Math.max(0.01, newSpeed * newSpeed - ball.vx * ball.vx));
+                        
+                        // 確保垂直速度不會太小
+                        if (Math.abs(ball.vy) < newSpeed * 0.5) {
+                            ball.vy = -newSpeed * 0.7;
+                            const remainingSpeed = Math.sqrt(newSpeed * newSpeed - ball.vy * ball.vy);
+                            ball.vx = remainingSpeed * Math.sign(ball.vx || 1);
+                        }
+                    }
+                }
+            }
+            
+            // 頂部擋板碰撞
+            if (ball.vy < 0) {
+                const ballTop = ball.y - CONFIG.BALL_RADIUS;
+                const topWidth = getPaddleWidth('top');
+                
+                if (ballTop <= paddleTopY + CONFIG.PADDLE_HEIGHT && ball.y + CONFIG.BALL_RADIUS > paddleTopY) {
+                    if (ball.x >= players.top.paddleX - CONFIG.BALL_RADIUS && 
+                        ball.x <= players.top.paddleX + topWidth + CONFIG.BALL_RADIUS) {
+                        
+                        // 造成減傷傷害
+                        dealDamage('top', 'bottom', true);
+                        
+                        // 【關鍵】反彈後根據新攻擊方等級計算新速度
+                        const atkLevel = players.top.levels.attack;
+                        const newSpeed = calculateBallSpeed(atkLevel);
+                        
+                        // 設置新位置
+                        ball.y = paddleTopY + CONFIG.PADDLE_HEIGHT + CONFIG.BALL_RADIUS;
+                        ball.direction = 1;
+                        ball.color = '#1a1a1a';
+                        
+                        // 計算反彈角度
+                        const hitPos = (ball.x - players.top.paddleX) / topWidth;
+                        const angleOffset = (hitPos - 0.5) * 0.6;
+                        
+                        // 【關鍵】使用新計算的速度設置 vx 和 vy
+                        ball.vx = angleOffset * newSpeed;
+                        ball.vy = Math.sqrt(Math.max(0.01, newSpeed * newSpeed - ball.vx * ball.vx));
+                        
+                        // 確保垂直速度不會太小
+                        if (Math.abs(ball.vy) < newSpeed * 0.5) {
+                            ball.vy = newSpeed * 0.7;
+                            const remainingSpeed = Math.sqrt(newSpeed * newSpeed - ball.vy * ball.vy);
+                            ball.vx = remainingSpeed * Math.sign(ball.vx || 1);
+                        }
+                    }
+                }
+            }
+        }
+        
+        function checkBoundaryHit(ball) {
+            // 球落到底部
+            if (ball.y + CONFIG.BALL_RADIUS >= canvas.height) {
+                dealDamage('bottom', 'top', false);
+                ball.active = false;
+            }
+            
+            // 球落到頂部
+            if (ball.y - CONFIG.BALL_RADIUS <= 0) {
+                dealDamage('top', 'bottom', false);
+                ball.active = false;
+            }
+        }
+        
+        function dealDamage(defender, attacker, blocked) {
+            const defPlayer = players[defender];
+            const atkPlayer = players[attacker];
+            
+            const atkLevel = atkPlayer.levels.attack;
+            const defLevel = defPlayer.levels.defense;
+            const vitLevel = atkPlayer.levels.vitality;
+            
+            let damage = calculateDamage(atkLevel);
+            
+            if (blocked) {
+                const armorReduction = calculateArmorReduction(defLevel);
+                damage *= (1 - armorReduction);
+                damage = Math.round(damage);
+                
+                defPlayer.hp = Math.max(0, defPlayer.hp - damage);
+                showDamagePopup(defender, `-${damage}`, '#ffa502');
+            } else {
+                damage = Math.round(damage);
+                defPlayer.hp = Math.max(0, defPlayer.hp - damage);
+                showDamagePopup(defender, `-${damage}`, '#ff4757');
+                
+                // 攻擊方回血
+                const regenPercent = CONFIG.REGEN_BASE_PERCENT + CONFIG.REGEN_PER_LEVEL * vitLevel;
+                const healAmount = Math.round(atkPlayer.maxHp * regenPercent);
+                atkPlayer.hp = Math.min(atkPlayer.maxHp, atkPlayer.hp + healAmount);
+                showHealPopup(attacker, `+${healAmount}`);
+                
+                // 攻擊方獲得能量
+                atkPlayer.energy += CONFIG.ENERGY_ON_HIT;
+            }
+            
+            if (defPlayer.hp <= 0) {
+                endGame(attacker);
+            }
+        }
+        
+        function showDamagePopup(side, text, color) {
+            const popup = document.createElement('div');
+            popup.className = 'damage-popup';
+            popup.textContent = text;
+            popup.style.color = color;
+            
+            const gameArea = document.getElementById('gameArea');
+            popup.style.left = '50%';
+            popup.style.transform = 'translateX(-50%)';
+            popup.style.top = side === 'top' ? '15%' : '75%';
+            
+            gameArea.appendChild(popup);
+            setTimeout(() => popup.remove(), 1000);
+        }
+        
+        function showHealPopup(side, text) {
+            const popup = document.createElement('div');
+            popup.className = 'heal-popup';
+            popup.textContent = text;
+            
+            const gameArea = document.getElementById('gameArea');
+            popup.style.left = '30%';
+            popup.style.transform = 'translateX(-50%)';
+            popup.style.top = side === 'top' ? '25%' : '65%';
+            
+            gameArea.appendChild(popup);
+            setTimeout(() => popup.remove(), 1000);
+        }
+        
+        function endGame(winner) {
+            stopGameLoop();
+            
+            let winnerName, winnerIcon;
+            
+            if (gameMode === 'pve') {
+                if (winner === 'bottom') {
+                    winnerName = '🎉 你贏了！';
+                    winnerIcon = '🏆';
+                } else {
+                    winnerName = '💀 AI 獲勝';
+                    winnerIcon = '🤖';
+                }
+            } else {
+                winnerName = winner === 'top' ? '⚫ 黑方 勝利！' : '⚪ 白方 勝利！';
+                winnerIcon = winner === 'top' ? '⚫🏆' : '⚪🏆';
+            }
+            
+            document.getElementById('winnerIcon').textContent = winnerIcon;
+            document.getElementById('winnerText').textContent = winnerName;
+            document.getElementById('gameOver').style.display = 'flex';
+        }
+        
+        function restartGame() {
+            document.getElementById('gameOver').style.display = 'none';
+            startGame();
+        }
+        
+        // ==================== 升級系統 ====================
+        function upgrade(side, stat) {
+            if (gameMode === 'pve' && side === 'top') return;
+            performUpgrade(side, stat);
+        }
+        
+        function performUpgrade(side, stat) {
+            const player = players[side];
+            const currentLevel = player.levels[stat];
+            
+            if (currentLevel >= CONFIG.MAX_LEVEL) return;
+            
+            const cost = CONFIG.UPGRADE_COSTS[currentLevel - 1];
+            
+            if (player.energy >= cost) {
+                player.energy -= cost;
+                player.levels[stat]++;
+                
+                if (stat === 'vitality') {
+                    const hpRatio = player.hp / player.maxHp;
+                    player.maxHp = CONFIG.BASE_HP * (1 + CONFIG.HP_PER_LEVEL * player.levels.vitality);
+                    player.hp = Math.round(hpRatio * player.maxHp);
+                }
+                
+                if (stat === 'defense') {
+                    const newWidth = getPaddleWidth(side);
+                    const centerX = player.paddleX + (newWidth - CONFIG.PADDLE_WIDTH_PER_LEVEL) / 2;
+                    player.paddleX = clampPaddleX(centerX - newWidth / 2 + CONFIG.PADDLE_WIDTH_PER_LEVEL / 2, side);
+                }
+                
+                updateUI();
+            }
+        }
+        
+        // ==================== UI 更新 ====================
+        function updateUI() {
+            if (!players) return;
+            
+            ['top', 'bottom'].forEach(side => {
+                const p = players[side];
+                const cap = side.charAt(0).toUpperCase() + side.slice(1);
+                
+                const hpPercent = Math.max(0, (p.hp / p.maxHp) * 100);
+                document.getElementById(`hpFill${cap}`).style.width = `${hpPercent}%`;
+                document.getElementById(`hpText${cap}`).textContent = `${Math.floor(p.hp)}/${Math.floor(p.maxHp)}`;
+                document.getElementById(`energy${cap}`).textContent = Math.floor(p.energy);
+                
+                const stats = ['vitality', 'attack', 'defense'];
+                const names = ['生命', '攻擊', '防禦'];
+                const btnIds = ['Vit', 'Atk', 'Def'];
+                
+                stats.forEach((stat, i) => {
+                    const level = p.levels[stat];
+                    const btn = document.getElementById(`btn${btnIds[i]}${cap}`);
+                    const levelSpan = btn.querySelector('.btn-level');
+                    const costSpan = btn.querySelector('.btn-cost');
+                    
+                    levelSpan.textContent = `${names[i]} Lv${level}${level >= CONFIG.MAX_LEVEL ? ' ★' : ''}`;
+                    
+                    if (level >= CONFIG.MAX_LEVEL) {
+                        costSpan.textContent = '已滿級';
+                        btn.disabled = true;
+                    } else {
+                        const cost = CONFIG.UPGRADE_COSTS[level - 1];
+                        if (gameMode === 'pve' && side === 'top') {
+                            costSpan.textContent = 'AI 控制';
+                            btn.disabled = true;
+                        } else {
+                            costSpan.textContent = `需 ${cost}⚡`;
+                            btn.disabled = p.energy < cost;
+                        }
+                    }
+                });
+            });
+        }
+        
+        // ==================== 渲染 ====================
+        function render() {
+            if (!ctx || !players) return;
+            
+            // 清空畫布
+            ctx.fillStyle = '#0d0d1a';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // 中線
+            ctx.strokeStyle = '#2a2a4a';
+            ctx.setLineDash([8, 8]);
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(0, canvas.height / 2);
+            ctx.lineTo(canvas.width, canvas.height / 2);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            
+            // 邊框
+            ctx.strokeStyle = '#1a1a3a';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(10, 10, canvas.width - 20, canvas.height - 20);
+            
+            // 繪製球軌跡
+            balls.forEach(ball => {
+                ball.trail.forEach((pos, i) => {
+                    const alpha = (i / ball.trail.length) * 0.3;
+                    const radius = CONFIG.BALL_RADIUS * (i / ball.trail.length) * 0.8;
+                    ctx.beginPath();
+                    ctx.arc(pos.x, pos.y, radius, 0, Math.PI * 2);
+                    ctx.fillStyle = ball.color === '#1a1a1a' 
+                        ? `rgba(50, 50, 50, ${alpha})` 
+                        : `rgba(200, 200, 200, ${alpha})`;
+                    ctx.fill();
+                });
+            });
+            
+            // 頂部擋板
+            const topWidth = getPaddleWidth('top');
+            const gradientTop = ctx.createLinearGradient(
+                players.top.paddleX, 0, 
+                players.top.paddleX + topWidth, 0
+            );
+            if (gameMode === 'pve') {
+                gradientTop.addColorStop(0, '#5a3a6a');
+                gradientTop.addColorStop(0.5, '#8a5a9a');
+                gradientTop.addColorStop(1, '#5a3a6a');
+            } else {
+                gradientTop.addColorStop(0, '#3a3a5a');
+                gradientTop.addColorStop(0.5, '#5a5a7a');
+                gradientTop.addColorStop(1, '#3a3a5a');
+            }
+            ctx.fillStyle = gradientTop;
+            ctx.fillRect(players.top.paddleX, CONFIG.PADDLE_MARGIN, topWidth, CONFIG.PADDLE_HEIGHT);
+            ctx.strokeStyle = gameMode === 'pve' ? '#aa77aa' : '#6a6a8a';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(players.top.paddleX, CONFIG.PADDLE_MARGIN, topWidth, CONFIG.PADDLE_HEIGHT);
+            
+            // 底部擋板
+            const bottomWidth = getPaddleWidth('bottom');
+            const gradientBottom = ctx.createLinearGradient(
+                players.bottom.paddleX, 0,
+                players.bottom.paddleX + bottomWidth, 0
+            );
+            gradientBottom.addColorStop(0, '#c0c0c0');
+            gradientBottom.addColorStop(0.5, '#ffffff');
+            gradientBottom.addColorStop(1, '#c0c0c0');
+            ctx.fillStyle = gradientBottom;
+            ctx.fillRect(
+                players.bottom.paddleX,
+                canvas.height - CONFIG.PADDLE_MARGIN - CONFIG.PADDLE_HEIGHT,
+                bottomWidth,
+                CONFIG.PADDLE_HEIGHT
+            );
+            ctx.strokeStyle = '#888888';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(
+                players.bottom.paddleX,
+                canvas.height - CONFIG.PADDLE_MARGIN - CONFIG.PADDLE_HEIGHT,
+                bottomWidth,
+                CONFIG.PADDLE_HEIGHT
+            );
+            
+            // 繪製球
+            balls.forEach(ball => {
+                ctx.beginPath();
+                ctx.arc(ball.x, ball.y, CONFIG.BALL_RADIUS, 0, Math.PI * 2);
+                
+                const ballGradient = ctx.createRadialGradient(
+                    ball.x - 3, ball.y - 3, 0,
+                    ball.x, ball.y, CONFIG.BALL_RADIUS
+                );
+                if (ball.color === '#1a1a1a') {
+                    ballGradient.addColorStop(0, '#4a4a4a');
+                    ballGradient.addColorStop(1, '#1a1a1a');
+                } else {
+                    ballGradient.addColorStop(0, '#ffffff');
+                    ballGradient.addColorStop(1, '#cccccc');
+                }
+                ctx.fillStyle = ballGradient;
+                ctx.fill();
+                
+                ctx.strokeStyle = ball.color === '#1a1a1a' ? '#666666' : '#888888';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+                
+                // 方向指示箭頭
+                const speed = Math.sqrt(ball.vx * ball.vx + ball.vy * ball.vy);
+                if (speed > 0) {
+                    const arrowLength = 18;
+                    const arrowX = ball.x + (ball.vx / speed) * arrowLength;
+                    const arrowY = ball.y + (ball.vy / speed) * arrowLength;
+                    
+                    ctx.beginPath();
+                    ctx.moveTo(ball.x, ball.y);
+                    ctx.lineTo(arrowX, arrowY);
+                    ctx.strokeStyle = 'rgba(255, 255, 0, 0.4)';
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+                }
+            });
+        }
+        
+        // ==================== 啟動 ====================
+        window.onload = init;
+    </script>
+</body>
+</html>
