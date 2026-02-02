@@ -1,0 +1,2112 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>雙人熱座飛機對戰</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        html, body {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            touch-action: none;
+            background: #000;
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="gameCanvas"></canvas>
+    <script>
+        /**
+         * ========================================
+         * 雙人熱座飛機對戰遊戲 - 多機種版本 + AI模式
+         * Two-Player Hot-Seat Airplane Battle
+         * ========================================
+         */
+
+        // ============ 遊戲配置 ============
+        const CONFIG = {
+            maxLives: 5,              // 改為5血
+            bulletSpeed: 20,
+            bulletInterval: 250,
+            planeAccel: 0.4,
+            maxSpeed: 6,
+            friction: 0.94,
+            starCount: 80,
+            invincibleTime: 90,
+            specialBulletScale: 4    // 特殊彈比普通彈大的倍數 (普通5 * 4 = 20倍視覺)
+        };
+
+        // ============ AI 配置 ============
+        const AI_CONFIG = {
+            reactionTime: 10,
+            dodgeDistance: 80,
+            accuracy: 0.85,
+            aggressiveness: 0.6,
+            predictionFrames: 15
+        };
+
+        // ============ 飛機類型定義 ============
+        const PLANE_TYPES = [
+            {
+                id: 'vampire',
+                name: '血蝕者',
+                ability: '吸血',
+                description: '每10發射出吸血彈\n命中回復1血並扣敵1血',
+                color: '#ff3366',
+                darkColor: '#aa1144',
+                triggerCount: 10
+            },
+            {
+                id: 'freezer',
+                name: '極寒使者',
+                ability: '凍結',
+                description: '每20發射出冰凍彈\n命中凍結敵人1秒',
+                color: '#00ddff',
+                darkColor: '#0088aa',
+                triggerCount: 20
+            },
+            {
+                id: 'tracker',
+                name: '獵鷹眼',
+                ability: '追蹤',
+                description: '每60發射出追蹤彈\n自動追蹤敵機',
+                color: '#ffaa00',
+                darkColor: '#aa7700',
+                triggerCount: 60  // 改為60次
+            },
+            {
+                id: 'laser',
+                name: '雷霆戰神',
+                ability: '蓄能',
+                description: '每5秒發射雷射光束\n持續1秒，扣2血+消敵彈',
+                color: '#ff00ff',
+                darkColor: '#aa00aa',
+                triggerCount: 0,
+                laserDamage: 2     // 雷射傷害3點
+            },
+            {
+                id: 'summoner',
+                name: '蜂巢指揮',
+                ability: '號召',
+                description: '每50發召喚2艘無人機\n助戰5秒',
+                color: '#88ff00',
+                darkColor: '#55aa00',
+                triggerCount: 50
+            },
+            {
+                id: 'shield',
+                name: '堡壘衛士',
+                ability: '護盾',
+                description: '每50發生成護盾\n免疫1次傷害',
+                color: '#4488ff',
+                darkColor: '#2255aa',
+                triggerCount: 50
+            },
+            {
+                id: 'progress',
+                name: '進化體',
+                ability: '進步',
+                description: '每30發攻速+10%\n可無限疊加',
+                color: '#aaffaa',
+                darkColor: '#66aa66',
+                triggerCount: 30
+            },
+            {
+                id: 'jammer',
+                name: '電磁幽靈',
+                ability: '干擾',
+                description: '每40發自動干擾對方\n使其無法發射2秒',
+                color: '#aa00ff',
+                darkColor: '#6600aa',
+                triggerCount: 40
+            },
+            {
+                id: 'bouncer',
+                name: '彈道大師',
+                ability: '迴力',
+                description: '每20發射出迴力彈\n可反彈牆壁4次',
+                color: '#ff8844',
+                darkColor: '#aa5522',
+                triggerCount: 20
+            }
+        ];
+
+        // ============ Canvas 初始化 ============
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
+
+        document.body.addEventListener('touchmove', e => e.preventDefault(), { passive: false });
+
+        // ============ 遊戲狀態 ============
+        let gameState = 'start';
+        let gameMode = 'pvp';
+        let aiMode = 'same';
+        let winner = null;
+        let selectedPlane1 = 0;
+        let selectedPlane2 = 0;
+        let selectingPlayer = 1;
+
+        // ============ 音效系統 ============
+        const AudioSystem = {
+            ctx: null,
+            init() {
+                try {
+                    this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+                } catch(e) {
+                    console.log('Audio not supported');
+                }
+            },
+            playShoot() {
+                if (!this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.frequency.setValueAtTime(800, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(200, this.ctx.currentTime + 0.1);
+                gain.gain.setValueAtTime(0.1, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.1);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.1);
+            },
+            playSpecial() {
+                if (!this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(400, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(1200, this.ctx.currentTime + 0.15);
+                gain.gain.setValueAtTime(0.15, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.15);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.15);
+            },
+            playHit() {
+                if (!this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(150, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(50, this.ctx.currentTime + 0.2);
+                gain.gain.setValueAtTime(0.2, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.2);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.2);
+            },
+            playFreeze() {
+                if (!this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(2000, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(500, this.ctx.currentTime + 0.3);
+                gain.gain.setValueAtTime(0.15, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.3);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.3);
+            },
+            playJam() {
+                if (!this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.type = 'square';
+                osc.frequency.setValueAtTime(100, this.ctx.currentTime);
+                osc.frequency.linearRampToValueAtTime(300, this.ctx.currentTime + 0.1);
+                osc.frequency.linearRampToValueAtTime(50, this.ctx.currentTime + 0.2);
+                gain.gain.setValueAtTime(0.15, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.3);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.3);
+            },
+            playLaser() {
+                if (!this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(100, this.ctx.currentTime);
+                gain.gain.setValueAtTime(0.2, this.ctx.currentTime);
+                gain.gain.linearRampToValueAtTime(0.2, this.ctx.currentTime + 0.8);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 1);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 1);
+            },
+            playBounce() {
+                if (!this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(600, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(300, this.ctx.currentTime + 0.1);
+                gain.gain.setValueAtTime(0.1, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.1);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.1);
+            },
+            playWin() {
+                if (!this.ctx) return;
+                const notes = [523, 659, 784, 1047];
+                notes.forEach((freq, i) => {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.frequency.value = freq;
+                    gain.gain.setValueAtTime(0.1, this.ctx.currentTime + i * 0.15);
+                    gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + i * 0.15 + 0.3);
+                    osc.start(this.ctx.currentTime + i * 0.15);
+                    osc.stop(this.ctx.currentTime + i * 0.15 + 0.3);
+                });
+            }
+        };
+
+        // ============ 星星類別 ============
+        class Star {
+            constructor() {
+                this.reset(true);
+            }
+            
+            reset(initial = false) {
+                this.x = Math.random() * canvas.width;
+                this.y = initial ? Math.random() * canvas.height : -5;
+                this.speed = 0.5 + Math.random() * 2;
+                this.size = Math.random() * 2 + 0.5;
+                this.brightness = Math.random() * 0.5 + 0.5;
+            }
+            
+            update() {
+                this.y += this.speed;
+                if (this.y > canvas.height + 5) {
+                    this.reset();
+                }
+            }
+            
+            draw() {
+                ctx.fillStyle = `rgba(255, 255, 255, ${this.brightness})`;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        const stars = Array.from({ length: CONFIG.starCount }, () => new Star());
+
+        // ============ 子彈類別 ============
+        class Bullet {
+            constructor(x, y, owner, type = 'normal', target = null) {
+                this.x = x;
+                this.y = y;
+                this.owner = owner;
+                this.type = type;
+                this.target = target;
+                // 普通彈半徑5，特殊彈根據類型不同：追蹤彈3倍(15)，其他10倍(50)
+                if (type === 'normal') {
+                    this.radius = 5;
+                } else if (type === 'tracking') {
+                    this.radius = 15;  // 追蹤彈3倍
+                } else {
+                    this.radius = 50;  // 其他特殊彈10倍
+                }
+                this.vy = owner === 1 ? CONFIG.bulletSpeed : -CONFIG.bulletSpeed;
+                this.vx = 0;
+                this.active = true;
+                this.bounceCount = 0;  // 迴力彈反彈次數
+                this.maxBounces = type === 'bounce' ? 4 : 0;
+            }
+            
+            update() {
+                if (this.type === 'tracking' && this.target) {
+                    const dx = this.target.x - this.x;
+                    const dy = this.target.y - this.y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    if (dist > 0) {
+                        const speed = CONFIG.bulletSpeed * 0.8;
+                        this.vx += (dx / dist) * 0.5;
+                        this.vy += (dy / dist) * 0.5;
+                        const currentSpeed = Math.sqrt(this.vx * this.vx + this.vy * this.vy);
+                        if (currentSpeed > speed) {
+                            this.vx = (this.vx / currentSpeed) * speed;
+                            this.vy = (this.vy / currentSpeed) * speed;
+                        }
+                    }
+                }
+                
+                this.x += this.vx;
+                this.y += this.vy;
+                
+                // 迴力彈牆壁反彈邏輯（上下反彈）
+                if (this.type === 'bounce' && this.bounceCount < this.maxBounces) {
+                    // 檢查上邊界
+                    if (this.y <= this.radius) {
+                        this.vy = Math.abs(this.vy); // 確保往下飛
+                        this.y = this.radius;
+                        this.bounceCount++;
+                        AudioSystem.playBounce();
+                    }
+                    // 檢查下邊界
+                    else if (this.y >= canvas.height - this.radius) {
+                        this.vy = -Math.abs(this.vy); // 確保往上飛
+                        this.y = canvas.height - this.radius;
+                        this.bounceCount++;
+                        AudioSystem.playBounce();
+                    }
+                }
+                
+                // 超出邊界
+                if (this.y < -50 || this.y > canvas.height + 50 ||
+                    this.x < -50 || this.x > canvas.width + 50) {
+                    this.active = false;
+                }
+            }
+            
+            draw() {
+                const gradient = ctx.createRadialGradient(
+                    this.x, this.y, 0,
+                    this.x, this.y, this.radius * 2
+                );
+                
+                let color1, color2;
+                switch(this.type) {
+                    case 'vampire':
+                        color1 = '#ff0044';
+                        color2 = '#880022';
+                        break;
+                    case 'freeze':
+                        color1 = '#00ffff';
+                        color2 = '#0088ff';
+                        break;
+                    case 'tracking':
+                        color1 = '#ffff00';
+                        color2 = '#ff8800';
+                        break;
+                    case 'bounce':
+                        color1 = '#ff8844';
+                        color2 = '#aa4400';
+                        break;
+                    default:
+                        if (this.owner === 1) {
+                            color1 = '#00ffff';
+                            color2 = '#0088ff';
+                        } else {
+                            color1 = '#ffaa00';
+                            color2 = '#ff4400';
+                        }
+                }
+                
+                gradient.addColorStop(0, color1);
+                gradient.addColorStop(0.5, color2);
+                gradient.addColorStop(1, 'transparent');
+                
+                ctx.fillStyle = gradient;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius * 2, 0, Math.PI * 2);
+                ctx.fill();
+                
+                if (this.type !== 'normal') {
+                    ctx.strokeStyle = color1;
+                    ctx.lineWidth = 3;
+                    ctx.beginPath();
+                    ctx.arc(this.x, this.y, this.radius * 1.5, 0, Math.PI * 2);
+                    ctx.stroke();
+                    
+                    // 額外光暈效果
+                    ctx.strokeStyle = `${color1}88`;
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.arc(this.x, this.y, this.radius * 1.8, 0, Math.PI * 2);
+                    ctx.stroke();
+                }
+                
+                ctx.fillStyle = '#ffffff';
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius * 0.4, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // 迴力彈顯示剩餘反彈次數
+                if (this.type === 'bounce') {
+                    ctx.fillStyle = '#ffffff';
+                    ctx.font = 'bold 16px Arial';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText(this.maxBounces - this.bounceCount, this.x, this.y);
+                }
+            }
+        }
+
+        // ============ 雷射類別 ============
+        class Laser {
+            constructor(owner, x, y) {
+                this.owner = owner;
+                this.x = x;
+                this.y = y;
+                this.width = 50;  // 雷射寬度（10倍普通彈）
+                this.duration = 60;
+                this.timer = this.duration;
+                this.active = true;
+                this.hasDealtDamage = false;  // 確保只造成一次傷害
+            }
+            
+            update(bullets) {
+                this.timer--;
+                if (this.timer <= 0) {
+                    this.active = false;
+                }
+                
+                // 消除敵方子彈
+                for (let bullet of bullets) {
+                    if (bullet.owner !== this.owner && bullet.active) {
+                        if (Math.abs(bullet.x - this.x) < this.width / 2 + bullet.radius) {
+                            if (this.owner === 1) {
+                                if (bullet.y > this.y) {
+                                    bullet.active = false;
+                                }
+                            } else {
+                                if (bullet.y < this.y) {
+                                    bullet.active = false;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            
+            draw() {
+                const alpha = this.timer / this.duration;
+                const flicker = 0.7 + Math.sin(this.timer * 0.5) * 0.3;
+                
+                ctx.save();
+                ctx.globalAlpha = alpha * flicker;
+                
+                const gradient = ctx.createLinearGradient(
+                    this.x - this.width / 2, 0,
+                    this.x + this.width / 2, 0
+                );
+                gradient.addColorStop(0, 'transparent');
+                gradient.addColorStop(0.2, '#ff00ff');
+                gradient.addColorStop(0.4, '#ffffff');
+                gradient.addColorStop(0.5, '#ffffff');
+                gradient.addColorStop(0.6, '#ffffff');
+                gradient.addColorStop(0.8, '#ff00ff');
+                gradient.addColorStop(1, 'transparent');
+                
+                ctx.fillStyle = gradient;
+                
+                if (this.owner === 1) {
+                    ctx.fillRect(this.x - this.width / 2, this.y, this.width, canvas.height - this.y);
+                } else {
+                    ctx.fillRect(this.x - this.width / 2, 0, this.width, this.y);
+                }
+                
+                ctx.restore();
+            }
+            
+            checkHit(player) {
+                if (player.id === this.owner) return false;
+                if (this.hasDealtDamage) return false;
+                if (Math.abs(player.x - this.x) < this.width / 2 + player.width / 2) {
+                    this.hasDealtDamage = true;
+                    return true;
+                }
+                return false;
+            }
+        }
+
+        // ============ 無人機類別 ============
+        class Drone {
+            constructor(owner, side, parentPlayer) {
+                this.owner = owner;
+                this.side = side;
+                this.parent = parentPlayer;
+                this.duration = 300;
+                this.timer = this.duration;
+                this.active = true;
+                this.lastShot = 0;
+                this.offsetX = side === 'left' ? -40 : 40;
+            }
+            
+            update(bullets) {
+                this.timer--;
+                if (this.timer <= 0) {
+                    this.active = false;
+                }
+                
+                this.x = this.parent.x + this.offsetX;
+                this.y = this.parent.y;
+                
+                const now = Date.now();
+                if (now - this.lastShot > 300) {
+                    const bulletY = this.owner === 1 ? this.y + 15 : this.y - 15;
+                    bullets.push(new Bullet(this.x, bulletY, this.owner));
+                    this.lastShot = now;
+                }
+            }
+            
+            draw() {
+                const alpha = Math.min(1, this.timer / 30);
+                ctx.save();
+                ctx.globalAlpha = alpha;
+                ctx.translate(this.x, this.y);
+                
+                if (this.owner === 1) {
+                    ctx.rotate(Math.PI);
+                }
+                
+                ctx.fillStyle = '#88ff00';
+                ctx.beginPath();
+                ctx.moveTo(0, -10);
+                ctx.lineTo(-8, 5);
+                ctx.lineTo(8, 5);
+                ctx.closePath();
+                ctx.fill();
+                
+                ctx.fillStyle = '#55aa00';
+                ctx.fillRect(-15, -2, 30, 6);
+                
+                ctx.restore();
+            }
+        }
+
+        // ============ 粒子類別 ============
+        class Particle {
+            constructor(x, y, color) {
+                this.x = x;
+                this.y = y;
+                this.color = color;
+                this.vx = (Math.random() - 0.5) * 8;
+                this.vy = (Math.random() - 0.5) * 8;
+                this.life = 30;
+                this.maxLife = 30;
+                this.size = Math.random() * 4 + 2;
+            }
+            
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+                this.vx *= 0.95;
+                this.vy *= 0.95;
+                this.life--;
+            }
+            
+            draw() {
+                const alpha = this.life / this.maxLife;
+                ctx.fillStyle = this.color.replace('1)', `${alpha})`);
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size * alpha, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        let particles = [];
+        let lasers = [];
+        let drones = [];
+
+        function createExplosion(x, y, color) {
+            for (let i = 0; i < 15; i++) {
+                particles.push(new Particle(x, y, color));
+            }
+        }
+
+        // ============ AI 控制器類別 ============
+        class AIController {
+            constructor(player, enemy) {
+                this.player = player;
+                this.enemy = enemy;
+                this.frameCounter = 0;
+                this.targetX = player.x;
+                this.targetY = player.y;
+                this.dodging = false;
+                this.dodgeDirection = 1;
+            }
+            
+            update(bullets) {
+                this.frameCounter++;
+                
+                if (this.frameCounter % AI_CONFIG.reactionTime === 0) {
+                    this.calculateStrategy(bullets);
+                }
+                
+                this.player.touching = true;
+                this.player.targetX = this.targetX;
+                this.player.targetY = this.targetY;
+            }
+            
+            calculateStrategy(bullets) {
+                const dangerousBullets = this.findDangerousBullets(bullets);
+                
+                if (dangerousBullets.length > 0 && Math.random() < 0.9) {
+                    this.dodgeBullets(dangerousBullets);
+                } else {
+                    this.attackEnemy();
+                }
+            }
+            
+            findDangerousBullets(bullets) {
+                const dangerous = [];
+                const predictFrames = AI_CONFIG.predictionFrames;
+                
+                for (let bullet of bullets) {
+                    if (bullet.owner === this.player.id) continue;
+                    if (!bullet.active) continue;
+                    
+                    const futureX = bullet.x + bullet.vx * predictFrames;
+                    const futureY = bullet.y + bullet.vy * predictFrames;
+                    
+                    const dx = futureX - this.player.x;
+                    const dy = futureY - this.player.y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    
+                    if (dist < AI_CONFIG.dodgeDistance + bullet.radius) {
+                        dangerous.push({
+                            bullet,
+                            futureX,
+                            futureY,
+                            distance: dist
+                        });
+                    }
+                }
+                
+                dangerous.sort((a, b) => a.distance - b.distance);
+                return dangerous;
+            }
+            
+            dodgeBullets(dangerousBullets) {
+                if (dangerousBullets.length === 0) return;
+                
+                const nearest = dangerousBullets[0];
+                const bullet = nearest.bullet;
+                
+                const bulletDirX = bullet.vx;
+                const bulletDirY = bullet.vy;
+                
+                let dodgeX = -bulletDirY;
+                let dodgeY = bulletDirX;
+                
+                const len = Math.sqrt(dodgeX * dodgeX + dodgeY * dodgeY);
+                if (len > 0) {
+                    dodgeX /= len;
+                    dodgeY /= len;
+                }
+                
+                const testX1 = this.player.x + dodgeX * AI_CONFIG.dodgeDistance;
+                const testX2 = this.player.x - dodgeX * AI_CONFIG.dodgeDistance;
+                
+                const centerX = canvas.width / 2;
+                
+                if (Math.abs(testX1 - centerX) < Math.abs(testX2 - centerX)) {
+                    this.dodgeDirection = 1;
+                } else {
+                    this.dodgeDirection = -1;
+                }
+                
+                this.targetX = this.player.x + dodgeX * AI_CONFIG.dodgeDistance * this.dodgeDirection;
+                this.targetY = this.player.y + dodgeY * AI_CONFIG.dodgeDistance * this.dodgeDirection * 0.3;
+                
+                this.clampTarget();
+            }
+            
+            attackEnemy() {
+                const predictX = this.enemy.x + this.enemy.vx * AI_CONFIG.predictionFrames;
+                const predictY = this.enemy.y + this.enemy.vy * AI_CONFIG.predictionFrames;
+                
+                const accuracy = AI_CONFIG.accuracy;
+                const offsetX = (Math.random() - 0.5) * 100 * (1 - accuracy);
+                const offsetY = (Math.random() - 0.5) * 50 * (1 - accuracy);
+                
+                this.targetX = predictX + offsetX;
+                
+                const halfHeight = canvas.height / 2;
+                const aggressiveness = AI_CONFIG.aggressiveness;
+                
+                if (this.player.id === 1) {
+                    const minY = 50;
+                    const maxY = halfHeight - 50;
+                    const idealY = minY + (maxY - minY) * aggressiveness;
+                    this.targetY = idealY + offsetY;
+                } else {
+                    const minY = halfHeight + 50;
+                    const maxY = canvas.height - 50;
+                    const idealY = maxY - (maxY - minY) * aggressiveness;
+                    this.targetY = idealY + offsetY;
+                }
+                
+                this.clampTarget();
+            }
+            
+            clampTarget() {
+                const margin = 40;
+                const halfHeight = canvas.height / 2;
+                
+                this.targetX = Math.max(margin, Math.min(canvas.width - margin, this.targetX));
+                
+                if (this.player.id === 1) {
+                    this.targetY = Math.max(margin, Math.min(halfHeight - margin, this.targetY));
+                } else {
+                    this.targetY = Math.max(halfHeight + margin, Math.min(canvas.height - margin, this.targetY));
+                }
+            }
+        }
+
+        // ============ 玩家類別 ============
+        class Player {
+            constructor(id, planeTypeIndex, isAI = false) {
+                this.id = id;
+                this.planeType = PLANE_TYPES[planeTypeIndex];
+                this.width = 44;
+                this.height = 55;
+                this.isAI = isAI;
+                this.reset();
+            }
+            
+            reset() {
+                this.x = canvas.width / 2;
+                this.y = this.id === 1 ? canvas.height * 0.25 : canvas.height * 0.75;
+                this.vx = 0;
+                this.vy = 0;
+                this.lives = CONFIG.maxLives;
+                this.lastShot = 0;
+                this.touching = false;
+                this.targetX = this.x;
+                this.targetY = this.y;
+                this.invincible = false;
+                this.invincibleTimer = 0;
+                
+                this.shotCount = 0;
+                this.frozen = false;
+                this.freezeTimer = 0;
+                this.jammed = false;        // 被干擾狀態
+                this.jamTimer = 0;
+                this.hasShield = false;
+                this.attackSpeedBonus = 1;
+                this.laserCooldown = 0;
+                this.isLasering = false;
+                this.laserTimer = 0;
+            }
+            
+            update(bullets, otherPlayer) {
+                // 凍結狀態
+                if (this.frozen) {
+                    this.freezeTimer--;
+                    if (this.freezeTimer <= 0) {
+                        this.frozen = false;
+                    }
+                    return;
+                }
+                
+                // 干擾計時器更新
+                if (this.jammed) {
+                    this.jamTimer--;
+                    if (this.jamTimer <= 0) {
+                        this.jammed = false;
+                    }
+                }
+                
+                // 雷射發射中
+                if (this.isLasering) {
+                    this.laserTimer--;
+                    if (this.laserTimer <= 0) {
+                        this.isLasering = false;
+                    }
+                    return;
+                }
+                
+                // 雷射冷卻與發射
+                if (this.planeType.id === 'laser') {
+                    this.laserCooldown--;
+                    if (this.laserCooldown <= 0 && this.touching) {
+                        this.isLasering = true;
+                        this.laserTimer = 60;
+                        this.laserCooldown = 300;
+                        lasers.push(new Laser(this.id, this.x, this.y));
+                        AudioSystem.playLaser();
+                    }
+                }
+                
+                // 移動與射擊
+                if (this.touching && !this.isLasering) {
+                    const dx = this.targetX - this.x;
+                    const dy = this.targetY - this.y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    
+                    if (dist > 10) {
+                        this.vx += (dx / dist) * CONFIG.planeAccel;
+                        this.vy += (dy / dist) * CONFIG.planeAccel;
+                    }
+                    
+                    // 射擊（非雷射機種且未被干擾）
+                    if (this.planeType.id !== 'laser' && !this.jammed) {
+                        const now = Date.now();
+                        const interval = CONFIG.bulletInterval / this.attackSpeedBonus;
+                        if (now - this.lastShot > interval) {
+                            this.shoot(bullets, otherPlayer);
+                            this.lastShot = now;
+                        }
+                    }
+                }
+                
+                this.vx *= CONFIG.friction;
+                this.vy *= CONFIG.friction;
+                
+                const speed = Math.sqrt(this.vx * this.vx + this.vy * this.vy);
+                if (speed > CONFIG.maxSpeed) {
+                    this.vx = (this.vx / speed) * CONFIG.maxSpeed;
+                    this.vy = (this.vy / speed) * CONFIG.maxSpeed;
+                }
+                
+                this.x += this.vx;
+                this.y += this.vy;
+                
+                const halfHeight = canvas.height / 2;
+                const margin = 20;
+                
+                if (this.id === 1) {
+                    this.y = Math.max(margin + this.height / 2, 
+                             Math.min(halfHeight - this.height / 2 - margin, this.y));
+                } else {
+                    this.y = Math.max(halfHeight + this.height / 2 + margin, 
+                             Math.min(canvas.height - margin - this.height / 2, this.y));
+                }
+                
+                this.x = Math.max(this.width / 2 + margin, 
+                         Math.min(canvas.width - this.width / 2 - margin, this.x));
+                
+                if (this.invincible) {
+                    this.invincibleTimer--;
+                    if (this.invincibleTimer <= 0) {
+                        this.invincible = false;
+                    }
+                }
+            }
+            
+            shoot(bullets, otherPlayer) {
+                this.shotCount++;
+                const bulletY = this.id === 1 ? 
+                    this.y + this.height / 2 + 5 : 
+                    this.y - this.height / 2 - 5;
+                
+                let bulletType = 'normal';
+                let isSpecial = false;
+                let skipBullet = false;
+                
+                const triggerCount = this.planeType.triggerCount;
+                if (triggerCount > 0 && this.shotCount % triggerCount === 0) {
+                    isSpecial = true;
+                    
+                    switch(this.planeType.id) {
+                        case 'vampire':
+                            bulletType = 'vampire';
+                            break;
+                        case 'freezer':
+                            bulletType = 'freeze';
+                            break;
+                        case 'tracker':
+                            bulletType = 'tracking';
+                            break;
+                        case 'summoner':
+                            drones.push(new Drone(this.id, 'left', this));
+                            drones.push(new Drone(this.id, 'right', this));
+                            AudioSystem.playSpecial();
+                            skipBullet = true;
+                            break;
+                        case 'shield':
+                            if (!this.hasShield) {
+                                this.hasShield = true;
+                                AudioSystem.playSpecial();
+                            }
+                            skipBullet = true;
+                            break;
+                        case 'progress':
+                            this.attackSpeedBonus *= 1.1;
+                            AudioSystem.playSpecial();
+                            skipBullet = true;
+                            break;
+                        case 'jammer':
+                            // 自動干擾對方，不發射干擾彈
+                            otherPlayer.jammed = true;
+                            otherPlayer.jamTimer = 120; // 2秒
+                            AudioSystem.playJam();
+                            createExplosion(otherPlayer.x, otherPlayer.y, 'rgba(170, 0, 255, 1)');
+                            skipBullet = true;
+                            break;
+                        case 'bouncer':
+                            bulletType = 'bounce';
+                            break;
+                    }
+                }
+                
+                // 發射子彈
+                if (!skipBullet) {
+                    const target = bulletType === 'tracking' ? otherPlayer : null;
+                    bullets.push(new Bullet(this.x, bulletY, this.id, bulletType, target));
+                    
+                    if (isSpecial && bulletType !== 'normal') {
+                        AudioSystem.playSpecial();
+                    } else {
+                        AudioSystem.playShoot();
+                    }
+                }
+            }
+            
+            hit(bullet, damage = 1) {
+                if (this.hasShield && damage <= 1) {
+                    this.hasShield = false;
+                    createExplosion(this.x, this.y, 'rgba(68, 136, 255, 1)');
+                    return false;
+                }
+                
+                if (!this.invincible) {
+                    if (bullet.type === 'vampire') {
+                        this.lives -= 1;
+                    } else if (bullet.type === 'freeze') {
+                        this.frozen = true;
+                        this.freezeTimer = 60;
+                        AudioSystem.playFreeze();
+                        this.lives--;
+                    } else {
+                        this.lives -= damage;
+                    }
+                    
+                    this.invincible = true;
+                    this.invincibleTimer = CONFIG.invincibleTime;
+                    AudioSystem.playHit();
+                    
+                    createExplosion(this.x, this.y, 'rgba(255, 100, 100, 1)');
+                    
+                    return true;
+                }
+                return false;
+            }
+            
+            draw() {
+                // 凍結效果
+                if (this.frozen) {
+                    ctx.save();
+                    ctx.globalAlpha = 0.5 + Math.sin(Date.now() * 0.01) * 0.3;
+                    ctx.fillStyle = '#00ffff';
+                    ctx.beginPath();
+                    ctx.arc(this.x, this.y, this.width, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.restore();
+                }
+                
+                // 干擾效果
+                if (this.jammed) {
+                    ctx.save();
+                    ctx.globalAlpha = 0.4 + Math.sin(Date.now() * 0.02) * 0.3;
+                    ctx.strokeStyle = '#aa00ff';
+                    ctx.lineWidth = 3;
+                    for (let i = 0; i < 3; i++) {
+                        ctx.beginPath();
+                        ctx.arc(this.x, this.y, this.width + 5 + i * 8, 0, Math.PI * 2);
+                        ctx.stroke();
+                    }
+                    ctx.restore();
+                }
+                
+                // 護盾效果
+                if (this.hasShield) {
+                    ctx.save();
+                    ctx.globalAlpha = 0.3 + Math.sin(Date.now() * 0.005) * 0.2;
+                    ctx.strokeStyle = '#4488ff';
+                    ctx.lineWidth = 4;
+                    ctx.beginPath();
+                    ctx.arc(this.x, this.y, this.width + 10, 0, Math.PI * 2);
+                    ctx.stroke();
+                    ctx.restore();
+                }
+                
+                // 無敵閃爍
+                if (this.invincible && Math.floor(this.invincibleTimer / 4) % 2 === 0) {
+                    return;
+                }
+                
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                
+                if (this.id === 1) {
+                    ctx.rotate(Math.PI);
+                }
+                
+                const mainColor = this.planeType.color;
+                const darkColor = this.planeType.darkColor;
+                
+                // 引擎火焰
+                if (!this.frozen) {
+                    ctx.fillStyle = '#ff6600';
+                    ctx.beginPath();
+                    ctx.moveTo(-8, this.height / 2);
+                    ctx.lineTo(0, this.height / 2 + 10 + Math.random() * 8);
+                    ctx.lineTo(8, this.height / 2);
+                    ctx.closePath();
+                    ctx.fill();
+                    
+                    ctx.fillStyle = '#ffff00';
+                    ctx.beginPath();
+                    ctx.moveTo(-4, this.height / 2);
+                    ctx.lineTo(0, this.height / 2 + 6 + Math.random() * 5);
+                    ctx.lineTo(4, this.height / 2);
+                    ctx.closePath();
+                    ctx.fill();
+                }
+                
+                // 機身
+                ctx.fillStyle = mainColor;
+                ctx.beginPath();
+                ctx.moveTo(0, -this.height / 2);
+                ctx.lineTo(-12, this.height / 4);
+                ctx.lineTo(-8, this.height / 2);
+                ctx.lineTo(8, this.height / 2);
+                ctx.lineTo(12, this.height / 4);
+                ctx.closePath();
+                ctx.fill();
+                
+                // 機翼
+                ctx.fillStyle = darkColor;
+                ctx.beginPath();
+                ctx.moveTo(-this.width / 2, 5);
+                ctx.lineTo(-10, -5);
+                ctx.lineTo(10, -5);
+                ctx.lineTo(this.width / 2, 5);
+                ctx.lineTo(10, 15);
+                ctx.lineTo(-10, 15);
+                ctx.closePath();
+                ctx.fill();
+                
+                ctx.fillStyle = mainColor;
+                ctx.beginPath();
+                ctx.moveTo(-this.width / 2 + 5, 5);
+                ctx.lineTo(-10, -2);
+                ctx.lineTo(10, -2);
+                ctx.lineTo(this.width / 2 - 5, 5);
+                ctx.closePath();
+                ctx.fill();
+                
+                // 駕駛艙
+                ctx.fillStyle = '#88ddff';
+                ctx.beginPath();
+                ctx.ellipse(0, -this.height / 6, 6, 12, 0, 0, Math.PI * 2);
+                ctx.fill();
+                
+                ctx.fillStyle = '#ffffff';
+                ctx.beginPath();
+                ctx.ellipse(-2, -this.height / 6 - 4, 2, 4, 0, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // AI標記
+                if (this.isAI) {
+                    ctx.fillStyle = '#ff0000';
+                    ctx.font = 'bold 10px Arial';
+                    ctx.textAlign = 'center';
+                    ctx.fillText('AI', 0, -this.height / 2 - 8);
+                }
+                
+                ctx.restore();
+                
+                // 雷射蓄能顯示
+                if (this.planeType.id === 'laser' && !this.isLasering) {
+                    const chargePercent = Math.max(0, 1 - this.laserCooldown / 300);
+                    ctx.fillStyle = `rgba(255, 0, 255, ${chargePercent * 0.5})`;
+                    ctx.beginPath();
+                    ctx.arc(this.x, this.y, 30 * chargePercent, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
+            
+            checkCollision(bullet) {
+                if (bullet.owner === this.id) return false;
+                
+                const dx = bullet.x - this.x;
+                const dy = bullet.y - this.y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                
+                return dist < (this.width / 2 + bullet.radius);
+            }
+        }
+
+        // ============ 遊戲變數 ============
+        let player1, player2;
+        let aiController = null;
+        let bullets = [];
+        let touches = {};
+        let gameStartTime = 0;
+
+        function initGame() {
+            if (gameMode === 'pve') {
+                let aiPlaneIndex;
+                if (aiMode === 'same') {
+                    aiPlaneIndex = selectedPlane1;
+                } else {
+                    aiPlaneIndex = Math.floor(Math.random() * PLANE_TYPES.length);
+                }
+                player1 = new Player(1, aiPlaneIndex, true);
+                player2 = new Player(2, selectedPlane1, false);
+                aiController = new AIController(player1, player2);
+            } else {
+                player1 = new Player(1, selectedPlane1, false);
+                player2 = new Player(2, selectedPlane2, false);
+                aiController = null;
+            }
+            
+            bullets = [];
+            particles = [];
+            lasers = [];
+            drones = [];
+            touches = {};
+            winner = null;
+        }
+
+        // ============ 返回主選單函數 ============
+        function returnToMenu() {
+            gameState = 'start';
+            bullets = [];
+            particles = [];
+            lasers = [];
+            drones = [];
+            touches = {};
+            winner = null;
+        }
+
+        // ============ 觸控處理 ============
+        window.addEventListener('touchstart', handleTouchStart, { passive: false });
+        window.addEventListener('touchmove', handleTouchMove, { passive: false });
+        window.addEventListener('touchend', handleTouchEnd, { passive: false });
+        window.addEventListener('touchcancel', handleTouchEnd, { passive: false });
+
+        canvas.addEventListener('mousedown', handleMouseDown);
+        canvas.addEventListener('mousemove', handleMouseMove);
+        canvas.addEventListener('mouseup', handleMouseUp);
+
+        let mouseDown = false;
+        let mousePlayer = null;
+
+        function handleMouseDown(e) {
+            e.preventDefault();
+            if (!AudioSystem.ctx) AudioSystem.init();
+            
+            const rect = canvas.getBoundingClientRect();
+            const x = (e.clientX - rect.left) * (canvas.width / rect.width);
+            const y = (e.clientY - rect.top) * (canvas.height / rect.height);
+            
+            handleInputStart(x, y);
+            
+            if (gameState === 'playing') {
+                // 檢查返回按鈕
+                if (checkMenuButton(x, y)) {
+                    returnToMenu();
+                    return;
+                }
+                
+                mouseDown = true;
+                if (gameMode === 'pve') {
+                    if (y >= canvas.height / 2) {
+                        mousePlayer = 2;
+                        player2.touching = true;
+                        player2.targetX = x;
+                        player2.targetY = y;
+                    }
+                } else {
+                    if (y < canvas.height / 2) {
+                        mousePlayer = 1;
+                        player1.touching = true;
+                        player1.targetX = x;
+                        player1.targetY = y;
+                    } else {
+                        mousePlayer = 2;
+                        player2.touching = true;
+                        player2.targetX = x;
+                        player2.targetY = y;
+                    }
+                }
+            }
+        }
+
+        function handleMouseMove(e) {
+            if (!mouseDown || gameState !== 'playing') return;
+            
+            const rect = canvas.getBoundingClientRect();
+            const x = (e.clientX - rect.left) * (canvas.width / rect.width);
+            const y = (e.clientY - rect.top) * (canvas.height / rect.height);
+            
+            if (mousePlayer === 1) {
+                player1.targetX = x;
+                player1.targetY = y;
+            } else if (mousePlayer === 2) {
+                player2.targetX = x;
+                player2.targetY = y;
+            }
+        }
+
+        function handleMouseUp(e) {
+            mouseDown = false;
+            if (mousePlayer === 1 && !player1.isAI) player1.touching = false;
+            else if (mousePlayer === 2 && !player2.isAI) player2.touching = false;
+            mousePlayer = null;
+        }
+
+        function handleTouchStart(e) {
+            e.preventDefault();
+            if (!AudioSystem.ctx) AudioSystem.init();
+            
+            const rect = canvas.getBoundingClientRect();
+            
+            for (let touch of e.changedTouches) {
+                const x = (touch.clientX - rect.left) * (canvas.width / rect.width);
+                const y = (touch.clientY - rect.top) * (canvas.height / rect.height);
+                
+                handleInputStart(x, y);
+                
+                if (gameState === 'playing') {
+                    // 檢查返回按鈕
+                    if (checkMenuButton(x, y)) {
+                        returnToMenu();
+                        return;
+                    }
+                    processTouch(e.changedTouches, true);
+                }
+            }
+        }
+
+        function checkMenuButton(x, y) {
+            // 中間的返回按鈕
+            const btnX = canvas.width / 2;
+            const btnY = canvas.height / 2;
+            return Math.abs(x - btnX) < 40 && Math.abs(y - btnY) < 20;
+        }
+
+        function handleInputStart(x, y) {
+            if (gameState === 'start') {
+                gameState = 'modeSelect';
+                return;
+            }
+            
+            if (gameState === 'modeSelect') {
+                handleModeSelectInput(x, y);
+                return;
+            }
+            
+            if (gameState === 'aiSelect') {
+                handleAISelectInput(x, y);
+                return;
+            }
+            
+            if (gameState === 'select') {
+                handleSelectInput(x, y);
+                return;
+            }
+            
+            if (gameState === 'end') {
+                const btnX = canvas.width / 2;
+                const btnY = canvas.height / 2 + 60;
+                if (Math.abs(x - btnX) < 100 && Math.abs(y - btnY) < 35) {
+                    gameState = 'start';
+                }
+                return;
+            }
+        }
+
+        function handleModeSelectInput(x, y) {
+            const btnWidth = 200;
+            const btnHeight = 60;
+            const centerX = canvas.width / 2;
+            
+            // 返回按鈕
+            const backY = canvas.height / 2 + 130;
+            if (x >= centerX - 60 && x <= centerX + 60 &&
+                y >= backY && y <= backY + 40) {
+                gameState = 'start';
+                return;
+            }
+            
+            const pvpY = canvas.height / 2 - 50;
+            if (x >= centerX - btnWidth / 2 && x <= centerX + btnWidth / 2 &&
+                y >= pvpY && y <= pvpY + btnHeight) {
+                gameMode = 'pvp';
+                gameState = 'select';
+                selectingPlayer = 1;
+                return;
+            }
+            
+            const pveY = canvas.height / 2 + 30;
+            if (x >= centerX - btnWidth / 2 && x <= centerX + btnWidth / 2 &&
+                y >= pveY && y <= pveY + btnHeight) {
+                gameMode = 'pve';
+                gameState = 'aiSelect';
+                return;
+            }
+        }
+
+        function handleAISelectInput(x, y) {
+            const btnWidth = 220;
+            const btnHeight = 60;
+            const centerX = canvas.width / 2;
+            
+            // 返回按鈕
+            const backY = canvas.height / 2 + 130;
+            if (x >= centerX - 60 && x <= centerX + 60 &&
+                y >= backY && y <= backY + 40) {
+                gameState = 'modeSelect';
+                return;
+            }
+            
+            const sameY = canvas.height / 2 - 50;
+            if (x >= centerX - btnWidth / 2 && x <= centerX + btnWidth / 2 &&
+                y >= sameY && y <= sameY + btnHeight) {
+                aiMode = 'same';
+                gameState = 'select';
+                selectingPlayer = 1;
+                return;
+            }
+            
+            const randomY = canvas.height / 2 + 30;
+            if (x >= centerX - btnWidth / 2 && x <= centerX + btnWidth / 2 &&
+                y >= randomY && y <= randomY + btnHeight) {
+                aiMode = 'random';
+                gameState = 'select';
+                selectingPlayer = 1;
+                return;
+            }
+        }
+
+        function handleSelectInput(x, y) {
+            // 與 drawSelectScreen 中相同的卡片尺寸和位置計算
+            const cardWidth = 110;
+            const cardHeight = 130;
+            const cols = 3;
+            const rows = 3;
+            const gap = 12;
+            const totalWidth = cols * cardWidth + (cols - 1) * gap;
+            const totalHeight = rows * cardHeight + (rows - 1) * gap;
+            const startX = (canvas.width - totalWidth) / 2;
+            const startY = (canvas.height - totalHeight) / 2 - 20;
+            const bottomY = startY + totalHeight + 20;
+            const centerX = canvas.width / 2;
+            
+            // 返回按鈕
+            const backY = bottomY + 15;
+            if (x >= centerX - 60 && x <= centerX + 60 &&
+                y >= backY && y <= backY + 40) {
+                if (gameMode === 'pve') {
+                    gameState = 'aiSelect';
+                } else if (selectingPlayer === 2) {
+                    selectingPlayer = 1;
+                } else {
+                    gameState = 'modeSelect';
+                }
+                return;
+            }
+            
+            for (let i = 0; i < PLANE_TYPES.length; i++) {
+                const col = i % cols;
+                const row = Math.floor(i / cols);
+                const cardX = startX + col * (cardWidth + gap);
+                const cardY = startY + row * (cardHeight + gap);
+                
+                if (x >= cardX && x <= cardX + cardWidth &&
+                    y >= cardY && y <= cardY + cardHeight) {
+                    
+                    if (gameMode === 'pve') {
+                        selectedPlane1 = i;
+                        gameState = 'playing';
+                        gameStartTime = Date.now();
+                        initGame();
+                    } else {
+                        if (selectingPlayer === 1) {
+                            selectedPlane1 = i;
+                            selectingPlayer = 2;
+                        } else {
+                            selectedPlane2 = i;
+                            gameState = 'playing';
+                            gameStartTime = Date.now();
+                            initGame();
+                        }
+                    }
+                    return;
+                }
+            }
+        }
+
+        function handleTouchMove(e) {
+            e.preventDefault();
+            if (gameState !== 'playing') return;
+            processTouch(e.changedTouches, false);
+        }
+
+        function handleTouchEnd(e) {
+            e.preventDefault();
+            
+            for (let touch of e.changedTouches) {
+                if (touches[touch.identifier]) {
+                    const playerNum = touches[touch.identifier].player;
+                    delete touches[touch.identifier];
+                    
+                    let hasTouch = false;
+                    for (let id in touches) {
+                        if (touches[id].player === playerNum) {
+                            hasTouch = true;
+                            break;
+                        }
+                    }
+                    
+                    if (!hasTouch) {
+                        if (playerNum === 1 && !player1.isAI) player1.touching = false;
+                        else if (playerNum === 2 && !player2.isAI) player2.touching = false;
+                    }
+                }
+            }
+        }
+
+        function processTouch(touchList, isStart) {
+            const rect = canvas.getBoundingClientRect();
+            const halfHeight = canvas.height / 2;
+            
+            for (let touch of touchList) {
+                const x = (touch.clientX - rect.left) * (canvas.width / rect.width);
+                const y = (touch.clientY - rect.top) * (canvas.height / rect.height);
+                
+                if (isStart) {
+                    if (gameMode === 'pve') {
+                        if (y >= halfHeight) {
+                            touches[touch.identifier] = { player: 2, x, y };
+                            player2.touching = true;
+                            player2.targetX = x;
+                            player2.targetY = y;
+                        }
+                    } else {
+                        if (y < halfHeight) {
+                            touches[touch.identifier] = { player: 1, x, y };
+                            player1.touching = true;
+                            player1.targetX = x;
+                            player1.targetY = y;
+                        } else {
+                            touches[touch.identifier] = { player: 2, x, y };
+                            player2.touching = true;
+                            player2.targetX = x;
+                            player2.targetY = y;
+                        }
+                    }
+                } else {
+                    if (touches[touch.identifier]) {
+                        const playerNum = touches[touch.identifier].player;
+                        touches[touch.identifier].x = x;
+                        touches[touch.identifier].y = y;
+                        
+                        if (playerNum === 1 && !player1.isAI) {
+                            player1.targetX = x;
+                            player1.targetY = y;
+                        } else if (playerNum === 2 && !player2.isAI) {
+                            player2.targetX = x;
+                            player2.targetY = y;
+                        }
+                    }
+                }
+            }
+        }
+
+        // ============ 繪製函數 ============
+        function drawBackground() {
+            const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+            gradient.addColorStop(0, '#0a0a2e');
+            gradient.addColorStop(0.3, '#1a1a4e');
+            gradient.addColorStop(0.5, '#2a1a3e');
+            gradient.addColorStop(0.7, '#1a1a4e');
+            gradient.addColorStop(1, '#0a0a2e');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            for (let star of stars) {
+                star.update();
+                star.draw();
+            }
+            
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+            ctx.lineWidth = 3;
+            ctx.setLineDash([15, 15]);
+            ctx.beginPath();
+            ctx.moveTo(0, canvas.height / 2);
+            ctx.lineTo(canvas.width, canvas.height / 2);
+            ctx.stroke();
+            ctx.setLineDash([]);
+        }
+
+        function drawMenuButton() {
+            // 中間的返回按鈕
+            const btnX = canvas.width / 2;
+            const btnY = canvas.height / 2;
+            
+            ctx.fillStyle = 'rgba(80, 80, 80, 0.7)';
+            ctx.strokeStyle = '#888888';
+            ctx.lineWidth = 2;
+            roundRect(ctx, btnX - 35, btnY - 15, 70, 30, 5, true, true);
+            
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold 12px Arial';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('⬅ 返回', btnX, btnY);
+        }
+
+        function drawUI() {
+            const heartFull = '❤️';
+            const heartEmpty = '🖤';
+            
+            ctx.font = 'bold 18px Arial';
+            ctx.textAlign = 'left';
+            
+            // 玩家1 UI
+            let p1Hearts = '';
+            for (let i = 0; i < CONFIG.maxLives; i++) {
+                p1Hearts += i < player1.lives ? heartFull : heartEmpty;
+            }
+            ctx.fillStyle = player1.planeType.color;
+            const p1Label = player1.isAI ? `🤖 ${player1.planeType.name}` : `P1 ${player1.planeType.name}`;
+            ctx.fillText(p1Label, 10, 25);
+            ctx.font = '16px Arial';
+            ctx.fillText(p1Hearts, 10, 48);
+            
+            if (player1.planeType.id === 'progress') {
+                ctx.font = '12px Arial';
+                ctx.fillText(`攻速: ${Math.round(player1.attackSpeedBonus * 100)}%`, 10, 68);
+            }
+            
+            if (player1.jammed) {
+                ctx.fillStyle = '#aa00ff';
+                ctx.font = 'bold 12px Arial';
+                ctx.fillText('⚡ 被干擾中', 10, 85);
+            }
+            
+            // 玩家2 UI (翻轉)
+            ctx.save();
+            ctx.translate(canvas.width, canvas.height);
+            ctx.rotate(Math.PI);
+            
+            let p2Hearts = '';
+            for (let i = 0; i < CONFIG.maxLives; i++) {
+                p2Hearts += i < player2.lives ? heartFull : heartEmpty;
+            }
+            ctx.font = 'bold 18px Arial';
+            ctx.fillStyle = player2.planeType.color;
+            const p2Label = player2.isAI ? `🤖 ${player2.planeType.name}` : `P2 ${player2.planeType.name}`;
+            ctx.fillText(p2Label, 10, 25);
+            ctx.font = '16px Arial';
+            ctx.fillText(p2Hearts, 10, 48);
+            
+            if (player2.planeType.id === 'progress') {
+                ctx.font = '12px Arial';
+                ctx.fillText(`攻速: ${Math.round(player2.attackSpeedBonus * 100)}%`, 10, 68);
+            }
+            
+            if (player2.jammed) {
+                ctx.fillStyle = '#aa00ff';
+                ctx.font = 'bold 12px Arial';
+                ctx.fillText('⚡ 被干擾中', 10, 85);
+            }
+            
+            ctx.restore();
+            
+            // 繪製返回按鈕
+            drawMenuButton();
+        }
+
+        function drawBackButton(y) {
+            const centerX = canvas.width / 2;
+            ctx.fillStyle = 'rgba(100, 100, 100, 0.5)';
+            ctx.strokeStyle = '#888888';
+            ctx.lineWidth = 2;
+            roundRect(ctx, centerX - 60, y, 120, 40, 8, true, true);
+            
+            ctx.fillStyle = '#cccccc';
+            ctx.font = 'bold 16px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('⬅ 返回', centerX, y + 26);
+        }
+
+        function drawStartScreen() {
+            drawBackground();
+            
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold 28px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('✈️ 雙人熱座飛機對戰 ✈️', canvas.width / 2, canvas.height / 2 - 80);
+            
+            ctx.font = '16px Arial';
+            ctx.fillStyle = '#aaaaff';
+            ctx.fillText('支援雙人對戰與人機對決', canvas.width / 2, canvas.height / 2 - 40);
+            ctx.fillText('9種獨特機種，各有特殊能力！', canvas.width / 2, canvas.height / 2 - 15);
+            ctx.fillText(`每人 ${CONFIG.maxLives} 條生命`, canvas.width / 2, canvas.height / 2 + 10);
+            
+            ctx.fillStyle = 'rgba(0, 200, 255, 0.3)';
+            ctx.strokeStyle = '#00ccff';
+            ctx.lineWidth = 3;
+            roundRect(ctx, canvas.width / 2 - 80, canvas.height / 2 + 40, 160, 50, 10, true, true);
+            
+            ctx.fillStyle = '#00ffff';
+            ctx.font = 'bold 22px Arial';
+            ctx.fillText('點擊開始', canvas.width / 2, canvas.height / 2 + 73);
+        }
+
+        function drawModeSelectScreen() {
+            drawBackground();
+            
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold 28px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('🎮 選擇遊戲模式 🎮', canvas.width / 2, canvas.height / 2 - 120);
+            
+            const btnWidth = 200;
+            const btnHeight = 60;
+            const centerX = canvas.width / 2;
+            
+            const pvpY = canvas.height / 2 - 50;
+            ctx.fillStyle = 'rgba(0, 200, 100, 0.3)';
+            ctx.strokeStyle = '#00ff88';
+            ctx.lineWidth = 3;
+            roundRect(ctx, centerX - btnWidth / 2, pvpY, btnWidth, btnHeight, 10, true, true);
+            
+            ctx.fillStyle = '#00ff88';
+            ctx.font = 'bold 22px Arial';
+            ctx.fillText('👥 雙人對戰', centerX, pvpY + 38);
+            
+            const pveY = canvas.height / 2 + 30;
+            ctx.fillStyle = 'rgba(255, 100, 100, 0.3)';
+            ctx.strokeStyle = '#ff6666';
+            ctx.lineWidth = 3;
+            roundRect(ctx, centerX - btnWidth / 2, pveY, btnWidth, btnHeight, 10, true, true);
+            
+            ctx.fillStyle = '#ff6666';
+            ctx.font = 'bold 22px Arial';
+            ctx.fillText('🤖 人機對決', centerX, pveY + 38);
+            
+            ctx.font = '14px Arial';
+            ctx.fillStyle = '#888888';
+            ctx.fillText('雙人對戰：兩位玩家各控制一邊', centerX, canvas.height / 2 + 110);
+            ctx.fillText('人機對決：挑戰AI電腦', centerX, canvas.height / 2 + 130);
+            
+            drawBackButton(canvas.height / 2 + 160);
+        }
+
+        function drawAISelectScreen() {
+            drawBackground();
+            
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold 28px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('🤖 AI 機種選擇 🤖', canvas.width / 2, canvas.height / 2 - 120);
+            
+            const btnWidth = 220;
+            const btnHeight = 60;
+            const centerX = canvas.width / 2;
+            
+            const sameY = canvas.height / 2 - 50;
+            ctx.fillStyle = 'rgba(100, 150, 255, 0.3)';
+            ctx.strokeStyle = '#6699ff';
+            ctx.lineWidth = 3;
+            roundRect(ctx, centerX - btnWidth / 2, sameY, btnWidth, btnHeight, 10, true, true);
+            
+            ctx.fillStyle = '#6699ff';
+            ctx.font = 'bold 20px Arial';
+            ctx.fillText('🔄 與玩家相同', centerX, sameY + 38);
+            
+            const randomY = canvas.height / 2 + 30;
+            ctx.fillStyle = 'rgba(255, 150, 100, 0.3)';
+            ctx.strokeStyle = '#ff9966';
+            ctx.lineWidth = 3;
+            roundRect(ctx, centerX - btnWidth / 2, randomY, btnWidth, btnHeight, 10, true, true);
+            
+            ctx.fillStyle = '#ff9966';
+            ctx.font = 'bold 20px Arial';
+            ctx.fillText('🎲 隨機選擇', centerX, randomY + 38);
+            
+            ctx.font = '14px Arial';
+            ctx.fillStyle = '#888888';
+            ctx.fillText('選擇AI對手的飛機類型', centerX, canvas.height / 2 + 110);
+            
+            drawBackButton(canvas.height / 2 + 160);
+        }
+
+        function drawSelectScreen() {
+            drawBackground();
+            
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.85)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // 計算卡片大小和位置（3x3 置中）
+            const cardWidth = 110;
+            const cardHeight = 130;
+            const cols = 3;
+            const rows = 3;
+            const gap = 12;
+            const totalWidth = cols * cardWidth + (cols - 1) * gap;
+            const totalHeight = rows * cardHeight + (rows - 1) * gap;
+            const startX = (canvas.width - totalWidth) / 2;
+            const startY = (canvas.height - totalHeight) / 2 - 20;
+            
+            // 標題
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold 28px Arial';
+            ctx.textAlign = 'center';
+            
+            let titleText;
+            if (gameMode === 'pve') {
+                titleText = '🎯 選擇你的機種 🎯';
+            } else {
+                titleText = `🎮 玩家 ${selectingPlayer} 選擇機種 🎮`;
+            }
+            
+            const playerColor = gameMode === 'pve' ? '#ffaa00' : (selectingPlayer === 1 ? '#00ff88' : '#ff4488');
+            ctx.fillStyle = playerColor;
+            ctx.fillText(titleText, canvas.width / 2, startY - 25);
+            
+            for (let i = 0; i < PLANE_TYPES.length; i++) {
+                const plane = PLANE_TYPES[i];
+                const col = i % cols;
+                const row = Math.floor(i / cols);
+                const cardX = startX + col * (cardWidth + gap);
+                const cardY = startY + row * (cardHeight + gap);
+                
+                ctx.fillStyle = 'rgba(30, 30, 60, 0.9)';
+                ctx.strokeStyle = plane.color;
+                ctx.lineWidth = 3;
+                roundRect(ctx, cardX, cardY, cardWidth, cardHeight, 10, true, true);
+                
+                // 機種名稱（更大字體）
+                ctx.fillStyle = plane.color;
+                ctx.font = 'bold 16px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText(plane.name, cardX + cardWidth / 2, cardY + 24);
+                
+                // 能力標籤（更大字體）
+                ctx.fillStyle = '#ffff88';
+                ctx.font = 'bold 13px Arial';
+                ctx.fillText(`【${plane.ability}】`, cardX + cardWidth / 2, cardY + 44);
+                
+                // 說明文字（更大字體）
+                ctx.fillStyle = '#cccccc';
+                ctx.font = '11px Arial';
+                const lines = plane.description.split('\n');
+                lines.forEach((line, idx) => {
+                    ctx.fillText(line, cardX + cardWidth / 2, cardY + 62 + idx * 14);
+                });
+                
+                // 繪製小飛機圖示（稍微大一點）
+                ctx.save();
+                ctx.translate(cardX + cardWidth / 2, cardY + cardHeight - 18);
+                ctx.scale(0.4, 0.4);
+                
+                ctx.fillStyle = plane.color;
+                ctx.beginPath();
+                ctx.moveTo(0, -25);
+                ctx.lineTo(-12, 10);
+                ctx.lineTo(-8, 25);
+                ctx.lineTo(8, 25);
+                ctx.lineTo(12, 10);
+                ctx.closePath();
+                ctx.fill();
+                
+                ctx.fillStyle = plane.darkColor;
+                ctx.beginPath();
+                ctx.moveTo(-22, 5);
+                ctx.lineTo(-10, -5);
+                ctx.lineTo(10, -5);
+                ctx.lineTo(22, 5);
+                ctx.lineTo(10, 15);
+                ctx.lineTo(-10, 15);
+                ctx.closePath();
+                ctx.fill();
+                
+                ctx.restore();
+            }
+            
+            // 底部資訊區域
+            const bottomY = startY + totalHeight + 20;
+            
+            // 已選擇的顯示（僅雙人模式）
+            if (gameMode === 'pvp' && selectingPlayer === 2) {
+                ctx.fillStyle = '#00ff88';
+                ctx.font = 'bold 16px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText(`✓ P1 已選擇: ${PLANE_TYPES[selectedPlane1].name}`, canvas.width / 2, bottomY);
+            }
+            
+            // 人機模式提示
+            if (gameMode === 'pve') {
+                ctx.fillStyle = '#aaaaaa';
+                ctx.font = 'bold 14px Arial';
+                ctx.textAlign = 'center';
+                const aiText = aiMode === 'same' ? '🤖 AI將使用相同機種' : '🎲 AI將隨機選擇機種';
+                ctx.fillText(aiText, canvas.width / 2, bottomY);
+            }
+            
+            drawBackButton(bottomY + 15);
+        }
+
+        function drawEndScreen() {
+            drawBackground();
+            
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.75)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            ctx.font = 'bold 32px Arial';
+            ctx.textAlign = 'center';
+            
+            if (winner === 1) {
+                ctx.fillStyle = player1.planeType.color;
+                if (player1.isAI) {
+                    ctx.fillText(`🤖 AI 獲勝！🤖`, canvas.width / 2, canvas.height / 2 - 50);
+                } else {
+                    ctx.fillText(`🏆 玩家 1 獲勝！🏆`, canvas.width / 2, canvas.height / 2 - 50);
+                }
+                ctx.font = '20px Arial';
+                ctx.fillText(player1.planeType.name, canvas.width / 2, canvas.height / 2 - 15);
+            } else {
+                ctx.fillStyle = player2.planeType.color;
+                if (player2.isAI) {
+                    ctx.fillText(`🤖 AI 獲勝！🤖`, canvas.width / 2, canvas.height / 2 - 50);
+                } else if (gameMode === 'pve') {
+                    ctx.fillText(`🏆 你贏了！🏆`, canvas.width / 2, canvas.height / 2 - 50);
+                } else {
+                    ctx.fillText(`🏆 玩家 2 獲勝！🏆`, canvas.width / 2, canvas.height / 2 - 50);
+                }
+                ctx.font = '20px Arial';
+                ctx.fillText(player2.planeType.name, canvas.width / 2, canvas.height / 2 - 15);
+            }
+            
+            ctx.fillStyle = 'rgba(100, 100, 100, 0.5)';
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 3;
+            roundRect(ctx, canvas.width / 2 - 100, canvas.height / 2 + 25, 200, 60, 10, true, true);
+            
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold 22px Arial';
+            ctx.fillText('返回主選單', canvas.width / 2, canvas.height / 2 + 63);
+        }
+
+        function roundRect(ctx, x, y, width, height, radius, fill, stroke) {
+            ctx.beginPath();
+            ctx.moveTo(x + radius, y);
+            ctx.lineTo(x + width - radius, y);
+            ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
+            ctx.lineTo(x + width, y + height - radius);
+            ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+            ctx.lineTo(x + radius, y + height);
+            ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
+            ctx.lineTo(x, y + radius);
+            ctx.quadraticCurveTo(x, y, x + radius, y);
+            ctx.closePath();
+            if (fill) ctx.fill();
+            if (stroke) ctx.stroke();
+        }
+
+        // ============ 遊戲邏輯更新 ============
+        function update() {
+            if (gameState !== 'playing') return;
+            
+            // AI 更新
+            if (aiController) {
+                aiController.update(bullets);
+            }
+            
+            // 更新玩家
+            player1.update(bullets, player2);
+            player2.update(bullets, player1);
+            
+            // 更新子彈
+            for (let bullet of bullets) {
+                bullet.update();
+                
+                if (bullet.active) {
+                    if (bullet.owner === 1 && player2.checkCollision(bullet)) {
+                        bullet.active = false;
+                        
+                        if (bullet.type === 'vampire') {
+                            if (player2.hit(bullet)) {
+                                player1.lives = Math.min(CONFIG.maxLives, player1.lives + 1);
+                            }
+                        } else {
+                            player2.hit(bullet);
+                        }
+                        
+                        if (player2.lives <= 0) {
+                            winner = 1;
+                            gameState = 'end';
+                            AudioSystem.playWin();
+                        }
+                    } else if (bullet.owner === 2 && player1.checkCollision(bullet)) {
+                        bullet.active = false;
+                        
+                        if (bullet.type === 'vampire') {
+                            if (player1.hit(bullet)) {
+                                player2.lives = Math.min(CONFIG.maxLives, player2.lives + 1);
+                            }
+                        } else {
+                            player1.hit(bullet);
+                        }
+                        
+                        if (player1.lives <= 0) {
+                            winner = 2;
+                            gameState = 'end';
+                            AudioSystem.playWin();
+                        }
+                    }
+                }
+            }
+            
+            bullets = bullets.filter(b => b.active);
+            
+            // 更新雷射
+            for (let laser of lasers) {
+                laser.update(bullets);
+                
+                if (laser.active) {
+                    // 雷射傷害2點
+                    if (laser.owner === 1 && laser.checkHit(player2)) {
+                        if (!player2.invincible) {
+                            player2.hit({ type: 'laser' }, 2);
+                            if (player2.lives <= 0) {
+                                winner = 1;
+                                gameState = 'end';
+                                AudioSystem.playWin();
+                            }
+                        }
+                    } else if (laser.owner === 2 && laser.checkHit(player1)) {
+                        if (!player1.invincible) {
+                            player1.hit({ type: 'laser' }, 2);
+                            if (player1.lives <= 0) {
+                                winner = 2;
+                                gameState = 'end';
+                                AudioSystem.playWin();
+                            }
+                        }
+                    }
+                }
+            }
+            
+            lasers = lasers.filter(l => l.active);
+            
+            // 更新無人機
+            for (let drone of drones) {
+                drone.update(bullets);
+            }
+            drones = drones.filter(d => d.active);
+            
+            // 更新粒子
+            for (let particle of particles) {
+                particle.update();
+            }
+            particles = particles.filter(p => p.life > 0);
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            if (gameState === 'start') {
+                drawStartScreen();
+            } else if (gameState === 'modeSelect') {
+                drawModeSelectScreen();
+            } else if (gameState === 'aiSelect') {
+                drawAISelectScreen();
+            } else if (gameState === 'select') {
+                drawSelectScreen();
+            } else if (gameState === 'end') {
+                drawEndScreen();
+            } else {
+                drawBackground();
+                
+                for (let laser of lasers) {
+                    laser.draw();
+                }
+                
+                for (let bullet of bullets) {
+                    bullet.draw();
+                }
+                
+                for (let particle of particles) {
+                    particle.draw();
+                }
+                
+                for (let drone of drones) {
+                    drone.draw();
+                }
+                
+                player1.draw();
+                player2.draw();
+                
+                drawUI();
+            }
+        }
+
+        // ============ 主遊戲迴圈 ============
+        let lastTime = 0;
+        const targetFPS = 60;
+        const frameInterval = 1000 / targetFPS;
+
+        function gameLoop(currentTime) {
+            requestAnimationFrame(gameLoop);
+            
+            const deltaTime = currentTime - lastTime;
+            
+            if (deltaTime >= frameInterval) {
+                lastTime = currentTime - (deltaTime % frameInterval);
+                update();
+                draw();
+            }
+        }
+
+        // ============ 初始化 ============
+        initGame();
+        requestAnimationFrame(gameLoop);
+
+        window.addEventListener('resize', () => {
+            resizeCanvas();
+            if (player1 && player2) {
+                player1.x = Math.min(player1.x, canvas.width - player1.width / 2);
+                player2.x = Math.min(player2.x, canvas.width - player2.width / 2);
+                player1.y = Math.min(player1.y, canvas.height / 2 - player1.height / 2);
+                player2.y = Math.max(player2.y, canvas.height / 2 + player2.height / 2);
+            }
+            stars.forEach(star => {
+                star.x = Math.random() * canvas.width;
+            });
+        });
+    </script>
+</body>
+</html>
