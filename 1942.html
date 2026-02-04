@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>雙人熱座飛機對戰</title>
+    <title>雙人打飛機對戰</title>
     <style>
         * {
             margin: 0;
@@ -39,20 +39,20 @@
 
         // ============ 遊戲配置 ============
         const CONFIG = {
-            maxLives: 5,              // 改為5血
-            bulletSpeed: 20,
-            bulletInterval: 250,
-            planeAccel: 0.4,
-            maxSpeed: 6,
-            friction: 0.94,
+            maxLives: 5,
+            bulletSpeed: 5,
+            bulletInterval: 500,
+            planeAccel: 3.6,          // [修改] 大幅提升加速度 (原0.4 -> 1.2)
+            maxSpeed: 40,             // [修改] 提升最大速度 (原20 -> 30)
+            friction: 0.90,           // [修改] 調整摩擦力以配合新速度
             starCount: 80,
             invincibleTime: 90,
-            specialBulletScale: 4    // 特殊彈比普通彈大的倍數 (普通5 * 4 = 20倍視覺)
+            specialBulletScale: 4
         };
 
         // ============ AI 配置 ============
         const AI_CONFIG = {
-            reactionTime: 10,
+            reactionTime: 8,          // [修改] AI反應稍微加快以應對更快的速度
             dodgeDistance: 80,
             accuracy: 0.85,
             aggressiveness: 0.6,
@@ -65,28 +65,28 @@
                 id: 'vampire',
                 name: '血蝕者',
                 ability: '吸血',
-                description: '每10發射出吸血彈\n命中回復1血並扣敵1血',
+                description: '每5發射出吸血彈\n命中回復2血並扣敵1血', // [修改] 描述更新
                 color: '#ff3366',
                 darkColor: '#aa1144',
-                triggerCount: 10
+                triggerCount: 5
             },
             {
                 id: 'freezer',
                 name: '極寒使者',
                 ability: '凍結',
-                description: '每20發射出冰凍彈\n命中凍結敵人1秒',
+                description: '每10發射出冰凍彈\n命中凍結敵人3秒',     // [修改] 描述更新
                 color: '#00ddff',
                 darkColor: '#0088aa',
-                triggerCount: 20
+                triggerCount: 10
             },
             {
                 id: 'tracker',
                 name: '獵鷹眼',
                 ability: '追蹤',
-                description: '每60發射出追蹤彈\n自動追蹤敵機',
+                description: '每25發射出追蹤彈\n自動追蹤敵機',
                 color: '#ffaa00',
                 darkColor: '#aa7700',
-                triggerCount: 60  // 改為60次
+                triggerCount: 25  
             },
             {
                 id: 'laser',
@@ -96,52 +96,52 @@
                 color: '#ff00ff',
                 darkColor: '#aa00aa',
                 triggerCount: 0,
-                laserDamage: 2     // 雷射傷害3點
+                laserDamage: 2     
             },
             {
                 id: 'summoner',
                 name: '蜂巢指揮',
                 ability: '號召',
-                description: '每50發召喚2艘無人機\n助戰5秒',
+                description: '每20發召喚2艘無人機\n助戰5秒',
                 color: '#88ff00',
                 darkColor: '#55aa00',
-                triggerCount: 50
+                triggerCount: 20
             },
             {
                 id: 'shield',
                 name: '堡壘衛士',
                 ability: '護盾',
-                description: '每50發生成護盾\n免疫1次傷害',
+                description: '每10發生成護盾\n免疫1次傷害',
                 color: '#4488ff',
                 darkColor: '#2255aa',
-                triggerCount: 50
+                triggerCount: 10
             },
             {
                 id: 'progress',
                 name: '進化體',
                 ability: '進步',
-                description: '每30發攻速+10%\n可無限疊加',
+                description: '每10發攻速+10%\n可無限疊加',
                 color: '#aaffaa',
                 darkColor: '#66aa66',
-                triggerCount: 30
+                triggerCount: 10
             },
             {
                 id: 'jammer',
                 name: '電磁幽靈',
                 ability: '干擾',
-                description: '每40發自動干擾對方\n使其無法發射2秒',
+                description: '每15發自動干擾對方\n使其無法發射2秒',
                 color: '#aa00ff',
                 darkColor: '#6600aa',
-                triggerCount: 40
+                triggerCount: 15
             },
             {
                 id: 'bouncer',
                 name: '彈道大師',
                 ability: '迴力',
-                description: '每20發射出迴力彈\n可反彈牆壁4次',
+                description: '每15發射出迴力彈\n可反彈牆壁4次',
                 color: '#ff8844',
                 darkColor: '#aa5522',
-                triggerCount: 20
+                triggerCount: 15
             }
         ];
 
@@ -331,18 +331,17 @@
                 this.owner = owner;
                 this.type = type;
                 this.target = target;
-                // 普通彈半徑5，特殊彈根據類型不同：追蹤彈3倍(15)，其他10倍(50)
                 if (type === 'normal') {
                     this.radius = 5;
                 } else if (type === 'tracking') {
-                    this.radius = 15;  // 追蹤彈3倍
+                    this.radius = 15;
                 } else {
-                    this.radius = 50;  // 其他特殊彈10倍
+                    this.radius = 50;
                 }
                 this.vy = owner === 1 ? CONFIG.bulletSpeed : -CONFIG.bulletSpeed;
                 this.vx = 0;
                 this.active = true;
-                this.bounceCount = 0;  // 迴力彈反彈次數
+                this.bounceCount = 0;
                 this.maxBounces = type === 'bounce' ? 4 : 0;
             }
             
@@ -366,25 +365,21 @@
                 this.x += this.vx;
                 this.y += this.vy;
                 
-                // 迴力彈牆壁反彈邏輯（上下反彈）
                 if (this.type === 'bounce' && this.bounceCount < this.maxBounces) {
-                    // 檢查上邊界
                     if (this.y <= this.radius) {
-                        this.vy = Math.abs(this.vy); // 確保往下飛
+                        this.vy = Math.abs(this.vy);
                         this.y = this.radius;
                         this.bounceCount++;
                         AudioSystem.playBounce();
                     }
-                    // 檢查下邊界
                     else if (this.y >= canvas.height - this.radius) {
-                        this.vy = -Math.abs(this.vy); // 確保往上飛
+                        this.vy = -Math.abs(this.vy);
                         this.y = canvas.height - this.radius;
                         this.bounceCount++;
                         AudioSystem.playBounce();
                     }
                 }
                 
-                // 超出邊界
                 if (this.y < -50 || this.y > canvas.height + 50 ||
                     this.x < -50 || this.x > canvas.width + 50) {
                     this.active = false;
@@ -441,7 +436,6 @@
                     ctx.arc(this.x, this.y, this.radius * 1.5, 0, Math.PI * 2);
                     ctx.stroke();
                     
-                    // 額外光暈效果
                     ctx.strokeStyle = `${color1}88`;
                     ctx.lineWidth = 2;
                     ctx.beginPath();
@@ -454,7 +448,6 @@
                 ctx.arc(this.x, this.y, this.radius * 0.4, 0, Math.PI * 2);
                 ctx.fill();
                 
-                // 迴力彈顯示剩餘反彈次數
                 if (this.type === 'bounce') {
                     ctx.fillStyle = '#ffffff';
                     ctx.font = 'bold 16px Arial';
@@ -471,11 +464,11 @@
                 this.owner = owner;
                 this.x = x;
                 this.y = y;
-                this.width = 50;  // 雷射寬度（10倍普通彈）
+                this.width = 200;
                 this.duration = 60;
                 this.timer = this.duration;
                 this.active = true;
-                this.hasDealtDamage = false;  // 確保只造成一次傷害
+                this.hasDealtDamage = false;
             }
             
             update(bullets) {
@@ -484,7 +477,6 @@
                     this.active = false;
                 }
                 
-                // 消除敵方子彈
                 for (let bullet of bullets) {
                     if (bullet.owner !== this.owner && bullet.active) {
                         if (Math.abs(bullet.x - this.x) < this.width / 2 + bullet.radius) {
@@ -805,7 +797,7 @@
                 this.shotCount = 0;
                 this.frozen = false;
                 this.freezeTimer = 0;
-                this.jammed = false;        // 被干擾狀態
+                this.jammed = false;
                 this.jamTimer = 0;
                 this.hasShield = false;
                 this.attackSpeedBonus = 1;
@@ -815,7 +807,6 @@
             }
             
             update(bullets, otherPlayer) {
-                // 凍結狀態
                 if (this.frozen) {
                     this.freezeTimer--;
                     if (this.freezeTimer <= 0) {
@@ -824,7 +815,6 @@
                     return;
                 }
                 
-                // 干擾計時器更新
                 if (this.jammed) {
                     this.jamTimer--;
                     if (this.jamTimer <= 0) {
@@ -832,7 +822,6 @@
                     }
                 }
                 
-                // 雷射發射中
                 if (this.isLasering) {
                     this.laserTimer--;
                     if (this.laserTimer <= 0) {
@@ -841,7 +830,6 @@
                     return;
                 }
                 
-                // 雷射冷卻與發射
                 if (this.planeType.id === 'laser') {
                     this.laserCooldown--;
                     if (this.laserCooldown <= 0 && this.touching) {
@@ -853,7 +841,6 @@
                     }
                 }
                 
-                // 移動與射擊
                 if (this.touching && !this.isLasering) {
                     const dx = this.targetX - this.x;
                     const dy = this.targetY - this.y;
@@ -864,7 +851,6 @@
                         this.vy += (dy / dist) * CONFIG.planeAccel;
                     }
                     
-                    // 射擊（非雷射機種且未被干擾）
                     if (this.planeType.id !== 'laser' && !this.jammed) {
                         const now = Date.now();
                         const interval = CONFIG.bulletInterval / this.attackSpeedBonus;
@@ -952,9 +938,8 @@
                             skipBullet = true;
                             break;
                         case 'jammer':
-                            // 自動干擾對方，不發射干擾彈
                             otherPlayer.jammed = true;
-                            otherPlayer.jamTimer = 120; // 2秒
+                            otherPlayer.jamTimer = 120;
                             AudioSystem.playJam();
                             createExplosion(otherPlayer.x, otherPlayer.y, 'rgba(170, 0, 255, 1)');
                             skipBullet = true;
@@ -965,7 +950,6 @@
                     }
                 }
                 
-                // 發射子彈
                 if (!skipBullet) {
                     const target = bulletType === 'tracking' ? otherPlayer : null;
                     bullets.push(new Bullet(this.x, bulletY, this.id, bulletType, target));
@@ -990,7 +974,7 @@
                         this.lives -= 1;
                     } else if (bullet.type === 'freeze') {
                         this.frozen = true;
-                        this.freezeTimer = 60;
+                        this.freezeTimer = 180; // [修改] 凍結3秒 (60fps * 3 = 180)
                         AudioSystem.playFreeze();
                         this.lives--;
                     } else {
@@ -1009,7 +993,6 @@
             }
             
             draw() {
-                // 凍結效果
                 if (this.frozen) {
                     ctx.save();
                     ctx.globalAlpha = 0.5 + Math.sin(Date.now() * 0.01) * 0.3;
@@ -1020,7 +1003,6 @@
                     ctx.restore();
                 }
                 
-                // 干擾效果
                 if (this.jammed) {
                     ctx.save();
                     ctx.globalAlpha = 0.4 + Math.sin(Date.now() * 0.02) * 0.3;
@@ -1034,7 +1016,6 @@
                     ctx.restore();
                 }
                 
-                // 護盾效果
                 if (this.hasShield) {
                     ctx.save();
                     ctx.globalAlpha = 0.3 + Math.sin(Date.now() * 0.005) * 0.2;
@@ -1046,7 +1027,6 @@
                     ctx.restore();
                 }
                 
-                // 無敵閃爍
                 if (this.invincible && Math.floor(this.invincibleTimer / 4) % 2 === 0) {
                     return;
                 }
@@ -1061,7 +1041,6 @@
                 const mainColor = this.planeType.color;
                 const darkColor = this.planeType.darkColor;
                 
-                // 引擎火焰
                 if (!this.frozen) {
                     ctx.fillStyle = '#ff6600';
                     ctx.beginPath();
@@ -1080,7 +1059,6 @@
                     ctx.fill();
                 }
                 
-                // 機身
                 ctx.fillStyle = mainColor;
                 ctx.beginPath();
                 ctx.moveTo(0, -this.height / 2);
@@ -1091,7 +1069,6 @@
                 ctx.closePath();
                 ctx.fill();
                 
-                // 機翼
                 ctx.fillStyle = darkColor;
                 ctx.beginPath();
                 ctx.moveTo(-this.width / 2, 5);
@@ -1112,7 +1089,6 @@
                 ctx.closePath();
                 ctx.fill();
                 
-                // 駕駛艙
                 ctx.fillStyle = '#88ddff';
                 ctx.beginPath();
                 ctx.ellipse(0, -this.height / 6, 6, 12, 0, 0, Math.PI * 2);
@@ -1123,7 +1099,6 @@
                 ctx.ellipse(-2, -this.height / 6 - 4, 2, 4, 0, 0, Math.PI * 2);
                 ctx.fill();
                 
-                // AI標記
                 if (this.isAI) {
                     ctx.fillStyle = '#ff0000';
                     ctx.font = 'bold 10px Arial';
@@ -1133,7 +1108,6 @@
                 
                 ctx.restore();
                 
-                // 雷射蓄能顯示
                 if (this.planeType.id === 'laser' && !this.isLasering) {
                     const chargePercent = Math.max(0, 1 - this.laserCooldown / 300);
                     ctx.fillStyle = `rgba(255, 0, 255, ${chargePercent * 0.5})`;
@@ -1186,7 +1160,6 @@
             winner = null;
         }
 
-        // ============ 返回主選單函數 ============
         function returnToMenu() {
             gameState = 'start';
             bullets = [];
@@ -1221,7 +1194,6 @@
             handleInputStart(x, y);
             
             if (gameState === 'playing') {
-                // 檢查返回按鈕
                 if (checkMenuButton(x, y)) {
                     returnToMenu();
                     return;
@@ -1287,7 +1259,6 @@
                 handleInputStart(x, y);
                 
                 if (gameState === 'playing') {
-                    // 檢查返回按鈕
                     if (checkMenuButton(x, y)) {
                         returnToMenu();
                         return;
@@ -1298,7 +1269,6 @@
         }
 
         function checkMenuButton(x, y) {
-            // 中間的返回按鈕
             const btnX = canvas.width / 2;
             const btnY = canvas.height / 2;
             return Math.abs(x - btnX) < 40 && Math.abs(y - btnY) < 20;
@@ -1340,7 +1310,6 @@
             const btnHeight = 60;
             const centerX = canvas.width / 2;
             
-            // 返回按鈕
             const backY = canvas.height / 2 + 130;
             if (x >= centerX - 60 && x <= centerX + 60 &&
                 y >= backY && y <= backY + 40) {
@@ -1371,7 +1340,6 @@
             const btnHeight = 60;
             const centerX = canvas.width / 2;
             
-            // 返回按鈕
             const backY = canvas.height / 2 + 130;
             if (x >= centerX - 60 && x <= centerX + 60 &&
                 y >= backY && y <= backY + 40) {
@@ -1399,7 +1367,6 @@
         }
 
         function handleSelectInput(x, y) {
-            // 與 drawSelectScreen 中相同的卡片尺寸和位置計算
             const cardWidth = 110;
             const cardHeight = 130;
             const cols = 3;
@@ -1412,7 +1379,6 @@
             const bottomY = startY + totalHeight + 20;
             const centerX = canvas.width / 2;
             
-            // 返回按鈕
             const backY = bottomY + 15;
             if (x >= centerX - 60 && x <= centerX + 60 &&
                 y >= backY && y <= backY + 40) {
@@ -1560,7 +1526,6 @@
         }
 
         function drawMenuButton() {
-            // 中間的返回按鈕
             const btnX = canvas.width / 2;
             const btnY = canvas.height / 2;
             
@@ -1583,7 +1548,6 @@
             ctx.font = 'bold 18px Arial';
             ctx.textAlign = 'left';
             
-            // 玩家1 UI
             let p1Hearts = '';
             for (let i = 0; i < CONFIG.maxLives; i++) {
                 p1Hearts += i < player1.lives ? heartFull : heartEmpty;
@@ -1605,7 +1569,6 @@
                 ctx.fillText('⚡ 被干擾中', 10, 85);
             }
             
-            // 玩家2 UI (翻轉)
             ctx.save();
             ctx.translate(canvas.width, canvas.height);
             ctx.rotate(Math.PI);
@@ -1634,7 +1597,6 @@
             
             ctx.restore();
             
-            // 繪製返回按鈕
             drawMenuButton();
         }
 
@@ -1660,7 +1622,7 @@
             ctx.fillStyle = '#ffffff';
             ctx.font = 'bold 28px Arial';
             ctx.textAlign = 'center';
-            ctx.fillText('✈️ 雙人熱座飛機對戰 ✈️', canvas.width / 2, canvas.height / 2 - 80);
+            ctx.fillText('✈️ 雙人熱座打飛機對戰 ✈️', canvas.width / 2, canvas.height / 2 - 80);
             
             ctx.font = '16px Arial';
             ctx.fillStyle = '#aaaaff';
@@ -1769,7 +1731,6 @@
             ctx.fillStyle = 'rgba(0, 0, 0, 0.85)';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
             
-            // 計算卡片大小和位置（3x3 置中）
             const cardWidth = 110;
             const cardHeight = 130;
             const cols = 3;
@@ -1780,7 +1741,6 @@
             const startX = (canvas.width - totalWidth) / 2;
             const startY = (canvas.height - totalHeight) / 2 - 20;
             
-            // 標題
             ctx.fillStyle = '#ffffff';
             ctx.font = 'bold 28px Arial';
             ctx.textAlign = 'center';
@@ -1808,18 +1768,15 @@
                 ctx.lineWidth = 3;
                 roundRect(ctx, cardX, cardY, cardWidth, cardHeight, 10, true, true);
                 
-                // 機種名稱（更大字體）
                 ctx.fillStyle = plane.color;
                 ctx.font = 'bold 16px Arial';
                 ctx.textAlign = 'center';
                 ctx.fillText(plane.name, cardX + cardWidth / 2, cardY + 24);
                 
-                // 能力標籤（更大字體）
                 ctx.fillStyle = '#ffff88';
                 ctx.font = 'bold 13px Arial';
                 ctx.fillText(`【${plane.ability}】`, cardX + cardWidth / 2, cardY + 44);
                 
-                // 說明文字（更大字體）
                 ctx.fillStyle = '#cccccc';
                 ctx.font = '11px Arial';
                 const lines = plane.description.split('\n');
@@ -1827,7 +1784,6 @@
                     ctx.fillText(line, cardX + cardWidth / 2, cardY + 62 + idx * 14);
                 });
                 
-                // 繪製小飛機圖示（稍微大一點）
                 ctx.save();
                 ctx.translate(cardX + cardWidth / 2, cardY + cardHeight - 18);
                 ctx.scale(0.4, 0.4);
@@ -1856,10 +1812,8 @@
                 ctx.restore();
             }
             
-            // 底部資訊區域
             const bottomY = startY + totalHeight + 20;
             
-            // 已選擇的顯示（僅雙人模式）
             if (gameMode === 'pvp' && selectingPlayer === 2) {
                 ctx.fillStyle = '#00ff88';
                 ctx.font = 'bold 16px Arial';
@@ -1867,7 +1821,6 @@
                 ctx.fillText(`✓ P1 已選擇: ${PLANE_TYPES[selectedPlane1].name}`, canvas.width / 2, bottomY);
             }
             
-            // 人機模式提示
             if (gameMode === 'pve') {
                 ctx.fillStyle = '#aaaaaa';
                 ctx.font = 'bold 14px Arial';
@@ -1940,16 +1893,13 @@
         function update() {
             if (gameState !== 'playing') return;
             
-            // AI 更新
             if (aiController) {
                 aiController.update(bullets);
             }
             
-            // 更新玩家
             player1.update(bullets, player2);
             player2.update(bullets, player1);
             
-            // 更新子彈
             for (let bullet of bullets) {
                 bullet.update();
                 
@@ -1959,7 +1909,8 @@
                         
                         if (bullet.type === 'vampire') {
                             if (player2.hit(bullet)) {
-                                player1.lives = Math.min(CONFIG.maxLives, player1.lives + 1);
+                                // [修改] 吸血回復量改為 2
+                                player1.lives = Math.min(CONFIG.maxLives, player1.lives + 2);
                             }
                         } else {
                             player2.hit(bullet);
@@ -1975,7 +1926,8 @@
                         
                         if (bullet.type === 'vampire') {
                             if (player1.hit(bullet)) {
-                                player2.lives = Math.min(CONFIG.maxLives, player2.lives + 1);
+                                // [修改] 吸血回復量改為 2
+                                player2.lives = Math.min(CONFIG.maxLives, player2.lives + 2);
                             }
                         } else {
                             player1.hit(bullet);
@@ -1992,12 +1944,10 @@
             
             bullets = bullets.filter(b => b.active);
             
-            // 更新雷射
             for (let laser of lasers) {
                 laser.update(bullets);
                 
                 if (laser.active) {
-                    // 雷射傷害2點
                     if (laser.owner === 1 && laser.checkHit(player2)) {
                         if (!player2.invincible) {
                             player2.hit({ type: 'laser' }, 2);
@@ -2022,13 +1972,11 @@
             
             lasers = lasers.filter(l => l.active);
             
-            // 更新無人機
             for (let drone of drones) {
                 drone.update(bullets);
             }
             drones = drones.filter(d => d.active);
             
-            // 更新粒子
             for (let particle of particles) {
                 particle.update();
             }
