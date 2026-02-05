@@ -39,7 +39,7 @@
     次元裂隙：移動時可穿透所有英雄，不會被碰撞阻擋
     
     作者：AI Game Developer
-    版本：1.3
+    版本：1.5 (Fixes: Chaos Titan 10x, Forest Scout Physics, Time Mage Passive, RWD)
     ==========================================
     -->
     <style>
@@ -58,17 +58,34 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            min-height: 100vh;
-            min-height: -webkit-fill-available;
+            width: 100vw;
+            height: 100vh;
         }
         
+        /* RWD 調整：確保容器保持 9:16 比例，且適應視窗大小 */
         #gameContainer {
             position: relative;
+            background: #16213e;
+            overflow: hidden;
+            
+            /* 預設寬度優先 */
             width: 100%;
             max-width: 450px;
             aspect-ratio: 9/16;
-            background: #16213e;
-            overflow: hidden;
+            
+            /* 如果高度會超出視窗，則改以高度優先 */
+            max-height: 100vh;
+            
+            /* 陰影增加立體感 */
+            box-shadow: 0 0 30px rgba(0,0,0,0.5);
+        }
+        
+        /* 針對超長螢幕或手機的適配 */
+        @media (min-aspect-ratio: 9/16) {
+            #gameContainer {
+                height: 100vh;
+                width: auto; /* 寬度自動計算以維持比例 */
+            }
         }
         
         #gameCanvas {
@@ -157,12 +174,13 @@
             grid-template-columns: repeat(3, 1fr);
             gap: 10px;
             padding: 15px;
+            width: 100%;
             max-width: 320px;
         }
         
         .gacha-card {
-            width: 90px;
-            height: 90px;
+            width: 100%;
+            aspect-ratio: 1;
             border-radius: 12px;
             display: flex;
             flex-direction: column;
@@ -768,7 +786,7 @@
           abilities: ["擊中敵人額外造成15點火焰傷害"] },
         { id: 3, name: "森林斥候", rarity: "N", emoji: "🧝", hp: 85, damage: 22, 
           sizeType: "正常", size: SIZE_NORMAL, weightType: "輕", weight: WEIGHT_LIGHT,
-          abilities: ["此英雄不會移動，但能發射箭(箭碰到牆壁會反彈，直至擊中對方英雄；擊中滿血敵人時造成雙倍傷害)"],
+          abilities: ["自身回合停留原地發射反彈牆壁箭，對滿血敵人雙倍傷害"],
           isArcher: true },
         { id: 4, name: "河川精靈", rarity: "N", emoji: "💧", hp: 90, damage: 15, 
           sizeType: "小", size: SIZE_SMALL, weightType: "輕", weight: WEIGHT_LIGHT,
@@ -839,7 +857,7 @@
           abilities: ["對HP低於30%的敵人造成雙倍傷害"] },
         { id: 22, name: "光明女皇", rarity: "SSR", emoji: "👑", hp: 110, damage: 28, 
           sizeType: "正常", size: SIZE_NORMAL, weightType: "正常", weight: WEIGHT_NORMAL,
-          abilities: ["對方碰到牆壁會扣5點生命值"],
+          abilities: ["場上任何人碰到牆壁時：敵方扣5HP，我方補5HP"],
           isLightEmpress: true },
         { id: 23, name: "混沌泰坦", rarity: "SSR", emoji: "🌋", hp: 200, damage: 35, 
           sizeType: "巨大", size: SIZE_HUGE, weightType: "極重", weight: WEIGHT_VHEAVY,
@@ -1736,6 +1754,9 @@
         });
         
         allUnits.forEach(unit => {
+            // FIX: 移除森林斥候的強制鎖定，讓他能被撞飛
+            // if (unit.isArcher) { unit.vx = 0; unit.vy = 0; }
+
             if (Math.abs(unit.vx) > MIN_VELOCITY || Math.abs(unit.vy) > MIN_VELOCITY) {
                 anyMoving = true;
                 
@@ -1775,21 +1796,34 @@
                     addBattleLog(`⭐ ${unit.name} 星際反彈！攻擊力+10% (累計+${Math.floor(wallBounceDamageBonus * 100)}%)`, "ability");
                 }
                 
-                // 光明女皇能力：對方碰到牆壁會扣5點生命值
+                // FIX: 光明女皇能力 - 搜尋所有女皇，不只第一隻
                 if (hitWall) {
-                    // 檢查場上是否有光明女皇
-                    const lightEmpress = [...playerUnits, ...enemyUnits].find(u => u.alive && u.isLightEmpress);
-                    if (lightEmpress && unit.isEnemy !== lightEmpress.isEnemy) {
-                        // 對方陣營碰牆扣血
-                        unit.currentHp -= 5;
-                        showDamagePopup(unit.x, unit.y - unit.size, 5);
-                        addBattleLog(`👑 光明女皇：${unit.name} 碰牆扣 5HP！`, "damage", lightEmpress.isEnemy ? 'enemy' : 'player');
+                    const empresses = [...playerUnits, ...enemyUnits].filter(u => u.alive && u.isLightEmpress);
+                    empresses.forEach(empress => {
+                        // 如果撞牆者已經死亡，停止處理
+                        if (!unit.alive) return;
+
+                        if (unit.isEnemy !== empress.isEnemy) {
+                            // 敵方陣營碰牆扣血
+                            unit.currentHp -= 5;
+                            showDamagePopup(unit.x, unit.y - unit.size, 5);
+                            addBattleLog(`👑 光明女皇：${unit.name} 碰牆扣 5HP！`, "damage", empress.isEnemy ? 'enemy' : 'player');
+                        } else {
+                            // 己方陣營碰牆補血
+                            const healAmount = Math.min(unit.maxHp - unit.currentHp, 5);
+                            if (healAmount > 0) {
+                                unit.currentHp += healAmount;
+                                showDamagePopup(unit.x, unit.y - unit.size, healAmount, true);
+                                addBattleLog(`👑 光明女皇：${unit.name} 碰牆補 5HP！`, "heal", empress.isEnemy ? 'enemy' : 'player');
+                            }
+                        }
+
                         if (unit.currentHp <= 0) {
                             unit.alive = false;
-                            if (!lightEmpress.isEnemy) energy++;
+                            if (!empress.isEnemy && unit.isEnemy) energy++; // 如果是被我方女皇弄死的敵人
                             addBattleLog(`☠️ ${unit.name} 被光明女皇擊敗！`, "death");
                         }
-                    }
+                    });
                 }
                 
                 // 單位間碰撞
@@ -1813,6 +1847,9 @@
     }
     
     function handleCollision(unit1, unit2) {
+        // FIX: 移除森林斥候的強制鎖定與物理豁免，讓他可以被物理碰撞
+        // 刪除原本的 `if (unit1.isArcher || unit2.isArcher)` 區塊
+
         // 確定當前回合是哪一方
         const isPlayerTurnNow = activeAttacker && !activeAttacker.isEnemy;
         const isEnemyTurnNow = activeAttacker && activeAttacker.isEnemy;
@@ -2072,7 +2109,7 @@
             });
         }
         
-        // 混沌泰坦：隨機效果
+        // FIX: 混沌泰坦：隨機效果，將力度倍率恢復為 10 倍
         if (attacker.name === "混沌泰坦" || attacker.isChaosTitan) {
             const roll = Math.random();
             if (roll < 0.33) {
@@ -2086,7 +2123,7 @@
                 showDamagePopup(attacker.x, attacker.y - attacker.size, 30, true);
                 addBattleLog(`🌋 混沌力量：自我治療 30HP！`, "heal");
             } else {
-                // 10倍力度（下回合）
+                // FIX: 10倍力度（下回合）
                 attacker.chaosPowerBoost = true;
                 addBattleLog(`🌋 混沌力量：${attacker.name} 下回合力度10倍！`, "ability");
             }
@@ -2096,7 +2133,9 @@
         if (defender.currentHp <= 0) {
             const hasRebirth = defender.abilities.some(a => a.includes("復活") || a.includes("重生"));
             if (hasRebirth && !defender.hasRevived) {
+                // FIX: 永恆鳳凰復活時同步更新 MaxHP，避免血條爆掉
                 const rebirthHp = Math.floor(defender.maxHp * 3.0); // 300% HP
+                defender.maxHp = rebirthHp; // 更新最大血量
                 defender.currentHp = rebirthHp;
                 defender.hasRevived = true;
                 showDamagePopup(defender.x, defender.y - defender.size, rebirthHp, true);
@@ -2247,17 +2286,20 @@
             });
             addBattleLog(`🌩️ 雷神之子回合結束！全體敵人受到 8 點傷害`, "ability", currentUnit.isEnemy ? 'enemy' : 'player');
         }
-        if (currentUnit) {
-            // 時空法師：只要生命值多於1時，每回合恢復100%滿血
-            if (currentUnit.isTimeMage && currentUnit.currentHp > 1) {
-                const healAmount = currentUnit.maxHp - currentUnit.currentHp;
+        
+        // FIX: 時空法師：不論是誰的回合結束，只要生命值多於1，每回合都恢復100%滿血
+        [...playerUnits, ...enemyUnits].forEach(u => {
+            if (u.isTimeMage && u.alive && u.currentHp > 1) {
+                const healAmount = u.maxHp - u.currentHp;
                 if (healAmount > 0) {
-                    currentUnit.currentHp = currentUnit.maxHp;
-                    showDamagePopup(currentUnit.x, currentUnit.y - currentUnit.size, healAmount, true);
-                    addBattleLog(`⏳ ${currentUnit.name} 時空回溯！恢復至滿血！`, "heal", currentUnit.isEnemy ? 'enemy' : 'player');
+                    u.currentHp = u.maxHp;
+                    showDamagePopup(u.x, u.y - u.size, healAmount, true);
+                    addBattleLog(`⏳ ${u.name} 時空回溯！恢復至滿血！`, "heal", u.isEnemy ? 'enemy' : 'player');
                 }
             }
-            
+        });
+        
+        if (currentUnit) {
             // 天使長回合結束治療
             if (currentUnit.abilities[0].includes("回合結束時治療")) {
                 const team = currentUnit.isEnemy ? enemyUnits : playerUnits;
@@ -2451,7 +2493,7 @@
             addBattleLog(`🛡️ ${unit.name} 鐵甲衝鋒！力度500%！`, "ability");
         }
         
-        // 混沌泰坦：檢查是否有10倍力度效果
+        // FIX: 混沌泰坦：恢復10倍力度效果
         if (unit.chaosPowerBoost) {
             power *= 10.0;
             addBattleLog(`🌋 ${unit.name} 混沌爆發！力度10倍！`, "ability");
@@ -2557,7 +2599,7 @@
                 addBattleLog(`🛡️ ${dragUnit.name} 鐵甲衝鋒！力度500%！`, "ability");
             }
             
-            // 混沌泰坦：檢查是否有10倍力度效果
+            // FIX: 混沌泰坦：檢查是否有10倍力度效果
             if (dragUnit.chaosPowerBoost) {
                 normalizedPower *= 10.0;
                 addBattleLog(`🌋 ${dragUnit.name} 混沌爆發！力度10倍！`, "ability");
