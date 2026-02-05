@@ -1,0 +1,3032 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Smashing Four HTML5 Mobile Web App</title>
+    <!--
+    ==========================================
+    🎮 Smashing Four HTML5 Mobile Web App 🎮
+    ==========================================
+    
+    【遊戲說明】
+    這是一款回合制物理碰撞對戰遊戲，玩家與 AI 各派出 4 名英雄進行對戰。
+    
+    【操作方式】
+    1. 首次進入遊戲會進行免費九連抽，獲得 9 名不同英雄（保底1張UR）
+    2. 從擁有的英雄中選擇 4 名組成隊伍
+    3. 對戰時採用交替回合制：
+       - 隨機決定先手方
+       - 每次只有一名英雄行動，然後切換到對方
+       - 點擊/觸控當前行動的英雄並拖拉
+       - 拖拉方向的反方向就是發射方向
+       - 拖拉距離決定力度（最高100%）
+       - 放開後英雄會飛出去
+    4. 英雄碰撞敵人會造成傷害，碰撞隊友可能觸發支援效果
+    5. 只有主動攻擊方會造成傷害，被動碰撞不會受傷（水晶魔像反彈除外）
+    6. 擊敗敵方或我方英雄被擊敗時都會獲得 👍能量
+    7. 可用 👍能量 升級我方英雄（最高Lv.2）
+    8. 先消滅對方全部英雄者獲勝！
+    
+    【稀有度】
+    N(灰) < R(綠) < SR(藍) < SSR(紫) < UR(金)
+    UR 英雄擁有兩項能力，Lv.2 時解鎖第二項能力
+    
+    【體型】微細 < 小 < 正常 < 大 < 巨大（每級2倍大小差距）
+    【重量】極輕 < 輕 < 正常 < 重 < 極重（影響擊退效果）
+    
+    【虛空帝皇特殊能力】
+    次元裂隙：移動時可穿透所有英雄，不會被碰撞阻擋
+    
+    作者：AI Game Developer
+    版本：1.3
+    ==========================================
+    -->
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+        }
+        
+        body {
+            background: #1a1a2e;
+            font-family: 'Arial', sans-serif;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            min-height: -webkit-fill-available;
+        }
+        
+        #gameContainer {
+            position: relative;
+            width: 100%;
+            max-width: 450px;
+            aspect-ratio: 9/16;
+            background: #16213e;
+            overflow: hidden;
+        }
+        
+        #gameCanvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+        
+        .screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: rgba(22, 33, 62, 0.98);
+            z-index: 10;
+        }
+        
+        .screen.active {
+            display: flex;
+        }
+        
+        .title {
+            font-size: 1.5em;
+            color: #ffd700;
+            text-align: center;
+            margin-bottom: 20px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+        }
+        
+        .btn {
+            padding: 12px 30px;
+            font-size: 1.1em;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            margin: 8px;
+            transition: transform 0.2s, box-shadow 0.2s;
+            font-weight: bold;
+        }
+        
+        .btn:active {
+            transform: scale(0.95);
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        }
+        
+        .btn-gold {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+            box-shadow: 0 4px 15px rgba(245, 87, 108, 0.4);
+        }
+        
+        .btn-success {
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+            color: white;
+        }
+        
+        .btn-info {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: white;
+        }
+        
+        .btn-small {
+            padding: 6px 12px;
+            font-size: 0.75em;
+            margin: 3px;
+        }
+        
+        /* Gacha Screen */
+        #gachaScreen {
+            background: radial-gradient(ellipse at center, #2d1b4e 0%, #1a1a2e 100%);
+            padding: 10px;
+        }
+        
+        #gachaCards {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            padding: 15px;
+            max-width: 320px;
+        }
+        
+        .gacha-card {
+            width: 90px;
+            height: 90px;
+            border-radius: 12px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        
+        .gacha-card:active {
+            transform: scale(0.95);
+        }
+        
+        .gacha-card .emoji {
+            font-size: 2.5em;
+        }
+        
+        .gacha-card .rarity-badge {
+            font-size: 0.7em;
+            margin-top: 5px;
+            padding: 2px 8px;
+            border-radius: 10px;
+            background: rgba(0,0,0,0.3);
+            color: white;
+        }
+        
+        /* Rarity Colors */
+        .rarity-N { background: linear-gradient(135deg, #5a5a5a 0%, #3d3d3d 100%); border: 3px solid #777; }
+        .rarity-R { background: linear-gradient(135deg, #2e7d32 0%, #1b5e20 100%); border: 3px solid #4caf50; }
+        .rarity-SR { background: linear-gradient(135deg, #1565c0 0%, #0d47a1 100%); border: 3px solid #42a5f5; }
+        .rarity-SSR { background: linear-gradient(135deg, #7b1fa2 0%, #4a148c 100%); border: 3px solid #ab47bc; }
+        .rarity-UR { background: linear-gradient(135deg, #ff8f00 0%, #e65100 100%); border: 3px solid #ffd700; box-shadow: 0 0 20px rgba(255, 215, 0, 0.6); }
+        
+        /* Team Select Screen */
+        #teamScreen {
+            padding: 10px;
+        }
+        
+        #heroGrid {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 8px;
+            max-height: 45%;
+            overflow-y: auto;
+            padding: 10px;
+            margin-bottom: 15px;
+        }
+        
+        .hero-select-card {
+            width: 65px;
+            height: 90px;
+            border-radius: 8px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.6em;
+            color: white;
+            text-align: center;
+            padding: 4px;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            position: relative;
+        }
+        
+        .hero-select-card.selected {
+            transform: scale(1.1);
+            box-shadow: 0 0 20px rgba(255, 255, 255, 0.8);
+        }
+        
+        .hero-select-card .order-badge {
+            position: absolute;
+            top: -8px;
+            right: -8px;
+            width: 22px;
+            height: 22px;
+            background: #ff4444;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 0.9em;
+        }
+        
+        #selectedTeam {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+            min-height: 70px;
+        }
+        
+        .team-slot {
+            width: 60px;
+            height: 65px;
+            border: 2px dashed #555;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #555;
+            font-size: 1.5em;
+        }
+        
+        .team-slot.filled {
+            border-style: solid;
+        }
+        
+        /* Hero Detail Modal */
+        #heroDetailModal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.85);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+        }
+        
+        #heroDetailModal.active {
+            display: flex;
+        }
+        
+        .modal-content {
+            background: #1e3a5f;
+            border-radius: 15px;
+            padding: 20px;
+            max-width: 85%;
+            max-height: 80%;
+            overflow-y: auto;
+            color: white;
+            text-align: center;
+        }
+        
+        .modal-content .hero-emoji {
+            font-size: 4em;
+            margin-bottom: 10px;
+        }
+        
+        .modal-content .hero-name {
+            font-size: 1.5em;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        
+        .modal-content .hero-stats {
+            margin: 15px 0;
+            text-align: left;
+            font-size: 0.9em;
+        }
+        
+        .modal-content .ability {
+            background: rgba(255,255,255,0.1);
+            padding: 10px;
+            border-radius: 8px;
+            margin: 8px 0;
+            text-align: left;
+            font-size: 0.85em;
+        }
+        
+        .ability-locked {
+            opacity: 0.5;
+        }
+        
+        .close-modal {
+            margin-top: 15px;
+        }
+        
+        /* Codex Screen */
+        #codexScreen {
+            padding: 10px;
+        }
+        
+        .sort-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 5px;
+            margin-bottom: 10px;
+        }
+        
+        .sort-btn {
+            padding: 5px 10px;
+            font-size: 0.7em;
+            border: 2px solid #555;
+            border-radius: 15px;
+            background: transparent;
+            color: #aaa;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .sort-btn.active {
+            border-color: #ffd700;
+            color: #ffd700;
+            background: rgba(255, 215, 0, 0.1);
+        }
+        
+        #codexGrid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 8px;
+            max-height: 60%;
+            overflow-y: auto;
+            padding: 10px;
+        }
+        
+        .codex-card {
+            width: 70px;
+            height: 85px;
+            border-radius: 8px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        
+        .codex-card:active {
+            transform: scale(0.95);
+        }
+        
+        .codex-card .emoji {
+            font-size: 1.8em;
+        }
+        
+        .codex-card .name {
+            font-size: 0.5em;
+            color: white;
+            margin-top: 3px;
+            text-align: center;
+        }
+        
+        /* Battle UI */
+        #battleUI {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            pointer-events: none;
+            z-index: 5;
+        }
+        
+        #topBar {
+            background: rgba(0,0,0,0.7);
+            padding: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            pointer-events: auto;
+        }
+        
+        .energy-display {
+            color: #ffd700;
+            font-size: 1.1em;
+            font-weight: bold;
+        }
+        
+        .turn-indicator {
+            color: white;
+            font-size: 0.9em;
+            padding: 5px 15px;
+            border-radius: 15px;
+        }
+        
+        .turn-player {
+            background: #4caf50;
+        }
+        
+        .turn-enemy {
+            background: #f44336;
+        }
+        
+        #turnOrderDisplay {
+            background: rgba(0,0,0,0.6);
+            padding: 5px 10px;
+            display: flex;
+            gap: 5px;
+            justify-content: center;
+            align-items: center;
+            pointer-events: none;
+        }
+        
+        .turn-order-icon {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.9em;
+            border: 2px solid #555;
+            background: rgba(0,0,0,0.5);
+        }
+        
+        .turn-order-icon.current {
+            border-color: #ffd700;
+            box-shadow: 0 0 10px #ffd700;
+            transform: scale(1.2);
+        }
+        
+        .turn-order-icon.player-side {
+            border-color: #4caf50;
+        }
+        
+        .turn-order-icon.enemy-side {
+            border-color: #f44336;
+        }
+        
+        .turn-separator {
+            color: #888;
+            font-size: 0.8em;
+            margin: 0 3px;
+        }
+        
+        #upgradePanel {
+            position: absolute;
+            bottom: 50px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.9);
+            padding: 10px;
+            border-radius: 10px;
+            display: none;
+            pointer-events: auto;
+        }
+        
+        #upgradePanel.active {
+            display: block;
+        }
+        
+        .upgrade-btn {
+            padding: 8px 15px;
+            margin: 3px;
+            font-size: 0.75em;
+            border: none;
+            border-radius: 5px;
+            background: #673ab7;
+            color: white;
+            cursor: pointer;
+        }
+        
+        .upgrade-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        /* Battle Log - 固定在畫面底部，左右分欄 */
+        #battleLog {
+            position: fixed;
+            bottom: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: calc(100% - 20px);
+            max-width: 430px;
+            height: 100px;
+            background: rgba(0,0,0,0.9);
+            border-radius: 8px;
+            padding: 5px;
+            font-size: 0.6em;
+            color: #ccc;
+            pointer-events: auto;
+            z-index: 100;
+            display: flex;
+            flex-direction: row !important;
+            gap: 5px;
+        }
+        
+        .log-column {
+            flex: 1;
+            width: 50%;
+            height: 90px;
+            overflow-y: auto;
+            padding: 3px;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .log-column-player {
+            border-right: 2px solid #4caf50;
+        }
+        
+        .log-column-enemy {
+            border-left: 2px solid #f44336;
+        }
+        
+        .log-header {
+            font-weight: bold;
+            text-align: center;
+            padding: 2px;
+            margin-bottom: 3px;
+            border-radius: 3px;
+        }
+        
+        .log-header-player {
+            background: rgba(76, 175, 80, 0.3);
+            color: #4caf50;
+        }
+        
+        .log-header-enemy {
+            background: rgba(244, 67, 54, 0.3);
+            color: #f44336;
+        }
+        
+        .log-entry {
+            margin: 2px 0;
+            padding: 2px 4px;
+            border-left: 2px solid #555;
+            font-size: 0.95em;
+        }
+        
+        .log-round {
+            color: #ffd700;
+            font-weight: bold;
+        }
+        
+        .log-damage {
+            border-left-color: #f44336;
+        }
+        
+        .log-heal {
+            border-left-color: #4caf50;
+        }
+        
+        .log-ability {
+            border-left-color: #ffd700;
+        }
+        
+        .log-death {
+            border-left-color: #9c27b0;
+            color: #ff9800;
+        }
+        
+        /* Result Screen */
+        #resultScreen {
+            background: rgba(0,0,0,0.9);
+        }
+        
+        .result-title {
+            font-size: 2.5em;
+            margin-bottom: 20px;
+        }
+        
+        .result-win {
+            color: #ffd700;
+            text-shadow: 0 0 20px rgba(255, 215, 0, 0.8);
+        }
+        
+        .result-lose {
+            color: #ff4444;
+        }
+        
+        /* Damage popup */
+        .damage-popup {
+            position: absolute;
+            pointer-events: none;
+            font-weight: bold;
+            font-size: 1.2em;
+            text-shadow: 2px 2px 2px rgba(0,0,0,0.8);
+            animation: floatUp 1s ease-out forwards;
+            z-index: 50;
+        }
+        
+        @keyframes floatUp {
+            0% { opacity: 1; transform: translateY(0) scale(1); }
+            100% { opacity: 0; transform: translateY(-40px) scale(1.5); }
+        }
+        
+        /* Scrollbar styling */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(255,255,255,0.1);
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255,255,255,0.3);
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body>
+    <div id="gameContainer">
+        <canvas id="gameCanvas"></canvas>
+        
+        <!-- Title Screen -->
+        <div id="titleScreen" class="screen active">
+            <h1 class="title">⚔️ Smashing Four ⚔️</h1>
+            <p style="color: #aaa; margin-bottom: 20px; font-size: 0.9em;">HTML5 Mobile Edition</p>
+            <button class="btn btn-gold" id="startBtn">🎮 開始遊戲</button>
+            <button class="btn btn-info" id="codexBtn">📖 英雄圖鑑</button>
+        </div>
+        
+        <!-- Codex Screen -->
+        <div id="codexScreen" class="screen">
+            <h2 class="title">📖 英雄圖鑑</h2>
+            <p style="color: #aaa; font-size: 0.75em; margin-bottom: 8px;">共28名英雄，點擊查看詳情</p>
+            <div class="sort-buttons">
+                <button class="sort-btn active" data-sort="rarity">稀有度</button>
+                <button class="sort-btn" data-sort="size">體型</button>
+                <button class="sort-btn" data-sort="weight">重量</button>
+                <button class="sort-btn" data-sort="hp">生命值</button>
+                <button class="sort-btn" data-sort="damage">攻擊力</button>
+            </div>
+            <div id="codexGrid"></div>
+            <button class="btn btn-primary" id="backFromCodexBtn">返回</button>
+        </div>
+        
+        <!-- Gacha Screen -->
+        <div id="gachaScreen" class="screen">
+            <h2 class="title">🎰 免費九連抽！</h2>
+            <p style="color: #ffd700; margin-bottom: 10px; font-size: 0.85em;">保底1張UR！點擊查看詳情</p>
+            <div id="gachaCards"></div>
+            <button class="btn btn-primary" id="confirmGachaBtn">確認獲得 ✓</button>
+        </div>
+        
+        <!-- Team Select Screen -->
+        <div id="teamScreen" class="screen">
+            <h2 class="title">📋 選擇隊伍 (4名)</h2>
+            <p style="color: #aaa; font-size: 0.75em; margin-bottom: 10px;">長按查看詳情，點擊選擇/取消</p>
+            <div id="selectedTeam">
+                <div class="team-slot">1</div>
+                <div class="team-slot">2</div>
+                <div class="team-slot">3</div>
+                <div class="team-slot">4</div>
+            </div>
+            <div id="heroGrid"></div>
+            <button class="btn btn-success" id="startBattleBtn" disabled>開始對戰 ⚔️</button>
+        </div>
+        
+        <!-- Battle UI Overlay -->
+        <div id="battleUI" style="display:none;">
+            <div id="topBar">
+                <button class="btn" style="padding:5px 10px; font-size:0.7em; background:#666;" id="returnToMenuBtn">⬅返回</button>
+                <span class="energy-display">👍 <span id="energyCount">0</span></span>
+                <span class="turn-indicator" id="turnIndicator">玩家回合</span>
+                <button class="btn" style="padding:5px 10px; font-size:0.7em;" id="upgradeToggleBtn">升級</button>
+            </div>
+            <div id="turnOrderDisplay"></div>
+            <div id="upgradePanel"></div>
+        </div>
+        
+        <!-- Battle Log - 獨立於 battleUI，固定在底部 -->
+        <div id="battleLog" style="display:none;"></div>
+        
+        <!-- Result Screen -->
+        <div id="resultScreen" class="screen">
+            <h1 class="result-title" id="resultTitle">勝利！</h1>
+            <p style="color:#aaa; margin-bottom:20px;" id="resultStats"></p>
+            <button class="btn btn-primary" id="playAgainBtn">再來一局</button>
+            <button class="btn btn-gold" id="backToTeamBtn">重選隊伍</button>
+        </div>
+        
+        <!-- Hero Detail Modal -->
+        <div id="heroDetailModal">
+            <div class="modal-content" id="modalContent"></div>
+        </div>
+    </div>
+
+    <script>
+    // ==========================================
+    // 遊戲常數與配置
+    // ==========================================
+    const GAME_WIDTH = 360;
+    const GAME_HEIGHT = 640;
+    const ARENA_TOP = 100;
+    const ARENA_BOTTOM = 560;
+    const FRICTION = 0.98;
+    const BOUNCE = 0.85;
+    const MIN_VELOCITY = 0.5;
+    const MAX_POWER = 30;
+    
+    // 體型設定（每級2倍大小差距）
+    const SIZE_TINY = 14;
+    const SIZE_SMALL = 22;
+    const SIZE_NORMAL = 32;
+    const SIZE_LARGE = 48;
+    const SIZE_HUGE = 70;
+    
+    // 重量設定
+    const WEIGHT_VLIGHT = 0.4;
+    const WEIGHT_LIGHT = 0.7;
+    const WEIGHT_NORMAL = 1.0;
+    const WEIGHT_HEAVY = 1.5;
+    const WEIGHT_VHEAVY = 2.2;
+    
+    // ==========================================
+    // 28名英雄資料
+    // ==========================================
+    const ALL_HEROES = [
+        // N級 (4名) - 灰色
+        { id: 1, name: "石衛兵", rarity: "N", emoji: "🗿", hp: 120, damage: 18, 
+          sizeType: "大", size: SIZE_LARGE, weightType: "重", weight: WEIGHT_HEAVY,
+          abilities: ["被擊中時減少20%傷害"] },
+        { id: 2, name: "火焰小鬼", rarity: "N", emoji: "👹", hp: 70, damage: 28, 
+          sizeType: "小", size: SIZE_SMALL, weightType: "極輕", weight: WEIGHT_VLIGHT,
+          abilities: ["擊中敵人額外造成15點火焰傷害"] },
+        { id: 3, name: "森林斥候", rarity: "N", emoji: "🧝", hp: 85, damage: 22, 
+          sizeType: "正常", size: SIZE_NORMAL, weightType: "輕", weight: WEIGHT_LIGHT,
+          abilities: ["此英雄不會移動，但能發射箭(箭碰到牆壁會反彈，直至擊中對方英雄；擊中滿血敵人時造成雙倍傷害)"],
+          isArcher: true },
+        { id: 4, name: "河川精靈", rarity: "N", emoji: "💧", hp: 90, damage: 15, 
+          sizeType: "小", size: SIZE_SMALL, weightType: "輕", weight: WEIGHT_LIGHT,
+          abilities: ["碰撞隊友時治療20HP"] },
+        
+        // R級 (4名) - 綠色
+        { id: 5, name: "鐵甲騎士", rarity: "R", emoji: "🛡️", hp: 150, damage: 20, 
+          sizeType: "大", size: SIZE_LARGE, weightType: "極重", weight: WEIGHT_VHEAVY,
+          abilities: ["自身力度為500%"],
+          isIronKnight: true },
+        { id: 6, name: "雷霆法師", rarity: "R", emoji: "⚡", hp: 80, damage: 30, 
+          sizeType: "正常", size: SIZE_NORMAL, weightType: "輕", weight: WEIGHT_LIGHT,
+          abilities: ["擊中敵人時連鎖閃電傷害鄰近敵人12HP"] },
+        { id: 7, name: "暗影盜賊", rarity: "R", emoji: "🗡️", hp: 65, damage: 35, 
+          sizeType: "小", size: SIZE_SMALL, weightType: "極輕", weight: WEIGHT_VLIGHT,
+          abilities: ["擊中敵人時竊取15HP"] },
+        { id: 8, name: "大地薩滿", rarity: "R", emoji: "🌍", hp: 110, damage: 18, 
+          sizeType: "正常", size: SIZE_NORMAL, weightType: "正常", weight: WEIGHT_NORMAL,
+          abilities: ["碰撞隊友時給予25點護盾"] },
+        
+        // SR級 (8名) - 藍色
+        { id: 9, name: "熾焰鳳凰", rarity: "SR", emoji: "🔥", hp: 95, damage: 38, 
+          sizeType: "正常", size: SIZE_NORMAL, weightType: "輕", weight: WEIGHT_LIGHT,
+          abilities: ["擊中敵人施加灼燒，每回合損失10HP，持續2回合"] },
+        { id: 10, name: "冰霜巨人", rarity: "SR", emoji: "❄️", hp: 180, damage: 22, 
+          sizeType: "巨大", size: SIZE_HUGE, weightType: "極重", weight: WEIGHT_VHEAVY,
+          abilities: ["擊中敵人使其力度最多只有30%"] },
+        { id: 11, name: "雷神之子", rarity: "SR", emoji: "🌩️", hp: 100, damage: 32, 
+          sizeType: "正常", size: SIZE_NORMAL, weightType: "正常", weight: WEIGHT_NORMAL,
+          abilities: ["自身回合開始和完結時對所有敵人造成8點傷害"],
+          isThunderSon: true },
+        { id: 12, name: "自然守護者", rarity: "SR", emoji: "🌿", hp: 130, damage: 16, 
+          sizeType: "大", size: SIZE_LARGE, weightType: "正常", weight: WEIGHT_NORMAL,
+          abilities: ["每回合開始時治療所有隊友8HP"] },
+        { id: 13, name: "暗夜刺客", rarity: "SR", emoji: "🌙", hp: 60, damage: 45, 
+          sizeType: "微細", size: SIZE_TINY, weightType: "極輕", weight: WEIGHT_VLIGHT,
+          abilities: ["被隊友擊中時，立即對對方目前生命值最低的英雄隔空偷襲"],
+          isAmbusher: true },
+        { id: 14, name: "聖光祭司", rarity: "SR", emoji: "✨", hp: 90, damage: 15, 
+          sizeType: "正常", size: SIZE_NORMAL, weightType: "輕", weight: WEIGHT_LIGHT,
+          abilities: ["碰撞隊友時治療30HP並移除負面狀態"] },
+        { id: 15, name: "虛空行者", rarity: "SR", emoji: "🌀", hp: 85, damage: 28, 
+          sizeType: "小", size: SIZE_SMALL, weightType: "極輕", weight: WEIGHT_VLIGHT,
+          abilities: ["不會被任何英雄撞飛"],
+          isVoidWalker: true },
+        { id: 16, name: "水晶魔像", rarity: "SR", emoji: "💎", hp: 160, damage: 20, 
+          sizeType: "大", size: SIZE_LARGE, weightType: "極重", weight: WEIGHT_VHEAVY,
+          abilities: ["反彈受到傷害的30%給攻擊者"] },
+        
+        // SSR級 (8名) - 紫色
+        { id: 17, name: "龍騎將軍", rarity: "SSR", emoji: "🐉", hp: 140, damage: 35, 
+          sizeType: "大", size: SIZE_LARGE, weightType: "重", weight: WEIGHT_HEAVY,
+          abilities: ["被隊友碰撞或碰撞隊友時發射折射火焰（穿透所有英雄，可反彈牆壁3次）"],
+          isDragonGeneral: true },
+        { id: 18, name: "天使長", rarity: "SSR", emoji: "👼", hp: 120, damage: 25, 
+          sizeType: "正常", size: SIZE_NORMAL, weightType: "正常", weight: WEIGHT_NORMAL,
+          abilities: ["回合結束時治療所有存活隊友50HP"] },
+        { id: 19, name: "魔王領主", rarity: "SSR", emoji: "😈", hp: 130, damage: 38, 
+          sizeType: "大", size: SIZE_LARGE, weightType: "重", weight: WEIGHT_HEAVY,
+          abilities: ["自身生命值低於60%時，攻擊力提高100%"],
+          isDemonLord: true },
+        { id: 20, name: "時空法師", rarity: "SSR", emoji: "⏳", hp: 75, damage: 32, 
+          sizeType: "小", size: SIZE_SMALL, weightType: "輕", weight: WEIGHT_LIGHT,
+          abilities: ["只要生命值多於1時，每回合都恢復100%滿血"],
+          isTimeMage: true },
+        { id: 21, name: "死神使者", rarity: "SSR", emoji: "💀", hp: 90, damage: 50, 
+          sizeType: "正常", size: SIZE_NORMAL, weightType: "輕", weight: WEIGHT_LIGHT,
+          abilities: ["對HP低於30%的敵人造成雙倍傷害"] },
+        { id: 22, name: "光明女皇", rarity: "SSR", emoji: "👑", hp: 110, damage: 28, 
+          sizeType: "正常", size: SIZE_NORMAL, weightType: "正常", weight: WEIGHT_NORMAL,
+          abilities: ["對方碰到牆壁會扣5點生命值"],
+          isLightEmpress: true },
+        { id: 23, name: "混沌泰坦", rarity: "SSR", emoji: "🌋", hp: 200, damage: 35, 
+          sizeType: "巨大", size: SIZE_HUGE, weightType: "極重", weight: WEIGHT_VHEAVY,
+          abilities: ["擊中時隨機觸發：2倍傷害/治療自己30HP/10倍力度"],
+          isChaosTitan: true },
+        { id: 24, name: "海洋霸主", rarity: "SSR", emoji: "🌊", hp: 150, damage: 28, 
+          sizeType: "大", size: SIZE_LARGE, weightType: "重", weight: WEIGHT_HEAVY,
+          abilities: ["自身回合開始時，拉近敵人貼近自己"],
+          isOceanLord: true },
+        
+        // UR級 (4名) - 金色，雙能力
+        { id: 25, name: "宇宙龍神", rarity: "UR", emoji: "🌌", hp: 170, damage: 48, 
+          sizeType: "巨大", size: SIZE_HUGE, weightType: "重", weight: WEIGHT_HEAVY,
+          abilities: ["星爆衝擊：擊中敵人對周圍造成30範圍傷害", "星際反彈(Lv.2)：本回合每次反彈牆壁都能+10%攻擊力（僅持續該回合）"] },
+        { id: 26, name: "永恆鳳凰", rarity: "UR", emoji: "🦅", hp: 50, damage: 42, 
+          sizeType: "大", size: SIZE_LARGE, weightType: "正常", weight: WEIGHT_NORMAL,
+          abilities: ["浴火重生：首次被擊敗時復活300%HP", "煉獄烈焰(Lv.2)：所有敵人每回合損失12HP"] },
+        { id: 27, name: "虛空帝皇", rarity: "UR", emoji: "👁️", hp: 120, damage: 55, 
+          sizeType: "正常", size: SIZE_NORMAL, weightType: "正常", weight: WEIGHT_NORMAL,
+          abilities: ["次元裂隙：移動時穿透所有英雄，不會被碰撞阻擋", "靈魂收割(Lv.2)：擊敗敵人時恢復50HP"],
+          phaseThrough: true },
+        { id: 28, name: "神聖化身", rarity: "UR", emoji: "⭐", hp: 160, damage: 38, 
+          sizeType: "大", size: SIZE_LARGE, weightType: "正常", weight: WEIGHT_NORMAL,
+          abilities: ["聖光審判：擊中敵人時額外造成真實傷害25", "神之祝福(Lv.2)：所有隊友力度+100%"] }
+    ];
+    
+    // ==========================================
+    // 遊戲狀態變數
+    // ==========================================
+    let canvas, ctx;
+    let gameState = "title";
+    let ownedHeroes = [];
+    let selectedTeam = [];
+    let playerUnits = [];
+    let enemyUnits = [];
+    let isPlayerTurn = true;
+    let energy = 0;
+    let dragging = false;
+    let dragUnit = null;
+    let dragStart = { x: 0, y: 0 };
+    let dragEnd = { x: 0, y: 0 };
+    let animating = false;
+    let scale = 1;
+    let longPressTimer = null;
+    let glowPhase = 0;
+    let activeAttacker = null;
+    
+    // 交替回合系統 - 真正的雙方輪流
+    let currentSide = 'player'; // 'player' 或 'enemy'
+    let playerTurnIndex = 0;
+    let enemyTurnIndex = 0;
+    let roundNumber = 1;
+    let codexSortType = "rarity";
+    
+    // 碰撞追蹤（每對單位的碰撞計時，允許多次傷害但有冷卻）
+    let collisionCooldowns = new Map();
+    const COLLISION_COOLDOWN = 300; // 同一對單位碰撞冷卻時間（毫秒）
+    
+    // 視覺特效
+    let visualEffects = [];
+    
+    // 箭矢系統
+    let arrows = [];
+    
+    // 折射火焰系統（龍騎將軍）
+    let refractionFlames = [];
+    
+    // 牆壁反彈計數（宇宙龍神Lv.2）
+    let wallBounceCount = 0;
+    let wallBounceDamageBonus = 0;
+    
+    // 戰鬥日誌 - 分成玩家和敵方
+    let playerBattleLogs = [];
+    let enemyBattleLogs = [];
+    
+    // ==========================================
+    // 初始化
+    // ==========================================
+    function init() {
+        canvas = document.getElementById("gameCanvas");
+        ctx = canvas.getContext("2d");
+        
+        resizeCanvas();
+        window.addEventListener("resize", resizeCanvas);
+        
+        // 事件綁定
+        document.getElementById("startBtn").addEventListener("click", startGacha);
+        document.getElementById("codexBtn").addEventListener("click", showCodex);
+        document.getElementById("backFromCodexBtn").addEventListener("click", () => showScreen("title"));
+        document.getElementById("confirmGachaBtn").addEventListener("click", confirmGacha);
+        document.getElementById("startBattleBtn").addEventListener("click", startBattle);
+        document.getElementById("upgradeToggleBtn").addEventListener("click", toggleUpgradePanel);
+        document.getElementById("returnToMenuBtn").addEventListener("click", returnToMenu);
+        document.getElementById("playAgainBtn").addEventListener("click", () => startBattle());
+        document.getElementById("backToTeamBtn").addEventListener("click", showTeamSelect);
+        document.getElementById("heroDetailModal").addEventListener("click", (e) => {
+            if (e.target.id === "heroDetailModal") closeHeroDetail();
+        });
+        
+        // 排序按鈕
+        document.querySelectorAll(".sort-btn").forEach(btn => {
+            btn.addEventListener("click", () => {
+                document.querySelectorAll(".sort-btn").forEach(b => b.classList.remove("active"));
+                btn.classList.add("active");
+                codexSortType = btn.dataset.sort;
+                renderCodexGrid();
+            });
+        });
+        
+        // Canvas 事件
+        canvas.addEventListener("mousedown", handlePointerDown);
+        canvas.addEventListener("mousemove", handlePointerMove);
+        canvas.addEventListener("mouseup", handlePointerUp);
+        canvas.addEventListener("touchstart", handleTouchStart, { passive: false });
+        canvas.addEventListener("touchmove", handleTouchMove, { passive: false });
+        canvas.addEventListener("touchend", handleTouchEnd, { passive: false });
+        
+        // 檢查是否有存檔
+        const saved = localStorage.getItem("smashingFourHeroes");
+        if (saved) {
+            ownedHeroes = JSON.parse(saved);
+            showScreen("title");
+            document.getElementById("startBtn").textContent = "🎮 繼續遊戲";
+            document.getElementById("startBtn").onclick = showTeamSelect;
+        }
+        
+        gameLoop();
+    }
+    
+    function resizeCanvas() {
+        const container = document.getElementById("gameContainer");
+        const containerRect = container.getBoundingClientRect();
+        scale = containerRect.width / GAME_WIDTH;
+        
+        canvas.width = GAME_WIDTH;
+        canvas.height = GAME_HEIGHT;
+        canvas.style.width = containerRect.width + "px";
+        canvas.style.height = containerRect.height + "px";
+    }
+    
+    // ==========================================
+    // 畫面切換
+    // ==========================================
+    function showScreen(screenId) {
+        document.querySelectorAll(".screen").forEach(s => s.classList.remove("active"));
+        const screen = document.getElementById(screenId + "Screen");
+        if (screen) screen.classList.add("active");
+        
+        document.getElementById("battleUI").style.display = screenId === "battle" ? "block" : "none";
+        document.getElementById("battleLog").style.display = screenId === "battle" ? "block" : "none";
+        gameState = screenId;
+    }
+    
+    // ==========================================
+    // 圖鑑系統（支援多種排序）
+    // ==========================================
+    function showCodex() {
+        showScreen("codex");
+        renderCodexGrid();
+    }
+    
+    function renderCodexGrid() {
+        const grid = document.getElementById("codexGrid");
+        grid.innerHTML = "";
+        
+        const rarityOrder = { N: 0, R: 1, SR: 2, SSR: 3, UR: 4 };
+        const sizeOrder = { "微細": 0, "小": 1, "正常": 2, "大": 3, "巨大": 4 };
+        const weightOrder = { "極輕": 0, "輕": 1, "正常": 2, "重": 3, "極重": 4 };
+        
+        let sortedHeroes = [...ALL_HEROES];
+        
+        switch(codexSortType) {
+            case "rarity":
+                sortedHeroes.sort((a, b) => rarityOrder[b.rarity] - rarityOrder[a.rarity]);
+                break;
+            case "size":
+                sortedHeroes.sort((a, b) => sizeOrder[b.sizeType] - sizeOrder[a.sizeType]);
+                break;
+            case "weight":
+                sortedHeroes.sort((a, b) => weightOrder[b.weightType] - weightOrder[a.weightType]);
+                break;
+            case "hp":
+                sortedHeroes.sort((a, b) => b.hp - a.hp);
+                break;
+            case "damage":
+                sortedHeroes.sort((a, b) => b.damage - a.damage);
+                break;
+        }
+        
+        sortedHeroes.forEach(hero => {
+            const card = document.createElement("div");
+            card.className = `codex-card rarity-${hero.rarity}`;
+            card.innerHTML = `
+                <div class="emoji">${hero.emoji}</div>
+                <div class="name">${hero.name}</div>
+            `;
+            card.onclick = () => showHeroDetail(hero);
+            grid.appendChild(card);
+        });
+    }
+    
+    // ==========================================
+    // 抽卡系統（九連抽，3x3排列）
+    // ==========================================
+    function startGacha() {
+        showScreen("gacha");
+        
+        const pool = [...ALL_HEROES];
+        const pulled = [];
+        
+        // 先抽一張保底UR
+        const urPool = pool.filter(h => h.rarity === "UR");
+        const guaranteedUR = urPool[Math.floor(Math.random() * urPool.length)];
+        pulled.push(guaranteedUR);
+        pool.splice(pool.findIndex(h => h.id === guaranteedUR.id), 1);
+        
+        // 再抽8張不重複
+        for (let i = 0; i < 8; i++) {
+            const weights = pool.map(h => {
+                switch(h.rarity) {
+                    case "N": return 30;
+                    case "R": return 25;
+                    case "SR": return 20;
+                    case "SSR": return 15;
+                    case "UR": return 10;
+                    default: return 10;
+                }
+            });
+            const totalWeight = weights.reduce((a, b) => a + b, 0);
+            let random = Math.random() * totalWeight;
+            let selectedIndex = 0;
+            for (let j = 0; j < weights.length; j++) {
+                random -= weights[j];
+                if (random <= 0) {
+                    selectedIndex = j;
+                    break;
+                }
+            }
+            pulled.push(pool[selectedIndex]);
+            pool.splice(selectedIndex, 1);
+        }
+        
+        // 打亂順序
+        pulled.sort(() => Math.random() - 0.5);
+        ownedHeroes = pulled;
+        
+        // 顯示3x3卡片
+        const container = document.getElementById("gachaCards");
+        container.innerHTML = "";
+        
+        pulled.forEach((hero, index) => {
+            const card = document.createElement("div");
+            card.className = `gacha-card rarity-${hero.rarity}`;
+            card.innerHTML = `
+                <div class="emoji">${hero.emoji}</div>
+                <div class="rarity-badge">${hero.rarity}</div>
+            `;
+            card.onclick = () => showHeroDetail(hero);
+            container.appendChild(card);
+        });
+    }
+    
+    function confirmGacha() {
+        localStorage.setItem("smashingFourHeroes", JSON.stringify(ownedHeroes));
+        showTeamSelect();
+    }
+    
+    // ==========================================
+    // 組隊系統
+    // ==========================================
+    function showTeamSelect() {
+        showScreen("team");
+        selectedTeam = [];
+        updateTeamDisplay();
+        
+        const grid = document.getElementById("heroGrid");
+        grid.innerHTML = "";
+        
+        ownedHeroes.forEach((hero, index) => {
+            const card = document.createElement("div");
+            card.className = `hero-select-card rarity-${hero.rarity}`;
+            card.innerHTML = `
+                <div class="emoji" style="font-size:1.6em;">${hero.emoji}</div>
+                <div class="name" style="font-size:0.8em;">${hero.name}</div>
+                <div class="rarity">${hero.rarity}</div>
+            `;
+            
+            card.onclick = (e) => {
+                if (longPressTimer) return;
+                toggleHeroSelection(hero, card);
+            };
+            
+            card.onmousedown = card.ontouchstart = (e) => {
+                longPressTimer = setTimeout(() => {
+                    showHeroDetail(hero);
+                    longPressTimer = null;
+                }, 500);
+            };
+            
+            card.onmouseup = card.ontouchend = card.onmouseleave = () => {
+                if (longPressTimer) {
+                    clearTimeout(longPressTimer);
+                    longPressTimer = null;
+                }
+            };
+            
+            grid.appendChild(card);
+        });
+    }
+    
+    function toggleHeroSelection(hero, card) {
+        const index = selectedTeam.findIndex(h => h.id === hero.id);
+        
+        if (index >= 0) {
+            selectedTeam.splice(index, 1);
+            card.classList.remove("selected");
+            const badge = card.querySelector(".order-badge");
+            if (badge) badge.remove();
+        } else if (selectedTeam.length < 4) {
+            selectedTeam.push(hero);
+            card.classList.add("selected");
+            const badge = document.createElement("div");
+            badge.className = "order-badge";
+            badge.textContent = selectedTeam.length;
+            card.appendChild(badge);
+        }
+        
+        updateTeamDisplay();
+    }
+    
+    function updateTeamDisplay() {
+        const slots = document.querySelectorAll(".team-slot");
+        slots.forEach((slot, i) => {
+            if (selectedTeam[i]) {
+                slot.innerHTML = `<span style="font-size:1.8em;">${selectedTeam[i].emoji}</span>`;
+                slot.classList.add("filled");
+                slot.className = `team-slot filled rarity-${selectedTeam[i].rarity}`;
+            } else {
+                slot.innerHTML = i + 1;
+                slot.className = "team-slot";
+            }
+        });
+        
+        const btn = document.getElementById("startBattleBtn");
+        btn.disabled = selectedTeam.length !== 4;
+        
+        document.querySelectorAll(".hero-select-card").forEach(card => {
+            const badge = card.querySelector(".order-badge");
+            if (badge) {
+                const heroName = card.querySelector(".name").textContent;
+                const heroIndex = selectedTeam.findIndex(h => h.name === heroName);
+                if (heroIndex >= 0) {
+                    badge.textContent = heroIndex + 1;
+                }
+            }
+        });
+    }
+    
+    function showHeroDetail(hero) {
+        const modal = document.getElementById("heroDetailModal");
+        const content = document.getElementById("modalContent");
+        
+        const isUR = hero.rarity === "UR";
+        
+        content.innerHTML = `
+            <div class="hero-emoji">${hero.emoji}</div>
+            <div class="hero-name rarity-${hero.rarity}" style="padding:5px 15px;border-radius:20px;display:inline-block;">${hero.name}</div>
+            <div style="color:#ffd700;margin-top:5px;">${hero.rarity}級英雄</div>
+            <div class="hero-stats">
+                <p>❤️ 生命值: ${hero.hp}</p>
+                <p>⚔️ 攻擊力: ${hero.damage}</p>
+                <p>📏 體型: ${hero.sizeType}</p>
+                <p>⚖️ 重量: ${hero.weightType}</p>
+            </div>
+            <h4 style="color:#ffd700;margin-top:15px;">✨ 特殊能力</h4>
+            <div class="ability">
+                <strong>能力一:</strong> ${hero.abilities[0]}
+            </div>
+            ${isUR ? `
+            <div class="ability ability-locked">
+                <strong>能力二 (Lv.2解鎖):</strong> ${hero.abilities[1]}
+            </div>
+            ` : ''}
+            <button class="btn btn-primary close-modal" onclick="closeHeroDetail()">關閉</button>
+        `;
+        
+        modal.classList.add("active");
+    }
+    
+    function closeHeroDetail() {
+        document.getElementById("heroDetailModal").classList.remove("active");
+    }
+    
+    // ==========================================
+    // 戰鬥系統
+    // ==========================================
+    function startBattle() {
+        showScreen("battle");
+        gameState = "battle";
+        
+        // 初始化玩家單位
+        playerUnits = selectedTeam.map((hero, i) => createUnit(hero, i, false));
+        
+        // 生成AI隊伍
+        const aiTeam = generateAITeam();
+        enemyUnits = aiTeam.map((hero, i) => createUnit(hero, i, true));
+        
+        // 重置狀態
+        energy = 0;
+        animating = false;
+        dragging = false;
+        activeAttacker = null;
+        collisionCooldowns = new Map();
+        visualEffects = [];
+        arrows = [];
+        refractionFlames = [];
+        playerBattleLogs = [];
+        enemyBattleLogs = [];
+        roundNumber = 1;
+        wallBounceCount = 0;
+        wallBounceDamageBonus = 0;
+        clearBattleLogs();
+        
+        // 初始化交替回合順序
+        initTurnSystem();
+        
+        updateBattleUI();
+        
+        // 如果第一個行動的是敵方，執行AI
+        const firstUnit = getCurrentActionUnit();
+        if (firstUnit && firstUnit.isEnemy) {
+            isPlayerTurn = false;
+            setTimeout(aiTurn, 1000);
+        } else {
+            isPlayerTurn = true;
+        }
+        updateBattleUI();
+    }
+    
+    function createUnit(hero, index, isEnemy) {
+        const y = isEnemy ? ARENA_TOP + 60 + hero.size/2 : ARENA_BOTTOM - 60 - hero.size/2;
+        const spacing = GAME_WIDTH / 5;
+        const x = spacing * (index + 1);
+        
+        return {
+            ...hero,
+            x: x,
+            y: y,
+            vx: 0,
+            vy: 0,
+            currentHp: hero.hp,
+            maxHp: hero.hp,
+            currentDamage: hero.damage,
+            level: 1,
+            isEnemy: isEnemy,
+            alive: true,
+            effects: [],
+            shield: 0,
+            phaseThrough: hero.phaseThrough || false,
+            isDemonLord: hero.isDemonLord || false,
+            isLightEmpress: hero.isLightEmpress || false,
+            isTimeMage: hero.isTimeMage || false,
+            isVoidWalker: hero.isVoidWalker || false,
+            isThunderSon: hero.isThunderSon || false,
+            isIronKnight: hero.isIronKnight || false,
+            isChaosTitan: hero.isChaosTitan || false,
+            isAmbusher: hero.isAmbusher || false,
+            isArcher: hero.isArcher || false,
+            isDragonGeneral: hero.isDragonGeneral || false,
+            isOceanLord: hero.isOceanLord || false,
+            chaosPowerBoost: false
+        };
+    }
+    
+    function generateAITeam() {
+        // 從未被玩家選擇的英雄中隨機抽取4名
+        const available = ALL_HEROES.filter(h => !selectedTeam.find(s => s.id === h.id));
+        const team = [];
+        
+        // 建立加權隨機池（與抽卡相同的機率分佈）
+        const shuffled = [...available].sort(() => Math.random() - 0.5);
+        
+        for (let i = 0; i < 4 && shuffled.length > 0; i++) {
+            // 使用加權隨機選擇
+            const weights = shuffled.map(h => {
+                switch(h.rarity) {
+                    case "N": return 30;
+                    case "R": return 25;
+                    case "SR": return 20;
+                    case "SSR": return 15;
+                    case "UR": return 10;
+                    default: return 20;
+                }
+            });
+            
+            const totalWeight = weights.reduce((a, b) => a + b, 0);
+            let random = Math.random() * totalWeight;
+            let selectedIndex = 0;
+            
+            for (let j = 0; j < weights.length; j++) {
+                random -= weights[j];
+                if (random <= 0) {
+                    selectedIndex = j;
+                    break;
+                }
+            }
+            
+            const selected = shuffled[selectedIndex];
+            team.push({...selected});
+            shuffled.splice(selectedIndex, 1);
+        }
+        
+        return team;
+    }
+    
+    function initTurnSystem() {
+        // 隨機決定先手
+        currentSide = Math.random() > 0.5 ? 'player' : 'enemy';
+        playerTurnIndex = 0;
+        enemyTurnIndex = 0;
+        roundNumber = 1;
+        
+        addBattleLog(`【第 ${roundNumber} 回合】`, "round", currentSide === 'player' ? 'player' : 'enemy');
+    }
+    
+    function getCurrentActionUnit() {
+        if (currentSide === 'player') {
+            const alivePlayers = playerUnits.filter(u => u.alive);
+            if (alivePlayers.length === 0) return null;
+            return alivePlayers[playerTurnIndex % alivePlayers.length];
+        } else {
+            const aliveEnemies = enemyUnits.filter(u => u.alive);
+            if (aliveEnemies.length === 0) return null;
+            return aliveEnemies[enemyTurnIndex % aliveEnemies.length];
+        }
+    }
+    
+    function getNextUnits(count) {
+        // 獲取接下來幾個行動單位的預覽
+        const result = [];
+        let tempSide = currentSide;
+        let tempPlayerIdx = playerTurnIndex;
+        let tempEnemyIdx = enemyTurnIndex;
+        
+        const alivePlayers = playerUnits.filter(u => u.alive);
+        const aliveEnemies = enemyUnits.filter(u => u.alive);
+        
+        for (let i = 0; i < count && (alivePlayers.length > 0 || aliveEnemies.length > 0); i++) {
+            if (tempSide === 'player' && alivePlayers.length > 0) {
+                result.push({ unit: alivePlayers[tempPlayerIdx % alivePlayers.length], type: 'player' });
+                tempPlayerIdx++;
+                tempSide = aliveEnemies.length > 0 ? 'enemy' : 'player';
+            } else if (tempSide === 'enemy' && aliveEnemies.length > 0) {
+                result.push({ unit: aliveEnemies[tempEnemyIdx % aliveEnemies.length], type: 'enemy' });
+                tempEnemyIdx++;
+                tempSide = alivePlayers.length > 0 ? 'player' : 'enemy';
+            } else if (alivePlayers.length > 0) {
+                result.push({ unit: alivePlayers[tempPlayerIdx % alivePlayers.length], type: 'player' });
+                tempPlayerIdx++;
+            } else if (aliveEnemies.length > 0) {
+                result.push({ unit: aliveEnemies[tempEnemyIdx % aliveEnemies.length], type: 'enemy' });
+                tempEnemyIdx++;
+            }
+        }
+        
+        return result;
+    }
+    
+    function updateBattleUI() {
+        document.getElementById("energyCount").textContent = energy;
+        
+        const currentUnit = getCurrentActionUnit();
+        isPlayerTurn = currentSide === 'player';
+        
+        const indicator = document.getElementById("turnIndicator");
+        indicator.textContent = isPlayerTurn ? `玩家回合 R${roundNumber}` : `敵方回合 R${roundNumber}`;
+        indicator.className = "turn-indicator " + (isPlayerTurn ? "turn-player" : "turn-enemy");
+        
+        // 更新回合順序顯示
+        const orderDisplay = document.getElementById("turnOrderDisplay");
+        orderDisplay.innerHTML = "";
+        
+        // 獲取接下來8個行動單位
+        const nextUnits = getNextUnits(8);
+        
+        nextUnits.forEach((entry, index) => {
+            const icon = document.createElement("div");
+            icon.className = "turn-order-icon";
+            icon.classList.add(entry.type === 'player' ? 'player-side' : 'enemy-side');
+            
+            if (index === 0) {
+                icon.classList.add("current");
+            }
+            
+            icon.textContent = entry.unit.emoji;
+            orderDisplay.appendChild(icon);
+            
+            if (index < nextUnits.length - 1) {
+                const sep = document.createElement("span");
+                sep.className = "turn-separator";
+                sep.textContent = "→";
+                orderDisplay.appendChild(sep);
+            }
+        });
+        
+        updateUpgradePanel();
+    }
+    
+    function toggleUpgradePanel() {
+        const panel = document.getElementById("upgradePanel");
+        panel.classList.toggle("active");
+    }
+    
+    function updateUpgradePanel() {
+        const panel = document.getElementById("upgradePanel");
+        panel.innerHTML = "<div style='color:white;font-size:0.8em;margin-bottom:8px;'>升級UR英雄 (消耗1👍)</div>";
+        
+        // 只能升級當前行動的英雄
+        const currentUnit = getCurrentActionUnit();
+        
+        if (!currentUnit || currentUnit.isEnemy) {
+            panel.innerHTML += "<div style='color:#aaa;font-size:0.7em;'>等待你的回合</div>";
+            return;
+        }
+        
+        // 只有UR英雄才能升級
+        if (currentUnit.rarity !== "UR") {
+            panel.innerHTML += "<div style='color:#aaa;font-size:0.7em;'>只有UR英雄可以升級</div>";
+            return;
+        }
+        
+        if (energy < 1) {
+            panel.innerHTML += "<div style='color:#aaa;font-size:0.7em;'>能量不足</div>";
+            return;
+        }
+        
+        if (currentUnit.level >= 2) {
+            panel.innerHTML += "<div style='color:#aaa;font-size:0.7em;'>當前英雄已達最高等級</div>";
+            return;
+        }
+        
+        const btn = document.createElement("button");
+        btn.className = "upgrade-btn";
+        btn.textContent = `${currentUnit.emoji} ${currentUnit.name} → Lv.2`;
+        btn.onclick = () => upgradeUnit(currentUnit);
+        panel.appendChild(btn);
+    }
+    
+    function upgradeUnit(unit) {
+        if (energy < 1 || unit.level >= 2) return;
+        
+        energy--;
+        unit.level = 2;
+        unit.currentHp = Math.min(unit.currentHp + Math.floor(unit.maxHp * 0.3), Math.floor(unit.maxHp * 1.3));
+        unit.maxHp = Math.floor(unit.maxHp * 1.3);
+        unit.currentDamage = Math.floor(unit.currentDamage * 1.25);
+        
+        updateBattleUI();
+        toggleUpgradePanel();
+    }
+    
+    // ==========================================
+    // 傷害彈出效果
+    // ==========================================
+    function showDamagePopup(x, y, damage, isHeal = false) {
+        const container = document.getElementById("gameContainer");
+        const popup = document.createElement("div");
+        popup.className = "damage-popup";
+        popup.style.left = (x * scale) + "px";
+        popup.style.top = (y * scale) + "px";
+        popup.style.color = isHeal ? "#4caf50" : "#ff4444";
+        popup.textContent = isHeal ? `+${damage}` : `-${damage}`;
+        container.appendChild(popup);
+        
+        setTimeout(() => popup.remove(), 1000);
+    }
+    
+    // ==========================================
+    // 戰鬥日誌系統 - 左右分欄
+    // ==========================================
+    function addBattleLog(message, type = "normal", side = null) {
+        // 如果沒指定側邊，根據當前回合決定
+        if (!side) {
+            side = currentSide;
+        }
+        
+        const logEntry = { message, type, time: Date.now(), round: roundNumber };
+        
+        if (side === 'player') {
+            playerBattleLogs.push(logEntry);
+            if (playerBattleLogs.length > 30) playerBattleLogs.shift();
+        } else {
+            enemyBattleLogs.push(logEntry);
+            if (enemyBattleLogs.length > 30) enemyBattleLogs.shift();
+        }
+        
+        updateBattleLogDisplay();
+    }
+    
+    function updateBattleLogDisplay() {
+        const logContainer = document.getElementById("battleLog");
+        if (!logContainer) return;
+        
+        // 確保日誌容器使用橫向排列
+        logContainer.style.display = "flex";
+        logContainer.style.flexDirection = "row";
+        
+        logContainer.innerHTML = `
+            <div class="log-column log-column-player" style="flex:1; width:50%; display:flex; flex-direction:column;">
+                <div class="log-header log-header-player">👤 我方 R${roundNumber}</div>
+                <div id="playerLogContent" style="flex:1; overflow-y:auto; max-height:70px;"></div>
+            </div>
+            <div class="log-column log-column-enemy" style="flex:1; width:50%; display:flex; flex-direction:column;">
+                <div class="log-header log-header-enemy">👹 敵方 R${roundNumber}</div>
+                <div id="enemyLogContent" style="flex:1; overflow-y:auto; max-height:70px;"></div>
+            </div>
+        `;
+        
+        const playerContent = document.getElementById("playerLogContent");
+        const enemyContent = document.getElementById("enemyLogContent");
+        
+        // 顯示最近的日誌
+        const recentPlayerLogs = playerBattleLogs.slice(-6);
+        const recentEnemyLogs = enemyBattleLogs.slice(-6);
+        
+        recentPlayerLogs.forEach(log => {
+            const entry = document.createElement("div");
+            entry.className = `log-entry log-${log.type}`;
+            if (log.type === 'round') {
+                entry.innerHTML = `<span class="log-round">${log.message}</span>`;
+            } else {
+                entry.textContent = log.message;
+            }
+            playerContent.appendChild(entry);
+        });
+        
+        recentEnemyLogs.forEach(log => {
+            const entry = document.createElement("div");
+            entry.className = `log-entry log-${log.type}`;
+            if (log.type === 'round') {
+                entry.innerHTML = `<span class="log-round">${log.message}</span>`;
+            } else {
+                entry.textContent = log.message;
+            }
+            enemyContent.appendChild(entry);
+        });
+        
+        // 滾動到底部
+        if (playerContent) playerContent.scrollTop = playerContent.scrollHeight;
+        if (enemyContent) enemyContent.scrollTop = enemyContent.scrollHeight;
+    }
+    
+    function clearBattleLogs() {
+        playerBattleLogs = [];
+        enemyBattleLogs = [];
+        const logContainer = document.getElementById("battleLog");
+        if (logContainer) logContainer.innerHTML = "";
+    }
+    
+    // ==========================================
+    // 物理與碰撞
+    // ==========================================
+    function updatePhysics() {
+        const allUnits = [...playerUnits, ...enemyUnits].filter(u => u.alive);
+        let anyMoving = false;
+        
+        // 更新箭矢
+        arrows = arrows.filter(arrow => {
+            arrow.x += arrow.vx;
+            arrow.y += arrow.vy;
+            
+            // 邊界反彈
+            let bounced = false;
+            if (arrow.x < 10) {
+                arrow.x = 10;
+                arrow.vx *= -1;
+                bounced = true;
+            }
+            if (arrow.x > GAME_WIDTH - 10) {
+                arrow.x = GAME_WIDTH - 10;
+                arrow.vx *= -1;
+                bounced = true;
+            }
+            if (arrow.y < ARENA_TOP + 10) {
+                arrow.y = ARENA_TOP + 10;
+                arrow.vy *= -1;
+                bounced = true;
+            }
+            if (arrow.y > ARENA_BOTTOM - 10) {
+                arrow.y = ARENA_BOTTOM - 10;
+                arrow.vy *= -1;
+                bounced = true;
+            }
+            
+            if (bounced) {
+                arrow.bounces++;
+                if (arrow.bounces > arrow.maxBounces) {
+                    return false; // 移除箭矢
+                }
+            }
+            
+            // 檢查是否擊中敵人
+            const enemies = arrow.owner.isEnemy ? playerUnits : enemyUnits;
+            for (const enemy of enemies) {
+                if (!enemy.alive) continue;
+                const dist = distance(arrow.x, arrow.y, enemy.x, enemy.y);
+                if (dist < enemy.size / 2 + 5) {
+                    // 擊中敵人 - 滿血時雙倍傷害
+                    let arrowDmg = arrow.damage;
+                    const isFullHp = enemy.currentHp >= enemy.maxHp;
+                    if (isFullHp) {
+                        arrowDmg *= 2;
+                        addBattleLog(`🎯 箭矢擊中滿血的 ${enemy.name}！雙倍傷害！`, "ability");
+                    }
+                    
+                    enemy.currentHp -= arrowDmg;
+                    showDamagePopup(enemy.x, enemy.y - enemy.size, arrowDmg);
+                    addBattleLog(`🏹 箭矢擊中 ${enemy.name}！造成 ${arrowDmg} 傷害`, "damage");
+                    
+                    if (enemy.currentHp <= 0) {
+                        enemy.alive = false;
+                        energy++;
+                        addBattleLog(`☠️ ${enemy.name} 被箭矢擊敗！`, "death");
+                    }
+                    
+                    return false; // 移除箭矢
+                }
+            }
+            
+            anyMoving = true;
+            return true;
+        });
+        
+        // 更新折射火焰（龍騎將軍）
+        refractionFlames = refractionFlames.filter(flame => {
+            flame.x += flame.vx;
+            flame.y += flame.vy;
+            
+            // 邊界反彈
+            let bounced = false;
+            if (flame.x < 10) {
+                flame.x = 10;
+                flame.vx *= -1;
+                bounced = true;
+            }
+            if (flame.x > GAME_WIDTH - 10) {
+                flame.x = GAME_WIDTH - 10;
+                flame.vx *= -1;
+                bounced = true;
+            }
+            if (flame.y < ARENA_TOP + 10) {
+                flame.y = ARENA_TOP + 10;
+                flame.vy *= -1;
+                bounced = true;
+            }
+            if (flame.y > ARENA_BOTTOM - 10) {
+                flame.y = ARENA_BOTTOM - 10;
+                flame.vy *= -1;
+                bounced = true;
+            }
+            
+            if (bounced) {
+                flame.bounces++;
+                if (flame.bounces > flame.maxBounces) {
+                    return false; // 移除火焰
+                }
+            }
+            
+            // 檢查是否擊中敵人（穿透所有英雄，每個只傷害一次）
+            const enemies = flame.owner.isEnemy ? playerUnits : enemyUnits;
+            for (const enemy of enemies) {
+                if (!enemy.alive) continue;
+                if (flame.hitEnemies.includes(enemy.id)) continue; // 已經擊中過
+                
+                const dist = distance(flame.x, flame.y, enemy.x, enemy.y);
+                if (dist < enemy.size / 2 + 8) {
+                    // 擊中敵人
+                    flame.hitEnemies.push(enemy.id);
+                    enemy.currentHp -= flame.damage;
+                    showDamagePopup(enemy.x, enemy.y - enemy.size, flame.damage);
+                    addBattleLog(`🔥 折射火焰擊中 ${enemy.name}！造成 ${flame.damage} 傷害`, "damage", flame.owner.isEnemy ? 'enemy' : 'player');
+                    
+                    if (enemy.currentHp <= 0) {
+                        enemy.alive = false;
+                        if (!flame.owner.isEnemy) energy++;
+                        addBattleLog(`☠️ ${enemy.name} 被折射火焰擊敗！`, "death");
+                    }
+                    // 不return false，繼續穿透
+                }
+            }
+            
+            anyMoving = true;
+            return true;
+        });
+        
+        allUnits.forEach(unit => {
+            if (Math.abs(unit.vx) > MIN_VELOCITY || Math.abs(unit.vy) > MIN_VELOCITY) {
+                anyMoving = true;
+                
+                unit.x += unit.vx;
+                unit.y += unit.vy;
+                
+                unit.vx *= FRICTION;
+                unit.vy *= FRICTION;
+                
+                // 邊界碰撞與牆壁反彈計數
+                let hitWall = false;
+                if (unit.x - unit.size/2 < 0) {
+                    unit.x = unit.size/2;
+                    unit.vx *= -BOUNCE;
+                    hitWall = true;
+                }
+                if (unit.x + unit.size/2 > GAME_WIDTH) {
+                    unit.x = GAME_WIDTH - unit.size/2;
+                    unit.vx *= -BOUNCE;
+                    hitWall = true;
+                }
+                if (unit.y - unit.size/2 < ARENA_TOP) {
+                    unit.y = ARENA_TOP + unit.size/2;
+                    unit.vy *= -BOUNCE;
+                    hitWall = true;
+                }
+                if (unit.y + unit.size/2 > ARENA_BOTTOM) {
+                    unit.y = ARENA_BOTTOM - unit.size/2;
+                    unit.vy *= -BOUNCE;
+                    hitWall = true;
+                }
+                
+                // 宇宙龍神 Lv.2：牆壁反彈加攻擊力
+                if (hitWall && unit === activeAttacker && unit.level >= 2 && unit.name === "宇宙龍神") {
+                    wallBounceCount++;
+                    wallBounceDamageBonus += 0.1;
+                    addBattleLog(`⭐ ${unit.name} 星際反彈！攻擊力+10% (累計+${Math.floor(wallBounceDamageBonus * 100)}%)`, "ability");
+                }
+                
+                // 光明女皇能力：對方碰到牆壁會扣5點生命值
+                if (hitWall) {
+                    // 檢查場上是否有光明女皇
+                    const lightEmpress = [...playerUnits, ...enemyUnits].find(u => u.alive && u.isLightEmpress);
+                    if (lightEmpress && unit.isEnemy !== lightEmpress.isEnemy) {
+                        // 對方陣營碰牆扣血
+                        unit.currentHp -= 5;
+                        showDamagePopup(unit.x, unit.y - unit.size, 5);
+                        addBattleLog(`👑 光明女皇：${unit.name} 碰牆扣 5HP！`, "damage", lightEmpress.isEnemy ? 'enemy' : 'player');
+                        if (unit.currentHp <= 0) {
+                            unit.alive = false;
+                            if (!lightEmpress.isEnemy) energy++;
+                            addBattleLog(`☠️ ${unit.name} 被光明女皇擊敗！`, "death");
+                        }
+                    }
+                }
+                
+                // 單位間碰撞
+                allUnits.forEach(other => {
+                    if (unit === other) return;
+                    
+                    const dist = distance(unit.x, unit.y, other.x, other.y);
+                    const minDist = (unit.size + other.size) / 2;
+                    
+                    if (dist < minDist && dist > 0) {
+                        handleCollision(unit, other);
+                    }
+                });
+            } else {
+                unit.vx = 0;
+                unit.vy = 0;
+            }
+        });
+        
+        return anyMoving;
+    }
+    
+    function handleCollision(unit1, unit2) {
+        // 確定當前回合是哪一方
+        const isPlayerTurnNow = activeAttacker && !activeAttacker.isEnemy;
+        const isEnemyTurnNow = activeAttacker && activeAttacker.isEnemy;
+        
+        // 檢查是否是虛空帝皇（可穿透）
+        const isPhaseUnit1 = unit1 === activeAttacker && unit1.phaseThrough;
+        const isPhaseUnit2 = unit2 === activeAttacker && unit2.phaseThrough;
+        
+        // 檢查碰撞冷卻
+        const pairKey = `${Math.min(unit1.id, unit2.id)}-${Math.max(unit1.id, unit2.id)}`;
+        const now = Date.now();
+        const lastCollision = collisionCooldowns.get(pairKey) || 0;
+        const canDamage = (now - lastCollision) > COLLISION_COOLDOWN;
+        
+        // 如果攻擊者是虛空帝皇，跳過物理碰撞但仍造成傷害
+        if (isPhaseUnit1 || isPhaseUnit2) {
+            if (canDamage) {
+                collisionCooldowns.set(pairKey, now);
+                
+                if (unit1.isEnemy !== unit2.isEnemy) {
+                    if (isPhaseUnit1) {
+                        applyDamage(unit1, unit2);
+                    } else if (isPhaseUnit2) {
+                        applyDamage(unit2, unit1);
+                    }
+                } else {
+                    // 友軍碰撞也觸發效果
+                    if (isPhaseUnit1) {
+                        applyAllyEffect(unit1, unit2);
+                    } else {
+                        applyAllyEffect(unit2, unit1);
+                    }
+                }
+            }
+            return;
+        }
+        
+        const dist = distance(unit1.x, unit1.y, unit2.x, unit2.y);
+        const minDist = (unit1.size + unit2.size) / 2;
+        
+        const angle = Math.atan2(unit2.y - unit1.y, unit2.x - unit1.x);
+        const overlap = minDist - dist;
+        
+        // 計算速度
+        const v1 = Math.sqrt(unit1.vx * unit1.vx + unit1.vy * unit1.vy);
+        const v2 = Math.sqrt(unit2.vx * unit2.vx + unit2.vy * unit2.vy);
+        
+        // 確定碰撞中速度較快的單位為撞擊者
+        let faster = v1 > v2 ? unit1 : unit2;
+        let slower = v1 > v2 ? unit2 : unit1;
+        
+        const fasterSpeed = Math.max(v1, v2);
+        const collisionAngle = Math.atan2(slower.y - faster.y, slower.x - faster.x);
+        
+        // 重量比較 - 輕的不能撞飛重的
+        const weightRatio = faster.weight / slower.weight;
+        
+        // 分離兩個單位
+        if (weightRatio >= 1) {
+            const pushRatio = Math.min(1, 1 / weightRatio);
+            faster.x -= Math.cos(angle) * overlap * pushRatio * 0.3;
+            faster.y -= Math.sin(angle) * overlap * pushRatio * 0.3;
+            slower.x += Math.cos(angle) * overlap * (1 - pushRatio * 0.3);
+            slower.y += Math.sin(angle) * overlap * (1 - pushRatio * 0.3);
+        } else {
+            faster.x -= Math.cos(angle) * overlap * 0.9;
+            faster.y -= Math.sin(angle) * overlap * 0.9;
+            slower.x += Math.cos(angle) * overlap * 0.1;
+            slower.y += Math.sin(angle) * overlap * 0.1;
+        }
+        
+        // 虛空行者：不會被任何英雄撞飛
+        const slowerIsVoidWalker = slower.isVoidWalker;
+        const fasterIsVoidWalker = faster.isVoidWalker;
+        
+        // 根據重量差異計算速度變化
+        if (weightRatio >= 1) {
+            const attackerRetain = Math.min(0.9, 0.1 + weightRatio * 0.2);
+            const defenderGain = Math.min(2.0, 0.5 + weightRatio * 0.5);
+            
+            faster.vx *= attackerRetain * BOUNCE;
+            faster.vy *= attackerRetain * BOUNCE;
+            
+            // 虛空行者不會被撞飛
+            if (!slowerIsVoidWalker) {
+                slower.vx = Math.cos(collisionAngle) * fasterSpeed * defenderGain * BOUNCE;
+                slower.vy = Math.sin(collisionAngle) * fasterSpeed * defenderGain * BOUNCE;
+            }
+        } else {
+            const attackerBounce = Math.min(1.5, 0.8 + (1 - weightRatio) * 0.5);
+            const defenderMove = Math.max(0, weightRatio * 0.3);
+            
+            // 虛空行者不會被撞飛
+            if (!fasterIsVoidWalker) {
+                faster.vx = -Math.cos(collisionAngle) * fasterSpeed * attackerBounce * BOUNCE;
+                faster.vy = -Math.sin(collisionAngle) * fasterSpeed * attackerBounce * BOUNCE;
+            }
+            
+            if (!slowerIsVoidWalker) {
+                slower.vx = Math.cos(collisionAngle) * fasterSpeed * defenderMove * BOUNCE;
+                slower.vy = Math.sin(collisionAngle) * fasterSpeed * defenderMove * BOUNCE;
+            }
+        }
+        
+        // 碰撞冷卻檢查（允許多次傷害但有冷卻時間）
+        if (!canDamage) return;
+        collisionCooldowns.set(pairKey, now);
+        
+        // 判斷雙方陣營
+        const unit1IsAttackingSide = isPlayerTurnNow ? !unit1.isEnemy : unit1.isEnemy;
+        const unit2IsAttackingSide = isPlayerTurnNow ? !unit2.isEnemy : unit2.isEnemy;
+        
+        // 處理傷害/效果
+        if (unit1.isEnemy !== unit2.isEnemy) {
+            // 敵對碰撞
+            // 只有進攻方陣營可以對防守方陣營造成傷害
+            if (unit1IsAttackingSide && !unit2IsAttackingSide) {
+                // unit1 是進攻方，unit2 是防守方
+                applyDamage(unit1, unit2);
+            } else if (unit2IsAttackingSide && !unit1IsAttackingSide) {
+                // unit2 是進攻方，unit1 是防守方
+                applyDamage(unit2, unit1);
+            }
+            // 防守方陣營的單位撞到進攻方不會造成傷害（除了水晶魔像反彈）
+        } else {
+            // 友軍碰撞 - 觸發支援效果
+            // 速度快的撞擊速度慢的
+            if (v1 > v2 && v1 > MIN_VELOCITY) {
+                applyAllyEffect(unit1, unit2);
+            } else if (v2 > v1 && v2 > MIN_VELOCITY) {
+                applyAllyEffect(unit2, unit1);
+            }
+        }
+    }
+    
+    function applyDamage(attacker, defender) {
+        let damage = attacker.currentDamage;
+        
+        // 宇宙龍神Lv.2 牆壁反彈加成
+        if (wallBounceDamageBonus > 0 && attacker === activeAttacker) {
+            damage *= (1 + wallBounceDamageBonus);
+        }
+        
+        // 魔王領主：自身生命值低於60%時，攻擊力提高100%
+        if (attacker.isDemonLord && attacker.currentHp < attacker.maxHp * 0.6) {
+            damage *= 2;
+            addBattleLog(`😈 ${attacker.name} 低血量狂暴！傷害翻倍！`, "ability");
+        }
+        
+        const abilityText = attacker.abilities[0].toLowerCase();
+        
+        // 額外傷害（火焰小鬼等）
+        if (abilityText.includes("額外") && abilityText.includes("傷害")) {
+            const extraDmg = parseInt(abilityText.match(/\d+/)?.[0] || 15);
+            damage += extraDmg;
+        }
+        
+        // 對低血量雙倍（死神使者）
+        if (abilityText.includes("低於30%") && defender.currentHp < defender.maxHp * 0.3) {
+            damage *= 2;
+            addBattleLog(`💀 ${attacker.name} 對瀕死目標造成雙倍傷害！`, "ability");
+        }
+        
+        // 真實傷害
+        if (abilityText.includes("真實傷害")) {
+            damage += 25;
+        }
+        
+        // 減傷
+        const defAbility = defender.abilities[0].toLowerCase();
+        if (defAbility.includes("減少") && defAbility.includes("傷害")) {
+            damage *= 0.8;
+        }
+        
+        // 竊取HP
+        if (abilityText.includes("竊取")) {
+            const stealAmount = parseInt(abilityText.match(/\d+/)?.[0] || 15);
+            attacker.currentHp = Math.min(attacker.maxHp, attacker.currentHp + stealAmount);
+            showDamagePopup(attacker.x, attacker.y - attacker.size, stealAmount, true);
+            addBattleLog(`🩸 ${attacker.name} 竊取了 ${stealAmount} HP！`, "heal");
+        }
+        
+        // 護盾吸收
+        if (defender.shield > 0) {
+            const absorbed = Math.min(defender.shield, damage);
+            defender.shield -= absorbed;
+            damage -= absorbed;
+            addBattleLog(`🛡️ ${defender.name} 的護盾吸收了 ${absorbed} 傷害`, "ability");
+        }
+        
+        // 反彈傷害（水晶魔像的能力 - 唯一例外可以對攻擊者造成傷害）
+        if (defAbility.includes("反彈")) {
+            const reflectPercent = parseInt(defAbility.match(/\d+/)?.[0] || 30) / 100;
+            const reflectDamage = Math.floor(damage * reflectPercent);
+            attacker.currentHp -= reflectDamage;
+            showDamagePopup(attacker.x, attacker.y - attacker.size, reflectDamage);
+            addBattleLog(`💎 ${defender.name} 反彈了 ${reflectDamage} 傷害給 ${attacker.name}！`, "damage");
+            if (attacker.currentHp <= 0) {
+                attacker.alive = false;
+                energy++; // 我方被擊敗也獲得能量
+                addBattleLog(`☠️ ${attacker.name} 被反彈傷害擊敗！`, "death");
+            }
+        }
+        
+        damage = Math.floor(damage);
+        defender.currentHp -= damage;
+        
+        // 顯示傷害數字
+        showDamagePopup(defender.x, defender.y - defender.size, damage);
+        addBattleLog(`⚔️ ${attacker.name} → ${defender.name} ${damage}傷`, "damage", attacker.isEnemy ? 'enemy' : 'player');
+        
+        // 灼燒效果
+        if (abilityText.includes("灼燒")) {
+            defender.effects.push({ type: "burn", duration: 2, damage: 10 });
+            addBattleLog(`🔥 ${defender.name} 被灼燒！`, "ability");
+        }
+        
+        // 冰霜巨人：力度限制30%
+        if (abilityText.includes("力度最多只有30%")) {
+            defender.effects.push({ type: "powerLimit", duration: 1, maxPower: 0.3 });
+            addBattleLog(`❄️ ${defender.name} 下回合力度最多30%！`, "ability");
+        }
+        
+        // 連鎖閃電（雷霆法師）
+        if (abilityText.includes("連鎖閃電") || abilityText.includes("鄰近敵人")) {
+            const chainDmg = 12;
+            const enemies = defender.isEnemy ? enemyUnits : playerUnits;
+            enemies.filter(e => e.alive && e !== defender).forEach(e => {
+                if (distance(defender.x, defender.y, e.x, e.y) < 120) {
+                    e.currentHp -= chainDmg;
+                    showDamagePopup(e.x, e.y - e.size, chainDmg);
+                    addBattleLog(`⚡ 閃電連鎖到 ${e.name}！`, "damage");
+                    if (e.currentHp <= 0) {
+                        e.alive = false;
+                        energy++;
+                        addBattleLog(`☠️ ${e.name} 被閃電擊敗！`, "death");
+                    }
+                }
+            });
+        }
+        
+        // 範圍傷害（宇宙龍神等）
+        if (abilityText.includes("範圍傷害") || (abilityText.includes("周圍") && abilityText.includes("傷害"))) {
+            const rangeDmg = parseInt(abilityText.match(/\d+/)?.[0] || 15);
+            const enemies = defender.isEnemy ? enemyUnits : playerUnits;
+            enemies.filter(e => e.alive && e !== defender).forEach(e => {
+                if (distance(defender.x, defender.y, e.x, e.y) < 100) {
+                    e.currentHp -= rangeDmg;
+                    showDamagePopup(e.x, e.y - e.size, rangeDmg);
+                    addBattleLog(`💥 ${e.name} 受到範圍傷害 ${rangeDmg}！`, "damage");
+                    if (e.currentHp <= 0) {
+                        e.alive = false;
+                        energy++;
+                        addBattleLog(`☠️ ${e.name} 被範圍傷害擊敗！`, "death");
+                    }
+                }
+            });
+        }
+        
+        // 混沌泰坦：隨機效果
+        if (attacker.name === "混沌泰坦" || attacker.isChaosTitan) {
+            const roll = Math.random();
+            if (roll < 0.33) {
+                // 2倍傷害（已造成的傷害再造成一次）
+                defender.currentHp -= damage;
+                showDamagePopup(defender.x, defender.y - defender.size + 20, damage);
+                addBattleLog(`🌋 混沌力量：雙倍傷害！`, "ability");
+            } else if (roll < 0.66) {
+                // 治療自己30HP
+                attacker.currentHp = Math.min(attacker.maxHp, attacker.currentHp + 30);
+                showDamagePopup(attacker.x, attacker.y - attacker.size, 30, true);
+                addBattleLog(`🌋 混沌力量：自我治療 30HP！`, "heal");
+            } else {
+                // 10倍力度（下回合）
+                attacker.chaosPowerBoost = true;
+                addBattleLog(`🌋 混沌力量：${attacker.name} 下回合力度10倍！`, "ability");
+            }
+        }
+        
+        // 檢查死亡
+        if (defender.currentHp <= 0) {
+            const hasRebirth = defender.abilities.some(a => a.includes("復活") || a.includes("重生"));
+            if (hasRebirth && !defender.hasRevived) {
+                const rebirthHp = Math.floor(defender.maxHp * 3.0); // 300% HP
+                defender.currentHp = rebirthHp;
+                defender.hasRevived = true;
+                showDamagePopup(defender.x, defender.y - defender.size, rebirthHp, true);
+                addBattleLog(`🦅 ${defender.name} 浴火重生！恢復 ${rebirthHp} HP！`, "ability");
+            } else {
+                defender.alive = false;
+                // 無論敵我都獲得能量
+                energy++;
+                addBattleLog(`☠️ ${defender.name} 被擊敗！獲得 1 👍`, "death");
+                
+                // 虛空帝皇 Lv.2：靈魂收割 - 擊敗敵人時恢復50HP
+                if (attacker.level >= 2 && attacker.abilities[1] && attacker.abilities[1].includes("靈魂收割")) {
+                    attacker.currentHp = Math.min(attacker.maxHp, attacker.currentHp + 50);
+                    showDamagePopup(attacker.x, attacker.y - attacker.size, 50, true);
+                    addBattleLog(`👁️ ${attacker.name} 靈魂收割恢復 50HP！`, "heal");
+                }
+            }
+        }
+    }
+    
+    function applyAllyEffect(unit1, unit2) {
+        const ability = unit1.abilities[0].toLowerCase();
+        
+        // 河川精靈、聖光祭司：碰撞隊友時治療
+        if (ability.includes("碰撞隊友") && ability.includes("治療")) {
+            const healAmount = parseInt(ability.match(/\d+/)?.[0] || 20);
+            unit2.currentHp = Math.min(unit2.maxHp, unit2.currentHp + healAmount);
+            showDamagePopup(unit2.x, unit2.y - unit2.size, healAmount, true);
+            addBattleLog(`💧 ${unit1.name} 治療 ${unit2.name} ${healAmount}HP`, "heal");
+            
+            // 聖光祭司：移除負面狀態
+            if (ability.includes("移除負面")) {
+                unit2.effects = [];
+                addBattleLog(`✨ ${unit2.name} 負面狀態已移除`, "ability");
+            }
+        }
+        
+        // 大地薩滿：碰撞隊友時給予護盾
+        if (ability.includes("護盾")) {
+            const shieldAmount = parseInt(ability.match(/\d+/)?.[0] || 25);
+            unit2.shield += shieldAmount;
+            addBattleLog(`🛡️ ${unit1.name} 給予 ${unit2.name} ${shieldAmount}護盾`, "ability");
+        }
+        
+        // 龍騎將軍：被隊友碰撞或碰撞隊友時發射折射火焰
+        if (unit1.isDragonGeneral || unit2.isDragonGeneral) {
+            const dragon = unit1.isDragonGeneral ? unit1 : unit2;
+            const other = unit1.isDragonGeneral ? unit2 : unit1;
+            
+            // 計算發射方向（朝向最近的敵人）
+            const enemies = dragon.isEnemy ? playerUnits : enemyUnits;
+            const aliveEnemies = enemies.filter(e => e.alive);
+            
+            if (aliveEnemies.length > 0) {
+                // 找最近的敵人
+                let closestEnemy = aliveEnemies[0];
+                let minDist = Infinity;
+                aliveEnemies.forEach(e => {
+                    const d = distance(dragon.x, dragon.y, e.x, e.y);
+                    if (d < minDist) {
+                        minDist = d;
+                        closestEnemy = e;
+                    }
+                });
+                
+                const flameAngle = Math.atan2(closestEnemy.y - dragon.y, closestEnemy.x - dragon.x);
+                const flameSpeed = 10;
+                
+                // 發射折射火焰
+                refractionFlames.push({
+                    x: dragon.x,
+                    y: dragon.y,
+                    vx: Math.cos(flameAngle) * flameSpeed,
+                    vy: Math.sin(flameAngle) * flameSpeed,
+                    damage: dragon.currentDamage,
+                    owner: dragon,
+                    bounces: 0,
+                    maxBounces: 3,
+                    hitEnemies: [] // 記錄已擊中的敵人，允許穿透但每個敵人只傷害一次
+                });
+                
+                addBattleLog(`🐉 ${dragon.name} 發射折射火焰！`, "ability", dragon.isEnemy ? 'enemy' : 'player');
+            }
+        }
+        
+        // 暗夜刺客：被隊友擊中時，對敵方最低HP英雄隔空偷襲
+        if (unit2.isAmbusher) {
+            const enemies = unit2.isEnemy ? playerUnits : enemyUnits;
+            const aliveEnemies = enemies.filter(e => e.alive);
+            if (aliveEnemies.length > 0) {
+                // 找到HP最低的敵人
+                let lowestHpEnemy = aliveEnemies[0];
+                aliveEnemies.forEach(e => {
+                    if (e.currentHp < lowestHpEnemy.currentHp) {
+                        lowestHpEnemy = e;
+                    }
+                });
+                
+                // 造成傷害
+                const ambushDamage = unit2.currentDamage;
+                lowestHpEnemy.currentHp -= ambushDamage;
+                showDamagePopup(lowestHpEnemy.x, lowestHpEnemy.y - lowestHpEnemy.size, ambushDamage);
+                addBattleLog(`🌙 ${unit2.name} 隔空偷襲 ${lowestHpEnemy.name}！造成 ${ambushDamage} 傷害`, "ability");
+                
+                // 添加偷襲視覺特效
+                visualEffects.push({
+                    type: "ambush",
+                    x: lowestHpEnemy.x,
+                    y: lowestHpEnemy.y,
+                    startTime: Date.now(),
+                    duration: 500
+                });
+                
+                if (lowestHpEnemy.currentHp <= 0) {
+                    lowestHpEnemy.alive = false;
+                    if (!unit2.isEnemy) energy++;
+                    addBattleLog(`☠️ ${lowestHpEnemy.name} 被偷襲擊敗！`, "death");
+                }
+            }
+        }
+    }
+    
+    function distance(x1, y1, x2, y2) {
+        return Math.sqrt((x2-x1)**2 + (y2-y1)**2);
+    }
+    
+    // ==========================================
+    // 回合處理
+    // ==========================================
+    function endTurn() {
+        activeAttacker = null;
+        collisionCooldowns = new Map();
+        
+        // 處理回合結束效果
+        const currentUnit = getCurrentActionUnit();
+        
+        // 雷神之子回合結束：對所有敵人造成8點傷害
+        if (currentUnit && currentUnit.isThunderSon && currentUnit.alive) {
+            const enemies = currentUnit.isEnemy ? playerUnits : enemyUnits;
+            enemies.filter(u => u.alive).forEach(enemy => {
+                enemy.currentHp -= 8;
+                showDamagePopup(enemy.x, enemy.y - enemy.size, 8);
+                if (enemy.currentHp <= 0) {
+                    enemy.alive = false;
+                    energy++;
+                    addBattleLog(`☠️ ${enemy.name} 被雷電擊敗！`, "death");
+                }
+            });
+            addBattleLog(`🌩️ 雷神之子回合結束！全體敵人受到 8 點傷害`, "ability", currentUnit.isEnemy ? 'enemy' : 'player');
+        }
+        if (currentUnit) {
+            // 時空法師：只要生命值多於1時，每回合恢復100%滿血
+            if (currentUnit.isTimeMage && currentUnit.currentHp > 1) {
+                const healAmount = currentUnit.maxHp - currentUnit.currentHp;
+                if (healAmount > 0) {
+                    currentUnit.currentHp = currentUnit.maxHp;
+                    showDamagePopup(currentUnit.x, currentUnit.y - currentUnit.size, healAmount, true);
+                    addBattleLog(`⏳ ${currentUnit.name} 時空回溯！恢復至滿血！`, "heal", currentUnit.isEnemy ? 'enemy' : 'player');
+                }
+            }
+            
+            // 天使長回合結束治療
+            if (currentUnit.abilities[0].includes("回合結束時治療")) {
+                const team = currentUnit.isEnemy ? enemyUnits : playerUnits;
+                team.filter(u => u.alive).forEach(ally => {
+                    ally.currentHp = Math.min(ally.maxHp, ally.currentHp + 50);
+                    showDamagePopup(ally.x, ally.y - ally.size, 50, true);
+                });
+                addBattleLog(`👼 天使長治療全隊 50HP`, "heal", currentUnit.isEnemy ? 'enemy' : 'player');
+            }
+            
+            // 處理狀態效果
+            currentUnit.effects = currentUnit.effects.filter(effect => {
+                if (effect.type === "burn") {
+                    currentUnit.currentHp -= effect.damage;
+                    showDamagePopup(currentUnit.x, currentUnit.y - currentUnit.size, effect.damage);
+                    addBattleLog(`🔥 ${currentUnit.name} 灼燒 ${effect.damage}`, "damage", currentUnit.isEnemy ? 'enemy' : 'player');
+                    if (currentUnit.currentHp <= 0) {
+                        currentUnit.alive = false;
+                        energy++;
+                        addBattleLog(`☠️ ${currentUnit.name} 被灼燒擊敗！`, "death", currentUnit.isEnemy ? 'enemy' : 'player');
+                    }
+                    effect.duration--;
+                    return effect.duration > 0;
+                }
+
+                if (effect.type === "powerLimit") {
+                    effect.duration--;
+                    return effect.duration > 0;
+                }
+                return true;
+            });
+        }
+        
+        // UR Lv.2 全體效果
+        [...playerUnits, ...enemyUnits].filter(u => u.alive && u.level >= 2 && u.rarity === "UR").forEach(unit => {
+            if (unit.abilities[1] && unit.abilities[1].includes("所有敵人每回合損失")) {
+                const enemies = unit.isEnemy ? playerUnits : enemyUnits;
+                enemies.filter(u => u.alive).forEach(enemy => {
+                    enemy.currentHp -= 12;
+                    showDamagePopup(enemy.x, enemy.y - enemy.size, 12);
+                    if (enemy.currentHp <= 0) {
+                        enemy.alive = false;
+                        if (!unit.isEnemy) energy++;
+                    }
+                });
+                addBattleLog(`🦅 煉獄烈焰傷害全體 12`, "ability", unit.isEnemy ? 'enemy' : 'player');
+            }
+        });
+        
+        // 檢查勝負
+        const playerAlive = playerUnits.filter(u => u.alive).length;
+        const enemyAlive = enemyUnits.filter(u => u.alive).length;
+        
+        if (playerAlive === 0 || enemyAlive === 0) {
+            endBattle(playerAlive > 0);
+            return;
+        }
+        
+        // 切換到對方 - 真正的雙方輪流
+        if (currentSide === 'player') {
+            playerTurnIndex++;
+            // 只有當對方還有存活單位時才切換
+            if (enemyAlive > 0) {
+                currentSide = 'enemy';
+            }
+        } else {
+            enemyTurnIndex++;
+            // 只有當對方還有存活單位時才切換
+            if (playerAlive > 0) {
+                currentSide = 'player';
+            }
+        }
+        
+        // 如果雙方都輪完一圈，增加回合數
+        const maxPlayers = playerUnits.filter(u => u.alive).length;
+        const maxEnemies = enemyUnits.filter(u => u.alive).length;
+        if (playerTurnIndex >= maxPlayers && enemyTurnIndex >= maxEnemies) {
+            playerTurnIndex = 0;
+            enemyTurnIndex = 0;
+            roundNumber++;
+            addBattleLog(`【第 ${roundNumber} 回合】`, "round", 'player');
+            addBattleLog(`【第 ${roundNumber} 回合】`, "round", 'enemy');
+        }
+        
+        // 回合開始治療（自然守護者）
+        const nextUnit = getCurrentActionUnit();
+        if (nextUnit && nextUnit.abilities[0].includes("每回合開始時治療")) {
+            const team = nextUnit.isEnemy ? enemyUnits : playerUnits;
+            team.filter(u => u.alive).forEach(ally => {
+                ally.currentHp = Math.min(ally.maxHp, ally.currentHp + 8);
+            });
+            addBattleLog(`🌿 自然守護者治療全隊 8HP`, "heal", nextUnit.isEnemy ? 'enemy' : 'player');
+        }
+        
+        // 雷神之子回合開始：對所有敵人造成8點傷害
+        if (nextUnit && nextUnit.isThunderSon && nextUnit.alive) {
+            const enemies = nextUnit.isEnemy ? playerUnits : enemyUnits;
+            enemies.filter(u => u.alive).forEach(enemy => {
+                enemy.currentHp -= 8;
+                showDamagePopup(enemy.x, enemy.y - enemy.size, 8);
+                if (enemy.currentHp <= 0) {
+                    enemy.alive = false;
+                    energy++;
+                    addBattleLog(`☠️ ${enemy.name} 被雷電擊敗！`, "death");
+                }
+            });
+            addBattleLog(`🌩️ 雷神之子回合開始！全體敵人受到 8 點傷害`, "ability", nextUnit.isEnemy ? 'enemy' : 'player');
+        }
+        
+        // 海洋霸主回合開始：拉近敵人貼近自己
+        if (nextUnit && nextUnit.isOceanLord && nextUnit.alive) {
+            const enemies = nextUnit.isEnemy ? playerUnits : enemyUnits;
+            const pullStrength = 0.6; // 拉近60%的距離
+            addBattleLog(`🌊 ${nextUnit.name} 召喚洋流！`, "ability", nextUnit.isEnemy ? 'enemy' : 'player');
+            
+            // 添加拉近視覺特效
+            visualEffects.push({
+                type: "pull",
+                x: nextUnit.x,
+                y: nextUnit.y,
+                startTime: Date.now(),
+                duration: 600
+            });
+            
+            enemies.filter(u => u.alive).forEach(enemy => {
+                const dx = nextUnit.x - enemy.x;
+                const dy = nextUnit.y - enemy.y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                const minDist = (nextUnit.size + enemy.size) / 2 + 5;
+                
+                if (dist > minDist) {
+                    const pullDist = (dist - minDist) * pullStrength;
+                    const angle = Math.atan2(dy, dx);
+                    enemy.x += Math.cos(angle) * pullDist;
+                    enemy.y += Math.sin(angle) * pullDist;
+                    addBattleLog(`🌊 ${enemy.name} 被洋流拉近！`, "ability", nextUnit.isEnemy ? 'enemy' : 'player');
+                }
+            });
+        }
+        
+        updateBattleUI();
+        
+        // 如果下一個是敵方，執行AI
+        if (currentSide === 'enemy') {
+            setTimeout(aiTurn, 800);
+        }
+    }
+    
+    function aiTurn() {
+        if (gameState !== "battle") return;
+        
+        const unit = getCurrentActionUnit();
+        if (!unit || !unit.isEnemy) return;
+        
+        const playerTargets = playerUnits.filter(u => u.alive);
+        if (playerTargets.length === 0) return;
+        
+        activeAttacker = unit;
+        
+        let closestTarget = playerTargets[0];
+        let minDist = Infinity;
+        
+        playerTargets.forEach(target => {
+            const dist = distance(unit.x, unit.y, target.x, target.y);
+            if (dist < minDist) {
+                minDist = dist;
+                closestTarget = target;
+            }
+        });
+        
+        const angle = Math.atan2(closestTarget.y - unit.y, closestTarget.x - unit.x);
+        const randomAngle = angle + (Math.random() - 0.5) * 0.4;
+        let power = 20 + Math.random() * 10;
+        
+        // 冰霜巨人效果：力度最多30%
+        const powerLimitEffect = unit.effects.find(e => e.type === "powerLimit");
+        if (powerLimitEffect) {
+            power = Math.min(power, MAX_POWER * powerLimitEffect.maxPower);
+            addBattleLog(`❄️ ${unit.name} 力度被限制！`, "ability");
+        }
+        
+        // 敵方神聖化身 Lv.2 效果
+        const enemySacredAvatar = enemyUnits.find(u => u.alive && u.name === "神聖化身" && u.level >= 2);
+        if (enemySacredAvatar && unit.isEnemy) {
+            power *= 2.0;
+        }
+        
+        // 鐵甲騎士：自身力度為500%
+        if (unit.isIronKnight) {
+            power *= 5.0;
+            addBattleLog(`🛡️ ${unit.name} 鐵甲衝鋒！力度500%！`, "ability");
+        }
+        
+        // 混沌泰坦：檢查是否有10倍力度效果
+        if (unit.chaosPowerBoost) {
+            power *= 10.0;
+            addBattleLog(`🌋 ${unit.name} 混沌爆發！力度10倍！`, "ability");
+            unit.chaosPowerBoost = false;
+        }
+        
+        unit.vx = Math.cos(randomAngle) * power / unit.weight;
+        unit.vy = Math.sin(randomAngle) * power / unit.weight;
+        
+        animating = true;
+        updateBattleUI();
+    }
+    
+    function returnToMenu() {
+        if (confirm("確定要返回主選單嗎？對戰進度將會遺失。")) {
+            gameState = "title";
+            showScreen("title");
+        }
+    }
+    
+    function endBattle(playerWon) {
+        gameState = "result";
+        showScreen("result");
+        
+        const title = document.getElementById("resultTitle");
+        const stats = document.getElementById("resultStats");
+        
+        if (playerWon) {
+            title.textContent = "🎉 勝利！";
+            title.className = "result-title result-win";
+        } else {
+            title.textContent = "💔 戰敗";
+            title.className = "result-title result-lose";
+        }
+        
+        const playerSurvived = playerUnits.filter(u => u.alive).length;
+        const enemyDefeated = 4 - enemyUnits.filter(u => u.alive).length;
+        stats.textContent = `存活英雄: ${playerSurvived}/4 | 擊敗敵人: ${enemyDefeated}/4 | 獲得能量: ${energy}👍`;
+    }
+    
+    // ==========================================
+    // 輸入處理
+    // ==========================================
+    function handlePointerDown(e) {
+        if (gameState !== "battle" || animating) return;
+        
+        const currentUnit = getCurrentActionUnit();
+        if (!currentUnit || currentUnit.isEnemy) return;
+        
+        const rect = canvas.getBoundingClientRect();
+        const x = (e.clientX - rect.left) / scale;
+        const y = (e.clientY - rect.top) / scale;
+        
+        // 只能拖動當前行動的英雄
+        if (distance(x, y, currentUnit.x, currentUnit.y) < currentUnit.size + 15) {
+            dragging = true;
+            dragUnit = currentUnit;
+            dragStart = { x, y };
+            dragEnd = { x, y };
+        }
+    }
+    
+    function handlePointerMove(e) {
+        if (!dragging || !dragUnit) return;
+        
+        const rect = canvas.getBoundingClientRect();
+        dragEnd = {
+            x: (e.clientX - rect.left) / scale,
+            y: (e.clientY - rect.top) / scale
+        };
+    }
+    
+    function handlePointerUp(e) {
+        if (!dragging || !dragUnit) return;
+        
+        const dx = dragStart.x - dragEnd.x;
+        const dy = dragStart.y - dragEnd.y;
+        const dragDistance = Math.sqrt(dx*dx + dy*dy);
+        const maxDrag = 120; // 最大拖拉距離
+        const power = Math.min(dragDistance, maxDrag);
+        
+        if (power > 10) {
+            const angle = Math.atan2(dy, dx);
+            let normalizedPower = power / maxDrag; // 0-1
+            
+            // 冰霜巨人效果：力度最多30%
+            const powerLimitEffect = dragUnit.effects.find(e => e.type === "powerLimit");
+            if (powerLimitEffect) {
+                normalizedPower = Math.min(normalizedPower, powerLimitEffect.maxPower);
+                addBattleLog(`❄️ ${dragUnit.name} 力度被限制為 ${Math.floor(normalizedPower * 100)}%！`, "ability");
+            }
+            
+            // 神聖化身 Lv.2：所有隊友力度+100%
+            const sacredAvatar = playerUnits.find(u => u.alive && u.name === "神聖化身" && u.level >= 2);
+            if (sacredAvatar && !dragUnit.isEnemy) {
+                normalizedPower *= 2.0; // +100% power
+                addBattleLog(`⭐ 神之祝福：${dragUnit.name} 力度翻倍！`, "ability");
+            }
+            
+            // 鐵甲騎士：自身力度為500%
+            if (dragUnit.isIronKnight) {
+                normalizedPower *= 5.0;
+                addBattleLog(`🛡️ ${dragUnit.name} 鐵甲衝鋒！力度500%！`, "ability");
+            }
+            
+            // 混沌泰坦：檢查是否有10倍力度效果
+            if (dragUnit.chaosPowerBoost) {
+                normalizedPower *= 10.0;
+                addBattleLog(`🌋 ${dragUnit.name} 混沌爆發！力度10倍！`, "ability");
+                dragUnit.chaosPowerBoost = false;
+            }
+            
+            const actualPower = normalizedPower * MAX_POWER;
+            
+            activeAttacker = dragUnit;
+            collisionCooldowns = new Map();
+            wallBounceCount = 0;
+            wallBounceDamageBonus = 0;
+            
+            // 森林斥候不會移動，只會發射箭矢
+            if (dragUnit.isArcher) {
+                // 發射箭矢
+                const arrowSpeed = 12;
+                arrows.push({
+                    x: dragUnit.x,
+                    y: dragUnit.y,
+                    vx: Math.cos(angle) * arrowSpeed,
+                    vy: Math.sin(angle) * arrowSpeed,
+                    damage: dragUnit.currentDamage,
+                    owner: dragUnit,
+                    bounces: 0,
+                    maxBounces: 10
+                });
+                addBattleLog(`🏹 ${dragUnit.name} 發射箭矢！`, "ability");
+                animating = true;
+            } else {
+                dragUnit.vx = Math.cos(angle) * actualPower / dragUnit.weight;
+                dragUnit.vy = Math.sin(angle) * actualPower / dragUnit.weight;
+                animating = true;
+            }
+            
+            updateBattleUI();
+        }
+        
+        dragging = false;
+        dragUnit = null;
+    }
+    
+    function handleTouchStart(e) {
+        e.preventDefault();
+        if (e.touches.length > 0) {
+            handlePointerDown({
+                clientX: e.touches[0].clientX,
+                clientY: e.touches[0].clientY
+            });
+        }
+    }
+    
+    function handleTouchMove(e) {
+        e.preventDefault();
+        if (e.touches.length > 0) {
+            handlePointerMove({
+                clientX: e.touches[0].clientX,
+                clientY: e.touches[0].clientY
+            });
+        }
+    }
+    
+    function handleTouchEnd(e) {
+        e.preventDefault();
+        handlePointerUp({});
+    }
+    
+    // ==========================================
+    // 繪製
+    // ==========================================
+    function draw() {
+        ctx.fillStyle = "#16213e";
+        ctx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
+        
+        if (gameState !== "battle") return;
+        
+        glowPhase += 0.1;
+        
+        // 空白地圖背景
+        ctx.fillStyle = "#3d6b3d";
+        ctx.fillRect(0, ARENA_TOP, GAME_WIDTH, ARENA_BOTTOM - ARENA_TOP);
+        
+        // 網格線
+        ctx.strokeStyle = "rgba(255,255,255,0.05)";
+        ctx.lineWidth = 1;
+        for (let x = 0; x < GAME_WIDTH; x += 40) {
+            ctx.beginPath();
+            ctx.moveTo(x, ARENA_TOP);
+            ctx.lineTo(x, ARENA_BOTTOM);
+            ctx.stroke();
+        }
+        for (let y = ARENA_TOP; y < ARENA_BOTTOM; y += 40) {
+            ctx.beginPath();
+            ctx.moveTo(0, y);
+            ctx.lineTo(GAME_WIDTH, y);
+            ctx.stroke();
+        }
+        
+        // 繪製單位
+        const allUnits = [...enemyUnits, ...playerUnits];
+        const currentActionUnit = getCurrentActionUnit();
+        
+        allUnits.forEach(unit => {
+            if (!unit.alive) return;
+            
+            const x = unit.x;
+            const y = unit.y;
+            const r = unit.size / 2;
+            
+            // 陰影
+            ctx.fillStyle = "rgba(0,0,0,0.4)";
+            ctx.beginPath();
+            ctx.ellipse(x, y + r - 5, r * 0.9, r * 0.35, 0, 0, Math.PI * 2);
+            ctx.fill();
+            
+            const colors = {
+                N: ["#5a5a5a", "#888"],
+                R: ["#2e7d32", "#4caf50"],
+                SR: ["#1565c0", "#42a5f5"],
+                SSR: ["#7b1fa2", "#ab47bc"],
+                UR: ["#ff8f00", "#ffd700"]
+            };
+            
+            const [mainColor, borderColor] = colors[unit.rarity];
+            
+            // 玩家回合時，所有我方英雄閃光
+            if (!unit.isEnemy && !animating) {
+                const glowIntensity = (Math.sin(glowPhase * 2) + 1) / 2;
+                
+                if (currentActionUnit === unit) {
+                    // 當前行動英雄 - 強烈閃光
+                    ctx.shadowColor = "#00ff00";
+                    ctx.shadowBlur = 20 + glowIntensity * 25;
+                    
+                    ctx.strokeStyle = `rgba(0, 255, 0, ${0.6 + glowIntensity * 0.4})`;
+                    ctx.lineWidth = 5;
+                    ctx.beginPath();
+                    ctx.arc(x, y, r + 12 + glowIntensity * 10, 0, Math.PI * 2);
+                    ctx.stroke();
+                } else {
+                    // 其他我方英雄 - 較弱閃光
+                    ctx.strokeStyle = `rgba(100, 255, 100, ${0.3 + glowIntensity * 0.3})`;
+                    ctx.lineWidth = 3;
+                    ctx.beginPath();
+                    ctx.arc(x, y, r + 8, 0, Math.PI * 2);
+                    ctx.stroke();
+                }
+            }
+            
+            // 等級2發光
+            if (unit.level >= 2) {
+                ctx.shadowColor = borderColor;
+                ctx.shadowBlur = 20;
+            }
+            
+            ctx.fillStyle = mainColor;
+            ctx.beginPath();
+            ctx.arc(x, y, r, 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.strokeStyle = borderColor;
+            ctx.lineWidth = 3;
+            ctx.stroke();
+            
+            ctx.shadowBlur = 0;
+            
+            // 護盾
+            if (unit.shield > 0) {
+                ctx.strokeStyle = "#00ffff";
+                ctx.lineWidth = 4;
+                ctx.beginPath();
+                ctx.arc(x, y, r + 6, 0, Math.PI * 2);
+                ctx.stroke();
+            }
+            
+            // 虛空帝皇穿透效果
+            if (unit.phaseThrough && unit === activeAttacker) {
+                ctx.strokeStyle = "rgba(128, 0, 255, 0.7)";
+                ctx.lineWidth = 3;
+                ctx.setLineDash([5, 5]);
+                ctx.beginPath();
+                ctx.arc(x, y, r + 8, 0, Math.PI * 2);
+                ctx.stroke();
+                ctx.setLineDash([]);
+            }
+            
+            // Emoji
+            const emojiSize = Math.max(r * 1.0, 14);
+            ctx.font = `${emojiSize}px Arial`;
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            ctx.fillText(unit.emoji, x, y);
+            
+            // HP條
+            const hpBarWidth = Math.max(r * 2.5, 50);
+            const hpBarHeight = 12;
+            const hpBarY = y - r - 24;
+            const hpPercent = Math.max(0, unit.currentHp / unit.maxHp);
+            
+            ctx.fillStyle = "#333";
+            ctx.fillRect(x - hpBarWidth/2, hpBarY, hpBarWidth, hpBarHeight);
+            
+            ctx.fillStyle = hpPercent > 0.5 ? "#4caf50" : hpPercent > 0.25 ? "#ff9800" : "#f44336";
+            ctx.fillRect(x - hpBarWidth/2, hpBarY, hpBarWidth * hpPercent, hpBarHeight);
+            
+            ctx.strokeStyle = "#fff";
+            ctx.lineWidth = 1;
+            ctx.strokeRect(x - hpBarWidth/2, hpBarY, hpBarWidth, hpBarHeight);
+            
+            // HP數值
+            ctx.fillStyle = "#fff";
+            ctx.font = "bold 9px Arial";
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            ctx.fillText(`${Math.max(0, Math.floor(unit.currentHp))}/${unit.maxHp}`, x, hpBarY + hpBarHeight / 2);
+            
+            // 等級標記
+            if (unit.level >= 2) {
+                ctx.fillStyle = "#ffd700";
+                ctx.font = "bold 10px Arial";
+                ctx.fillText("Lv.2", x, y + r + 16);
+            }
+            
+            // 狀態效果
+            let effectX = x - r;
+            unit.effects.forEach(effect => {
+                ctx.font = "14px Arial";
+                if (effect.type === "burn") ctx.fillText("🔥", effectX, y - r - 38);
+                if (effect.type === "powerLimit") ctx.fillText("❄️", effectX, y - r - 38);
+                effectX += 18;
+            });
+        });
+        
+        // 繪製箭矢
+        arrows.forEach(arrow => {
+            const arrowAngle = Math.atan2(arrow.vy, arrow.vx);
+            
+            ctx.save();
+            ctx.translate(arrow.x, arrow.y);
+            ctx.rotate(arrowAngle);
+            
+            // 箭身
+            ctx.fillStyle = "#8B4513";
+            ctx.fillRect(-15, -2, 25, 4);
+            
+            // 箭頭
+            ctx.fillStyle = "#C0C0C0";
+            ctx.beginPath();
+            ctx.moveTo(12, 0);
+            ctx.lineTo(5, -5);
+            ctx.lineTo(5, 5);
+            ctx.closePath();
+            ctx.fill();
+            
+            // 箭羽
+            ctx.fillStyle = "#FF6B6B";
+            ctx.beginPath();
+            ctx.moveTo(-15, 0);
+            ctx.lineTo(-20, -6);
+            ctx.lineTo(-12, 0);
+            ctx.lineTo(-20, 6);
+            ctx.closePath();
+            ctx.fill();
+            
+            ctx.restore();
+        });
+        
+        // 繪製折射火焰
+        refractionFlames.forEach(flame => {
+            const flameAngle = Math.atan2(flame.vy, flame.vx);
+            
+            ctx.save();
+            ctx.translate(flame.x, flame.y);
+            ctx.rotate(flameAngle);
+            
+            // 火焰尾巴
+            const gradient = ctx.createLinearGradient(-30, 0, 15, 0);
+            gradient.addColorStop(0, 'rgba(255, 100, 0, 0)');
+            gradient.addColorStop(0.3, 'rgba(255, 150, 0, 0.6)');
+            gradient.addColorStop(0.7, 'rgba(255, 200, 0, 0.9)');
+            gradient.addColorStop(1, 'rgba(255, 255, 200, 1)');
+            
+            ctx.fillStyle = gradient;
+            ctx.beginPath();
+            ctx.moveTo(-30, 0);
+            ctx.quadraticCurveTo(-15, -8, 15, 0);
+            ctx.quadraticCurveTo(-15, 8, -30, 0);
+            ctx.fill();
+            
+            // 火焰核心
+            ctx.fillStyle = '#fff';
+            ctx.beginPath();
+            ctx.arc(5, 0, 5, 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.fillStyle = '#ffff00';
+            ctx.beginPath();
+            ctx.arc(5, 0, 8, 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.restore();
+        });
+        
+        // 繪製視覺特效
+        const now = Date.now();
+        visualEffects = visualEffects.filter(effect => {
+            const elapsed = now - effect.startTime;
+            if (elapsed >= effect.duration) return false;
+            
+            const progress = elapsed / effect.duration;
+            
+            if (effect.type === "fire") {
+                // 火焰噴射特效
+                const alpha = 1 - progress;
+                const length = effect.length * (1 - progress * 0.3);
+                
+                ctx.save();
+                ctx.translate(effect.x, effect.y);
+                ctx.rotate(effect.angle);
+                
+                // 火焰漸變
+                const gradient = ctx.createLinearGradient(0, 0, length, 0);
+                gradient.addColorStop(0, `rgba(255, 200, 0, ${alpha})`);
+                gradient.addColorStop(0.3, `rgba(255, 100, 0, ${alpha * 0.8})`);
+                gradient.addColorStop(0.7, `rgba(255, 50, 0, ${alpha * 0.5})`);
+                gradient.addColorStop(1, `rgba(100, 0, 0, 0)`);
+                
+                ctx.fillStyle = gradient;
+                ctx.beginPath();
+                ctx.moveTo(0, -15);
+                ctx.lineTo(length, -5);
+                ctx.lineTo(length, 5);
+                ctx.lineTo(0, 15);
+                ctx.closePath();
+                ctx.fill();
+                
+                // 火焰粒子
+                for (let i = 0; i < 8; i++) {
+                    const px = Math.random() * length;
+                    const py = (Math.random() - 0.5) * 20;
+                    const psize = 3 + Math.random() * 5;
+                    ctx.fillStyle = `rgba(255, ${150 + Math.random() * 100}, 0, ${alpha * 0.8})`;
+                    ctx.beginPath();
+                    ctx.arc(px, py, psize, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                
+                ctx.restore();
+            }
+            
+            if (effect.type === "ambush") {
+                // 偷襲特效
+                const alpha = 1 - progress;
+                ctx.fillStyle = `rgba(128, 0, 128, ${alpha * 0.5})`;
+                ctx.beginPath();
+                ctx.arc(effect.x, effect.y, 30 * (1 + progress), 0, Math.PI * 2);
+                ctx.fill();
+                
+                ctx.font = `${20 + progress * 10}px Arial`;
+                ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
+                ctx.textAlign = "center";
+                ctx.fillText("🌙", effect.x, effect.y);
+            }
+            
+            if (effect.type === "pull") {
+                // 洋流拉近特效
+                const alpha = 1 - progress;
+                const maxRadius = 150;
+                
+                // 向內收縮的圓圈
+                for (let i = 0; i < 3; i++) {
+                    const radiusOffset = (i / 3 + progress) % 1;
+                    const radius = maxRadius * (1 - radiusOffset);
+                    ctx.strokeStyle = `rgba(0, 150, 255, ${alpha * (1 - radiusOffset)})`;
+                    ctx.lineWidth = 3;
+                    ctx.beginPath();
+                    ctx.arc(effect.x, effect.y, radius, 0, Math.PI * 2);
+                    ctx.stroke();
+                }
+                
+                // 中心漩渦
+                ctx.fillStyle = `rgba(0, 100, 200, ${alpha * 0.5})`;
+                ctx.beginPath();
+                ctx.arc(effect.x, effect.y, 20 * (1 - progress * 0.5), 0, Math.PI * 2);
+                ctx.fill();
+                
+                ctx.font = `${24}px Arial`;
+                ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
+                ctx.textAlign = "center";
+                ctx.fillText("🌊", effect.x, effect.y + 8);
+            }
+            
+            return true;
+        });
+        
+        // 拖拉線
+        if (dragging && dragUnit) {
+            const dx = dragStart.x - dragEnd.x;
+            const dy = dragStart.y - dragEnd.y;
+            const dragDistance = Math.sqrt(dx*dx + dy*dy);
+            const maxDrag = 120;
+            const power = Math.min(dragDistance, maxDrag);
+            const powerPercent = Math.floor((power / maxDrag) * 100);
+            
+            // 方向箭頭
+            const gradient = ctx.createLinearGradient(dragUnit.x, dragUnit.y, dragUnit.x + dx, dragUnit.y + dy);
+            gradient.addColorStop(0, `rgba(255, 255, 0, 0.9)`);
+            gradient.addColorStop(1, `rgba(255, 100, 0, ${Math.min(powerPercent / 100, 0.9)})`);
+            
+            ctx.strokeStyle = gradient;
+            ctx.lineWidth = 6;
+            ctx.lineCap = "round";
+            ctx.beginPath();
+            ctx.moveTo(dragUnit.x, dragUnit.y);
+            ctx.lineTo(dragUnit.x + dx, dragUnit.y + dy);
+            ctx.stroke();
+            
+            // 箭頭頭部
+            const arrowSize = 15;
+            const arrowAngle = Math.atan2(dy, dx);
+            ctx.fillStyle = "#ffff00";
+            ctx.beginPath();
+            ctx.moveTo(dragUnit.x + dx, dragUnit.y + dy);
+            ctx.lineTo(
+                dragUnit.x + dx - arrowSize * Math.cos(arrowAngle - 0.4),
+                dragUnit.y + dy - arrowSize * Math.sin(arrowAngle - 0.4)
+            );
+            ctx.lineTo(
+                dragUnit.x + dx - arrowSize * Math.cos(arrowAngle + 0.4),
+                dragUnit.y + dy - arrowSize * Math.sin(arrowAngle + 0.4)
+            );
+            ctx.closePath();
+            ctx.fill();
+            
+            // 力度指示
+            ctx.fillStyle = "#fff";
+            ctx.font = "bold 16px Arial";
+            ctx.textAlign = "center";
+            ctx.fillText(`力度: ${powerPercent}%`, dragUnit.x, dragUnit.y + dragUnit.size + 35);
+            
+            // 選中框
+            ctx.strokeStyle = "#ffff00";
+            ctx.lineWidth = 3;
+            ctx.setLineDash([8, 4]);
+            ctx.beginPath();
+            ctx.arc(dragUnit.x, dragUnit.y, dragUnit.size / 2 + 15, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.setLineDash([]);
+        }
+    }
+    
+    // ==========================================
+    // 遊戲主循環
+    // ==========================================
+    function gameLoop() {
+        if (gameState === "battle") {
+            const isMoving = updatePhysics();
+            
+            if (animating && !isMoving) {
+                animating = false;
+                setTimeout(endTurn, 300);
+            }
+        }
+        
+        draw();
+        requestAnimationFrame(gameLoop);
+    }
+    
+    window.onload = init;
+    </script>
+</body>
+</html>
