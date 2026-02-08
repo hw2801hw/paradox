@@ -1,0 +1,1620 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
+<title>合成戰域 - Merge Tactics</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; -webkit-touch-callout:none; -webkit-user-select:none; user-select:none; }
+html, body { width:100%; height:100%; overflow:hidden; background:#1a1a2e; font-family:'Segoe UI',Arial,sans-serif; }
+#gameContainer {
+  position:relative; margin:0 auto; overflow:hidden;
+  background: linear-gradient(180deg, #0f0f23 0%, #1a1a2e 50%, #16213e 100%);
+}
+canvas#mainCanvas { display:block; width:100%; height:100%; }
+
+/* UI Overlay */
+#uiOverlay {
+  position:absolute; top:0; left:0; width:100%; height:100%;
+  pointer-events:none; display:flex; flex-direction:column;
+}
+#uiOverlay > * { pointer-events:auto; }
+
+/* Top Bar */
+#topBar {
+  display:flex; justify-content:space-between; align-items:center;
+  padding:4px 8px; background:rgba(0,0,0,0.7); color:#fff; font-size:12px;
+  min-height:36px; flex-shrink:0;
+}
+.hp-bar { display:flex; align-items:center; gap:4px; }
+.hp-bar .hearts { display:flex; gap:2px; }
+.hp-bar .heart { width:14px; height:14px; display:flex; align-items:center; justify-content:center; font-size:12px; }
+.hp-bar .heart.full { color:#e74c3c; }
+.hp-bar .heart.empty { color:#555; }
+#roundInfo { text-align:center; font-weight:bold; color:#f1c40f; font-size:11px; line-height:1.3; }
+
+/* Synergy Bar */
+#synergyBar {
+  display:flex; flex-wrap:wrap; gap:2px; padding:2px 6px;
+  background:rgba(0,0,0,0.5); min-height:20px; flex-shrink:0;
+}
+.syn-tag { font-size:9px; padding:1px 4px; border-radius:3px; color:#fff; background:#444; cursor:pointer; }
+.syn-tag.active { background:#2ecc71; font-weight:bold; }
+
+/* Popups */
+#synergyPopup, #unitPopup {
+  position:absolute; top:60px; left:50%; transform:translateX(-50%);
+  background:rgba(0,0,0,0.95); color:#fff; padding:12px 16px;
+  border-radius:8px; font-size:12px; z-index:80;
+  border:2px solid #f1c40f; max-width:300px; text-align:center;
+  display:none; pointer-events:auto;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+  animation: popupFadeIn 0.2s ease-out;
+}
+@keyframes popupFadeIn {
+  from { opacity:0; transform:translateX(-50%) translateY(-10px); }
+  to { opacity:1; transform:translateX(-50%) translateY(0); }
+}
+#synergyPopup.show, #unitPopup.show { display:block; }
+#synergyPopup .popup-title, #unitPopup .popup-title { font-size:16px; font-weight:bold; margin-bottom:8px; }
+#synergyPopup .popup-tier { margin:4px 0; padding:6px 8px; background:rgba(255,255,255,0.1); border-radius:4px; font-size:11px; }
+#synergyPopup .popup-tier.active { background:rgba(46,204,113,0.3); border:1px solid #2ecc71; }
+#synergyPopup .popup-hint, #unitPopup .popup-hint { font-size:10px; color:#888; margin-top:8px; }
+#unitPopup .popup-stats { font-size:11px; color:#bdc3c7; margin:6px 0; }
+#unitPopup .popup-ability { font-size:11px; color:#2ecc71; font-style:italic; margin:6px 0; }
+#unitPopup .popup-tags { font-size:10px; color:#f1c40f; }
+
+#middleArea { flex:1; position:relative; pointer-events:none; min-height:0; }
+#mainCanvas { pointer-events:auto; }
+
+/* Bench */
+#benchArea {
+  display:flex; justify-content:center; gap:4px; padding:4px 6px;
+  background:rgba(0,0,0,0.6); flex-shrink:0; min-height:52px;
+}
+.bench-slot {
+  width:48px; height:48px; border:2px dashed #555; border-radius:6px;
+  display:flex; align-items:center; justify-content:center;
+  background:rgba(255,255,255,0.05); position:relative;
+}
+.bench-slot.occupied { border-color:#3498db; background:rgba(52,152,219,0.15); }
+.bench-unit {
+  width:100%; height:100%; display:flex; flex-direction:column;
+  align-items:center; justify-content:center; font-size:8px; color:#fff;
+  cursor:grab; border-radius:4px;
+}
+.bench-unit .unit-icon { font-size:18px; }
+.bench-unit .unit-name { font-size:7px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:44px; }
+.bench-unit .unit-star { font-size:8px; color:#f1c40f; }
+
+/* Bottom Bar */
+#bottomBar { background:rgba(0,0,0,0.8); padding:4px 6px; flex-shrink:0; }
+#manaBar {
+  display:flex; align-items:center; justify-content:center; gap:4px;
+  margin-bottom:4px; color:#3498db; font-weight:bold; font-size:13px;
+}
+#manaBar .mana-icon { font-size:16px; }
+#shopArea { display:flex; gap:4px; justify-content:center; margin-bottom:4px; }
+.shop-card {
+  width:30%; max-width:110px; padding:4px; border-radius:8px;
+  background:linear-gradient(135deg,#2c3e50,#34495e); border:2px solid #555;
+  color:#fff; text-align:center; cursor:pointer; position:relative;
+  transition: transform 0.1s;
+}
+.shop-card:active { transform:scale(0.95); }
+.shop-card.cost2 { border-color:#95a5a6; }
+.shop-card.cost3 { border-color:#3498db; }
+.shop-card.cost4 { border-color:#9b59b6; }
+.shop-card.cost5 { border-color:#f39c12; }
+.shop-card .card-cost { position:absolute; top:2px; left:4px; font-size:11px; font-weight:bold; color:#3498db; }
+.shop-card .card-icon { font-size:22px; margin:2px 0; }
+.shop-card .card-name { font-size:9px; font-weight:bold; margin:1px 0; }
+.shop-card .card-stats { font-size:7px; color:#bdc3c7; }
+.shop-card .card-tags { font-size:7px; color:#2ecc71; margin-top:1px; }
+.shop-card.empty { opacity:0.3; pointer-events:none; }
+.shop-card.cant-afford { opacity:0.5; }
+#actionBtns { display:flex; gap:4px; justify-content:center; }
+#actionBtns button {
+  padding:4px 12px; border:none; border-radius:4px; font-size:11px;
+  font-weight:bold; cursor:pointer; color:#fff; transition:transform 0.1s;
+}
+#actionBtns button:active { transform:scale(0.95); }
+#btnSell { background:#e74c3c; }
+#btnRefresh { background:#2ecc71; }
+#btnReady { background:#3498db; }
+#btnReady.fighting { background:#e67e22; }
+
+/* Screen Overlays */
+.screen-overlay {
+  position:absolute; top:0; left:0; width:100%; height:100%;
+  background:rgba(0,0,0,0.85); display:flex; flex-direction:column;
+  align-items:center; justify-content:center; color:#fff; z-index:100;
+}
+.screen-overlay h1 { font-size:28px; margin-bottom:8px; color:#f1c40f; text-shadow:0 0 20px #f39c12; }
+.screen-overlay h2 { font-size:18px; margin-bottom:16px; color:#bdc3c7; }
+.screen-overlay p { font-size:13px; color:#95a5a6; margin-bottom:8px; text-align:center; padding:0 20px; max-width:320px; }
+.screen-overlay button {
+  padding:12px 32px; font-size:16px; font-weight:bold; border:none;
+  border-radius:8px; cursor:pointer; color:#fff; margin-top:12px;
+  background:linear-gradient(135deg,#e74c3c,#c0392b); transition:transform 0.2s;
+}
+.screen-overlay button:hover { transform:scale(1.05); }
+.screen-overlay .btn-secondary { background:linear-gradient(135deg,#3498db,#2980b9); margin-top:8px; }
+.screen-overlay .btn-tertiary { background:linear-gradient(135deg,#9b59b6,#8e44ad); margin-top:8px; }
+.screen-overlay .btn-fourth { background:linear-gradient(135deg,#e67e22,#d35400); margin-top:8px; }
+
+/* Codex / Synergy / Commander Screens */
+#codexScreen, #synergyScreen, #commanderScreen { display:none; overflow-y:auto; padding:20px 10px; }
+#codexScreen.show, #synergyScreen.show, #commanderScreen.show { display:flex; flex-direction:column; }
+#codexScreen h1, #synergyScreen h1, #commanderScreen h1 { margin-bottom:12px; font-size:24px; flex-shrink:0; }
+#codexContent, #synergyContent, #commanderContent {
+  flex:1; overflow-y:auto; width:100%; max-width:400px;
+  display:flex; flex-direction:column; gap:8px; padding-bottom:20px;
+}
+.codex-card {
+  background:rgba(255,255,255,0.08); border-radius:8px; padding:10px;
+  border-left:4px solid #555; text-align:left;
+}
+.codex-card.cost2 { border-left-color:#95a5a6; }
+.codex-card.cost3 { border-left-color:#3498db; }
+.codex-card.cost4 { border-left-color:#9b59b6; }
+.codex-card.cost5 { border-left-color:#f39c12; }
+.codex-card .card-header { display:flex; align-items:center; gap:8px; margin-bottom:6px; }
+.codex-card .card-header .icon { font-size:28px; }
+.codex-card .card-header .info { flex:1; }
+.codex-card .card-header .name { font-size:14px; font-weight:bold; color:#fff; }
+.codex-card .card-header .cost { font-size:11px; color:#3498db; }
+.codex-card .stats { font-size:11px; color:#bdc3c7; margin-bottom:4px; }
+.codex-card .ability { font-size:10px; color:#2ecc71; margin-bottom:4px; font-style:italic; }
+.codex-card .tags { font-size:10px; color:#f1c40f; }
+
+.synergy-detail-card {
+  background:rgba(255,255,255,0.08); border-radius:8px; padding:12px;
+  border-left:4px solid #555; text-align:left;
+}
+.synergy-detail-card .syn-detail-header {
+  display:flex; align-items:center; gap:8px; margin-bottom:8px;
+  font-size:16px; font-weight:bold;
+}
+.synergy-detail-card .syn-detail-header .syn-icon { font-size:24px; }
+.synergy-detail-card .syn-detail-tiers { margin-bottom:8px; }
+.synergy-detail-card .syn-detail-tiers .tier-row {
+  font-size:11px; color:#bdc3c7; padding:4px 8px; margin:3px 0;
+  background:rgba(255,255,255,0.05); border-radius:4px;
+}
+.synergy-detail-card .syn-detail-units { display:flex; flex-wrap:wrap; gap:6px; margin-top:6px; }
+.synergy-detail-card .syn-unit-tag {
+  display:flex; align-items:center; gap:3px;
+  font-size:11px; color:#fff; padding:3px 8px;
+  background:rgba(255,255,255,0.1); border-radius:4px;
+}
+.synergy-detail-card .syn-unit-tag .unit-cost { font-size:9px; color:#3498db; }
+
+/* Commander Select Screen */
+#selectCommanderScreen { display:none; overflow-y:auto; padding:15px 10px; }
+#selectCommanderScreen.show { display:flex; flex-direction:column; align-items:center; }
+#selectCommanderScreen h1 { margin-bottom:8px; font-size:22px; flex-shrink:0; }
+#selectCommanderScreen p { font-size:12px; color:#95a5a6; margin-bottom:10px; }
+#commanderList {
+  flex:1; overflow-y:auto; width:100%; max-width:400px;
+  display:flex; flex-direction:column; gap:8px; padding-bottom:10px;
+}
+.cmd-card {
+  background:rgba(255,255,255,0.08); border-radius:10px; padding:12px;
+  border:2px solid #555; text-align:left; cursor:pointer;
+  transition: transform 0.15s, border-color 0.15s;
+}
+.cmd-card:active { transform:scale(0.97); }
+.cmd-card:hover { border-color:#f1c40f; }
+.cmd-card .cmd-header { display:flex; align-items:center; gap:10px; margin-bottom:6px; }
+.cmd-card .cmd-icon { font-size:36px; }
+.cmd-card .cmd-info { flex:1; }
+.cmd-card .cmd-name { font-size:16px; font-weight:bold; color:#fff; }
+.cmd-card .cmd-title { font-size:11px; color:#f1c40f; }
+.cmd-card .cmd-buff { font-size:11px; color:#2ecc71; margin:4px 0; padding:4px 8px; background:rgba(46,204,113,0.15); border-radius:4px; }
+.cmd-card .cmd-debuff { font-size:11px; color:#e74c3c; padding:4px 8px; background:rgba(231,76,60,0.15); border-radius:4px; }
+.cmd-card .cmd-special { font-size:10px; color:#3498db; margin-top:4px; font-style:italic; }
+
+/* Commander info card in codex style */
+.cmd-detail-card {
+  background:rgba(255,255,255,0.08); border-radius:10px; padding:14px;
+  border-left:4px solid #f1c40f; text-align:left; margin-bottom:4px;
+}
+.cmd-detail-card .cmd-header { display:flex; align-items:center; gap:10px; margin-bottom:8px; }
+.cmd-detail-card .cmd-icon { font-size:32px; }
+.cmd-detail-card .cmd-name { font-size:15px; font-weight:bold; color:#fff; }
+.cmd-detail-card .cmd-title { font-size:11px; color:#f1c40f; }
+.cmd-detail-card .cmd-desc { font-size:11px; color:#bdc3c7; margin:4px 0; line-height:1.5; }
+.cmd-detail-card .cmd-buff { font-size:11px; color:#2ecc71; margin:3px 0; }
+.cmd-detail-card .cmd-debuff { font-size:11px; color:#e74c3c; margin:3px 0; }
+
+/* Commander indicator in top bar */
+#cmdIndicator {
+  font-size:9px; color:#f1c40f; text-align:center; margin-top:2px;
+}
+
+/* Drag ghost */
+#dragGhost {
+  position:absolute; pointer-events:none; z-index:50;
+  width:48px; height:48px; display:none;
+  font-size:28px; text-align:center; line-height:48px;
+  filter:drop-shadow(0 0 8px rgba(255,255,255,0.5));
+}
+/* Toast */
+#toast {
+  position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+  background:rgba(0,0,0,0.8); color:#f1c40f; padding:8px 16px;
+  border-radius:8px; font-size:14px; font-weight:bold;
+  pointer-events:none; opacity:0; transition:opacity 0.3s; z-index:60;
+}
+#toast.show { opacity:1; }
+@keyframes shadowTeleport {
+  0% { opacity:0; transform:scale(0.3); }
+  50% { opacity:0.7; transform:scale(1.2); }
+  100% { opacity:1; transform:scale(1); }
+}
+</style>
+</head>
+<body>
+<div id="gameContainer">
+  <canvas id="mainCanvas"></canvas>
+  <div id="uiOverlay">
+    <div id="topBar">
+      <div class="hp-bar" id="playerHP"></div>
+      <div><div id="roundInfo">回合 1<br>部署階段</div><div id="cmdIndicator"></div></div>
+      <div class="hp-bar" id="aiHP"></div>
+    </div>
+    <div id="synergyBar"></div>
+    <div id="middleArea"></div>
+    <div id="benchArea"></div>
+    <div id="bottomBar">
+      <div id="manaBar"><span class="mana-icon">💧</span><span id="manaCount">4</span> / 10</div>
+      <div id="shopArea"></div>
+      <div id="actionBtns">
+        <button id="btnSell">📤 賣出</button>
+        <button id="btnRefresh">🔄 刷新(1)</button>
+        <button id="btnReady">⚔️ 開戰</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="dragGhost"></div>
+  <div id="toast"></div>
+  <div id="synergyPopup"><div class="popup-title"></div><div class="popup-tiers"></div></div>
+  <div id="unitPopup"><div class="popup-title"></div><div class="popup-stats"></div><div class="popup-ability"></div><div class="popup-tags"></div><div class="popup-hint"></div></div>
+
+  <!-- Menu Screen -->
+  <div class="screen-overlay" id="menuScreen">
+    <h1>⚔️ 合成戰域</h1>
+    <h2>Merge Tactics</h2>
+    <p>購買卡片、部署到戰場、合成升星、觸發羈絆，擊敗AI對手！</p>
+    <p style="font-size:11px;">🎮 拖曳卡片到戰場部署<br>📦 合成相同單位升星<br>🏆 擊敗對手統帥獲勝</p>
+    <button onclick="Game.showSelectCommander()">開始遊戲</button>
+    <button class="btn-secondary" onclick="Game.showCodex()">📖 卡片圖鑑</button>
+    <button class="btn-tertiary" onclick="Game.showSynergyScreen()">🔗 羈絆系統</button>
+    <button class="btn-fourth" onclick="Game.showCommanderScreen()">👑 統帥介紹</button>
+  </div>
+
+  <!-- Select Commander Screen -->
+  <div class="screen-overlay" id="selectCommanderScreen">
+    <h1>👑 選擇統帥</h1>
+    <p>選擇你的統帥，每位統帥擁有獨特的增益與對敵方的削弱效果</p>
+    <div id="commanderList"></div>
+  </div>
+
+  <!-- Commander Info Screen -->
+  <div class="screen-overlay" id="commanderScreen">
+    <h1>👑 統帥介紹</h1>
+    <div id="commanderContent"></div>
+    <button onclick="Game.hideCommanderScreen()">返回</button>
+  </div>
+
+  <!-- Codex Screen -->
+  <div class="screen-overlay" id="codexScreen">
+    <h1>📖 卡片圖鑑</h1>
+    <div id="codexContent"></div>
+    <button onclick="Game.hideCodex()">返回</button>
+  </div>
+
+  <!-- Synergy Screen -->
+  <div class="screen-overlay" id="synergyScreen">
+    <h1>🔗 羈絆系統</h1>
+    <div id="synergyContent"></div>
+    <button onclick="Game.hideSynergyScreen()">返回</button>
+  </div>
+
+  <!-- Result Screen -->
+  <div class="screen-overlay" id="resultScreen" style="display:none;">
+    <h1 id="resultTitle">勝利！</h1>
+    <h2 id="resultSub"></h2>
+    <button onclick="Game.restart()">再來一局</button>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// COMMANDERS
+// ============================================================
+const COMMANDERS = [
+  {
+    id: 0,
+    name: '聖泉守護者',
+    icon: '💧',
+    title: '豐沛之源',
+    buff: '每回合獲得的聖水+2',
+    debuff: '對方每回合聖水-1',
+    special: '',
+    color: '#3498db'
+  },
+  {
+    id: 1,
+    name: '命運商人',
+    icon: '🔮',
+    title: '無盡輪迴',
+    buff: '刷新商店免費（不消耗聖水）',
+    debuff: '對方刷新商店額外花費+1（共2聖水）',
+    special: '',
+    color: '#9b59b6'
+  },
+  {
+    id: 2,
+    name: '疾風戰神',
+    icon: '🌪️',
+    title: '後排狂襲',
+    buff: '己方後兩排（第6-7行）單位+50%攻速',
+    debuff: '對方後兩排單位-50%攻速',
+    special: '',
+    color: '#2ecc71'
+  },
+  {
+    id: 3,
+    name: '鐵壁元帥',
+    icon: '🛡️',
+    title: '前線堡壘',
+    buff: '己方前兩排（第4-5行）單位免疫前2秒傷害',
+    debuff: '對方前兩排單位戰鬥開始損失10%最大生命值',
+    special: '',
+    color: '#e67e22'
+  },
+  {
+    id: 4,
+    name: '孤星領袖',
+    icon: '⭐',
+    title: '獨行無懼',
+    buff: '不受對方統帥的負面影響；場上僅剩1個己方單位時，該單位瞬間回滿血且能同時攻擊2個敵人',
+    debuff: '（無對敵削弱）',
+    special: '免疫對方統帥debuff',
+    color: '#f1c40f'
+  }
+];
+
+// ============================================================
+// SYNERGIES & CARDS
+// ============================================================
+const SYNERGIES = {
+  ironclad:{name:'鋼鎧',icon:'🛡️',color:'#95a5a6',tiers:[{count:2,desc:'+20% 生命',hpMult:0.20},{count:4,desc:'+50% 生命,+15%傷害',hpMult:0.50,dmgMult:0.15}]},
+  inferno:{name:'烈焰',icon:'🔥',color:'#e74c3c',tiers:[{count:2,desc:'+20% 傷害',dmgMult:0.20},{count:4,desc:'+50% 傷害',dmgMult:0.50}]},
+  shadow:{name:'暗影',icon:'🌑',color:'#8e44ad',tiers:[{count:2,desc:'25%暴擊(2x)，戰鬥開始跳至敵方空位',critChance:0.25,teleport:true},{count:4,desc:'45%暴擊(2.5x)，戰鬥開始跳至敵方空位',critChance:0.45,critMult:2.5,teleport:true}]},
+  radiant:{name:'聖光',icon:'✨',color:'#f1c40f',tiers:[{count:2,desc:'每3秒回8%血',healPct:0.08},{count:4,desc:'每3秒回15%血,+15%傷害',healPct:0.15,dmgMult:0.15}]},
+  tempest:{name:'狂風',icon:'🌪️',color:'#3498db',tiers:[{count:2,desc:'+25% 攻速',atkSpd:0.25},{count:4,desc:'+50% 攻速,+15%閃避',atkSpd:0.50,dodge:0.15}]},
+  titan:{name:'大地',icon:'🗿',color:'#e67e22',tiers:[{count:2,desc:'+25% 生命',hpMult:0.25},{count:4,desc:'+50% 生命,擊殺回15%血',hpMult:0.50,killHeal:0.15}]},
+  arcane:{name:'奧術',icon:'🔮',color:'#9b59b6',tiers:[{count:2,desc:'+20% 傷害,穿透10%',dmgMult:0.20,pierce:0.10},{count:4,desc:'+45% 傷害,穿透25%',dmgMult:0.45,pierce:0.25}]},
+  venom:{name:'劇毒',icon:'🧪',color:'#27ae60',tiers:[{count:2,desc:'攻擊附毒(3%/s)',poisonPct:0.03},{count:4,desc:'攻擊附毒(6%/s),+20%HP',poisonPct:0.06,hpMult:0.20}]},
+  undead:{name:'亡靈',icon:'💀',color:'#7f8c8d',tiers:[{count:2,desc:'死亡爆炸(25%HP)',deathDmg:0.25},{count:4,desc:'死亡爆炸(50%HP),+20%HP',deathDmg:0.50,hpMult:0.20}]},
+  dragon:{name:'龍裔',icon:'🐉',color:'#c0392b',tiers:[{count:2,desc:'+25%全屬性',hpMult:0.25,dmgMult:0.25},{count:4,desc:'+50%全屬性',hpMult:0.50,dmgMult:0.50}]},
+  thunder:{name:'雷電',icon:'⚡',color:'#f0e130',tiers:[{count:2,desc:'攻擊15%機率麻痺敵人0.5秒',stunChance:0.15,stunDur:0.5},{count:4,desc:'攻擊25%機率麻痺1秒,+20%傷害',stunChance:0.25,stunDur:1.0,dmgMult:0.20}]},
+  frost:{name:'寒冰',icon:'❄️',color:'#00bcd4',tiers:[{count:2,desc:'攻擊使敵人減速25%',slowPct:0.25},{count:4,desc:'攻擊使敵人減速40%,+20%HP',slowPct:0.40,hpMult:0.20}]}
+};
+
+const CARD_POOL = [
+  {id:0,name:'民兵',cost:2,hp:120,dps:25,range:1,icon:'⚔️',tags:['ironclad','titan'],ability:'受傷低於50%時+20%防禦',abilityType:'passive'},
+  {id:1,name:'飛刀客',cost:2,hp:80,dps:35,range:3,icon:'🗡️',tags:['shadow','thunder'],ability:'首次攻擊必定暴擊',abilityType:'passive'},
+  {id:2,name:'火苗精',cost:2,hp:70,dps:30,range:3,icon:'🔥',tags:['inferno','arcane'],ability:'攻擊附帶濺射(50%傷害)',abilityType:'passive'},
+  {id:3,name:'藥草師',cost:2,hp:90,dps:18,range:3,icon:'🌿',tags:['radiant','venom'],ability:'每5秒治療最低血友軍15HP',abilityType:'passive'},
+  {id:4,name:'骷髏兵',cost:2,hp:100,dps:28,range:1,icon:'💀',tags:['undead','thunder'],ability:'死亡後復活一次(50%血)',abilityType:'passive'},
+  {id:5,name:'石像鬼',cost:2,hp:130,dps:20,range:1,icon:'🗿',tags:['titan','ironclad'],ability:'前3秒受傷減半',abilityType:'passive'},
+  {id:6,name:'毒蛙',cost:2,hp:60,dps:22,range:2,icon:'🐸',tags:['venom','tempest'],ability:'攻擊使敵減速20%',abilityType:'passive'},
+  {id:7,name:'聖騎士',cost:3,hp:200,dps:35,range:1,icon:'🛡️',tags:['radiant','ironclad'],ability:'友軍死亡時獲得護盾(30HP)',abilityType:'passive'},
+  {id:8,name:'狂戰士',cost:3,hp:150,dps:50,range:1,icon:'🪓',tags:['inferno','thunder'],ability:'血量越低傷害越高(最多+50%)',abilityType:'passive'},
+  {id:9,name:'女巫',cost:3,hp:100,dps:40,range:4,icon:'🧙',tags:['arcane','shadow'],ability:'每第3次攻擊造成雙倍傷害',abilityType:'passive'},
+  {id:10,name:'疾風射手',cost:3,hp:110,dps:45,range:4,icon:'🏹',tags:['tempest','inferno'],ability:'擊殺後攻速+30%持續5秒',abilityType:'passive'},
+  {id:11,name:'亡靈法師',cost:3,hp:120,dps:38,range:3,icon:'☠️',tags:['undead','arcane'],ability:'擊殺敵人召喚骷髏(40HP/15DPS)',abilityType:'passive'},
+  {id:12,name:'蛇女',cost:3,hp:130,dps:32,range:3,icon:'🐍',tags:['venom','frost'],ability:'中毒敵人受傷+20%',abilityType:'passive'},
+  {id:13,name:'風行者',cost:3,hp:90,dps:42,range:2,icon:'💨',tags:['tempest','frost'],ability:'15%閃避攻擊',abilityType:'passive'},
+  {id:14,name:'熔岩巨人',cost:4,hp:350,dps:45,range:1,icon:'🌋',tags:['inferno','titan'],ability:'受擊反彈10%傷害',abilityType:'passive'},
+  {id:15,name:'大天使',cost:4,hp:180,dps:55,range:4,icon:'👼',tags:['radiant','dragon'],ability:'每8秒全隊回復8%血',abilityType:'passive'},
+  {id:16,name:'影刺客',cost:4,hp:140,dps:65,range:1,icon:'🥷',tags:['shadow','venom'],ability:'戰鬥開始隱身3秒,首擊3倍傷害',abilityType:'passive'},
+  {id:17,name:'符文衛士',cost:4,hp:280,dps:40,range:1,icon:'🏰',tags:['ironclad','arcane'],ability:'減少鄰近友軍受傷15%',abilityType:'passive'},
+  {id:18,name:'雷電鷹',cost:4,hp:160,dps:58,range:3,icon:'🦅',tags:['tempest','dragon'],ability:'攻擊鏈接跳躍(30%傷害打鄰近敵)',abilityType:'passive'},
+  {id:19,name:'屍骨龍',cost:4,hp:300,dps:48,range:2,icon:'🦴',tags:['undead','dragon'],ability:'死亡時對全敵造成自身最大血15%',abilityType:'passive'},
+  {id:20,name:'鳳凰',cost:5,hp:250,dps:60,range:3,icon:'🦅',tags:['frost','radiant'],ability:'首次死亡時滿血復活+全隊回15%血',abilityType:'passive'},
+  {id:21,name:'深淵領主',cost:5,hp:400,dps:55,range:1,icon:'👹',tags:['shadow','undead'],ability:'擊殺回30%最大血,+10%永久傷害',abilityType:'passive'},
+  {id:22,name:'風暴龍王',cost:5,hp:320,dps:70,range:4,icon:'🐲',tags:['dragon','thunder'],ability:'每5秒對全敵造成自身DPS50%傷害',abilityType:'passive'},
+  {id:23,name:'世界樹',cost:5,hp:500,dps:25,range:2,icon:'🌳',tags:['titan','frost'],ability:'每秒回復全隊2%血,自身+50%HP',abilityType:'passive'}
+];
+
+// ============================================================
+// GAME ENGINE
+// ============================================================
+const Game = {
+  canvas:null, ctx:null, W:0, H:0,
+  state:'menu', round:1, maxRounds:10,
+  playerHP:9, aiHP:9,
+  playerMana:4, maxMana:10,
+  shop:[], playerBoard:[], playerBench:[null,null,null,null,null],
+  aiBoard:[], aiBench:[null,null,null,null,null],
+  aiMana:4, aiShop:[],
+  combatUnits:[], combatTimer:0, maxCombatTime:25,
+  animFrame:null, lastTime:0,
+  selectedBenchIdx:-1, dragging:null, dragPos:{x:0,y:0},
+  shadowTeleportAnims:[],
+  GRID_COLS:5, GRID_ROWS:8,
+  gridOffsetX:0, gridOffsetY:0, cellW:0, cellH:0,
+
+  // Commander
+  playerCommander: null, // commander object
+  aiCommander: null,
+  refreshCostOverride: null, // for commander 1 free refresh
+
+  getMaxUnitsForRound() { return Math.min(6, this.round + 1); },
+
+  // === Mana gain per round considering commanders ===
+  getPlayerManaGain() {
+    let base = 4;
+    // Player commander 0: +2 mana
+    if(this.playerCommander && this.playerCommander.id === 0) base += 2;
+    // AI commander 0: player gets -1 (unless player is commander 4)
+    if(this.aiCommander && this.aiCommander.id === 0 && !(this.playerCommander && this.playerCommander.id === 4)) base -= 1;
+    return Math.max(1, base);
+  },
+  getAIManaGain() {
+    let base = 4;
+    if(this.aiCommander && this.aiCommander.id === 0) base += 2;
+    // Player commander 0: AI gets -1 (unless AI is commander 4, but AI won't be)
+    if(this.playerCommander && this.playerCommander.id === 0) base -= 1;
+    return Math.max(1, base);
+  },
+
+  // === Refresh cost considering commanders ===
+  getPlayerRefreshCost() {
+    // Commander 1: free refresh
+    if(this.playerCommander && this.playerCommander.id === 1) return 0;
+    let cost = 1;
+    // AI commander 1: player pays +1 extra (unless player is commander 4)
+    if(this.aiCommander && this.aiCommander.id === 1 && !(this.playerCommander && this.playerCommander.id === 4)) cost += 1;
+    return cost;
+  },
+  getAIRefreshCost() {
+    let cost = 1;
+    // Player commander 1: AI pays +1
+    if(this.playerCommander && this.playerCommander.id === 1) cost += 1;
+    return cost;
+  },
+
+  init() {
+    this.canvas = document.getElementById('mainCanvas');
+    this.ctx = this.canvas.getContext('2d');
+    this.resize();
+    window.addEventListener('resize', () => this.resize());
+    this.setupInput();
+    this.render();
+  },
+
+  resize() {
+    const container = document.getElementById('gameContainer');
+    const vw = window.innerWidth, vh = window.innerHeight;
+    container.style.width = vw + 'px';
+    container.style.height = vh + 'px';
+    this.canvas.width = vw; this.canvas.height = vh;
+    this.W = vw; this.H = vh;
+    this.recalcGrid();
+  },
+
+  recalcGrid() {
+    const topBar = document.getElementById('topBar');
+    const synBar = document.getElementById('synergyBar');
+    const benchArea = document.getElementById('benchArea');
+    const bottomBar = document.getElementById('bottomBar');
+    const topH = (topBar?.offsetHeight||36) + (synBar?.offsetHeight||20);
+    const botH = (benchArea?.offsetHeight||52) + (bottomBar?.offsetHeight||80);
+    const areaH = this.H - topH - botH;
+    const areaW = this.W;
+    const padding = 8;
+    this.cellW = Math.floor((areaW - padding*2) / this.GRID_COLS);
+    this.cellH = Math.floor((areaH - padding*2) / this.GRID_ROWS);
+    if(this.cellH > this.cellW * 0.8) this.cellH = Math.floor(this.cellW * 0.8);
+    this.gridOffsetX = Math.floor((areaW - this.cellW * this.GRID_COLS) / 2);
+    this.gridOffsetY = topH + Math.floor((areaH - this.cellH * this.GRID_ROWS) / 2);
+  },
+
+  // ============ COMMANDER SELECT ============
+  showSelectCommander() {
+    document.getElementById('menuScreen').style.display = 'none';
+    const screen = document.getElementById('selectCommanderScreen');
+    const list = document.getElementById('commanderList');
+    let html = '';
+    for(const cmd of COMMANDERS) {
+      html += `<div class="cmd-card" onclick="Game.selectCommander(${cmd.id})" style="border-color:${cmd.color}">
+        <div class="cmd-header">
+          <span class="cmd-icon">${cmd.icon}</span>
+          <div class="cmd-info">
+            <div class="cmd-name">${cmd.name}</div>
+            <div class="cmd-title">${cmd.title}</div>
+          </div>
+        </div>
+        <div class="cmd-buff">✅ ${cmd.buff}</div>
+        <div class="cmd-debuff">❌ ${cmd.debuff}</div>
+        ${cmd.special ? `<div class="cmd-special">⭐ ${cmd.special}</div>` : ''}
+      </div>`;
+    }
+    list.innerHTML = html;
+    screen.classList.add('show');
+  },
+
+  selectCommander(id) {
+    this.playerCommander = COMMANDERS.find(c => c.id === id);
+    // AI picks a random different commander
+    const others = COMMANDERS.filter(c => c.id !== id);
+    this.aiCommander = others[Math.floor(Math.random() * others.length)];
+    document.getElementById('selectCommanderScreen').classList.remove('show');
+    this.startGame();
+  },
+
+  // ============ COMMANDER INFO SCREEN ============
+  showCommanderScreen() {
+    const screen = document.getElementById('commanderScreen');
+    const content = document.getElementById('commanderContent');
+    let html = '';
+    for(const cmd of COMMANDERS) {
+      html += `<div class="cmd-detail-card">
+        <div class="cmd-header">
+          <span class="cmd-icon">${cmd.icon}</span>
+          <div>
+            <div class="cmd-name">${cmd.name}</div>
+            <div class="cmd-title">${cmd.title}</div>
+          </div>
+        </div>
+        <div class="cmd-buff">✅ 增益：${cmd.buff}</div>
+        <div class="cmd-debuff">❌ 削弱：${cmd.debuff}</div>
+        ${cmd.special ? `<div class="cmd-desc">⭐ 特殊：${cmd.special}</div>` : ''}
+      </div>`;
+    }
+    content.innerHTML = html;
+    screen.classList.add('show');
+  },
+  hideCommanderScreen() { document.getElementById('commanderScreen').classList.remove('show'); },
+
+  // ============ START / RESTART ============
+  startGame() {
+    document.getElementById('menuScreen').style.display = 'none';
+    document.getElementById('resultScreen').style.display = 'none';
+    this.state = 'deploy';
+    this.round = 1;
+    this.playerHP = 9; this.aiHP = 9;
+    this.playerMana = 4; this.aiMana = 4;
+    this.playerBoard = []; this.playerBench = [null,null,null,null,null];
+    this.aiBoard = []; this.aiBench = [null,null,null,null,null];
+    this.combatUnits = [];
+    this.selectedBenchIdx = -1;
+    this.shadowTeleportAnims = [];
+    this.refreshShop();
+    this.refreshAIShop();
+    this.updateUI();
+    this.recalcGrid();
+    this.gameLoop(performance.now());
+  },
+
+  start() { this.showSelectCommander(); },
+
+  restart() {
+    this.playerCommander = null;
+    this.aiCommander = null;
+    document.getElementById('resultScreen').style.display = 'none';
+    document.getElementById('menuScreen').style.display = 'flex';
+  },
+
+  // ============ SHOP ============
+  refreshShop() {
+    this.shop = [];
+    for(let i = 0; i < 3; i++) {
+      const idx = Math.floor(Math.random() * CARD_POOL.length);
+      this.shop.push({...CARD_POOL[idx]});
+    }
+  },
+  refreshAIShop() {
+    this.aiShop = [];
+    for(let i = 0; i < 3; i++) {
+      const idx = Math.floor(Math.random() * CARD_POOL.length);
+      this.aiShop.push({...CARD_POOL[idx]});
+    }
+  },
+
+  buyCard(shopIdx) {
+    if(this.shop[shopIdx] === null) return;
+    const card = this.shop[shopIdx];
+    if(this.playerMana < card.cost) { this.showToast('聖水不足！'); return; }
+    let merged = this.tryMergeToBench(card);
+    if(merged) { this.playerMana -= card.cost; this.shop[shopIdx] = null; this.updateUI(); return; }
+    let emptyIdx = this.playerBench.findIndex(b => b === null);
+    if(emptyIdx === -1) {
+      let boardMerged = this.tryMergeToBoard(card, 'player');
+      if(boardMerged) { this.playerMana -= card.cost; this.shop[shopIdx] = null; this.updateUI(); return; }
+      this.showToast('備戰區已滿！'); return;
+    }
+    this.playerMana -= card.cost;
+    this.playerBench[emptyIdx] = this.createUnit(card, 'player');
+    this.shop[shopIdx] = null;
+    this.updateUI();
+  },
+
+  createUnit(card, owner) {
+    return {
+      cardId:card.id, name:card.name, cost:card.cost,
+      baseHp:card.hp, baseDps:card.dps, range:card.range,
+      icon:card.icon, tags:[...card.tags],
+      ability:card.ability, abilityType:card.abilityType,
+      star:1, owner:owner,
+      hp:0, maxHp:0, dps:0, x:0, y:0,
+      target:null, atkCooldown:0, alive:true,
+      gridRow:-1, gridCol:-1,
+      effects:{}, firstAttack:true, revived:false, killCount:0,
+      permDmgBonus:0, shieldHp:0, invisible:false, invisTimer:0,
+      summons:[], dualTarget:false
+    };
+  },
+
+  tryMergeToBench(card) {
+    for(let i = 0; i < this.playerBench.length; i++) {
+      const u = this.playerBench[i];
+      if(u && u.cardId === card.id && u.star < 4) {
+        u.star++; this.playerMana = Math.min(this.maxMana, this.playerMana + 1);
+        this.showToast(`${u.name} 升至 ${u.star}⭐！+1💧`); return true;
+      }
+    }
+    return false;
+  },
+
+  tryMergeToBoard(card, owner) {
+    const board = owner === 'player' ? this.playerBoard : this.aiBoard;
+    for(let i = 0; i < board.length; i++) {
+      const u = board[i];
+      if(u && u.cardId === card.id && u.star < 4) {
+        u.star++;
+        if(owner === 'player') { this.playerMana = Math.min(this.maxMana, this.playerMana + 1); this.showToast(`${u.name} 升至 ${u.star}⭐！+1💧`); }
+        else { this.aiMana = Math.min(this.maxMana, this.aiMana + 1); }
+        return true;
+      }
+    }
+    return false;
+  },
+
+  sellUnit(source, idx) {
+    let unit = null;
+    if(source === 'bench') { unit = this.playerBench[idx]; if(!unit) return; this.playerBench[idx] = null; }
+    else if(source === 'board') { unit = this.playerBoard[idx]; if(!unit) return; this.playerBoard.splice(idx, 1); }
+    if(unit) {
+      const refund = Math.max(1, unit.cost - 1) * unit.star;
+      this.playerMana = Math.min(this.maxMana, this.playerMana + refund);
+      this.showToast(`賣出 ${unit.name} +${refund}💧`);
+    }
+    this.selectedBenchIdx = -1; this.updateUI();
+  },
+
+  deployToBoard(unit, row, col, owner) {
+    if(owner === 'player' && row < 4) return false;
+    if(owner === 'ai' && row >= 4) return false;
+    const board = owner === 'player' ? this.playerBoard : this.aiBoard;
+    const existing = board.find(u => u.gridRow === row && u.gridCol === col);
+    if(existing) {
+      if(existing.cardId === unit.cardId && existing.star < 4) {
+        existing.star++;
+        if(owner === 'player') { this.playerMana = Math.min(this.maxMana, this.playerMana + 1); this.showToast(`${existing.name} 升至 ${existing.star}⭐！+1💧`); }
+        return true;
+      }
+      return false;
+    }
+    unit.gridRow = row; unit.gridCol = col;
+    board.push(unit); return true;
+  },
+
+  // ============ SHADOW TELEPORT ============
+  applyShadowTeleport() {
+    this.shadowTeleportAnims = [];
+    const checkAndTeleport = (ownerSide) => {
+      const board = ownerSide === 'player' ? this.playerBoard : this.aiBoard;
+      const syns = this.calcSynergies(board);
+      const shadowCount = syns['shadow'] || 0;
+      let active = false;
+      for(const tier of SYNERGIES.shadow.tiers) { if(shadowCount >= tier.count && tier.teleport) active = true; }
+      if(!active) return;
+      const units = this.combatUnits.filter(u => u.alive && u.owner === ownerSide && u.tags.includes('shadow'));
+      for(const u of units) {
+        const emptyCell = this.findEmptyEnemyCell(u, ownerSide);
+        if(emptyCell) {
+          const oldX = u.x, oldY = u.y;
+          u.combatRow = emptyCell.r; u.combatCol = emptyCell.c;
+          const pos = this.getGridPos(u.combatRow, u.combatCol);
+          u.x = pos.x; u.y = pos.y; u.targetX = pos.x; u.targetY = pos.y;
+          this.shadowTeleportAnims.push({x:pos.x, y:pos.y, timer:0.8, icon:u.icon, fromX:oldX, fromY:oldY});
+        }
+      }
+    };
+    checkAndTeleport('player');
+    checkAndTeleport('ai');
+  },
+
+  findEmptyEnemyCell(unit, ownerSide) {
+    const targetRows = ownerSide === 'player' ? [3,2,1,0] : [4,5,6,7];
+    let closestEnemy = null, closestDist = Infinity;
+    for(const e of this.combatUnits) {
+      if(!e.alive || e.owner === unit.owner) continue;
+      const d = Math.abs(e.combatRow - unit.combatRow) + Math.abs(e.combatCol - unit.combatCol);
+      if(d < closestDist) { closestDist = d; closestEnemy = e; }
+    }
+    const candidates = [];
+    for(const r of targetRows) {
+      for(let c = 0; c < this.GRID_COLS; c++) {
+        const occupied = this.combatUnits.some(u => u.alive && u.combatRow === r && u.combatCol === c);
+        if(!occupied) {
+          let priority = closestEnemy ? Math.abs(r - closestEnemy.combatRow) + Math.abs(c - closestEnemy.combatCol) : 0;
+          candidates.push({r, c, priority});
+        }
+      }
+    }
+    if(candidates.length === 0) return null;
+    candidates.sort((a,b) => a.priority - b.priority);
+    return candidates[0];
+  },
+
+  // ============ COMBAT ============
+  startCombat() {
+    if(this.state !== 'deploy') return;
+    if(this.playerBoard.length === 0) { this.showToast('請先部署單位！'); return; }
+    const maxUnits = this.getMaxUnitsForRound();
+    if(this.playerBoard.length > maxUnits) { this.showToast(`本回合最多 ${maxUnits} 個單位！`); return; }
+    this.state = 'combat'; this.combatTimer = 0;
+    this.aiDeploy();
+    this.combatUnits = [];
+    const playerSynergies = this.calcSynergies(this.playerBoard);
+    const aiSynergies = this.calcSynergies(this.aiBoard);
+    for(const u of this.playerBoard) { this.initCombatUnit(u, playerSynergies, 'player'); this.combatUnits.push(u); }
+    for(const u of this.aiBoard) { this.initCombatUnit(u, aiSynergies, 'ai'); this.combatUnits.push(u); }
+
+    // === Apply Commander effects at combat start ===
+    this.applyCommanderCombatStart();
+
+    // Shadow teleport
+    this.applyShadowTeleport();
+    this.updateUI();
+  },
+
+  applyCommanderCombatStart() {
+    const pCmd = this.playerCommander;
+    const aCmd = this.aiCommander;
+    const playerIsImmune = pCmd && pCmd.id === 4;
+    // AI never picks commander 4, but in case:
+    const aiIsImmune = aCmd && aCmd.id === 4;
+
+    // Commander 2 (疾風戰神): back rows atk speed buff/debuff
+    // Player's back rows = row 6,7; AI's back rows = row 0,1
+    if(pCmd && pCmd.id === 2) {
+      // Buff player back rows (+50% atk speed)
+      for(const u of this.combatUnits) {
+        if(u.owner === 'player' && u.combatRow >= 6) u.atkSpeed *= 1.5;
+      }
+      // Debuff AI back rows (-50% atk speed), unless AI immune
+      if(!aiIsImmune) {
+        for(const u of this.combatUnits) {
+          if(u.owner === 'ai' && u.combatRow <= 1) u.atkSpeed *= 0.5;
+        }
+      }
+    }
+    if(aCmd && aCmd.id === 2) {
+      // AI buff its back rows
+      for(const u of this.combatUnits) {
+        if(u.owner === 'ai' && u.combatRow <= 1) u.atkSpeed *= 1.5;
+      }
+      // Debuff player back rows, unless player immune
+      if(!playerIsImmune) {
+        for(const u of this.combatUnits) {
+          if(u.owner === 'player' && u.combatRow >= 6) u.atkSpeed *= 0.5;
+        }
+      }
+    }
+
+    // Commander 3 (鐵壁元帥): front rows immunity / HP loss
+    // Player's front rows = row 4,5; AI's front rows = row 2,3
+    if(pCmd && pCmd.id === 3) {
+      // Player front rows immune 2s
+      for(const u of this.combatUnits) {
+        if(u.owner === 'player' && u.combatRow <= 5 && u.combatRow >= 4) {
+          u.cmdImmune = 2; // immune timer
+        }
+      }
+      // AI front rows lose 10% HP, unless AI immune
+      if(!aiIsImmune) {
+        for(const u of this.combatUnits) {
+          if(u.owner === 'ai' && u.combatRow >= 2 && u.combatRow <= 3) {
+            u.hp = Math.max(1, u.hp - u.maxHp * 0.10);
+          }
+        }
+      }
+    }
+    if(aCmd && aCmd.id === 3) {
+      for(const u of this.combatUnits) {
+        if(u.owner === 'ai' && u.combatRow >= 2 && u.combatRow <= 3) {
+          u.cmdImmune = 2;
+        }
+      }
+      if(!playerIsImmune) {
+        for(const u of this.combatUnits) {
+          if(u.owner === 'player' && u.combatRow <= 5 && u.combatRow >= 4) {
+            u.hp = Math.max(1, u.hp - u.maxHp * 0.10);
+          }
+        }
+      }
+    }
+
+    // Commander 4 (孤星領袖): handled dynamically in combat update
+  },
+
+  initCombatUnit(u, synergies, ownerSide) {
+    const starMult = Math.pow(2, u.star - 1);
+    let hpMult = 1, dmgMult = 1, atkSpdMult = 1;
+    let extraEffects = {critChance:0,critMult:2,dodge:0,healPct:0,poisonPct:0,deathDmg:0,killHeal:0,pierce:0,stunChance:0,stunDur:0,slowPct:0};
+    for(const [synKey, count] of Object.entries(synergies)) {
+      const syn = SYNERGIES[synKey]; if(!syn) continue;
+      let bestTier = null;
+      for(const t of syn.tiers) { if(count >= t.count) bestTier = t; }
+      if(bestTier) {
+        if(bestTier.hpMult) hpMult += bestTier.hpMult;
+        if(bestTier.dmgMult) dmgMult += bestTier.dmgMult;
+        if(bestTier.atkSpd) atkSpdMult += bestTier.atkSpd;
+        if(bestTier.critChance) extraEffects.critChance = Math.max(extraEffects.critChance, bestTier.critChance);
+        if(bestTier.critMult) extraEffects.critMult = Math.max(extraEffects.critMult, bestTier.critMult);
+        if(bestTier.dodge) extraEffects.dodge += bestTier.dodge;
+        if(bestTier.healPct) extraEffects.healPct += bestTier.healPct;
+        if(bestTier.poisonPct) extraEffects.poisonPct += bestTier.poisonPct;
+        if(bestTier.deathDmg) extraEffects.deathDmg += bestTier.deathDmg;
+        if(bestTier.killHeal) extraEffects.killHeal += bestTier.killHeal;
+        if(bestTier.pierce) extraEffects.pierce += bestTier.pierce;
+        if(bestTier.stunChance) extraEffects.stunChance = Math.max(extraEffects.stunChance, bestTier.stunChance);
+        if(bestTier.stunDur) extraEffects.stunDur = Math.max(extraEffects.stunDur, bestTier.stunDur);
+        if(bestTier.slowPct) extraEffects.slowPct = Math.max(extraEffects.slowPct, bestTier.slowPct);
+      }
+    }
+    if(u.cardId === 23) hpMult += 0.50;
+    u.maxHp = Math.floor(u.baseHp * starMult * hpMult);
+    u.hp = u.maxHp;
+    u.dps = Math.floor(u.baseDps * starMult * dmgMult);
+    u.atkSpeed = atkSpdMult;
+    u.atkCooldown = 0; u.target = null; u.alive = true;
+    u.effects = extraEffects;
+    u.firstAttack = true; u.revived = false; u.killCount = 0;
+    u.permDmgBonus = 0; u.shieldHp = 0;
+    u.invisible = (u.cardId === 16); u.invisTimer = u.invisible ? 3 : 0;
+    u.poisonDmg = 0; u.stunTimer = 0; u.baseMoveSpeed = 3;
+    u.summons = []; u.healTimer = 0; u.abilityTimer = 0;
+    u.atkCount = 0; u.killAtkBuff = 0;
+    u.combatRow = u.gridRow; u.combatCol = u.gridCol;
+    u.x = this.gridOffsetX + u.combatCol * this.cellW + this.cellW/2;
+    u.y = this.gridOffsetY + u.combatRow * this.cellH + this.cellH/2;
+    u.targetX = u.x; u.targetY = u.y;
+    u.moveTimer = 0; u.isMoving = false; u.flashTimer = 0;
+    u.cmdImmune = 0; // commander immunity timer
+    u.dualTarget = false; // commander 4 dual attack
+    u.lastLoneCheck = -1; // track lone check
+  },
+
+  getGridPos(row, col) {
+    return { x: this.gridOffsetX + col * this.cellW + this.cellW/2, y: this.gridOffsetY + row * this.cellH + this.cellH/2 };
+  },
+  isCellOccupied(row, col, excludeUnit) {
+    for(const u of this.combatUnits) {
+      if(!u.alive || u === excludeUnit) continue;
+      if(u.combatRow === row && u.combatCol === col) return true;
+      if(u.isMoving && u.targetRow === row && u.targetCol === col) return true;
+    }
+    return false;
+  },
+  findNextStep(unit, targetUnit) {
+    const dr = targetUnit.combatRow - unit.combatRow;
+    const dc = targetUnit.combatCol - unit.combatCol;
+    const moves = [];
+    if(dr !== 0) moves.push({r:unit.combatRow+Math.sign(dr), c:unit.combatCol});
+    if(dc !== 0) moves.push({r:unit.combatRow, c:unit.combatCol+Math.sign(dc)});
+    if(dr !== 0 && dc !== 0) moves.push({r:unit.combatRow+Math.sign(dr), c:unit.combatCol+Math.sign(dc)});
+    for(const m of moves) {
+      if(m.r >= 0 && m.r < this.GRID_ROWS && m.c >= 0 && m.c < this.GRID_COLS && !this.isCellOccupied(m.r, m.c, unit)) return m;
+    }
+    return null;
+  },
+  gridDist(u1, u2) { return Math.max(Math.abs(u1.combatRow - u2.combatRow), Math.abs(u1.combatCol - u2.combatCol)); },
+  calcSynergies(board) {
+    const counts = {};
+    for(const u of board) { for(const tag of u.tags) { counts[tag] = (counts[tag]||0) + 1; } }
+    return counts;
+  },
+
+  updateCombat(dt) {
+    if(this.state !== 'combat') return;
+    this.combatTimer += dt;
+
+    // Shadow teleport anims
+    for(let i = this.shadowTeleportAnims.length-1; i >= 0; i--) {
+      this.shadowTeleportAnims[i].timer -= dt;
+      if(this.shadowTeleportAnims[i].timer <= 0) this.shadowTeleportAnims.splice(i, 1);
+    }
+
+    const alive = {player:[], ai:[]};
+    for(const u of this.combatUnits) { if(u.alive) alive[u.owner].push(u); }
+    if(alive.player.length === 0 || alive.ai.length === 0 || this.combatTimer >= this.maxCombatTime) { this.endCombat(alive); return; }
+
+    // === Commander 4 (孤星領袖): lone unit check ===
+    const checkLone = (ownerSide) => {
+      const cmd = ownerSide === 'player' ? this.playerCommander : this.aiCommander;
+      if(!cmd || cmd.id !== 4) return;
+      const aliveUnits = this.combatUnits.filter(u => u.alive && u.owner === ownerSide);
+      if(aliveUnits.length === 1) {
+        const lone = aliveUnits[0];
+        // Full heal
+        lone.hp = lone.maxHp;
+        // Enable dual target
+        lone.dualTarget = true;
+      }
+    };
+    checkLone('player');
+    checkLone('ai');
+
+    for(const u of this.combatUnits) {
+      if(!u.alive) continue;
+
+      // Commander immunity timer
+      if(u.cmdImmune > 0) u.cmdImmune -= dt;
+
+      if(u.poisonDmg > 0) { u.hp -= u.poisonDmg * dt; if(u.hp <= 0) { this.killUnit(u); continue; } }
+      if(u.invisible) { u.invisTimer -= dt; if(u.invisTimer <= 0) u.invisible = false; }
+      if(u.stunTimer > 0) { u.stunTimer -= dt; u.flashTimer = 0.05; continue; }
+
+      u.healTimer += dt; u.abilityTimer += dt;
+
+      // Abilities
+      if(u.cardId === 3 && u.healTimer >= 5) {
+        u.healTimer = 0;
+        const allies = this.combatUnits.filter(a => a.alive && a.owner === u.owner && a !== u);
+        if(allies.length > 0) { allies.sort((a,b) => (a.hp/a.maxHp)-(b.hp/b.maxHp)); allies[0].hp = Math.min(allies[0].maxHp, allies[0].hp + 15*Math.pow(2,u.star-1)); }
+      }
+      if(u.cardId === 15 && u.abilityTimer >= 8) {
+        u.abilityTimer = 0;
+        const allies = this.combatUnits.filter(a => a.alive && a.owner === u.owner);
+        for(const a of allies) a.hp = Math.min(a.maxHp, a.hp + a.maxHp*0.08);
+      }
+      if(u.cardId === 23) {
+        const allies = this.combatUnits.filter(a => a.alive && a.owner === u.owner);
+        for(const a of allies) a.hp = Math.min(a.maxHp, a.hp + a.maxHp*0.02*dt);
+      }
+      if(u.cardId === 22 && u.abilityTimer >= 5) {
+        u.abilityTimer = 0;
+        const enemies = this.combatUnits.filter(e => e.alive && e.owner !== u.owner);
+        for(const e of enemies) this.dealDamage(u, e, u.dps*0.5);
+      }
+      if(u.effects.healPct > 0 && u.healTimer >= 3) { u.hp = Math.min(u.maxHp, u.hp + u.maxHp*u.effects.healPct); }
+      if(u.effects.healPct > 0 && u.abilityTimer >= 3) { u.hp = Math.min(u.maxHp, u.hp + u.maxHp*u.effects.healPct); }
+
+      if(!u.target || !u.target.alive) u.target = this.findTarget(u);
+      if(!u.target) continue;
+
+      const gridDistance = this.gridDist(u, u.target);
+      const inRange = gridDistance <= u.range;
+
+      if(u.isMoving) {
+        u.moveTimer += dt * 3;
+        if(u.moveTimer >= 1) {
+          u.combatRow = u.targetRow; u.combatCol = u.targetCol;
+          const pos = this.getGridPos(u.combatRow, u.combatCol);
+          u.x = pos.x; u.y = pos.y; u.isMoving = false; u.moveTimer = 0;
+        } else {
+          const sp = this.getGridPos(u.startRow, u.startCol), ep = this.getGridPos(u.targetRow, u.targetCol);
+          u.x = sp.x + (ep.x-sp.x)*u.moveTimer; u.y = sp.y + (ep.y-sp.y)*u.moveTimer;
+        }
+      } else if(!inRange) {
+        const ns = this.findNextStep(u, u.target);
+        if(ns) { u.isMoving = true; u.moveTimer = 0; u.startRow = u.combatRow; u.startCol = u.combatCol; u.targetRow = ns.r; u.targetCol = ns.c; }
+      } else if(u.invisible) { u.invisible = false; u.invisTimer = 0; }
+      else {
+        u.atkCooldown -= dt;
+        if(u.atkCooldown <= 0) {
+          let dmg = (u.dps + u.permDmgBonus) / u.atkSpeed;
+          u.atkCooldown = 1 / u.atkSpeed;
+          if(u.killAtkBuff > 0) { dmg *= 1.3; u.killAtkBuff -= dt; }
+          u.atkCount++;
+          let isCrit = false;
+          if(u.firstAttack && u.cardId === 1) { dmg *= 2; isCrit = true; u.firstAttack = false; }
+          else if(u.firstAttack && u.cardId === 16) { dmg *= 3; isCrit = true; u.firstAttack = false; }
+          if(Math.random() < u.effects.critChance) { dmg *= u.effects.critMult; isCrit = true; }
+          if(u.cardId === 9 && u.atkCount % 3 === 0) dmg *= 2;
+          if(u.effects.pierce > 0) dmg *= (1 + u.effects.pierce);
+          if(u.effects.poisonPct > 0) u.target.poisonDmg = u.target.maxHp * u.effects.poisonPct;
+          if(u.cardId === 12 && u.target.poisonDmg > 0) dmg *= 1.2;
+          if(u.cardId === 6) u.target.atkSpeed = Math.max(0.5, u.target.atkSpeed * 0.98);
+          if(u.effects.stunChance > 0 && Math.random() < u.effects.stunChance) u.target.stunTimer = u.effects.stunDur;
+          if(u.effects.slowPct > 0) u.target.atkSpeed = Math.max(0.3, u.target.atkSpeed*(1-u.effects.slowPct));
+          if(u.cardId === 2) {
+            const nearby = this.combatUnits.filter(e => e.alive && e.owner !== u.owner && e !== u.target && this.gridDist(e,u.target) <= 1);
+            for(const e of nearby) this.dealDamage(u, e, dmg*0.5);
+          }
+          if(u.cardId === 18) {
+            const nearby = this.combatUnits.filter(e => e.alive && e.owner !== u.owner && e !== u.target && this.gridDist(e,u.target) <= 2);
+            if(nearby.length > 0) this.dealDamage(u, nearby[0], dmg*0.3);
+          }
+          this.dealDamage(u, u.target, dmg);
+          u.flashTimer = 0.15; u.target.flashTimer = 0.1;
+
+          // Commander 4: dual target attack
+          if(u.dualTarget) {
+            const secondTarget = this.findSecondTarget(u, u.target);
+            if(secondTarget) {
+              this.dealDamage(u, secondTarget, dmg);
+              secondTarget.flashTimer = 0.1;
+            }
+          }
+        }
+      }
+      u.flashTimer = Math.max(0, u.flashTimer - dt);
+    }
+  },
+
+  findSecondTarget(unit, excludeTarget) {
+    let closest = null, closestDist = Infinity;
+    for(const e of this.combatUnits) {
+      if(!e.alive || e.owner === unit.owner || e === excludeTarget || e.invisible) continue;
+      const d = this.gridDist(unit, e);
+      if(d <= unit.range && d < closestDist) { closestDist = d; closest = e; }
+    }
+    return closest;
+  },
+
+  dealDamage(attacker, target, dmg) {
+    // Commander immunity check
+    if(target.cmdImmune > 0) return;
+
+    if(target.cardId === 5 && this.combatTimer < 3) dmg *= 0.5;
+    if(target.cardId === 0 && target.hp < target.maxHp * 0.5) dmg *= 0.8;
+    if(target.cardId !== 17) {
+      const guardian = this.combatUnits.find(u => u.alive && u.owner === target.owner && u.cardId === 17 && this.gridDist(u,target) <= 2);
+      if(guardian) dmg *= 0.85;
+    }
+    if(Math.random() < target.effects.dodge) return;
+    if(target.cardId === 13 && Math.random() < 0.15) return;
+    if(target.shieldHp > 0) { if(dmg <= target.shieldHp) { target.shieldHp -= dmg; return; } dmg -= target.shieldHp; target.shieldHp = 0; }
+    if(target.cardId === 14 && attacker) { attacker.hp -= dmg*0.1; if(attacker.hp <= 0) this.killUnit(attacker); }
+    target.hp -= dmg;
+    if(target.hp <= 0) this.killUnit(target, attacker);
+  },
+
+  killUnit(unit, killer) {
+    if(unit.cardId === 4 && !unit.revived) { unit.revived = true; unit.hp = unit.maxHp*0.5; return; }
+    if(unit.cardId === 20 && !unit.revived) {
+      unit.revived = true; unit.hp = unit.maxHp;
+      const allies = this.combatUnits.filter(a => a.alive && a.owner === unit.owner);
+      for(const a of allies) a.hp = Math.min(a.maxHp, a.hp + a.maxHp*0.15); return;
+    }
+    unit.alive = false; unit.hp = 0;
+    if(unit.effects.deathDmg > 0) {
+      const enemies = this.combatUnits.filter(e => e.alive && e.owner !== unit.owner && this.gridDist(e,unit) <= 2);
+      for(const e of enemies) { e.hp -= unit.maxHp*unit.effects.deathDmg; if(e.hp <= 0) this.killUnit(e); }
+    }
+    if(unit.cardId === 19) {
+      const enemies = this.combatUnits.filter(e => e.alive && e.owner !== unit.owner);
+      for(const e of enemies) { e.hp -= unit.maxHp*0.15; if(e.hp <= 0) this.killUnit(e); }
+    }
+    const paladins = this.combatUnits.filter(u => u.alive && u.owner === unit.owner && u.cardId === 7);
+    for(const p of paladins) p.shieldHp += 30*Math.pow(2,p.star-1);
+    if(killer && killer.alive) {
+      killer.killCount++;
+      if(killer.cardId === 21) { killer.hp = Math.min(killer.maxHp, killer.hp + killer.maxHp*0.3); killer.permDmgBonus += killer.dps*0.1; }
+      if(killer.cardId === 10) killer.killAtkBuff = 5;
+      if(killer.cardId === 11) {
+        const summon = {
+          cardId:-1,name:'骷髏',cost:0,baseHp:40,baseDps:15,range:1,icon:'💀',tags:[],ability:'',abilityType:'',
+          star:killer.star,owner:killer.owner,
+          maxHp:40*Math.pow(2,killer.star-1),hp:40*Math.pow(2,killer.star-1),dps:15*Math.pow(2,killer.star-1),
+          x:unit.x,y:unit.y,target:null,atkCooldown:0,alive:true,gridRow:0,gridCol:0,
+          effects:{critChance:0,critMult:2,dodge:0,healPct:0,poisonPct:0,deathDmg:0,killHeal:0,pierce:0,stunChance:0,stunDur:0,slowPct:0},
+          firstAttack:false,revived:true,killCount:0,permDmgBonus:0,shieldHp:0,invisible:false,invisTimer:0,
+          poisonDmg:0,stunTimer:0,baseMoveSpeed:3,summons:[],healTimer:0,abilityTimer:0,atkCount:0,killAtkBuff:0,
+          atkSpeed:1,flashTimer:0,targetX:unit.x,targetY:unit.y,
+          combatRow:unit.combatRow,combatCol:unit.combatCol,isMoving:false,moveTimer:0,
+          cmdImmune:0,dualTarget:false,lastLoneCheck:-1
+        };
+        this.combatUnits.push(summon);
+      }
+      if(killer.effects.killHeal > 0) killer.hp = Math.min(killer.maxHp, killer.hp + killer.maxHp*killer.effects.killHeal);
+    }
+  },
+
+  findTarget(unit) {
+    let closest = null, closestDist = Infinity;
+    for(const e of this.combatUnits) {
+      if(!e.alive || e.owner === unit.owner || e.invisible) continue;
+      const d = this.gridDist(unit, e);
+      if(d < closestDist) { closestDist = d; closest = e; }
+    }
+    return closest;
+  },
+
+  endCombat(alive) {
+    const pAlive = alive?.player?.length ?? this.combatUnits.filter(u => u.alive && u.owner === 'player').length;
+    const aAlive = alive?.ai?.length ?? this.combatUnits.filter(u => u.alive && u.owner === 'ai').length;
+    let winner = 'draw';
+    if(pAlive > 0 && aAlive === 0) winner = 'player';
+    else if(aAlive > 0 && pAlive === 0) winner = 'ai';
+    else if(this.combatTimer >= this.maxCombatTime) winner = pAlive >= aAlive ? 'player' : 'ai';
+
+    if(winner === 'ai') { this.playerHP--; this.showToast('💔 回合落敗！統帥 -1 血'); }
+    else if(winner === 'player') { this.aiHP--; this.showToast('🏆 回合勝利！對手統帥 -1 血'); }
+    else { this.showToast('⚖️ 平局！雙方各扣 1 血'); this.playerHP--; this.aiHP--; }
+
+    if(this.playerHP <= 0 || this.aiHP <= 0) {
+      this.state = 'result';
+      const rs = document.getElementById('resultScreen'), rt = document.getElementById('resultTitle'), rsub = document.getElementById('resultSub');
+      if(this.playerHP <= 0 && this.aiHP <= 0) { rt.textContent = '⚖️ 平局！'; rsub.textContent = `共 ${this.round} 回合`; }
+      else if(this.playerHP <= 0) { rt.textContent = '💀 戰敗...'; rsub.textContent = `堅持了 ${this.round} 回合`; }
+      else { rt.textContent = '🏆 勝利！'; rsub.textContent = `在第 ${this.round} 回合獲勝！`; }
+      rs.style.display = 'flex'; this.updateUI(); return;
+    }
+    if(this.round >= this.maxRounds) {
+      this.state = 'result';
+      const rs = document.getElementById('resultScreen'), rt = document.getElementById('resultTitle'), rsub = document.getElementById('resultSub');
+      if(this.playerHP > this.aiHP) { rt.textContent = '🏆 勝利！'; rsub.textContent = `${this.maxRounds}回合結束，血量領先！(${this.playerHP} vs ${this.aiHP})`; }
+      else if(this.aiHP > this.playerHP) { rt.textContent = '💀 戰敗...'; rsub.textContent = `${this.maxRounds}回合結束，血量落後...(${this.playerHP} vs ${this.aiHP})`; }
+      else { rt.textContent = '⚖️ 平局！'; rsub.textContent = `${this.maxRounds}回合結束，雙方血量相同！`; }
+      rs.style.display = 'flex'; this.updateUI(); return;
+    }
+
+    this.combatUnits = []; this.shadowTeleportAnims = [];
+    this.round++;
+    // Apply commander mana gain
+    this.playerMana = Math.min(this.maxMana, this.playerMana + this.getPlayerManaGain());
+    this.aiMana = Math.min(this.maxMana, this.aiMana + this.getAIManaGain());
+    this.refreshAIShop();
+    this.state = 'deploy'; this.updateUI();
+  },
+
+  // ============ AI ============
+  aiDeploy() {
+    const maxUnits = this.getMaxUnitsForRound();
+    const syns = this.calcSynergies(this.aiBoard);
+    const scoredShop = this.aiShop.map((card,idx) => {
+      if(!card) return {card:null,idx,score:-999};
+      let score = 0;
+      for(const t of card.tags) { if(syns[t]) score += syns[t]*2; const nc = (syns[t]||0)+1; if(nc===2||nc===4) score += 3; }
+      if(this.aiMana <= 5) score -= card.cost*0.5;
+      return {card,idx,score};
+    }).filter(s => s.card !== null).sort((a,b) => b.score - a.score);
+
+    for(const {card,idx} of scoredShop) {
+      if(this.aiMana < card.cost) continue;
+      const existingOnBoard = this.aiBoard.find(u => u.cardId === card.id);
+      if(existingOnBoard) { if(existingOnBoard.star < 4) { existingOnBoard.star++; this.aiMana -= card.cost; this.aiMana = Math.min(this.maxMana,this.aiMana+1); this.aiShop[idx] = null; } continue; }
+      let benchMerged = false;
+      for(let i = 0; i < this.aiBench.length; i++) {
+        if(this.aiBench[i] && this.aiBench[i].cardId === card.id && this.aiBench[i].star < 4) {
+          this.aiBench[i].star++; this.aiMana -= card.cost; this.aiMana = Math.min(this.maxMana,this.aiMana+1); this.aiShop[idx] = null; benchMerged = true; break;
+        }
+      }
+      if(benchMerged) continue;
+      if(this.aiBoard.length < maxUnits) {
+        const unit = this.createUnit(card,'ai');
+        let placed = false;
+        for(let r = 3; r >= 0 && !placed; r--) { for(let c = 0; c < this.GRID_COLS && !placed; c++) {
+          if(!this.aiBoard.find(u => u.gridRow===r && u.gridCol===c)) { unit.gridRow=r; unit.gridCol=c; this.aiBoard.push(unit); this.aiMana -= card.cost; this.aiShop[idx] = null; placed = true; }
+        }}
+        if(!placed) { const eb = this.aiBench.findIndex(b => b===null); if(eb !== -1) { this.aiBench[eb] = unit; this.aiMana -= card.cost; this.aiShop[idx] = null; } }
+      }
+    }
+    for(let i = 0; i < this.aiBench.length; i++) {
+      if(!this.aiBench[i]) continue; if(this.aiBoard.length >= maxUnits) break;
+      const unit = this.aiBench[i];
+      const existingOnBoard = this.aiBoard.find(u => u.cardId === unit.cardId);
+      if(existingOnBoard) { if(existingOnBoard.star === unit.star && existingOnBoard.star < 4) { existingOnBoard.star++; this.aiMana = Math.min(this.maxMana,this.aiMana+1); this.aiBench[i] = null; } continue; }
+      for(let r = 3; r >= 0; r--) { let placed = false; for(let c = 0; c < this.GRID_COLS; c++) {
+        if(!this.aiBoard.find(u => u.gridRow===r && u.gridCol===c)) { unit.gridRow=r; unit.gridCol=c; this.aiBoard.push(unit); this.aiBench[i] = null; placed = true; break; }
+      } if(placed) break; }
+    }
+    while(this.aiBoard.length > maxUnits) { const removed = this.aiBoard.pop(); const eb = this.aiBench.findIndex(b => b===null); if(eb !== -1) { removed.gridRow=-1; removed.gridCol=-1; this.aiBench[eb] = removed; } }
+  },
+
+  // ============ INPUT ============
+  setupInput() {
+    const container = document.getElementById('gameContainer');
+    let isDragging = false, hasDragged = false, dragStartPos = null, dragSource = null, dragUnit = null;
+    const DRAG_THRESHOLD = 8;
+    const getPos = (e) => { const rect = container.getBoundingClientRect(); const t = e.touches ? e.touches[0] : e; return {x:t.clientX-rect.left, y:t.clientY-rect.top}; };
+
+    document.getElementById('shopArea').addEventListener('click', (e) => {
+      const card = e.target.closest('.shop-card');
+      if(card && !card.classList.contains('empty')) this.buyCard(parseInt(card.dataset.idx));
+    });
+
+    const benchArea = document.getElementById('benchArea');
+    const startDrag = (e) => {
+      e.preventDefault(); const pos = getPos(e); dragStartPos = {x:pos.x,y:pos.y}; hasDragged = false;
+      const benchSlots = benchArea.querySelectorAll('.bench-slot');
+      for(let i = 0; i < benchSlots.length; i++) {
+        const rect = benchSlots[i].getBoundingClientRect(), contRect = container.getBoundingClientRect();
+        const slotX = rect.left-contRect.left, slotY = rect.top-contRect.top;
+        if(pos.x >= slotX && pos.x <= slotX+rect.width && pos.y >= slotY && pos.y <= slotY+rect.height && this.playerBench[i]) {
+          isDragging = true; dragSource = {type:'bench',idx:i}; dragUnit = this.playerBench[i]; this.selectedBenchIdx = i; return;
+        }
+      }
+      if(this.state === 'deploy') {
+        for(let i = 0; i < this.playerBoard.length; i++) {
+          const u = this.playerBoard[i];
+          const cx = this.gridOffsetX+u.gridCol*this.cellW+this.cellW/2, cy = this.gridOffsetY+u.gridRow*this.cellH+this.cellH/2;
+          if(Math.abs(pos.x-cx) < this.cellW/2 && Math.abs(pos.y-cy) < this.cellH/2) { isDragging = true; dragSource = {type:'board',idx:i}; dragUnit = u; return; }
+        }
+      }
+    };
+    const moveDrag = (e) => {
+      if(!isDragging) return; e.preventDefault(); const pos = getPos(e); this.dragPos = pos;
+      if(!hasDragged && dragStartPos) { const dx = pos.x-dragStartPos.x, dy = pos.y-dragStartPos.y;
+        if(Math.sqrt(dx*dx+dy*dy) >= DRAG_THRESHOLD) { hasDragged = true; if(dragUnit) { const ghost = document.getElementById('dragGhost'); ghost.textContent = dragUnit.icon; ghost.style.display = 'block'; } }
+      }
+      if(hasDragged) { const ghost = document.getElementById('dragGhost'); ghost.style.left = (pos.x-24)+'px'; ghost.style.top = (pos.y-24)+'px'; }
+    };
+    const endDrag = (e) => {
+      if(!isDragging) { isDragging = false; return; }
+      isDragging = false; document.getElementById('dragGhost').style.display = 'none';
+      if(!hasDragged) {
+        if(dragUnit && dragSource) {
+          if(dragSource.type === 'board') { this.showUnitPopup(dragUnit); this._justShowedPopup = true; }
+          else if(dragSource.type === 'bench') { this.selectedBenchIdx = dragSource.idx; this.showUnitPopup(dragUnit); this._justShowedPopup = true; this.updateUI(); }
+        }
+        dragUnit = null; dragSource = null; hasDragged = false; dragStartPos = null; return;
+      }
+      const pos = this.dragPos || {x:0,y:0};
+      if(!pos || !dragUnit) { dragUnit = null; dragSource = null; hasDragged = false; dragStartPos = null; return; }
+      const gridX = pos.x-this.gridOffsetX, gridY = pos.y-this.gridOffsetY;
+      const col = Math.floor(gridX/this.cellW), row = Math.floor(gridY/this.cellH);
+      if(col >= 0 && col < this.GRID_COLS && row >= 4 && row < this.GRID_ROWS && this.state === 'deploy') {
+        const existing = this.playerBoard.find(u => u.gridRow===row && u.gridCol===col);
+        const sameCardOnBoard = this.playerBoard.find(u => u.cardId===dragUnit.cardId && u!==dragUnit);
+        if(existing && existing !== dragUnit) {
+          if(existing.cardId===dragUnit.cardId && existing.star===dragUnit.star && existing.star < 4) {
+            existing.star++; this.playerMana = Math.min(this.maxMana,this.playerMana+1);
+            this.showToast(`${existing.name} 升至 ${existing.star}⭐！+1💧`);
+            if(dragSource.type==='bench') this.playerBench[dragSource.idx]=null; else if(dragSource.type==='board') this.playerBoard.splice(dragSource.idx,1);
+            this.updateUI(); dragUnit=null; dragSource=null; hasDragged=false; dragStartPos=null; return;
+          } else if(existing.cardId===dragUnit.cardId && existing.star!==dragUnit.star) { this.showToast('星級不同無法合成！'); dragUnit=null; dragSource=null; hasDragged=false; dragStartPos=null; return; }
+          else { if(dragSource.type==='board') { const tmpR=dragUnit.gridRow,tmpC=dragUnit.gridCol; dragUnit.gridRow=existing.gridRow; dragUnit.gridCol=existing.gridCol; existing.gridRow=tmpR; existing.gridCol=tmpC; this.updateUI(); dragUnit=null; dragSource=null; hasDragged=false; dragStartPos=null; return; } }
+        } else if(!existing) {
+          if(sameCardOnBoard && dragSource.type==='bench') {
+            if(sameCardOnBoard.star===dragUnit.star && sameCardOnBoard.star < 4) { sameCardOnBoard.star++; this.playerMana = Math.min(this.maxMana,this.playerMana+1); this.showToast(`${sameCardOnBoard.name} 升至 ${sameCardOnBoard.star}⭐！+1💧`); this.playerBench[dragSource.idx]=null; this.updateUI(); dragUnit=null; dragSource=null; hasDragged=false; dragStartPos=null; return; }
+            else { this.showToast('場上已有此單位(星級不同)！'); dragUnit=null; dragSource=null; hasDragged=false; dragStartPos=null; return; }
+          }
+          if(dragSource.type==='bench') { dragUnit.gridRow=row; dragUnit.gridCol=col; this.playerBoard.push(dragUnit); this.playerBench[dragSource.idx]=null; }
+          else if(dragSource.type==='board') { dragUnit.gridRow=row; dragUnit.gridCol=col; }
+          this.updateUI(); dragUnit=null; dragSource=null; hasDragged=false; dragStartPos=null; return;
+        }
+      }
+      const benchSlots = benchArea.querySelectorAll('.bench-slot'), contRect = container.getBoundingClientRect();
+      for(let i = 0; i < benchSlots.length; i++) {
+        const rect = benchSlots[i].getBoundingClientRect(), slotX = rect.left-contRect.left, slotY = rect.top-contRect.top;
+        if(pos.x >= slotX && pos.x <= slotX+rect.width && pos.y >= slotY && pos.y <= slotY+rect.height) {
+          if(this.playerBench[i]===null) {
+            if(dragSource.type==='board' && this.state==='deploy') { this.playerBench[i]=dragUnit; this.playerBoard.splice(dragSource.idx,1); dragUnit.gridRow=-1; dragUnit.gridCol=-1; }
+            else if(dragSource.type==='bench' && dragSource.idx!==i) { this.playerBench[i]=dragUnit; this.playerBench[dragSource.idx]=null; }
+            this.updateUI();
+          } else if(this.playerBench[i].cardId===dragUnit.cardId && this.playerBench[i].star < 4 && this.playerBench[i]!==dragUnit) {
+            this.playerBench[i].star++; this.playerMana = Math.min(this.maxMana,this.playerMana+1);
+            this.showToast(`${this.playerBench[i].name} 升至 ${this.playerBench[i].star}⭐！+1💧`);
+            if(dragSource.type==='bench') this.playerBench[dragSource.idx]=null; else if(dragSource.type==='board') this.playerBoard.splice(dragSource.idx,1);
+            this.updateUI();
+          }
+          dragUnit=null; dragSource=null; hasDragged=false; dragStartPos=null; return;
+        }
+      }
+      dragUnit=null; dragSource=null; hasDragged=false; dragStartPos=null;
+    };
+
+    container.addEventListener('mousedown', startDrag);
+    container.addEventListener('mousemove', moveDrag);
+    container.addEventListener('mouseup', endDrag);
+    container.addEventListener('touchstart', startDrag, {passive:false});
+    container.addEventListener('touchmove', moveDrag, {passive:false});
+    container.addEventListener('touchend', endDrag);
+
+    document.getElementById('btnSell').addEventListener('click', () => {
+      if(this.selectedBenchIdx >= 0 && this.playerBench[this.selectedBenchIdx]) this.sellUnit('bench', this.selectedBenchIdx);
+      else this.showToast('請先選擇備戰區單位');
+    });
+
+    document.getElementById('btnRefresh').addEventListener('click', () => {
+      const cost = this.getPlayerRefreshCost();
+      if(this.playerMana >= cost) { this.playerMana -= cost; this.refreshShop(); this.updateUI(); }
+      else this.showToast('聖水不足！');
+    });
+
+    document.getElementById('btnReady').addEventListener('click', () => { if(this.state === 'deploy') this.startCombat(); });
+
+    document.getElementById('synergyBar').addEventListener('click', (e) => {
+      const tag = e.target.closest('.syn-tag');
+      if(tag && tag.dataset.synkey) this.showSynergyPopup(tag.dataset.synkey);
+    });
+
+    this._justShowedPopup = false;
+    document.getElementById('gameContainer').addEventListener('click', (e) => {
+      if(this._justShowedPopup) { this._justShowedPopup = false; return; }
+      if(!e.target.closest('.syn-tag') && !e.target.closest('#synergyPopup')) this.hideSynergyPopup();
+      if(!e.target.closest('#unitPopup')) this.hideUnitPopup();
+    });
+
+    const gameContainer = document.getElementById('gameContainer');
+    gameContainer.addEventListener('click', (e) => {
+      if(this._justShowedPopup) return;
+      if(this.state !== 'deploy') return;
+      if(e.target.closest('#topBar') || e.target.closest('#synergyBar') || e.target.closest('#benchArea') || e.target.closest('#bottomBar') || e.target.closest('.screen-overlay') || e.target.closest('#synergyPopup') || e.target.closest('#unitPopup')) return;
+      const rect = gameContainer.getBoundingClientRect(), x = e.clientX-rect.left, y = e.clientY-rect.top;
+      for(const u of this.aiBoard) {
+        const cx = this.gridOffsetX+u.gridCol*this.cellW+this.cellW/2, cy = this.gridOffsetY+u.gridRow*this.cellH+this.cellH/2;
+        if(Math.abs(x-cx) < this.cellW/2 && Math.abs(y-cy) < this.cellH/2) { this.showUnitPopup(u); this._justShowedPopup = true; e.stopPropagation(); return; }
+      }
+    });
+
+    benchArea.addEventListener('click', (e) => {
+      if(this._justShowedPopup) return;
+      const slot = e.target.closest('.bench-slot');
+      if(slot) { const slots = benchArea.querySelectorAll('.bench-slot'); const idx = Array.from(slots).indexOf(slot);
+        if(idx >= 0 && this.playerBench[idx]) { this.selectedBenchIdx = idx; this.showUnitPopup(this.playerBench[idx]); this._justShowedPopup = true; this.updateUI(); }
+      }
+    });
+  },
+
+  // ============ POPUPS ============
+  showUnitPopup(unit) {
+    const popup = document.getElementById('unitPopup');
+    const card = CARD_POOL.find(c => c.id === unit.cardId); if(!card) return;
+    const stars = '⭐'.repeat(unit.star);
+    const tagNames = unit.tags.map(t => SYNERGIES[t] ? SYNERGIES[t].icon+SYNERGIES[t].name : t).join(' ');
+    const starMult = Math.pow(2, unit.star-1);
+    popup.querySelector('.popup-title').innerHTML = `${unit.icon} ${unit.name} ${stars}`;
+    popup.querySelector('.popup-stats').innerHTML = `💧${unit.cost}費 | ❤️HP: ${Math.floor(unit.baseHp*starMult)} | ⚔️DPS: ${Math.floor(unit.baseDps*starMult)} | 📏距離: ${unit.range}`;
+    popup.querySelector('.popup-ability').innerHTML = `✨ ${unit.ability}`;
+    popup.querySelector('.popup-tags').innerHTML = tagNames;
+    popup.querySelector('.popup-hint').innerHTML = `賣出可獲得 ${Math.max(1,unit.cost-1)*unit.star}💧`;
+    popup.classList.add('show');
+    clearTimeout(this._unitPopupTimer);
+    this._unitPopupTimer = setTimeout(() => this.hideUnitPopup(), 4000);
+  },
+  hideUnitPopup() { document.getElementById('unitPopup').classList.remove('show'); clearTimeout(this._unitPopupTimer); },
+
+  showSynergyPopup(synKey) {
+    const syn = SYNERGIES[synKey]; if(!syn) return;
+    const popup = document.getElementById('synergyPopup');
+    const syns = this.calcSynergies(this.playerBoard);
+    const currentCount = syns[synKey]||0;
+    const unitsWithSyn = this.playerBoard.filter(u => u.tags.includes(synKey));
+    const unitNames = unitsWithSyn.map(u => `${u.icon}${u.name}`).join(' ');
+    let tiersHtml = '';
+    for(const tier of syn.tiers) { const isActive = currentCount >= tier.count; tiersHtml += `<div class="popup-tier ${isActive?'active':''}"><strong>${tier.count}個:</strong> ${tier.desc}</div>`; }
+    tiersHtml += `<div class="popup-hint">場上單位: ${unitNames||'無'}</div>`;
+    popup.querySelector('.popup-title').innerHTML = `${syn.icon} ${syn.name} <span style="font-size:12px;color:#bdc3c7">(目前${currentCount}個)</span>`;
+    popup.querySelector('.popup-tiers').innerHTML = tiersHtml;
+    popup.classList.add('show');
+    clearTimeout(this._synergyPopupTimer);
+    this._synergyPopupTimer = setTimeout(() => this.hideSynergyPopup(), 4000);
+  },
+  hideSynergyPopup() { document.getElementById('synergyPopup').classList.remove('show'); clearTimeout(this._synergyPopupTimer); },
+
+  // ============ UI UPDATE ============
+  updateUI() {
+    const renderHP = (id, hp, label) => {
+      const el = document.getElementById(id);
+      let html = `<span style="font-size:10px;color:#aaa">${label}</span><span class="hearts">`;
+      for(let i = 0; i < 9; i++) html += `<span class="heart ${i<hp?'full':'empty'}">♥</span>`;
+      html += '</span>'; el.innerHTML = html;
+    };
+    renderHP('playerHP', this.playerHP, '👤');
+    renderHP('aiHP', this.aiHP, '🤖');
+
+    const maxUnits = this.getMaxUnitsForRound();
+    const currentUnits = this.playerBoard.length;
+    const phaseText = this.state==='combat' ? `⚔️ 戰鬥中 ${Math.max(0,Math.ceil(this.maxCombatTime-this.combatTimer))}s` : `📋 部署階段`;
+    const unitLimitText = this.state==='deploy' ? `<br><span style="font-size:9px">單位 ${currentUnits}/${maxUnits}</span>` : '';
+    document.getElementById('roundInfo').innerHTML = `回合 ${this.round}<span style="font-size:9px;color:#888">/${this.maxRounds}</span><br>${phaseText}${unitLimitText}`;
+
+    // Commander indicator
+    const cmdInd = document.getElementById('cmdIndicator');
+    if(this.playerCommander) {
+      cmdInd.innerHTML = `${this.playerCommander.icon} ${this.playerCommander.name} vs ${this.aiCommander?.icon||''} ${this.aiCommander?.name||''}`;
+    } else { cmdInd.innerHTML = ''; }
+
+    document.getElementById('manaCount').textContent = this.playerMana;
+
+    // Refresh button cost display
+    const refreshCost = this.getPlayerRefreshCost();
+    document.getElementById('btnRefresh').textContent = refreshCost === 0 ? '🔄 刷新(免費)' : `🔄 刷新(${refreshCost})`;
+
+    const syns = this.calcSynergies(this.playerBoard);
+    const synBar = document.getElementById('synergyBar');
+    let synHtml = '';
+    for(const [key,count] of Object.entries(syns)) {
+      const s = SYNERGIES[key]; if(!s) continue;
+      let active = false, tierDesc = '';
+      for(const t of s.tiers) { if(count >= t.count) { active = true; tierDesc = t.desc; } }
+      const nextTier = s.tiers.find(t => count < t.count);
+      const nextCount = nextTier ? nextTier.count : '-';
+      synHtml += `<span class="syn-tag ${active?'active':''}" data-synkey="${key}" style="${active?'background:'+s.color:''}" title="${tierDesc}">${s.icon}${s.name} ${count}/${nextCount}</span>`;
+    }
+    synBar.innerHTML = synHtml;
+
+    const shopArea = document.getElementById('shopArea');
+    let shopHtml = '';
+    for(let i = 0; i < 3; i++) {
+      const card = this.shop[i];
+      if(!card) { shopHtml += `<div class="shop-card empty" data-idx="${i}"><div class="card-icon">—</div><div class="card-name">已購買</div></div>`; continue; }
+      const cantAfford = this.playerMana < card.cost;
+      shopHtml += `<div class="shop-card cost${card.cost} ${cantAfford?'cant-afford':''}" data-idx="${i}">
+        <div class="card-cost">💧${card.cost}</div><div class="card-icon">${card.icon}</div>
+        <div class="card-name">${card.name}</div><div class="card-stats">HP:${card.hp} DPS:${card.dps} R:${card.range}</div>
+        <div class="card-tags">${card.tags.map(t => SYNERGIES[t]?.icon+SYNERGIES[t]?.name).join(' ')}</div></div>`;
+    }
+    shopArea.innerHTML = shopHtml;
+
+    const bArea = document.getElementById('benchArea');
+    let benchHtml = '';
+    for(let i = 0; i < 5; i++) {
+      const u = this.playerBench[i];
+      const selected = (this.selectedBenchIdx===i && u) ? 'style="border-color:#f1c40f;box-shadow:0 0 8px #f1c40f"' : '';
+      if(u) { benchHtml += `<div class="bench-slot occupied" ${selected}><div class="bench-unit" style="background:rgba(${this.getCardColor(u.cost)},0.3)"><div class="unit-star">${'⭐'.repeat(u.star)}</div><div class="unit-icon">${u.icon}</div><div class="unit-name">${u.name}</div></div></div>`; }
+      else benchHtml += `<div class="bench-slot"></div>`;
+    }
+    bArea.innerHTML = benchHtml;
+
+    const btnReady = document.getElementById('btnReady');
+    if(this.state==='combat') { btnReady.textContent = '⚔️ 戰鬥中...'; btnReady.classList.add('fighting'); }
+    else { btnReady.textContent = '⚔️ 開戰'; btnReady.classList.remove('fighting'); }
+  },
+
+  getCardColor(cost) { return {2:'149,165,166',3:'52,152,219',4:'155,89,182',5:'243,156,18'}[cost]||'255,255,255'; },
+
+  // ============ RENDERING ============
+  render() {
+    const ctx = this.ctx; ctx.clearRect(0,0,this.W,this.H);
+    if(this.state==='menu'||this.state==='result') { this.drawGrid(ctx); return; }
+    this.drawGrid(ctx);
+    if(this.state==='deploy') this.drawDeployUnits(ctx);
+    else if(this.state==='combat') {
+      this.drawCombatUnits(ctx); this.drawShadowTeleportAnims(ctx);
+      const midY = this.gridOffsetY+4*this.cellH, barW = this.GRID_COLS*this.cellW, pct = Math.min(1,this.combatTimer/this.maxCombatTime);
+      ctx.fillStyle = 'rgba(241,196,15,0.15)'; ctx.fillRect(this.gridOffsetX, midY-2, barW, 4);
+      ctx.fillStyle = 'rgba(241,196,15,0.6)'; ctx.fillRect(this.gridOffsetX, midY-2, barW*pct, 4);
+    }
+  },
+
+  drawShadowTeleportAnims(ctx) {
+    for(const anim of this.shadowTeleportAnims) {
+      const progress = 1-(anim.timer/0.8);
+      if(progress < 0.5) { ctx.globalAlpha = (1-progress*2)*0.6; ctx.fillStyle = '#8e44ad'; ctx.beginPath(); ctx.arc(anim.fromX,anim.fromY,20+progress*30,0,Math.PI*2); ctx.fill(); ctx.globalAlpha = 1; }
+      if(progress > 0.3) {
+        const ap = (progress-0.3)/0.7; ctx.globalAlpha = ap*0.5; ctx.fillStyle = '#8e44ad';
+        const r = 25*(1-Math.abs(ap-0.5)*2); ctx.beginPath(); ctx.arc(anim.x,anim.y,r,0,Math.PI*2); ctx.fill();
+        for(let i = 0; i < 4; i++) { const angle = (i/4)*Math.PI*2+progress*3, dist = r*1.3; ctx.fillStyle = 'rgba(142,68,173,0.4)'; ctx.beginPath(); ctx.arc(anim.x+Math.cos(angle)*dist,anim.y+Math.sin(angle)*dist,3,0,Math.PI*2); ctx.fill(); }
+        ctx.globalAlpha = 1;
+      }
+    }
+  },
+
+  drawGrid(ctx) {
+    const {gridOffsetX:ox,gridOffsetY:oy,cellW:cw,cellH:ch,GRID_COLS:cols,GRID_ROWS:rows} = this;
+    for(let r = 0; r < rows; r++) { for(let c = 0; c < cols; c++) {
+      const x = ox+c*cw, y = oy+r*ch;
+      const shade = r < 4 ? 'rgba(231,76,60,0.08)' : 'rgba(52,152,219,0.08)';
+      const border = r < 4 ? 'rgba(231,76,60,0.2)' : 'rgba(52,152,219,0.2)';
+      if(r===4) { ctx.strokeStyle = 'rgba(241,196,15,0.4)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(ox,y); ctx.lineTo(ox+cols*cw,y); ctx.stroke(); }
+      ctx.fillStyle = shade; ctx.fillRect(x+1,y+1,cw-2,ch-2); ctx.strokeStyle = border; ctx.lineWidth = 1; ctx.strokeRect(x+1,y+1,cw-2,ch-2);
+    }}
+    ctx.fillStyle = 'rgba(231,76,60,0.4)'; ctx.font = '10px sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText('🤖 AI 陣地', ox+cols*cw/2, oy+12);
+    ctx.fillStyle = 'rgba(52,152,219,0.4)'; ctx.fillText('👤 我方陣地', ox+cols*cw/2, oy+rows*ch-4);
+  },
+
+  drawDeployUnits(ctx) {
+    for(const u of this.playerBoard) this.drawUnitOnGrid(ctx,u,false);
+    for(const u of this.aiBoard) this.drawUnitOnGrid(ctx,u,true);
+  },
+
+  drawUnitOnGrid(ctx, u, isAI) {
+    const cx = this.gridOffsetX+u.gridCol*this.cellW+this.cellW/2, cy = this.gridOffsetY+u.gridRow*this.cellH+this.cellH/2;
+    const size = Math.min(this.cellW,this.cellH)*0.4;
+    const costColor = this.getCardColor(u.cost);
+    ctx.fillStyle = isAI ? 'rgba(231,76,60,0.3)' : `rgba(${costColor},0.3)`;
+    ctx.beginPath(); ctx.arc(cx,cy,size,0,Math.PI*2); ctx.fill();
+    ctx.strokeStyle = isAI ? 'rgba(231,76,60,0.6)' : `rgba(${costColor},0.8)`; ctx.lineWidth = 2; ctx.stroke();
+    ctx.font = `${size*1.2}px sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(u.icon,cx,cy);
+    ctx.font = `${Math.max(8,size*0.4)}px sans-serif`; ctx.fillStyle = '#f1c40f'; ctx.fillText('★'.repeat(u.star),cx,cy-size-4);
+    ctx.font = `${Math.max(7,size*0.35)}px sans-serif`; ctx.fillStyle = '#fff'; ctx.fillText(u.name,cx,cy+size+8);
+  },
+
+  drawCombatUnits(ctx) {
+    for(const u of this.combatUnits) {
+      if(!u.alive) continue;
+      const size = Math.min(this.cellW,this.cellH)*0.35, isPlayer = u.owner==='player';
+      if(u.invisible) ctx.globalAlpha = isPlayer ? 0.3 : 0.1;
+      // Commander immunity glow
+      if(u.cmdImmune > 0) { ctx.fillStyle = 'rgba(241,196,15,0.3)'; ctx.beginPath(); ctx.arc(u.x,u.y,size*1.6,0,Math.PI*2); ctx.fill(); }
+      if(u.flashTimer > 0) { ctx.fillStyle = isPlayer ? 'rgba(52,152,219,0.5)' : 'rgba(231,76,60,0.5)'; ctx.beginPath(); ctx.arc(u.x,u.y,size*1.5,0,Math.PI*2); ctx.fill(); }
+      const costColor = this.getCardColor(u.cost);
+      ctx.fillStyle = isPlayer ? `rgba(${costColor},0.4)` : 'rgba(231,76,60,0.3)';
+      ctx.beginPath(); ctx.arc(u.x,u.y,size,0,Math.PI*2); ctx.fill();
+      ctx.strokeStyle = isPlayer ? `rgba(${costColor},0.9)` : 'rgba(231,76,60,0.7)'; ctx.lineWidth = 2; ctx.stroke();
+      if(u.shieldHp > 0) { ctx.strokeStyle = '#f1c40f'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(u.x,u.y,size+3,0,Math.PI*2); ctx.stroke(); }
+      // Dual target indicator
+      if(u.dualTarget) { ctx.strokeStyle = '#f1c40f'; ctx.lineWidth = 2; ctx.setLineDash([3,3]); ctx.beginPath(); ctx.arc(u.x,u.y,size+6,0,Math.PI*2); ctx.stroke(); ctx.setLineDash([]); }
+      ctx.font = `${size*1.1}px sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(u.icon,u.x,u.y);
+      const barW = size*2, barH = 4, barX = u.x-barW/2, barY = u.y-size-8;
+      ctx.fillStyle = '#333'; ctx.fillRect(barX,barY,barW,barH);
+      const hpPct = Math.max(0,u.hp/u.maxHp);
+      ctx.fillStyle = hpPct > 0.5 ? '#2ecc71' : hpPct > 0.25 ? '#f39c12' : '#e74c3c';
+      ctx.fillRect(barX,barY,barW*hpPct,barH);
+      ctx.font = `${Math.max(7,size*0.35)}px sans-serif`; ctx.fillStyle = '#f1c40f'; ctx.fillText('★'.repeat(Math.min(u.star,4)),u.x,barY-4);
+      ctx.globalAlpha = 1;
+      if(u.target && u.target.alive && u.flashTimer > 0.05) { ctx.strokeStyle = isPlayer ? 'rgba(52,152,219,0.4)' : 'rgba(231,76,60,0.4)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(u.x,u.y); ctx.lineTo(u.target.x,u.target.y); ctx.stroke(); }
+    }
+  },
+
+  // ============ GAME LOOP ============
+  gameLoop(timestamp) {
+    const dt = Math.min(0.1,(timestamp-this.lastTime)/1000); this.lastTime = timestamp;
+    if(this.state === 'combat') {
+      this.updateCombat(dt);
+      for(const u of this.combatUnits) { if(u.alive && u.cardId === 8) { const missing = 1-(u.hp/u.maxHp); u.dps = Math.floor(u.baseDps*Math.pow(2,u.star-1)*(1+missing*0.5)); } }
+      const phaseText = `⚔️ 戰鬥中 ${Math.max(0,Math.ceil(this.maxCombatTime-this.combatTimer))}s`;
+      const pAlive = this.combatUnits.filter(u => u.alive && u.owner==='player').length;
+      const aAlive = this.combatUnits.filter(u => u.alive && u.owner==='ai').length;
+      document.getElementById('roundInfo').innerHTML = `回合 ${this.round}<br>${phaseText}<br><span style="font-size:9px">👤${pAlive} vs 🤖${aAlive}</span>`;
+    }
+    this.render();
+    this.animFrame = requestAnimationFrame((t) => this.gameLoop(t));
+  },
+
+  showToast(msg) { const toast = document.getElementById('toast'); toast.textContent = msg; toast.classList.add('show'); clearTimeout(this._toastTimer); this._toastTimer = setTimeout(() => toast.classList.remove('show'), 2000); },
+
+  // ============ CODEX ============
+  showCodex() {
+    const codexScreen = document.getElementById('codexScreen'), codexContent = document.getElementById('codexContent');
+    let html = '';
+    const cardsByCost = {2:[],3:[],4:[],5:[]};
+    for(const card of CARD_POOL) cardsByCost[card.cost].push(card);
+    for(const cost of [2,3,4,5]) {
+      html += `<div style="font-size:12px;color:#f1c40f;margin:8px 0 4px;">— ${cost} 費卡片 (${cardsByCost[cost].length}張) —</div>`;
+      for(const card of cardsByCost[cost]) {
+        const tagNames = card.tags.map(t => SYNERGIES[t] ? SYNERGIES[t].icon+SYNERGIES[t].name : t).join(' ');
+        html += `<div class="codex-card cost${card.cost}"><div class="card-header"><span class="icon">${card.icon}</span><div class="info"><div class="name">${card.name}</div><div class="cost">💧${card.cost} 費</div></div></div><div class="stats">❤️ HP: ${card.hp} | ⚔️ DPS: ${card.dps} | 📏 距離: ${card.range}</div><div class="ability">✨ ${card.ability}</div><div class="tags">${tagNames}</div></div>`;
+      }
+    }
+    codexContent.innerHTML = html; codexScreen.classList.add('show');
+  },
+  hideCodex() { document.getElementById('codexScreen').classList.remove('show'); },
+
+  // ============ SYNERGY SCREEN ============
+  showSynergyScreen() {
+    const screen = document.getElementById('synergyScreen'), content = document.getElementById('synergyContent');
+    let html = '';
+    for(const [key,syn] of Object.entries(SYNERGIES)) {
+      const cardsWithSyn = CARD_POOL.filter(c => c.tags.includes(key));
+      let tiersHtml = '', unitsHtml = '';
+      for(const tier of syn.tiers) tiersHtml += `<div class="tier-row">🔹 ${tier.count}個: ${tier.desc}</div>`;
+      for(const card of cardsWithSyn) unitsHtml += `<div class="syn-unit-tag"><span>${card.icon}</span><span>${card.name}</span><span class="unit-cost">(💧${card.cost})</span></div>`;
+      html += `<div class="synergy-detail-card" style="border-left-color:${syn.color}"><div class="syn-detail-header" style="color:${syn.color}"><span class="syn-icon">${syn.icon}</span><span>${syn.name}</span><span style="font-size:11px;color:#888;margin-left:auto;">${cardsWithSyn.length} 張卡片</span></div><div class="syn-detail-tiers">${tiersHtml}</div><div style="font-size:10px;color:#888;margin-bottom:4px;">所屬單位：</div><div class="syn-detail-units">${unitsHtml}</div></div>`;
+    }
+    content.innerHTML = html; screen.classList.add('show');
+  },
+  hideSynergyScreen() { document.getElementById('synergyScreen').classList.remove('show'); }
+};
+
+window.addEventListener('DOMContentLoaded', () => Game.init());
+</script>
+</body>
+</html>
