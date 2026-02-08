@@ -1230,7 +1230,12 @@ const Game = {
     const container = document.getElementById('gameContainer');
     let isDragging = false, hasDragged = false, dragStartPos = null, dragSource = null, dragUnit = null;
     const DRAG_THRESHOLD = 8;
-    const getPos = (e) => { const rect = container.getBoundingClientRect(); const t = e.touches ? e.touches[0] : e; return {x:t.clientX-rect.left, y:t.clientY-rect.top}; };
+    const getPos = (e) => {
+      const rect = container.getBoundingClientRect();
+      // touchend 時 e.touches 是空的，要用 changedTouches
+      const t = e.touches && e.touches.length > 0 ? e.touches[0] : (e.changedTouches && e.changedTouches.length > 0 ? e.changedTouches[0] : e);
+      return {x:t.clientX-rect.left, y:t.clientY-rect.top};
+    };
 
     document.getElementById('shopArea').addEventListener('click', (e) => {
       const card = e.target.closest('.shop-card');
@@ -1239,25 +1244,39 @@ const Game = {
 
     const benchArea = document.getElementById('benchArea');
     const startDrag = (e) => {
-      e.preventDefault(); const pos = getPos(e); dragStartPos = {x:pos.x,y:pos.y}; hasDragged = false;
+      // 只在觸控事件中取得座標，不立即 preventDefault
+      // 先判斷是否觸控到可拖曳的單位
+      const isTouch = !!e.touches;
+      const pos = getPos(e);
+      dragStartPos = {x:pos.x,y:pos.y}; hasDragged = false;
+      let foundDraggable = false;
+
       const benchSlots = benchArea.querySelectorAll('.bench-slot');
       for(let i = 0; i < benchSlots.length; i++) {
         const rect = benchSlots[i].getBoundingClientRect(), contRect = container.getBoundingClientRect();
         const slotX = rect.left-contRect.left, slotY = rect.top-contRect.top;
         if(pos.x >= slotX && pos.x <= slotX+rect.width && pos.y >= slotY && pos.y <= slotY+rect.height && this.playerBench[i]) {
-          isDragging = true; dragSource = {type:'bench',idx:i}; dragUnit = this.playerBench[i]; this.selectedBenchIdx = i; return;
+          isDragging = true; dragSource = {type:'bench',idx:i}; dragUnit = this.playerBench[i]; this.selectedBenchIdx = i; foundDraggable = true; break;
         }
       }
-      if(this.state === 'deploy') {
+      if(!foundDraggable && this.state === 'deploy') {
         for(let i = 0; i < this.playerBoard.length; i++) {
           const u = this.playerBoard[i];
           const cx = this.gridOffsetX+u.gridCol*this.cellW+this.cellW/2, cy = this.gridOffsetY+u.gridRow*this.cellH+this.cellH/2;
-          if(Math.abs(pos.x-cx) < this.cellW/2 && Math.abs(pos.y-cy) < this.cellH/2) { isDragging = true; dragSource = {type:'board',idx:i}; dragUnit = u; return; }
+          if(Math.abs(pos.x-cx) < this.cellW/2 && Math.abs(pos.y-cy) < this.cellH/2) { isDragging = true; dragSource = {type:'board',idx:i}; dragUnit = u; foundDraggable = true; break; }
         }
+      }
+      // 只有在找到可拖曳單位時才 preventDefault（阻止手機上的滾動/長按選單）
+      // 這樣其他按鈕的 click 事件就不會被阻止
+      if(foundDraggable && isTouch) {
+        e.preventDefault();
       }
     };
     const moveDrag = (e) => {
-      if(!isDragging) return; e.preventDefault(); const pos = getPos(e); this.dragPos = pos;
+      if(!isDragging) return;
+      // 只在拖曳中阻止預設行為（防止手機滾動）
+      if(e.touches) e.preventDefault();
+      const pos = getPos(e); this.dragPos = pos;
       if(!hasDragged && dragStartPos) { const dx = pos.x-dragStartPos.x, dy = pos.y-dragStartPos.y;
         if(Math.sqrt(dx*dx+dy*dy) >= DRAG_THRESHOLD) { hasDragged = true; if(dragUnit) { const ghost = document.getElementById('dragGhost'); ghost.textContent = dragUnit.icon; ghost.style.display = 'block'; } }
       }
@@ -1266,6 +1285,11 @@ const Game = {
     const endDrag = (e) => {
       if(!isDragging) { isDragging = false; return; }
       isDragging = false; document.getElementById('dragGhost').style.display = 'none';
+      // 在 touchend 時更新最終位置（因為 touchmove 可能不會在最後觸發）
+      if(e.changedTouches && e.changedTouches.length > 0) {
+        const pos = getPos(e);
+        this.dragPos = pos;
+      }
       if(!hasDragged) {
         if(dragUnit && dragSource) {
           if(dragSource.type === 'board') { this.showUnitPopup(dragUnit); this._justShowedPopup = true; }
