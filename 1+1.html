@@ -1167,7 +1167,9 @@ function waitForAllFinished() {
   const playersRef = roomRef.child('players');
   const listener = playersRef.on('value', snap => {
     const players = snap.val() || {};
-    const allDone = Object.values(players).every(p => p.finished === true);
+    const playerList = Object.values(players);
+    // 使用 truthy 檢查而非嚴格相等，避免 Firebase 型別問題
+    const allDone = playerList.length > 0 && playerList.every(p => p.finished);
     const others = Object.keys(players).filter(pid => pid !== myPlayerId);
     const parts = others.map(pid => {
       const p = players[pid];
