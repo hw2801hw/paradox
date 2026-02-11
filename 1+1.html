@@ -1153,7 +1153,7 @@ async function uploadMyFinalResult() {
 /* ===========================================
    等待所有玩家完成
    =========================================== */
-function waitForAllFinished() {
+async function waitForAllFinished() {
   showScreen($gameScreen);
   $timerText.textContent = '⏳';
   $timerBar.style.width = '100%';
@@ -1165,11 +1165,13 @@ function waitForAllFinished() {
   $nextSection.style.display = 'none';
 
   const playersRef = roomRef.child('players');
-  const listener = playersRef.on('value', snap => {
-    const players = snap.val() || {};
+
+  // 輔助函數：檢查並更新狀態
+  const checkAndUpdate = (players) => {
     const playerList = Object.values(players);
-    // 使用 truthy 檢查而非嚴格相等，避免 Firebase 型別問題
     const allDone = playerList.length > 0 && playerList.every(p => p.finished);
+    
+    // 更新對手狀態顯示
     const others = Object.keys(players).filter(pid => pid !== myPlayerId);
     const parts = others.map(pid => {
       const p = players[pid];
@@ -1177,8 +1179,26 @@ function waitForAllFinished() {
       return `${p.name}：作答中⋯`;
     });
     $opponentStatus.textContent = parts.join(' | ');
+    
+    return allDone;
+  };
 
-    if (allDone) {
+  // 先立即檢查一次（解決 race condition）
+  try {
+    const snap = await playersRef.once('value');
+    const players = snap.val() || {};
+    if (checkAndUpdate(players)) {
+      showMpResult(players);
+      return; // 已經全部完成，不需要設置監聽器
+    }
+  } catch (err) {
+    console.error('檢查玩家狀態失敗:', err);
+  }
+
+  // 如果還沒全部完成，設置監聽器等待
+  const listener = playersRef.on('value', snap => {
+    const players = snap.val() || {};
+    if (checkAndUpdate(players)) {
       playersRef.off('value', listener);
       showMpResult(players);
     }
