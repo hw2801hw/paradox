@@ -633,6 +633,38 @@ function showToast(msg, duration = 2000) {
 }
 
 /* ===========================================
+   清理 Firebase 上所有空房間
+   =========================================== */
+async function cleanupEmptyRooms() {
+  try {
+    const snapshot = await db.ref('rooms').once('value');
+    const rooms = snapshot.val();
+    if (!rooms) return;
+
+    const deletePromises = [];
+    for (const code of Object.keys(rooms)) {
+      const room = rooms[code];
+      // 檢查房間是否沒有玩家
+      const hasPlayers = room.players && Object.keys(room.players).length > 0;
+      if (!hasPlayers) {
+        console.log('清理空房間:', code);
+        deletePromises.push(db.ref('rooms/' + code).remove());
+      }
+    }
+
+    if (deletePromises.length > 0) {
+      await Promise.all(deletePromises);
+      console.log(`已清理 ${deletePromises.length} 個空房間`);
+    }
+  } catch (err) {
+    console.error('清理空房間失敗:', err);
+  }
+}
+
+// 應用程式啟動時執行一次清理
+cleanupEmptyRooms();
+
+/* ===========================================
    畫面切換
    =========================================== */
 const allScreens = [$startScreen, $lobbyScreen, $waitingScreen, $gameScreen, $resultScreen, $mpResultScreen];
@@ -969,6 +1001,21 @@ function enterWaitingRoom(code) {
   const playersListener = playersRef.on('value', snap => {
     const players = snap.val() || {};
     const keys = Object.keys(players);
+
+    // 如果房間沒有任何玩家，自動刪除房間
+    if (keys.length === 0) {
+      db.ref('rooms/' + code).remove();
+      showToast('房間已關閉');
+      // 移除所有監聽並返回主畫面
+      roomListeners.forEach(({ ref, event, cb }) => ref.off(event, cb));
+      roomListeners = [];
+      currentRoomCode = '';
+      roomRef = null;
+      isRoomHost = false;
+      showScreen($startScreen);
+      return;
+    }
+
     $playerList.innerHTML = keys.map(pid => {
       const p = players[pid];
       const isMe = pid === myPlayerId;
@@ -1190,12 +1237,11 @@ function showMpResult(players) {
       </div>`;
     }).join('');
 
-  // 清除房間資料
-  cleanupRoom();
+  // 不在這裡清除房間，等玩家按「返回主畫面」時才清除
 }
 
 /* ===========================================
-   清除房間
+   清除房間（玩家按「返回主畫面」時呼叫）
    =========================================== */
 function cleanupRoom() {
   // 移除所有監聽
@@ -1207,11 +1253,9 @@ function cleanupRoom() {
     roomRef.child('players/' + myPlayerId).onDisconnect().cancel();
   }
 
-  // 房主負責刪除房間（延遲2秒讓所有人都讀到結果）
-  if (isRoomHost && currentRoomCode) {
-    setTimeout(() => {
-      db.ref('rooms/' + currentRoomCode).remove();
-    }, 3000);
+  // 任何玩家按「返回主畫面」都會刪除房間資料
+  if (currentRoomCode) {
+    db.ref('rooms/' + currentRoomCode).remove();
   }
 
   currentRoomCode = '';
@@ -1231,13 +1275,11 @@ async function leaveRoom() {
     roomRef.child('players/' + myPlayerId).onDisconnect().cancel();
     await roomRef.child('players/' + myPlayerId).remove();
 
-    // 如果是房主且沒有其他玩家，刪除房間
-    if (isRoomHost) {
-      const snap = await roomRef.child('players').once('value');
-      const remaining = snap.val();
-      if (!remaining || Object.keys(remaining).length === 0) {
-        await db.ref('rooms/' + currentRoomCode).remove();
-      }
+    // 檢查房間是否還有其他玩家，沒有的話刪除房間
+    const snap = await roomRef.child('players').once('value');
+    const remaining = snap.val();
+    if (!remaining || Object.keys(remaining).length === 0) {
+      await db.ref('rooms/' + currentRoomCode).remove();
     }
   }
 
@@ -1255,6 +1297,8 @@ $soloBtn.addEventListener('click', startSoloGame);
 $mpBtn.addEventListener('click', () => {
   $roomInput.value = '';
   showScreen($lobbyScreen);
+  // 進入大廳時也清理一次空房間
+  cleanupEmptyRooms();
 });
 $lobbyBackBtn.addEventListener('click', () => showScreen($startScreen));
 
@@ -1293,8 +1337,11 @@ $restartBtn.addEventListener('click', () => {
   startSoloGame();
 });
 
-// 多人結算
-$mpBackBtn.addEventListener('click', () => showScreen($startScreen));
+// 多人結算 — 按「返回主畫面」時才清除房間資料
+$mpBackBtn.addEventListener('click', () => {
+  cleanupRoom();
+  showScreen($startScreen);
+});
 
 // 防止雙擊放大 & 多指縮放
 document.addEventListener('dblclick', e => e.preventDefault());
