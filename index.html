@@ -1,329 +1,1305 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>快捷連結</title>
-    <style>
-        * {
-            box-sizing: border-box;
-        }
-        
-        body {
-            font-family: Arial, sans-serif;
-            text-align: center;
-            padding: 30px 15px;
-            background-color: #f0f8ff;
-            margin: 0;
-        }
-        
-        h1 {
-            font-size: 28px;
-            color: #333;
-            margin-bottom: 30px;
-        }
-        
-        .links-container {
-            max-width: 800px;
-            margin: 0 auto;
-        }
-        
-        .link-row {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            flex-wrap: wrap;
-            gap: 10px;
-            margin-bottom: 20px;
-            padding: 15px;
-            background: white;
-            border-radius: 12px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-        }
-        
-        .link-number {
-            font-size: 20px;
-            color: #333;
-            font-weight: bold;
-            min-width: 50px;
-        }
-        
-        a {
-            text-decoration: none;
-            color: #007bff;
-        }
-        
-        a:hover {
-            text-decoration: underline;
-        }
-        
-        .side-link {
-            font-size: 20px;
-            padding: 8px 12px;
-        }
-        
-        .button-style {
-            display: inline-block;
-            padding: 12px 28px;
-            background-color: #007bff;
-            color: white;
-            border-radius: 12px;
-            font-size: 22px;
-            transition: background 0.3s ease, transform 0.2s ease;
-            min-width: 100px;
-        }
-        
-        .button-style:hover {
-            text-decoration: none;
-            transform: scale(1.05);
-            background-color: #0056b3;
-        }
-        
-        /* 第7項泡泡專用：整個按鈕背景彩虹漸變動畫 */
-        #rainbow-button {
-            color: white;
-            font-weight: bold;
-            background: linear-gradient(270deg, #ff0000, #ff9900, #ffff00, #00ff00, #00ffff, #0000ff, #9900ff);
-            background-size: 600% 600%;
-            animation: rainbowFlow 2s ease infinite;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
-        }
-        
-        #rainbow-button:hover {
-            background: linear-gradient(270deg, #ff0000, #ff9900, #ffff00, #00ff00, #00ffff, #0000ff, #9900ff);
-            background-size: 600% 600%;
-        }
-        
-        @keyframes rainbowFlow {
-            0%   { background-position: 0% 50%; }
-            50%  { background-position: 100% 50%; }
-            100% { background-position: 0% 50%; }
-        }
-        
-        /* 平板裝置 */
-        @media (max-width: 768px) {
-            body {
-                padding: 20px 10px;
-            }
-            
-            .link-row {
-                padding: 12px;
-                gap: 8px;
-            }
-            
-            .link-number {
-                font-size: 18px;
-                min-width: 45px;
-            }
-            
-            .side-link {
-                font-size: 18px;
-                padding: 6px 10px;
-            }
-            
-            .button-style {
-                padding: 10px 20px;
-                font-size: 20px;
-                min-width: 90px;
-            }
-        }
-        
-        /* 手機裝置 */
-        @media (max-width: 480px) {
-            body {
-                padding: 15px 8px;
-            }
-            
-            h1 {
-                font-size: 22px;
-                margin-bottom: 20px;
-            }
-            
-            .link-row {
-                flex-direction: column;
-                padding: 15px 10px;
-                gap: 12px;
-            }
-            
-            .link-number {
-                font-size: 16px;
-                min-width: auto;
-            }
-            
-            .side-links {
-                display: flex;
-                gap: 15px;
-                justify-content: center;
-            }
-            
-            .side-link {
-                font-size: 16px;
-                padding: 5px 8px;
-            }
-            
-            .button-style {
-                padding: 14px 30px;
-                font-size: 20px;
-                min-width: 120px;
-                width: 80%;
-                max-width: 200px;
-            }
-        }
-        
-        /* 超小螢幕 */
-        @media (max-width: 360px) {
-            .button-style {
-                padding: 12px 20px;
-                font-size: 18px;
-            }
-            
-            .side-link {
-                font-size: 14px;
-            }
-            
-            .link-number {
-                font-size: 14px;
-            }
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="theme-color" content="#111111">
+  <title>二位數乘法速算</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700;900&display=swap" rel="stylesheet">
+
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html {
+      -webkit-touch-callout: none;
+      -webkit-user-select: none;
+      user-select: none;
+      overflow: hidden;
+      height: 100%; width: 100%;
+    }
+    body {
+      font-family: 'Noto Sans TC', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
+      background: #111; color: #f0f0f0;
+      height: 100%; width: 100%; overflow: hidden;
+      display: flex; justify-content: center; align-items: center;
+    }
+
+    /* ===== 遊戲容器 ===== */
+    #game-container {
+      width: 100%; max-width: 480px;
+      height: 100dvh; max-height: 100vh;
+      background: #1a1a1a; position: relative;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      overflow: hidden; margin: 0 auto;
+    }
+
+    /* ===== 畫面通用 ===== */
+    .screen {
+      display: none; flex-direction: column;
+      align-items: center; justify-content: center;
+      width: 100%; height: 100%; padding: 16px 20px;
+    }
+    .screen.active { display: flex; }
+
+    /* ===== 開始畫面 ===== */
+    #start-screen { gap: 24px; text-align: center; }
+    #start-screen .title {
+      font-size: 9vw; font-weight: 900;
+      background: linear-gradient(135deg, #f7971e, #ffd200);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text; line-height: 1.3; width: 100%;
+    }
+    @media (min-width: 480px) { #start-screen .title { font-size: 42px; } }
+    #start-screen .subtitle {
+      font-size: 16px; color: #999; line-height: 1.8; width: 100%;
+    }
+
+    /* ===== 按鈕 ===== */
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center;
+      min-height: 64px; padding: 14px 36px; border: none; border-radius: 16px;
+      font-family: inherit; font-size: 22px; font-weight: 700;
+      cursor: pointer; transition: transform 0.1s, box-shadow 0.1s;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .btn:active { transform: scale(0.96); }
+    .btn-primary {
+      background: linear-gradient(135deg, #f7971e, #ffd200);
+      color: #111; box-shadow: 0 4px 20px rgba(255,210,0,0.3);
+    }
+    .btn-secondary {
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      color: #fff; box-shadow: 0 4px 20px rgba(102,126,234,0.3);
+    }
+    .btn-next {
+      background: linear-gradient(135deg, #2ecc71, #27ae60);
+      color: #fff; box-shadow: 0 4px 20px rgba(46,204,113,0.3);
+      font-size: 26px; min-height: 70px; width: 100%; border-radius: 18px;
+    }
+    .btn-back {
+      background: #333; color: #aaa; min-height: 50px;
+      font-size: 16px; padding: 10px 24px; border-radius: 12px;
+    }
+    .btn-danger {
+      background: linear-gradient(135deg, #e74c3c, #c0392b);
+      color: #fff; box-shadow: 0 4px 20px rgba(231,76,60,0.3);
+    }
+    .btn:disabled {
+      opacity: 0.5; pointer-events: none;
+    }
+
+    /* ===== 好友切磋：大廳畫面 ===== */
+    #lobby-screen { gap: 16px; text-align: center; justify-content: flex-start; padding-top: 40px; }
+    .lobby-title {
+      font-size: 28px; font-weight: 900;
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    /* 模式選擇格 */
+    .mode-grid {
+      display: grid; grid-template-columns: 1fr 1fr;
+      gap: 12px; width: 100%; max-width: 340px; margin: 8px auto;
+    }
+    .mode-card {
+      background: #2a2a2a; border: 3px solid #444;
+      border-radius: 16px; padding: 16px 8px;
+      cursor: pointer; transition: border-color 0.2s, transform 0.1s;
+      display: flex; flex-direction: column; align-items: center; gap: 4px;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .mode-card.selected { border-color: #764ba2; background: #2a2a3a; }
+    .mode-card:active { transform: scale(0.96); }
+    .mode-card .mode-icon { font-size: 28px; }
+    .mode-card .mode-label { font-size: 18px; font-weight: 700; color: #ddd; }
+    .mode-card .mode-desc { font-size: 13px; color: #888; }
+
+    /* 房號輸入 */
+    .room-section {
+      width: 100%; max-width: 340px; margin: 0 auto;
+      display: flex; flex-direction: column; align-items: center; gap: 12px;
+    }
+    .room-section label { font-size: 16px; color: #aaa; font-weight: 700; }
+    #room-input {
+      width: 200px; height: 70px; background: #2a2a2a;
+      border: 3px solid #444; border-radius: 16px;
+      color: #fff; font-size: 36px; font-weight: 900;
+      text-align: center; font-family: inherit; outline: none;
+      caret-color: #764ba2; letter-spacing: 12px;
+      -webkit-appearance: none; appearance: none;
+    }
+    #room-input:focus { border-color: #764ba2; box-shadow: 0 0 20px rgba(118,75,162,0.2); }
+    #room-input::placeholder { color: #555; font-size: 20px; font-weight: 400; letter-spacing: 2px; }
+
+    .room-btns { display: flex; gap: 12px; width: 100%; max-width: 340px; }
+    .room-btns .btn { flex: 1; font-size: 18px; min-height: 56px; }
+
+    /* ===== 等待房間畫面 ===== */
+    #waiting-screen { gap: 20px; text-align: center; }
+    .waiting-title { font-size: 24px; font-weight: 900; color: #ddd; }
+    .waiting-room-code {
+      font-size: 48px; font-weight: 900; letter-spacing: 12px;
+      color: #764ba2;
+    }
+    .waiting-mode-info { font-size: 16px; color: #888; }
+    .waiting-players {
+      width: 100%; max-width: 340px; background: #2a2a2a;
+      border-radius: 16px; padding: 16px 20px;
+    }
+    .waiting-players .player-label { font-size: 14px; color: #888; margin-bottom: 8px; }
+    .player-list { display: flex; flex-direction: column; gap: 8px; }
+    .player-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 12px; background: #333; border-radius: 12px;
+      font-size: 16px; font-weight: 700;
+    }
+    .player-dot {
+      width: 10px; height: 10px; border-radius: 50%; background: #2ecc71;
+      animation: pulse-dot 1.5s infinite;
+    }
+    @keyframes pulse-dot {
+      0%, 100% { opacity: 1; } 50% { opacity: 0.4; }
+    }
+    .player-item.me { color: #ffd200; }
+    .player-item.other { color: #ddd; }
+    .waiting-status { font-size: 16px; color: #888; }
+    .waiting-status.ready { color: #2ecc71; font-weight: 700; }
+
+    .spinner {
+      width: 40px; height: 40px; border: 4px solid #333;
+      border-top-color: #764ba2; border-radius: 50%;
+      animation: spin 0.8s linear infinite; margin: 0 auto;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ===== 對戰結果畫面 ===== */
+    #mp-result-screen { gap: 16px; text-align: center; overflow-y: auto; -webkit-overflow-scrolling: touch; padding-top: 30px; }
+    .mp-result-title {
+      font-size: 32px; font-weight: 900;
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .mp-result-winner {
+      font-size: 22px; font-weight: 700; color: #ffd200; padding: 8px 0;
+    }
+    .mp-scoreboard {
+      width: 100%; max-width: 360px; background: #2a2a2a;
+      border-radius: 20px; padding: 20px; margin: 0 auto;
+    }
+    .mp-score-row {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 12px 0; border-bottom: 1px solid #333;
+    }
+    .mp-score-row:last-child { border-bottom: none; }
+    .mp-score-name { font-size: 18px; font-weight: 700; }
+    .mp-score-name.winner { color: #ffd200; }
+    .mp-score-detail { text-align: right; }
+    .mp-score-correct { font-size: 24px; font-weight: 900; color: #2ecc71; }
+    .mp-score-time { font-size: 14px; color: #888; }
+
+    /* ===== 遊戲畫面 ===== */
+    #game-screen { justify-content: flex-start; align-items: center; gap: 0; padding-top: 12px; }
+
+    .timer-section {
+      width: 100%; text-align: center;
+      display: flex; flex-direction: column; align-items: center;
+      padding: 8px 0 4px; flex-shrink: 0;
+    }
+    .timer-bar-bg {
+      width: 100%; height: 8px; background: #333;
+      border-radius: 4px; overflow: hidden; margin-bottom: 10px;
+    }
+    .timer-bar {
+      height: 100%; width: 100%;
+      background: linear-gradient(90deg, #2ecc71, #27ae60);
+      border-radius: 4px; transition: width 1s linear, background 0.3s;
+    }
+    .timer-bar.warning { background: linear-gradient(90deg, #e74c3c, #c0392b); }
+    .timer-text {
+      font-size: 48px; font-weight: 900; letter-spacing: 2px;
+      transition: color 0.3s; line-height: 1.1; text-align: center;
+    }
+    .timer-text.warning { color: #e74c3c; animation: blink 0.5s infinite alternate; }
+    @keyframes blink { from { opacity: 1; } to { opacity: 0.3; } }
+
+    /* 對手進度提示 */
+    .opponent-status {
+      width: 100%; text-align: center; padding: 4px 0; flex-shrink: 0;
+      font-size: 14px; color: #764ba2; font-weight: 700;
+      min-height: 24px;
+    }
+
+    .progress-section {
+      width: 100%; text-align: center;
+      display: flex; justify-content: center; align-items: center;
+      padding: 6px 0; flex-shrink: 0;
+    }
+    .progress-text { font-size: 18px; color: #888; font-weight: 700; }
+    .progress-text span { color: #ffd200; }
+
+    .question-section {
+      width: 100%; text-align: center;
+      display: flex; justify-content: center; align-items: center;
+      padding: 20px 0 14px; flex-shrink: 0;
+    }
+    .question-text {
+      font-size: clamp(42px, 11vw, 64px); font-weight: 900;
+      letter-spacing: 4px; color: #fff;
+      text-shadow: 0 0 30px rgba(255,210,0,0.15);
+      text-align: center; width: 100%;
+    }
+
+    .input-section {
+      width: 100%; display: flex; justify-content: center;
+      align-items: center; padding: 10px 0; flex-shrink: 0;
+    }
+    #answer-input {
+      width: 100%; height: 80px; background: #2a2a2a;
+      border: 3px solid #444; border-radius: 16px;
+      color: #fff; font-size: 36px; font-weight: 700;
+      text-align: center; font-family: inherit; outline: none;
+      caret-color: #ffd200; transition: border-color 0.2s;
+      -webkit-appearance: none; appearance: none;
+    }
+    #answer-input:focus { border-color: #ffd200; box-shadow: 0 0 20px rgba(255,210,0,0.15); }
+    #answer-input::placeholder { color: #555; font-size: 22px; font-weight: 400; }
+    #answer-input::-webkit-outer-spin-button,
+    #answer-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+
+    .result-section {
+      width: 100%; text-align: center;
+      display: flex; justify-content: center; align-items: center;
+      padding: 14px 0; min-height: 60px; flex-shrink: 0;
+    }
+    .result-text { font-size: 22px; font-weight: 700; line-height: 1.6; }
+    .result-correct { color: #2ecc71; }
+    .result-wrong { color: #e74c3c; }
+    .result-answer { font-size: 28px; margin-top: 4px; color: #ddd; text-align: center; }
+    .result-answer strong { color: #ffd200; font-size: 34px; }
+
+    .next-section {
+      width: 100%; padding: 12px 0; flex-shrink: 0;
+      margin-top: auto; margin-bottom: 20px;
+      display: none; justify-content: center; align-items: center;
+    }
+
+    .timeout-text { color: #e67e22; font-size: 20px; font-weight: 700; text-align: center; }
+
+    /* ===== 單人結算 ===== */
+    #result-screen {
+      justify-content: center; align-items: center;
+      gap: 20px; text-align: center;
+      overflow-y: auto; -webkit-overflow-scrolling: touch;
+    }
+    .result-title {
+      font-size: clamp(36px, 9vw, 50px); font-weight: 900;
+      background: linear-gradient(135deg, #f7971e, #ffd200);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text; text-align: center; width: 100%;
+    }
+    .result-stats {
+      display: flex; flex-direction: column; gap: 16px;
+      padding: 24px; background: #2a2a2a; border-radius: 24px;
+      width: 100%; max-width: 350px; margin: 0 auto;
+    }
+    .stat-row {
+      display: flex; justify-content: space-between;
+      align-items: center; font-size: 20px;
+    }
+    .stat-label { color: #999; }
+    .stat-value { font-size: 28px; font-weight: 900; color: #ffd200; }
+    .stat-value.perfect { color: #2ecc71; }
+
+    .score-circle {
+      width: 160px; height: 160px; border-radius: 50%;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      margin: 10px auto; position: relative;
+    }
+    .score-circle svg {
+      position: absolute; top: 0; left: 0; transform: rotate(-90deg);
+    }
+    .score-circle .score-number { font-size: 52px; font-weight: 900; color: #ffd200; z-index: 1; }
+    .score-circle .score-unit { font-size: 16px; color: #999; z-index: 1; margin-top: -4px; }
+
+    .review-list {
+      width: 100%; max-width: 380px; max-height: 200px;
+      overflow-y: auto; background: #222; border-radius: 16px;
+      padding: 12px 16px; margin: 0 auto;
+    }
+    .review-item {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 8px 0; border-bottom: 1px solid #333; font-size: 15px;
+    }
+    .review-item:last-child { border-bottom: none; }
+    .review-question { color: #bbb; }
+    .review-your-answer { font-weight: 700; }
+    .review-your-answer.correct { color: #2ecc71; }
+    .review-your-answer.wrong { color: #e74c3c; }
+    .review-correct-answer { color: #888; font-size: 13px; }
+
+    /* ===== 動畫 ===== */
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+    .animate-in { animation: fadeIn 0.3s ease-out; }
+    @keyframes popIn { 0% { transform: scale(0.5); opacity: 0; } 70% { transform: scale(1.1); } 100% { transform: scale(1); opacity: 1; } }
+    .animate-pop { animation: popIn 0.4s ease-out; }
+    @keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-8px); } 75% { transform: translateX(8px); } }
+    .shake { animation: shake 0.3s ease-out; }
+
+    /* ===== RWD ===== */
+    @media (max-height: 600px) {
+      .timer-text { font-size: 36px; }
+      .question-text { font-size: 36px; }
+      #answer-input { height: 64px; font-size: 28px; }
+      .btn-next { min-height: 56px; font-size: 22px; }
+      .question-section { padding: 10px 0; }
+    }
+    @media (min-width: 768px) {
+      #game-container {
+        max-width: 420px; border-radius: 24px;
+        max-height: 750px; box-shadow: 0 0 60px rgba(0,0,0,0.5);
+      }
+    }
+
+    /* Toast 通知 */
+    .toast {
+      position: fixed; top: 40px; left: 50%; transform: translateX(-50%);
+      background: #333; color: #fff; padding: 12px 24px;
+      border-radius: 12px; font-size: 15px; font-weight: 700;
+      z-index: 9999; opacity: 0; transition: opacity 0.3s;
+      pointer-events: none;
+    }
+    .toast.show { opacity: 1; }
+  </style>
 </head>
 <body>
-    <h1>📱 快捷連結</h1>
-    
-    <div class="links-container">
-        <div class="link-row">
-            <span class="link-number">1.</span>
-            <a href="https://hw2801hw.github.io/paradox/彬彬象棋" class="side-link">彬</a>
-            <a href="https://hw2801hw.github.io/paradox/彬彬象棋" target="_blank" class="button-style">彬</a>
-            <a href="https://hw2801hw.github.io/paradox/彬彬象棋" class="side-link">彬</a>
-        </div>
 
-        <div class="link-row">
-            <span class="link-number">2.</span>
-            <a href="https://hw2801hw.github.io/paradox/game" class="side-link">豳</a>
-            <a href="https://hw2801hw.github.io/paradox/game" target="_blank" class="button-style">豳</a>
-            <a href="https://hw2801hw.github.io/paradox/game" class="side-link">豳</a>
-        </div>
+<div id="toast" class="toast"></div>
 
-        <div class="link-row">
-            <span class="link-number">3.</span>
-            <a href="https://hw2801hw.github.io/paradox/html2" class="side-link">奔</a>
-            <a href="https://hw2801hw.github.io/paradox/html2" target="_blank" class="button-style">奔</a>
-            <a href="https://hw2801hw.github.io/paradox/html2" class="side-link">奔</a>
-        </div>
+<div id="game-container">
 
-        <div class="link-row">
-            <span class="link-number">4.</span>
-            <a href="https://hw2801hw.github.io/paradox/debug" class="side-link">椕</a>
-            <a href="https://hw2801hw.github.io/paradox/debug" target="_blank" class="button-style">椕</a>
-            <a href="https://hw2801hw.github.io/paradox/debug" class="side-link">椕</a>
-        </div>
-
-        <div class="link-row">
-            <span class="link-number">5.</span>
-            <a href="https://hw2801hw.github.io/paradox/plant" class="side-link">邠</a>
-            <a href="https://hw2801hw.github.io/paradox/plant" target="_blank" class="button-style">邠</a>
-            <a href="https://hw2801hw.github.io/paradox/plant" class="side-link">邠</a>
-        </div>
-
-        <div class="link-row">
-            <span class="link-number">6.</span>
-            <a href="https://hw2801hw.github.io/paradox/hero" class="side-link">瀕</a>
-            <a href="https://hw2801hw.github.io/paradox/hero" target="_blank" class="button-style">瀕</a>
-            <a href="https://hw2801hw.github.io/paradox/hero" class="side-link">瀕</a>
-        </div>
-
-        <div class="link-row">
-            <span class="link-number">7.</span>
-            <a href="https://hw2801hw.github.io/paradox/ball" class="side-link">繽</a>
-            <a href="https://hw2801hw.github.io/paradox/ball" target="_blank" class="button-style" id="rainbow-button">玢</a>
-            <a href="https://hw2801hw.github.io/paradox/ball" class="side-link">繽</a>
-        </div>
-
-        <div class="link-row">
-            <span class="link-number">8.</span>
-            <a href="https://hw2801hw.github.io/paradox/carrom" class="side-link">豩</a>
-            <a href="https://hw2801hw.github.io/paradox/carrom" target="_blank" class="button-style">豩</a>
-            <a href="https://hw2801hw.github.io/paradox/carrom" class="side-link">豩</a>
-        </div>
-
-        <div class="link-row">
-            <span class="link-number">9.</span>
-            <a href="https://hw2801hw.github.io/paradox/ai" class="side-link">虨</a>
-            <a href="https://hw2801hw.github.io/paradox/ai" target="_blank" class="button-style">虨</a>
-            <a href="https://hw2801hw.github.io/paradox/ai" class="side-link">虨</a>
-        </div>
-
-        <div class="link-row">
-            <span class="link-number">10.</span>
-            <a href="https://hw2801hw.github.io/paradox/pong" class="side-link">璸</a>
-            <a href="https://hw2801hw.github.io/paradox/pong" target="_blank" class="button-style">璸</a>
-            <a href="https://hw2801hw.github.io/paradox/pong" class="side-link">璸</a>
-        </div>
-
-        <div class="link-row">
-            <span class="link-number">11.</span>
-            <a href="https://hw2801hw.github.io/paradox/dice" class="side-link">礗</a>
-            <a href="https://hw2801hw.github.io/paradox/dice" target="_blank" class="button-style">礗</a>
-            <a href="https://hw2801hw.github.io/paradox/dice" class="side-link">礗</a>
-        </div>
-
-        <div class="link-row">
-            <span class="link-number">12.</span>
-            <a href="https://hw2801hw.github.io/paradox/gomoku" class="side-link">栟</a>
-            <a href="https://hw2801hw.github.io/paradox/gomoku" target="_blank" class="button-style">栟</a>
-            <a href="https://hw2801hw.github.io/paradox/gomoku" class="side-link">栟</a>
-        </div>
-
-        <div class="link-row">
-            <span class="link-number">13.</span>
-            <a href="https://hw2801hw.github.io/paradox/archery" class="side-link">斌</a>
-            <a href="https://hw2801hw.github.io/paradox/archery" target="_blank" class="button-style">斌</a>
-            <a href="https://hw2801hw.github.io/paradox/archery" class="side-link">斌</a>
-        </div>
-
-        <div class="link-row">
-            <span class="link-number">14.</span>
-            <a href="https://hw2801hw.github.io/paradox/pun" class="side-link">霦</a>
-            <a href="https://hw2801hw.github.io/paradox/pun" target="_blank" class="button-style">霦</a>
-            <a href="https://hw2801hw.github.io/paradox/pun" class="side-link">霦</a>
-        </div>
-
-        <div class="link-row">
-            <span class="link-number">15.</span>
-            <a href="https://hw2801hw.github.io/paradox/chess" class="side-link">驞</a>
-            <a href="https://hw2801hw.github.io/paradox/chess" target="_blank" class="button-style">驞</a>
-            <a href="https://hw2801hw.github.io/paradox/chess" class="side-link">驞</a>
-        </div>
-
-        <div class="link-row">
-            <span class="link-number">16.</span>
-            <a href="https://hw2801hw.github.io/paradox/p" class="side-link">份</a>
-            <a href="https://hw2801hw.github.io/paradox/p" target="_blank" class="button-style">份</a>
-            <a href="https://hw2801hw.github.io/paradox/p" class="side-link">份</a>
-        </div>
-
-        <div class="link-row">
-            <span class="link-number">19.</span>
-            <a href="https://hw2801hw.github.io/paradox/1942" class="side-link">賁</a>
-            <a href="https://hw2801hw.github.io/paradox/1942" target="_blank" class="button-style">賁</a>
-            <a href="https://hw2801hw.github.io/paradox/1942" class="side-link">賁</a>
-        </div>
-
-        <div class="link-row">
-            <span class="link-number">20.</span>
-            <a href="https://hw2801hw.github.io/paradox/4" class="side-link">渀</a>
-            <a href="https://hw2801hw.github.io/paradox/4" target="_blank" class="button-style">渀</a>
-            <a href="https://hw2801hw.github.io/paradox/4" class="side-link">渀</a>
-        </div>
-
-        <div class="link-row">
-            <span class="link-number">25.</span>
-            <a href="https://hw2801hw.github.io/paradox/darts" class="side-link">攽</a>
-            <a href="https://hw2801hw.github.io/paradox/darts" target="_blank" class="button-style">攽</a>
-            <a href="https://hw2801hw.github.io/paradox/darts" class="side-link">攽</a>
-        </div>
-
+  <!-- ===== 開始畫面 ===== -->
+  <div id="start-screen" class="screen active">
+    <div class="title">二位數<br>乘法速算</div>
+    <div class="subtitle">
+      挑戰你的心算速度！<br>
+      單人練習或邀請好友對戰
     </div>
+    <button class="btn btn-primary" id="solo-btn" style="width:80%;">🧠 單人練習</button>
+    <button class="btn btn-secondary" id="mp-btn" style="width:80%;">⚔️ 好友切磋</button>
+  </div>
+
+  <!-- ===== 好友切磋大廳 ===== -->
+  <div id="lobby-screen" class="screen">
+    <div class="lobby-title">⚔️ 好友切磋</div>
+
+    <div style="font-size:15px; color:#888; margin-bottom:4px;">選擇模式</div>
+    <div class="mode-grid">
+      <div class="mode-card selected" data-questions="5" data-time="30">
+        <div class="mode-icon">⚡</div>
+        <div class="mode-label">5題 30秒</div>
+        <div class="mode-desc">快速閃電戰</div>
+      </div>
+      <div class="mode-card" data-questions="5" data-time="60">
+        <div class="mode-icon">🧩</div>
+        <div class="mode-label">5題 60秒</div>
+        <div class="mode-desc">輕鬆小局</div>
+      </div>
+      <div class="mode-card" data-questions="10" data-time="30">
+        <div class="mode-icon">🔥</div>
+        <div class="mode-label">10題 30秒</div>
+        <div class="mode-desc">標準挑戰</div>
+      </div>
+      <div class="mode-card" data-questions="10" data-time="60">
+        <div class="mode-icon">🏆</div>
+        <div class="mode-label">10題 60秒</div>
+        <div class="mode-desc">完整對決</div>
+      </div>
+    </div>
+
+    <div class="room-section">
+      <label>輸入 4 位數房號</label>
+      <input type="tel" id="room-input" maxlength="4" placeholder="0000"
+        autocomplete="off" inputmode="numeric" pattern="[0-9]*">
+    </div>
+
+    <div class="room-btns">
+      <button class="btn btn-secondary" id="create-room-btn" style="font-size:17px;">建立房間</button>
+      <button class="btn btn-primary" id="join-room-btn" style="font-size:17px;">加入房間</button>
+    </div>
+
+    <button class="btn btn-back" id="lobby-back-btn">← 返回主畫面</button>
+  </div>
+
+  <!-- ===== 等待房間畫面 ===== -->
+  <div id="waiting-screen" class="screen">
+    <div class="waiting-title">房間</div>
+    <div class="waiting-room-code" id="waiting-room-code">0000</div>
+    <div class="waiting-mode-info" id="waiting-mode-info">5題 · 每題30秒</div>
+
+    <div class="waiting-players">
+      <div class="player-label">已加入的玩家</div>
+      <div class="player-list" id="player-list"></div>
+    </div>
+
+    <div class="spinner" id="waiting-spinner"></div>
+    <div class="waiting-status" id="waiting-status">等待其他玩家加入⋯</div>
+
+    <button class="btn btn-next" id="start-mp-btn" style="display:none;">開始對戰 ⚔️</button>
+    <button class="btn btn-danger" id="leave-room-btn" style="width:60%; margin-top:8px;">離開房間</button>
+  </div>
+
+  <!-- ===== 遊戲畫面（單人 + 多人共用） ===== -->
+  <div id="game-screen" class="screen">
+    <div class="timer-section">
+      <div class="timer-bar-bg"><div class="timer-bar" id="timer-bar"></div></div>
+      <div class="timer-text" id="timer-text">30</div>
+    </div>
+    <div class="opponent-status" id="opponent-status"></div>
+    <div class="progress-section">
+      <div class="progress-text">第 <span id="current-q">1</span> 題 / 共 <span id="total-q">10</span> 題</div>
+    </div>
+    <div class="question-section">
+      <div class="question-text" id="question-text">47 × 68</div>
+    </div>
+    <div class="input-section" id="input-section">
+      <input type="tel" id="answer-input" placeholder="輸入答案，按 Enter 確認"
+        autocomplete="off" inputmode="numeric" pattern="[0-9]*">
+    </div>
+    <div class="result-section" id="result-section"></div>
+    <div class="next-section" id="next-section">
+      <button class="btn btn-next" id="next-btn">好的 👍</button>
+    </div>
+  </div>
+
+  <!-- ===== 單人結算畫面 ===== -->
+  <div id="result-screen" class="screen">
+    <div class="result-title animate-pop">🏆 遊戲結束！</div>
+    <div class="score-circle">
+      <svg width="160" height="160" viewBox="0 0 160 160">
+        <circle cx="80" cy="80" r="70" stroke="#333" stroke-width="12" fill="none"/>
+        <circle cx="80" cy="80" r="70" stroke="#ffd200" stroke-width="12" fill="none"
+          stroke-linecap="round" stroke-dasharray="439.8" stroke-dashoffset="439.8" id="score-ring"/>
+      </svg>
+      <div class="score-number" id="score-number">0</div>
+      <div class="score-unit">正確率</div>
+    </div>
+    <div class="result-stats">
+      <div class="stat-row">
+        <span class="stat-label">✅ 答對題數</span>
+        <span class="stat-value" id="stat-correct">0 / 10</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-label">⏱️ 平均用時</span>
+        <span class="stat-value" id="stat-avg-time">0s</span>
+      </div>
+    </div>
+    <div class="review-list" id="review-list"></div>
+    <button class="btn btn-primary" id="restart-btn" style="width:80%;">🔄 再次挑戰</button>
+  </div>
+
+  <!-- ===== 多人結算畫面 ===== -->
+  <div id="mp-result-screen" class="screen">
+    <div class="mp-result-title animate-pop">⚔️ 對戰結果</div>
+    <div class="mp-result-winner" id="mp-result-winner"></div>
+    <div class="mp-scoreboard" id="mp-scoreboard"></div>
+    <div class="review-list" id="mp-review-list" style="max-width:360px;"></div>
+    <button class="btn btn-primary" id="mp-back-btn" style="width:80%;">🏠 返回主畫面</button>
+  </div>
+
+</div>
+
+<script>
+/* ===========================================
+   Firebase 初始化
+   =========================================== */
+const firebaseConfig = {
+  apiKey: "AIzaSyACjxWEkXkPUBv6xiWtVWZdsFvxeKURJ1Q",
+  authDomain: "time-f681a.firebaseapp.com",
+  databaseURL: "https://time-f681a-default-rtdb.firebaseio.com",
+  projectId: "time-f681a",
+  storageBucket: "time-f681a.firebasestorage.app",
+  messagingSenderId: "486171948384",
+  appId: "1:486171948384:web:715043928d3a0a0cd39a05"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
+/* ===========================================
+   DOM 元素快取
+   =========================================== */
+const $ = id => document.getElementById(id);
+
+const $startScreen    = $('start-screen');
+const $lobbyScreen    = $('lobby-screen');
+const $waitingScreen  = $('waiting-screen');
+const $gameScreen     = $('game-screen');
+const $resultScreen   = $('result-screen');
+const $mpResultScreen = $('mp-result-screen');
+
+const $soloBtn     = $('solo-btn');
+const $mpBtn       = $('mp-btn');
+const $lobbyBackBtn = $('lobby-back-btn');
+const $roomInput   = $('room-input');
+const $createRoomBtn = $('create-room-btn');
+const $joinRoomBtn   = $('join-room-btn');
+
+const $waitingRoomCode = $('waiting-room-code');
+const $waitingModeInfo = $('waiting-mode-info');
+const $playerList    = $('player-list');
+const $waitingSpinner = $('waiting-spinner');
+const $waitingStatus = $('waiting-status');
+const $startMpBtn    = $('start-mp-btn');
+const $leaveRoomBtn  = $('leave-room-btn');
+
+const $timerBar      = $('timer-bar');
+const $timerText     = $('timer-text');
+const $opponentStatus = $('opponent-status');
+const $currentQ      = $('current-q');
+const $totalQ        = $('total-q');
+const $questionText  = $('question-text');
+const $answerInput   = $('answer-input');
+const $inputSection  = $('input-section');
+const $resultSection = $('result-section');
+const $nextSection   = $('next-section');
+const $nextBtn       = $('next-btn');
+
+const $scoreRing    = $('score-ring');
+const $scoreNumber  = $('score-number');
+const $statCorrect  = $('stat-correct');
+const $statAvgTime  = $('stat-avg-time');
+const $reviewList   = $('review-list');
+const $restartBtn   = $('restart-btn');
+
+const $mpResultWinner = $('mp-result-winner');
+const $mpScoreboard   = $('mp-scoreboard');
+const $mpReviewList   = $('mp-review-list');
+const $mpBackBtn      = $('mp-back-btn');
+
+/* ===========================================
+   遊戲狀態
+   =========================================== */
+// 通用
+let questions = [];
+let currentIndex = 0;
+let correctCount = 0;
+let timerInterval = null;
+let timeLeft = 30;
+let answered = false;
+let questionStartTime = 0;
+let totalAnswerTime = 0;
+let answeredCount = 0;
+
+// 遊戲設定
+let TOTAL_QUESTIONS = 10;
+let TIME_LIMIT = 30;
+let isMultiplayer = false;
+
+// 多人
+let myPlayerId = '';
+let currentRoomCode = '';
+let roomRef = null;
+let roomListeners = [];
+let isRoomHost = false;
+let mpMode = { questions: 5, time: 30 };
+let selectedModeCard = null;
+
+// 產生玩家 ID
+function generatePlayerId() {
+  return 'p_' + Math.random().toString(36).substr(2, 8);
+}
+myPlayerId = generatePlayerId();
+
+/* ===========================================
+   Toast 通知
+   =========================================== */
+function showToast(msg, duration = 2000) {
+  const t = $('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), duration);
+}
+
+/* ===========================================
+   畫面切換
+   =========================================== */
+const allScreens = [$startScreen, $lobbyScreen, $waitingScreen, $gameScreen, $resultScreen, $mpResultScreen];
+function showScreen(screen) {
+  allScreens.forEach(s => s.classList.remove('active'));
+  screen.classList.add('active');
+}
+
+/* ===========================================
+   隨機產生二位數 & 題目
+   =========================================== */
+function randomTwoDigit() {
+  return Math.floor(Math.random() * 90) + 10;
+}
+function generateQuestions(count) {
+  const qs = [];
+  for (let i = 0; i < count; i++) {
+    const a = randomTwoDigit();
+    const b = randomTwoDigit();
+    qs.push({ a, b, answer: a * b, userAnswer: null, isCorrect: false, timeTaken: null });
+  }
+  return qs;
+}
+
+/* ===========================================
+   單人模式
+   =========================================== */
+function startSoloGame() {
+  isMultiplayer = false;
+  TOTAL_QUESTIONS = 10;
+  TIME_LIMIT = 30;
+  questions = generateQuestions(TOTAL_QUESTIONS);
+  currentIndex = 0;
+  correctCount = 0;
+  totalAnswerTime = 0;
+  answeredCount = 0;
+  $totalQ.textContent = TOTAL_QUESTIONS;
+  $opponentStatus.textContent = '';
+  showScreen($gameScreen);
+  loadQuestion();
+}
+
+/* ===========================================
+   遊戲畫面邏輯（單人 + 多人共用）
+   =========================================== */
+function loadQuestion() {
+  answered = false;
+  const q = questions[currentIndex];
+  $currentQ.textContent = currentIndex + 1;
+  $questionText.textContent = `${q.a} × ${q.b}`;
+  $questionText.classList.add('animate-pop');
+  setTimeout(() => $questionText.classList.remove('animate-pop'), 400);
+
+  $answerInput.value = '';
+  $answerInput.disabled = false;
+  $resultSection.innerHTML = '';
+  $inputSection.style.display = 'flex';
+  $nextSection.style.display = 'none';
+
+  setTimeout(() => { $answerInput.focus(); $answerInput.select(); }, 100);
+
+  questionStartTime = Date.now();
+  startTimer();
+}
+
+function startTimer() {
+  clearInterval(timerInterval);
+  timeLeft = TIME_LIMIT;
+  updateTimerDisplay();
+  timerInterval = setInterval(() => {
+    timeLeft--;
+    updateTimerDisplay();
+    if (timeLeft <= 0) {
+      clearInterval(timerInterval);
+      if (!answered) handleTimeout();
+    }
+  }, 1000);
+}
+
+function stopTimer() { clearInterval(timerInterval); }
+
+function updateTimerDisplay() {
+  const t = Math.max(0, timeLeft);
+  $timerText.textContent = t;
+  $timerBar.style.width = (t / TIME_LIMIT * 100) + '%';
+  if (t <= 10) {
+    $timerText.classList.add('warning');
+    $timerBar.classList.add('warning');
+  } else {
+    $timerText.classList.remove('warning');
+    $timerBar.classList.remove('warning');
+  }
+}
+
+function handleTimeout() {
+  answered = true;
+  const q = questions[currentIndex];
+  q.userAnswer = null;
+  q.isCorrect = false;
+  q.timeTaken = TIME_LIMIT;
+  $answerInput.disabled = true;
+  $resultSection.innerHTML = `
+    <div class="animate-in" style="text-align:center;">
+      <div class="timeout-text">⏰ 時間到！</div>
+      <div class="result-answer">正確答案是 <strong>${q.answer}</strong></div>
+    </div>`;
+  if (isMultiplayer) uploadMyProgress();
+  showNextButton();
+}
+
+function submitAnswer() {
+  if (answered) return;
+  const raw = $answerInput.value.trim();
+  if (raw === '') {
+    $answerInput.classList.add('shake');
+    setTimeout(() => $answerInput.classList.remove('shake'), 300);
+    return;
+  }
+  answered = true;
+  stopTimer();
+  const userAns = parseInt(raw, 10);
+  const q = questions[currentIndex];
+  const timeTaken = (Date.now() - questionStartTime) / 1000;
+  q.userAnswer = userAns;
+  q.timeTaken = timeTaken;
+  totalAnswerTime += timeTaken;
+  answeredCount++;
+  $answerInput.disabled = true;
+
+  if (userAns === q.answer) {
+    q.isCorrect = true;
+    correctCount++;
+    $resultSection.innerHTML = `
+      <div class="animate-in" style="text-align:center;">
+        <div class="result-text result-correct">✅ 答對了！太棒了！</div>
+        <div class="result-answer">答案是 <strong>${q.answer}</strong></div>
+      </div>`;
+  } else {
+    q.isCorrect = false;
+    $resultSection.innerHTML = `
+      <div class="animate-in" style="text-align:center;">
+        <div class="result-text result-wrong">❌ 答錯了！</div>
+        <div class="result-answer">正確答案是 <strong>${q.answer}</strong>
+          <br><span style="font-size:18px; color:#e74c3c;">你的答案：${userAns}</span>
+        </div>
+      </div>`;
+  }
+  if (isMultiplayer) uploadMyProgress();
+  showNextButton();
+}
+
+function showNextButton() {
+  $nextSection.style.display = 'flex';
+  $nextSection.classList.add('animate-in');
+  $nextBtn.textContent = currentIndex >= TOTAL_QUESTIONS - 1 ? '查看結果 📊' : '好的 👍';
+  setTimeout(() => $nextBtn.focus(), 200);
+}
+
+function goNext() {
+  currentIndex++;
+  if (currentIndex >= TOTAL_QUESTIONS) {
+    if (isMultiplayer) {
+      uploadMyFinalResult();
+    } else {
+      showSoloResult();
+    }
+  } else {
+    loadQuestion();
+  }
+}
+
+/* ===========================================
+   單人結算
+   =========================================== */
+function showSoloResult() {
+  stopTimer();
+  showScreen($resultScreen);
+  const pct = Math.round((correctCount / TOTAL_QUESTIONS) * 100);
+  const avgTime = answeredCount > 0 ? (totalAnswerTime / answeredCount).toFixed(1) : '-';
+  const circumference = 2 * Math.PI * 70;
+  const offset = circumference * (1 - correctCount / TOTAL_QUESTIONS);
+  $scoreRing.style.transition = 'stroke-dashoffset 1.2s ease-out';
+  setTimeout(() => { $scoreRing.style.strokeDashoffset = offset; }, 100);
+  $scoreRing.style.stroke = pct >= 80 ? '#2ecc71' : pct >= 50 ? '#ffd200' : '#e74c3c';
+  animateNumber($scoreNumber, 0, pct, 1000, '%');
+  $statCorrect.textContent = `${correctCount} / ${TOTAL_QUESTIONS}`;
+  $statCorrect.classList.toggle('perfect', correctCount === TOTAL_QUESTIONS);
+  $statAvgTime.textContent = avgTime === '-' ? '-' : avgTime + 's';
+  $reviewList.innerHTML = questions.map((q, i) => {
+    const icon = q.isCorrect ? '✅' : '❌';
+    const cls = q.isCorrect ? 'correct' : 'wrong';
+    const userText = q.userAnswer !== null ? q.userAnswer : '未作答';
+    return `<div class="review-item">
+      <span class="review-question">${i+1}. ${q.a}×${q.b}</span>
+      <span class="review-your-answer ${cls}">${icon} ${userText}</span>
+      <span class="review-correct-answer">答案${q.answer}</span>
+    </div>`;
+  }).join('');
+}
+
+function animateNumber(el, from, to, duration, suffix = '') {
+  const start = performance.now();
+  function update(now) {
+    const elapsed = now - start;
+    const progress = Math.min(elapsed / duration, 1);
+    const eased = 1 - Math.pow(1 - progress, 3);
+    el.textContent = Math.round(from + (to - from) * eased) + suffix;
+    if (progress < 1) requestAnimationFrame(update);
+  }
+  requestAnimationFrame(update);
+}
+
+/* ===========================================
+   好友切磋 — 大廳
+   =========================================== */
+// 模式選擇
+const modeCards = document.querySelectorAll('.mode-card');
+modeCards.forEach(card => {
+  card.addEventListener('click', () => {
+    modeCards.forEach(c => c.classList.remove('selected'));
+    card.classList.add('selected');
+    mpMode.questions = parseInt(card.dataset.questions);
+    mpMode.time = parseInt(card.dataset.time);
+  });
+});
+
+// 房號只允許數字
+$roomInput.addEventListener('input', () => {
+  $roomInput.value = $roomInput.value.replace(/[^0-9]/g, '').slice(0, 4);
+});
+
+// 生成隨機4位房號
+function randomRoomCode() {
+  return String(Math.floor(1000 + Math.random() * 9000));
+}
+
+/* ===========================================
+   好友切磋 — 建立房間
+   =========================================== */
+async function createRoom() {
+  const code = $roomInput.value.trim() || randomRoomCode();
+  if (code.length !== 4 || !/^\d{4}$/.test(code)) {
+    showToast('請輸入 4 位數字房號');
+    return;
+  }
+
+  // 檢查房間是否已存在
+  const snapshot = await db.ref('rooms/' + code).once('value');
+  if (snapshot.exists()) {
+    showToast('此房號已被使用，請換一個');
+    return;
+  }
+
+  currentRoomCode = code;
+  isRoomHost = true;
+
+  // 產生題目（房主產生，存到 Firebase）
+  const qs = generateQuestions(mpMode.questions);
+  const questionsData = qs.map(q => ({ a: q.a, b: q.b, answer: q.answer }));
+
+  await db.ref('rooms/' + code).set({
+    mode: { questions: mpMode.questions, time: mpMode.time },
+    questions: questionsData,
+    status: 'waiting', // waiting -> playing -> finished
+    players: {
+      [myPlayerId]: { name: '玩家1（房主）', ready: true, progress: 0, finished: false }
+    },
+    createdAt: firebase.database.ServerValue.TIMESTAMP
+  });
+
+  enterWaitingRoom(code);
+}
+
+/* ===========================================
+   好友切磋 — 加入房間
+   =========================================== */
+async function joinRoom() {
+  const code = $roomInput.value.trim();
+  if (code.length !== 4 || !/^\d{4}$/.test(code)) {
+    showToast('請輸入 4 位數字房號');
+    return;
+  }
+
+  const snapshot = await db.ref('rooms/' + code).once('value');
+  if (!snapshot.exists()) {
+    showToast('找不到此房間');
+    return;
+  }
+
+  const room = snapshot.val();
+  if (room.status !== 'waiting') {
+    showToast('此房間已在對戰中');
+    return;
+  }
+
+  const playerCount = room.players ? Object.keys(room.players).length : 0;
+  if (playerCount >= 4) {
+    showToast('房間已滿（最多4人）');
+    return;
+  }
+
+  currentRoomCode = code;
+  isRoomHost = false;
+
+  const playerNum = playerCount + 1;
+  await db.ref('rooms/' + code + '/players/' + myPlayerId).set({
+    name: '玩家' + playerNum,
+    ready: true,
+    progress: 0,
+    finished: false
+  });
+
+  enterWaitingRoom(code);
+}
+
+/* ===========================================
+   等待房間
+   =========================================== */
+function enterWaitingRoom(code) {
+  showScreen($waitingScreen);
+  $waitingRoomCode.textContent = code;
+
+  // 從 Firebase 讀取模式
+  roomRef = db.ref('rooms/' + code);
+
+  // 顯示模式資訊
+  roomRef.child('mode').once('value', snap => {
+    const m = snap.val();
+    if (m) $waitingModeInfo.textContent = `${m.questions}題 · 每題${m.time}秒`;
+  });
+
+  // 監聽玩家列表
+  const playersRef = roomRef.child('players');
+  const playersListener = playersRef.on('value', snap => {
+    const players = snap.val() || {};
+    const keys = Object.keys(players);
+    $playerList.innerHTML = keys.map(pid => {
+      const p = players[pid];
+      const isMe = pid === myPlayerId;
+      return `<div class="player-item ${isMe ? 'me' : 'other'}">
+        <div class="player-dot"></div>
+        <span>${p.name}${isMe ? '（你）' : ''}</span>
+      </div>`;
+    }).join('');
+
+    // 2人以上且房主才可以開始
+    if (keys.length >= 2 && isRoomHost) {
+      $startMpBtn.style.display = '';
+      $waitingStatus.textContent = '可以開始了！';
+      $waitingStatus.classList.add('ready');
+      $waitingSpinner.style.display = 'none';
+    } else if (keys.length >= 2) {
+      $waitingStatus.textContent = '等待房主開始⋯';
+      $waitingSpinner.style.display = '';
+    } else {
+      $startMpBtn.style.display = 'none';
+      $waitingStatus.textContent = '等待其他玩家加入⋯';
+      $waitingStatus.classList.remove('ready');
+      $waitingSpinner.style.display = '';
+    }
+  });
+  roomListeners.push({ ref: playersRef, event: 'value', cb: playersListener });
+
+  // 監聽遊戲狀態切換到 playing
+  const statusListener = roomRef.child('status').on('value', snap => {
+    const status = snap.val();
+    if (status === 'playing') {
+      startMultiplayerGame();
+    }
+  });
+  roomListeners.push({ ref: roomRef.child('status'), event: 'value', cb: statusListener });
+
+  // 斷線時移除玩家
+  roomRef.child('players/' + myPlayerId).onDisconnect().remove();
+}
+
+/* ===========================================
+   房主點擊開始對戰
+   =========================================== */
+function hostStartGame() {
+  if (!isRoomHost) return;
+  roomRef.child('status').set('playing');
+}
+
+/* ===========================================
+   多人遊戲開始
+   =========================================== */
+async function startMultiplayerGame() {
+  // 讀取房間資料
+  const snap = await roomRef.once('value');
+  const room = snap.val();
+  if (!room) return;
+
+  isMultiplayer = true;
+  TOTAL_QUESTIONS = room.mode.questions;
+  TIME_LIMIT = room.mode.time;
+
+  // 從 Firebase 讀取共用題目
+  questions = room.questions.map(q => ({
+    a: q.a, b: q.b, answer: q.answer,
+    userAnswer: null, isCorrect: false, timeTaken: null
+  }));
+
+  currentIndex = 0;
+  correctCount = 0;
+  totalAnswerTime = 0;
+  answeredCount = 0;
+
+  $totalQ.textContent = TOTAL_QUESTIONS;
+  showScreen($gameScreen);
+
+  // 監聽對手進度
+  listenOpponentProgress();
+
+  loadQuestion();
+}
+
+/* ===========================================
+   監聽對手進度
+   =========================================== */
+function listenOpponentProgress() {
+  const playersRef = roomRef.child('players');
+  const listener = playersRef.on('value', snap => {
+    const players = snap.val() || {};
+    const others = Object.keys(players).filter(pid => pid !== myPlayerId);
+    if (others.length === 0) {
+      $opponentStatus.textContent = '';
+      return;
+    }
+    const parts = others.map(pid => {
+      const p = players[pid];
+      if (p.finished) return `${p.name}：已完成 ✅`;
+      return `${p.name}：第${p.progress || 0}題`;
+    });
+    $opponentStatus.textContent = parts.join(' | ');
+  });
+  roomListeners.push({ ref: playersRef, event: 'value', cb: listener });
+}
+
+/* ===========================================
+   上傳我的進度
+   =========================================== */
+function uploadMyProgress() {
+  if (!roomRef) return;
+  roomRef.child('players/' + myPlayerId + '/progress').set(currentIndex + 1);
+}
+
+/* ===========================================
+   上傳最終結果
+   =========================================== */
+async function uploadMyFinalResult() {
+  stopTimer();
+  const avgTime = answeredCount > 0 ? parseFloat((totalAnswerTime / answeredCount).toFixed(1)) : 999;
+
+  await roomRef.child('players/' + myPlayerId).update({
+    finished: true,
+    progress: TOTAL_QUESTIONS,
+    correctCount: correctCount,
+    totalTime: parseFloat(totalAnswerTime.toFixed(1)),
+    avgTime: avgTime,
+    answers: questions.map(q => ({
+      a: q.a, b: q.b, answer: q.answer,
+      userAnswer: q.userAnswer, isCorrect: q.isCorrect, timeTaken: q.timeTaken
+    }))
+  });
+
+  // 監聽所有玩家完成
+  waitForAllFinished();
+}
+
+/* ===========================================
+   等待所有玩家完成
+   =========================================== */
+function waitForAllFinished() {
+  showScreen($gameScreen);
+  $timerText.textContent = '⏳';
+  $timerBar.style.width = '100%';
+  $timerText.classList.remove('warning');
+  $timerBar.classList.remove('warning');
+  $questionText.textContent = '等待對手完成⋯';
+  $inputSection.style.display = 'none';
+  $resultSection.innerHTML = '<div class="spinner"></div>';
+  $nextSection.style.display = 'none';
+
+  const playersRef = roomRef.child('players');
+  const listener = playersRef.on('value', snap => {
+    const players = snap.val() || {};
+    const allDone = Object.values(players).every(p => p.finished === true);
+    const others = Object.keys(players).filter(pid => pid !== myPlayerId);
+    const parts = others.map(pid => {
+      const p = players[pid];
+      if (p.finished) return `${p.name}：已完成 ✅`;
+      return `${p.name}：作答中⋯`;
+    });
+    $opponentStatus.textContent = parts.join(' | ');
+
+    if (allDone) {
+      playersRef.off('value', listener);
+      showMpResult(players);
+    }
+  });
+  roomListeners.push({ ref: playersRef, event: 'value', cb: listener });
+}
+
+/* ===========================================
+   多人結算
+   =========================================== */
+function showMpResult(players) {
+  showScreen($mpResultScreen);
+
+  // 排名：先比答對數（多→少），再比總時間（少→多）
+  const ranking = Object.keys(players).map(pid => ({
+    pid,
+    ...players[pid]
+  })).sort((a, b) => {
+    if ((b.correctCount || 0) !== (a.correctCount || 0)) return (b.correctCount || 0) - (a.correctCount || 0);
+    return (a.totalTime || 999) - (b.totalTime || 999);
+  });
+
+  const winner = ranking[0];
+  const isMeWinner = winner.pid === myPlayerId;
+
+  if (ranking.length === 1) {
+    $mpResultWinner.textContent = '只有你一人完成了';
+  } else if (isMeWinner) {
+    $mpResultWinner.textContent = '🎉 你贏了！恭喜！';
+  } else {
+    $mpResultWinner.textContent = `🏅 ${winner.name} 獲勝！`;
+  }
+
+  // 計分板
+  $mpScoreboard.innerHTML = ranking.map((p, i) => {
+    const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : '　';
+    const isMe = p.pid === myPlayerId;
+    const nameClass = i === 0 ? 'winner' : '';
+    return `<div class="mp-score-row">
+      <span class="mp-score-name ${nameClass}">${medal} ${p.name}${isMe ? '（你）' : ''}</span>
+      <div class="mp-score-detail">
+        <div class="mp-score-correct">${p.correctCount || 0} / ${TOTAL_QUESTIONS}</div>
+        <div class="mp-score-time">用時 ${p.totalTime || 0}s（均 ${p.avgTime || 0}s）</div>
+      </div>
+    </div>`;
+  }).join('');
+
+  // 我的作答回顧
+  $mpReviewList.innerHTML = '<div style="font-size:14px;color:#888;padding:4px 0;">你的作答回顧</div>' +
+    questions.map((q, i) => {
+      const icon = q.isCorrect ? '✅' : '❌';
+      const cls = q.isCorrect ? 'correct' : 'wrong';
+      const userText = q.userAnswer !== null ? q.userAnswer : '未作答';
+      return `<div class="review-item">
+        <span class="review-question">${i+1}. ${q.a}×${q.b}</span>
+        <span class="review-your-answer ${cls}">${icon} ${userText}</span>
+        <span class="review-correct-answer">答案${q.answer}</span>
+      </div>`;
+    }).join('');
+
+  // 清除房間資料
+  cleanupRoom();
+}
+
+/* ===========================================
+   清除房間
+   =========================================== */
+function cleanupRoom() {
+  // 移除所有監聽
+  roomListeners.forEach(({ ref, event, cb }) => ref.off(event, cb));
+  roomListeners = [];
+
+  // 斷線回調取消
+  if (roomRef) {
+    roomRef.child('players/' + myPlayerId).onDisconnect().cancel();
+  }
+
+  // 房主負責刪除房間（延遲2秒讓所有人都讀到結果）
+  if (isRoomHost && currentRoomCode) {
+    setTimeout(() => {
+      db.ref('rooms/' + currentRoomCode).remove();
+    }, 3000);
+  }
+
+  currentRoomCode = '';
+  roomRef = null;
+  isRoomHost = false;
+}
+
+/* ===========================================
+   離開房間
+   =========================================== */
+async function leaveRoom() {
+  // 移除監聽
+  roomListeners.forEach(({ ref, event, cb }) => ref.off(event, cb));
+  roomListeners = [];
+
+  if (roomRef) {
+    roomRef.child('players/' + myPlayerId).onDisconnect().cancel();
+    await roomRef.child('players/' + myPlayerId).remove();
+
+    // 如果是房主且沒有其他玩家，刪除房間
+    if (isRoomHost) {
+      const snap = await roomRef.child('players').once('value');
+      const remaining = snap.val();
+      if (!remaining || Object.keys(remaining).length === 0) {
+        await db.ref('rooms/' + currentRoomCode).remove();
+      }
+    }
+  }
+
+  currentRoomCode = '';
+  roomRef = null;
+  isRoomHost = false;
+  showScreen($startScreen);
+}
+
+/* ===========================================
+   事件綁定
+   =========================================== */
+// 開始畫面
+$soloBtn.addEventListener('click', startSoloGame);
+$mpBtn.addEventListener('click', () => {
+  $roomInput.value = '';
+  showScreen($lobbyScreen);
+});
+$lobbyBackBtn.addEventListener('click', () => showScreen($startScreen));
+
+// 大廳
+$createRoomBtn.addEventListener('click', createRoom);
+$joinRoomBtn.addEventListener('click', joinRoom);
+$roomInput.addEventListener('keydown', e => {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    // 有值就加入，沒值就建立
+    if ($roomInput.value.trim().length === 4) joinRoom();
+  }
+});
+
+// 等待房間
+$startMpBtn.addEventListener('click', hostStartGame);
+$leaveRoomBtn.addEventListener('click', leaveRoom);
+
+// 遊戲畫面
+$nextBtn.addEventListener('click', goNext);
+$answerInput.addEventListener('keydown', e => {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    if (!answered) submitAnswer();
+    else goNext();
+  }
+});
+$answerInput.addEventListener('input', () => {
+  $answerInput.value = $answerInput.value.replace(/[^0-9]/g, '');
+});
+
+// 單人結算
+$restartBtn.addEventListener('click', () => {
+  $scoreRing.style.transition = 'none';
+  $scoreRing.style.strokeDashoffset = 439.8;
+  startSoloGame();
+});
+
+// 多人結算
+$mpBackBtn.addEventListener('click', () => showScreen($startScreen));
+
+// 防止雙擊放大 & 多指縮放
+document.addEventListener('dblclick', e => e.preventDefault());
+document.addEventListener('touchmove', e => { if (e.touches.length > 1) e.preventDefault(); }, { passive: false });
+
+</script>
 </body>
 </html>
