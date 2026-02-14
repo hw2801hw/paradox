@@ -381,10 +381,20 @@ const COMMANDERS = [
     name: '孤星領袖',
     icon: '⭐',
     title: '獨行無懼',
-    buff: '不受對方統帥的負面影響；場上僅剩1個己方單位時，該單位瞬間回滿血且能同時攻擊2個敵人',
+    buff: '不受對方統帥的負面影響；場上僅剩1個己方單位時，該單位瞬間回滿血(僅一次)、隱身2秒、且能同時攻擊2個敵人',
     debuff: '（無對敵削弱）',
     special: '免疫對方統帥debuff',
     color: '#f1c40f'
+  },
+  {
+    id: 5,
+    name: '商業霸主',
+    icon: '💰',
+    title: '財富至上',
+    buff: '商店顯示5張卡片，以原價售出單位（不扣費用）',
+    debuff: '對方商店僅顯示2張卡片，且售出單位無法獲得聖水',
+    special: '',
+    color: '#f39c12'
   }
 ];
 
@@ -489,6 +499,37 @@ const Game = {
     // Player commander 1: AI pays +1
     if(this.playerCommander && this.playerCommander.id === 1) cost += 1;
     return cost;
+  },
+
+  // === Shop size considering commanders ===
+  getPlayerShopSize() {
+    // Commander 5: 5 cards in shop
+    if(this.playerCommander && this.playerCommander.id === 5) return 5;
+    let size = 3;
+    // AI commander 5: player only gets 2 cards (unless player is commander 4)
+    if(this.aiCommander && this.aiCommander.id === 5 && !(this.playerCommander && this.playerCommander.id === 4)) size = 2;
+    return size;
+  },
+  getAIShopSize() {
+    if(this.aiCommander && this.aiCommander.id === 5) return 5;
+    let size = 3;
+    // Player commander 5: AI only gets 2 cards
+    if(this.playerCommander && this.playerCommander.id === 5) size = 2;
+    return size;
+  },
+
+  // === Sell refund considering commanders ===
+  getPlayerSellRefund(unit) {
+    // Commander 5: full price refund
+    if(this.playerCommander && this.playerCommander.id === 5) return unit.cost * unit.star;
+    // AI commander 5: player gets 0 refund (unless player is commander 4)
+    if(this.aiCommander && this.aiCommander.id === 5 && !(this.playerCommander && this.playerCommander.id === 4)) return 0;
+    return Math.max(1, unit.cost - 1) * unit.star;
+  },
+  getAISellRefund(unit) {
+    if(this.aiCommander && this.aiCommander.id === 5) return unit.cost * unit.star;
+    if(this.playerCommander && this.playerCommander.id === 5) return 0;
+    return Math.max(1, unit.cost - 1) * unit.star;
   },
 
   init() {
@@ -616,14 +657,16 @@ const Game = {
   // ============ SHOP ============
   refreshShop() {
     this.shop = [];
-    for(let i = 0; i < 3; i++) {
+    const shopSize = this.getPlayerShopSize();
+    for(let i = 0; i < shopSize; i++) {
       const idx = Math.floor(Math.random() * CARD_POOL.length);
       this.shop.push({...CARD_POOL[idx]});
     }
   },
   refreshAIShop() {
     this.aiShop = [];
-    for(let i = 0; i < 3; i++) {
+    const shopSize = this.getAIShopSize();
+    for(let i = 0; i < shopSize; i++) {
       const idx = Math.floor(Math.random() * CARD_POOL.length);
       this.aiShop.push({...CARD_POOL[idx]});
     }
@@ -693,9 +736,13 @@ const Game = {
     if(source === 'bench') { unit = this.playerBench[idx]; if(!unit) return; this.playerBench[idx] = null; }
     else if(source === 'board') { unit = this.playerBoard[idx]; if(!unit) return; this.playerBoard.splice(idx, 1); }
     if(unit) {
-      const refund = Math.max(1, unit.cost - 1) * unit.star;
-      this.playerMana = Math.min(this.maxMana, this.playerMana + refund);
-      this.showToast(`賣出 ${unit.name} +${refund}💧`);
+      const refund = this.getPlayerSellRefund(unit);
+      if(refund > 0) {
+        this.playerMana = Math.min(this.maxMana, this.playerMana + refund);
+        this.showToast(`賣出 ${unit.name} +${refund}💧`);
+      } else {
+        this.showToast(`賣出 ${unit.name}（無法獲得聖水）`);
+      }
     }
     this.selectedBenchIdx = -1; this.updateUI();
   },
@@ -903,7 +950,7 @@ const Game = {
     u.moveTimer = 0; u.isMoving = false; u.flashTimer = 0;
     u.cmdImmune = 0; // commander immunity timer
     u.dualTarget = false; // commander 4 dual attack
-    u.lastLoneCheck = -1; // track lone check
+    u.loneTriggered = false; // commander 4 lone trigger (once only)
   },
 
   getGridPos(row, col) {
@@ -950,17 +997,24 @@ const Game = {
     for(const u of this.combatUnits) { if(u.alive) alive[u.owner].push(u); }
     if(alive.player.length === 0 || alive.ai.length === 0 || this.combatTimer >= this.maxCombatTime) { this.endCombat(alive); return; }
 
-    // === Commander 4 (孤星領袖): lone unit check ===
+    // === Commander 4 (孤星領袖): lone unit check (only triggers ONCE) ===
     const checkLone = (ownerSide) => {
       const cmd = ownerSide === 'player' ? this.playerCommander : this.aiCommander;
       if(!cmd || cmd.id !== 4) return;
       const aliveUnits = this.combatUnits.filter(u => u.alive && u.owner === ownerSide);
       if(aliveUnits.length === 1) {
         const lone = aliveUnits[0];
-        // Full heal
-        lone.hp = lone.maxHp;
-        // Enable dual target
-        lone.dualTarget = true;
+        if(!lone.loneTriggered) {
+          lone.loneTriggered = true;
+          // Full heal (once only)
+          lone.hp = lone.maxHp;
+          // Stealth 2 seconds
+          lone.invisible = true;
+          lone.invisTimer = 2;
+          // Enable dual target
+          lone.dualTarget = true;
+          this.showToast(`${lone.name} 獨行無懼！回滿血+隱身+雙目標！`);
+        }
       }
     };
     checkLone('player');
@@ -1020,8 +1074,7 @@ const Game = {
       } else if(!inRange) {
         const ns = this.findNextStep(u, u.target);
         if(ns) { u.isMoving = true; u.moveTimer = 0; u.startRow = u.combatRow; u.startCol = u.combatCol; u.targetRow = ns.r; u.targetCol = ns.c; }
-      } else if(u.invisible) { u.invisible = false; u.invisTimer = 0; }
-      else {
+      } else {
         u.atkCooldown -= dt;
         if(u.atkCooldown <= 0) {
           let dmg = (u.dps + u.permDmgBonus) / u.atkSpeed;
@@ -1125,7 +1178,7 @@ const Game = {
           poisonDmg:0,stunTimer:0,baseMoveSpeed:3,summons:[],healTimer:0,abilityTimer:0,atkCount:0,killAtkBuff:0,
           atkSpeed:1,flashTimer:0,targetX:unit.x,targetY:unit.y,
           combatRow:unit.combatRow,combatCol:unit.combatCol,isMoving:false,moveTimer:0,
-          cmdImmune:0,dualTarget:false,lastLoneCheck:-1
+          cmdImmune:0,dualTarget:false,loneTriggered:false
         };
         this.combatUnits.push(summon);
       }
@@ -1406,7 +1459,8 @@ const Game = {
     popup.querySelector('.popup-stats').innerHTML = `💧${unit.cost}費 | ❤️HP: ${Math.floor(unit.baseHp*starMult)} | ⚔️DPS: ${Math.floor(unit.baseDps*starMult)} | 📏距離: ${unit.range}`;
     popup.querySelector('.popup-ability').innerHTML = `✨ ${unit.ability}`;
     popup.querySelector('.popup-tags').innerHTML = tagNames;
-    popup.querySelector('.popup-hint').innerHTML = `賣出可獲得 ${Math.max(1,unit.cost-1)*unit.star}💧`;
+    const sellRefund = unit.owner === 'player' ? this.getPlayerSellRefund(unit) : 0;
+    popup.querySelector('.popup-hint').innerHTML = unit.owner === 'player' ? `賣出可獲得 ${sellRefund}💧` : '';
     popup.classList.add('show');
     clearTimeout(this._unitPopupTimer);
     this._unitPopupTimer = setTimeout(() => this.hideUnitPopup(), 4000);
@@ -1475,11 +1529,14 @@ const Game = {
 
     const shopArea = document.getElementById('shopArea');
     let shopHtml = '';
-    for(let i = 0; i < 3; i++) {
+    const shopSize = this.shop.length;
+    const cardWidthPct = shopSize <= 3 ? '30%' : (shopSize === 5 ? '18%' : '22%');
+    const cardMaxW = shopSize <= 3 ? '110px' : (shopSize === 5 ? '80px' : '95px');
+    for(let i = 0; i < shopSize; i++) {
       const card = this.shop[i];
-      if(!card) { shopHtml += `<div class="shop-card empty" data-idx="${i}"><div class="card-icon">—</div><div class="card-name">已購買</div></div>`; continue; }
+      if(!card) { shopHtml += `<div class="shop-card empty" data-idx="${i}" style="width:${cardWidthPct};max-width:${cardMaxW}"><div class="card-icon">—</div><div class="card-name">已購買</div></div>`; continue; }
       const cantAfford = this.playerMana < card.cost;
-      shopHtml += `<div class="shop-card cost${card.cost} ${cantAfford?'cant-afford':''}" data-idx="${i}">
+      shopHtml += `<div class="shop-card cost${card.cost} ${cantAfford?'cant-afford':''}" data-idx="${i}" style="width:${cardWidthPct};max-width:${cardMaxW}">
         <div class="card-cost">💧${card.cost}</div><div class="card-icon">${card.icon}</div>
         <div class="card-name">${card.name}</div><div class="card-stats">HP:${card.hp} DPS:${card.dps} R:${card.range}</div>
         <div class="card-tags">${card.tags.map(t => SYNERGIES[t]?.icon+SYNERGIES[t]?.name).join(' ')}</div></div>`;
