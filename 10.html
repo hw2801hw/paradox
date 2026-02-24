@@ -1,0 +1,1829 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Ben 10 自走棋</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;user-select:none}
+:root{--green:#00d26a;--dark:#0a0e17;--darker:#060a12;--panel:#111827;--border:#1e3a2a;--gold:#ffd700;--red:#ef4444;--blue:#3b82f6;--purple:#a855f7;--cyan:#06b6d4;--orange:#f97316}
+body{background:var(--dark);color:#e5e7eb;font-family:'Segoe UI',system-ui,sans-serif;overflow:hidden;touch-action:manipulation;display:flex;justify-content:center;align-items:center;min-height:100vh;min-height:100dvh}
+#game{width:100%;max-width:460px;height:100vh;height:100dvh;display:flex;flex-direction:column;position:relative;overflow:hidden;padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom)}
+@media (max-height:700px){
+  .shop-card{min-height:70px;padding:3px}
+  .shop-card .card-emoji{font-size:20px}
+  .shop-card .card-name{font-size:8px}
+  .shop-card .card-stats{font-size:7px}
+  .bottom-panel{padding:3px 6px 6px}
+  .action-row{gap:4px}
+  .btn{padding:4px 10px;font-size:10px}
+}
+.top-bar{display:flex;justify-content:space-between;align-items:center;padding:4px 8px;background:var(--panel);border-bottom:2px solid var(--border);min-height:44px;flex-shrink:0}
+.hp-display{display:flex;align-items:center;gap:4px;font-weight:700;font-size:14px}
+.hp-display .watch{width:28px;height:28px;border-radius:50%;border:2px solid var(--green);display:flex;align-items:center;justify-content:center;font-size:11px;background:radial-gradient(circle,#0f2,#060)}
+.round-info{text-align:center;font-size:13px;color:var(--green);font-weight:700}
+.round-info .phase{font-size:10px;color:#9ca3af}
+.synergy-bar{display:flex;gap:2px;padding:2px 6px;background:#0d1117;flex-shrink:0;overflow-x:auto;min-height:26px;align-items:center}
+.syn-badge{font-size:9px;padding:2px 6px;border-radius:8px;white-space:nowrap;font-weight:600;cursor:pointer;transition:transform .1s}
+.syn-badge:active{transform:scale(0.95)}
+.syn-badge.active3{background:#2563eb;color:#fff}
+.syn-badge.active5{background:var(--gold);color:#000}
+.syn-badge.inactive{background:#1f2937;color:#6b7280}
+.board-container{flex:1;display:flex;flex-direction:column;padding:2px 4px;gap:1px;min-height:0;justify-content:center;align-items:center;overflow:hidden}
+@media (max-height:700px){
+  .board-container{padding:1px 2px}
+  .board-row{gap:0;max-width:300px}
+  .unit .u-emoji{font-size:14px}
+  .unit .u-name{font-size:6px}
+  .unit .u-stars{font-size:5px}
+}
+.board-row{display:flex;gap:1px;width:100%;max-width:350px}
+.board-row .cell{aspect-ratio:1;flex:1;border:1px solid #1a2332;border-radius:3px;position:relative;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:background .15s}
+.cell.player-zone{background:#0a1a0f}
+.cell.enemy-zone{background:#1a0a0a}
+.cell.highlight{background:#1a3a1a!important;border-color:var(--green)}
+.cell.selected{background:#2a4a2a!important;border:2px solid var(--gold)!important}
+.cell .unit{position:absolute;inset:2px;border-radius:3px;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:8px;font-weight:700;overflow:hidden;z-index:2;transition:all .3s}
+.cell .unit.player-unit{border:1.5px solid var(--green);background:linear-gradient(135deg,#0a2a1a,#0f3f2f)}
+.cell .unit.enemy-unit{border:1.5px solid var(--red);background:linear-gradient(135deg,#2a0a0a,#3f0f0f)}
+.cell .unit.selected-unit{border:2px solid var(--gold)!important;box-shadow:0 0 8px var(--gold)}
+.unit .u-emoji{font-size:16px;line-height:1}
+.unit .u-name{font-size:7px;line-height:1;margin-top:1px;text-align:center;max-width:100%;overflow:hidden;white-space:nowrap}
+.unit .u-stars{font-size:6px;color:var(--gold);line-height:1}
+.unit .hp-bar{position:absolute;bottom:0;left:0;right:0;height:3px;background:#333}
+.unit .hp-bar .hp-fill{height:100%;background:var(--green);transition:width .2s}
+.unit.enemy-unit .hp-bar .hp-fill{background:var(--red)}
+.unit .dmg-flash{position:absolute;inset:0;background:rgba(255,0,0,0.4);opacity:0;pointer-events:none;border-radius:3px}
+.unit.hit .dmg-flash{opacity:1;animation:flashHit .2s}
+@keyframes flashHit{0%{opacity:.6}100%{opacity:0}}
+.unit .float-dmg{position:absolute;font-size:9px;color:var(--red);font-weight:900;animation:floatUp 3s forwards;pointer-events:none;z-index:10}
+@keyframes floatUp{0%{opacity:1;transform:translateY(0)}80%{opacity:1;transform:translateY(-8px)}100%{opacity:0;transform:translateY(-12px)}}
+.unit .float-heal{color:var(--green)}
+.unit .float-crit{color:var(--gold);font-size:12px;text-shadow:0 0 6px var(--gold),0 0 10px var(--gold)}
+.bottom-panel{background:var(--panel);border-top:2px solid var(--border);flex-shrink:0;padding:4px 6px 8px}
+.shop-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px}
+.shop-header span{font-size:11px;color:#9ca3af}
+.btn{padding:5px 12px;border:none;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;color:#fff;transition:all .15s}
+.btn:active{transform:scale(.95)}
+.btn-green{background:var(--green);color:#000}
+.btn-blue{background:var(--blue)}
+.btn-red{background:var(--red)}
+.btn-orange{background:var(--orange);color:#000}
+.btn-purple{background:var(--purple)}
+.btn:disabled{opacity:.4;cursor:default}
+.shop-cards{display:flex;gap:4px;margin-bottom:6px}
+.shop-card{flex:1;background:#1a2332;border:1.5px solid #2a3a4a;border-radius:6px;padding:4px;text-align:center;cursor:pointer;transition:all .15s;min-height:80px;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.shop-card:active{transform:scale(.96)}
+.shop-card.empty{opacity:.3;cursor:default}
+.shop-card.can-merge{border:2px solid var(--gold);animation:mergeGlow 1s infinite;box-shadow:0 0 12px rgba(255,215,0,0.5)}
+@keyframes mergeGlow{0%,100%{box-shadow:0 0 8px rgba(255,215,0,0.4)}50%{box-shadow:0 0 16px rgba(255,215,0,0.8)}}
+.shop-card .card-emoji{font-size:24px}
+.shop-card .card-name{font-size:9px;font-weight:700;margin:2px 0}
+.shop-card .card-class{font-size:8px;color:var(--cyan);margin-bottom:2px}
+.shop-card .card-stats{font-size:8px;color:#9ca3af}
+.shop-card .card-ability{font-size:7px;color:var(--purple);margin-top:2px}
+.class-warrior .card-class{color:var(--red)}
+.class-ranger .card-class{color:var(--orange)}
+.class-mage .card-class{color:var(--purple)}
+.class-assassin .card-class{color:var(--cyan)}
+.class-support .card-class{color:var(--green)}
+.action-row{display:flex;gap:6px;justify-content:center;flex-wrap:wrap}
+.refresh-count{font-size:10px;color:var(--gold);margin-left:2px}
+.unit-info{display:none;position:absolute;bottom:120px;left:50%;transform:translateX(-50%);background:#1a2332;border:1.5px solid var(--green);border-radius:8px;padding:8px 12px;z-index:50;min-width:220px;max-width:90%;font-size:11px}
+.unit-info.show{display:block}
+.unit-info .close-info{position:absolute;top:2px;right:6px;cursor:pointer;font-size:14px}
+.overlay{display:none;position:absolute;inset:0;background:rgba(0,0,0,.85);z-index:100;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:20px}
+.overlay.show{display:flex}
+.overlay h1{font-size:28px;margin-bottom:10px}
+.overlay h2{font-size:20px;color:var(--green);margin-bottom:20px}
+.overlay p{font-size:14px;color:#9ca3af;margin-bottom:20px;max-width:300px}
+.overlay .btn{font-size:16px;padding:10px 30px}
+.battle-log{position:absolute;top:70px;left:8px;right:8px;font-size:13px;color:var(--gold);text-align:center;pointer-events:none;z-index:20;opacity:0;transition:opacity .3s;background:rgba(0,0,0,.7);padding:6px 10px;border-radius:8px;font-weight:700}
+.battle-log.show{opacity:1}
+.board-row:nth-child(4){border-bottom:2px solid rgba(255,255,255,.15)}
+.board-row:nth-child(5){border-top:2px solid rgba(255,255,255,.15)}
+.placement-mode{position:absolute;bottom:130px;left:50%;transform:translateX(-50%);background:var(--green);color:#000;font-size:11px;font-weight:700;padding:4px 14px;border-radius:12px;z-index:30;display:none;white-space:nowrap}
+.placement-mode.show{display:block}
+@keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.1)}}
+.codex-overlay{display:none;position:absolute;inset:0;background:rgba(0,0,0,.95);z-index:200;flex-direction:column;overflow:hidden}
+.codex-overlay.show{display:flex}
+.codex-header{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;background:var(--panel);border-bottom:2px solid var(--border);flex-shrink:0}
+.codex-header h2{font-size:18px;color:var(--green)}
+.codex-header .close-codex{font-size:24px;cursor:pointer;color:#fff;padding:4px 8px}
+.codex-tabs{display:flex;gap:4px;padding:8px;background:#0d1117;flex-shrink:0;overflow-x:auto}
+.codex-tab{padding:6px 12px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;background:#1f2937;color:#9ca3af;white-space:nowrap}
+.codex-tab.active{background:var(--green);color:#000}
+.codex-cards{flex:1;overflow-y:auto;padding:8px;display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+.codex-card{background:#1a2332;border:2px solid #2a3a4a;border-radius:8px;padding:10px;text-align:center}
+.codex-card .c-emoji{font-size:32px}
+.codex-card .c-name{font-size:12px;font-weight:700;margin:4px 0 2px}
+.codex-card .c-en{font-size:9px;color:#6b7280;margin-bottom:4px}
+.codex-card .c-class{font-size:10px;padding:2px 8px;border-radius:10px;display:inline-block;margin-bottom:6px}
+.codex-card .c-class.warrior{background:#7f1d1d;color:#fca5a5}
+.codex-card .c-class.ranger{background:#7c2d12;color:#fdba74}
+.codex-card .c-class.mage{background:#581c87;color:#d8b4fe}
+.codex-card .c-class.assassin{background:#164e63;color:#67e8f9}
+.codex-card .c-class.support{background:#14532d;color:#86efac}
+.codex-card .c-stats{font-size:10px;color:#9ca3af;margin-bottom:4px}
+.codex-card .c-ability{font-size:10px;color:var(--purple);font-weight:600;margin-bottom:2px}
+.codex-card .c-ability-desc{font-size:9px;color:#6b7280;line-height:1.3}
+.codex-card .c-star5{background:linear-gradient(135deg,#3d2800,#5a3d00);border:1px solid var(--gold);border-radius:6px;padding:6px;margin-top:6px}
+.codex-card .c-star5-label{font-size:9px;color:var(--gold);font-weight:700;margin-bottom:2px;display:flex;align-items:center;gap:4px}
+.codex-card .c-star5-desc{font-size:9px;color:#fcd34d;line-height:1.3}
+.synergy-overlay{display:none;position:absolute;inset:0;background:rgba(0,0,0,.95);z-index:200;flex-direction:column;overflow:hidden}
+.synergy-overlay.show{display:flex}
+.synergy-content{flex:1;overflow-y:auto;padding:12px}
+.synergy-class{background:#1a2332;border:2px solid #2a3a4a;border-radius:10px;padding:12px;margin-bottom:10px}
+.synergy-class-header{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.synergy-class-header .s-emoji{font-size:24px}
+.synergy-class-header .s-name{font-size:16px;font-weight:700}
+.synergy-tier{background:#0d1117;border-radius:6px;padding:8px 10px;margin-bottom:6px}
+.synergy-tier .tier-label{font-size:11px;font-weight:700;margin-bottom:4px}
+.synergy-tier .tier-label.t3{color:var(--blue)}
+.synergy-tier .tier-label.t5{color:var(--gold)}
+.synergy-tier .tier-desc{font-size:12px;color:#9ca3af}
+.synergy-members{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.synergy-members .member{background:#0d1117;padding:3px 8px;border-radius:12px;font-size:10px;display:flex;align-items:center;gap:4px}
+.ban-overlay{display:none;position:absolute;inset:0;background:rgba(0,0,0,.95);z-index:150;flex-direction:column;align-items:center;justify-content:center;padding:20px}
+.ban-overlay.show{display:flex}
+.ban-title{font-size:20px;color:var(--gold);margin-bottom:8px;text-align:center}
+.ban-subtitle{font-size:12px;color:#9ca3af;margin-bottom:16px;text-align:center}
+.ban-classes{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin-bottom:20px}
+.ban-class-btn{width:80px;height:90px;border:2px solid #2a3a4a;border-radius:10px;background:#1a2332;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;transition:all .2s}
+.ban-class-btn:active{transform:scale(.95)}
+.ban-class-btn.selected{border-color:var(--red);background:#2a1a1a;box-shadow:0 0 12px rgba(239,68,68,0.4)}
+.ban-class-btn .bc-emoji{font-size:28px;margin-bottom:4px}
+.ban-class-btn .bc-name{font-size:11px;font-weight:700}
+.ban-class-btn .bc-count{font-size:9px;color:#6b7280;margin-top:2px}
+.ban-skip{font-size:11px;color:#6b7280;margin-top:10px}
+.perm-stats{color:var(--orange);font-size:10px;margin-top:2px}
+</style>
+</head>
+<body>
+<div id="game">
+  <div class="top-bar">
+    <div class="hp-display player-hp">
+      <div class="watch" id="pWatch">9</div>
+      <span>玩家</span>
+    </div>
+    <div class="round-info">
+      <div id="roundNum">第 1 回合</div>
+      <div class="phase" id="phaseText">準備階段</div>
+    </div>
+    <div class="hp-display enemy-hp">
+      <span>AI</span>
+      <div class="watch" id="eWatch" style="border-color:var(--red);background:radial-gradient(circle,#f22,#600)">9</div>
+    </div>
+  </div>
+  <div class="synergy-bar" id="synergyBar"></div>
+  <div class="board-container" id="board"></div>
+  <div class="battle-log" id="battleLog"></div>
+  <div class="placement-mode" id="placementMode">點擊綠色格子放置</div>
+  <div class="unit-info" id="unitInfo"><span class="close-info" onclick="closeInfo()">✕</span><div id="infoContent"></div></div>
+  <div class="bottom-panel" id="bottomPanel">
+    <div class="shop-header">
+      <span>🛒 商店</span>
+      <span id="unitCount">上陣: 0/7</span>
+    </div>
+    <div class="shop-cards" id="shopCards"></div>
+    <div class="action-row">
+      <button class="btn btn-blue" id="btnRefresh" onclick="refreshShop()">🔄 刷新 <span class="refresh-count" id="refreshCount">4</span></button>
+      <button class="btn btn-green" id="btnBattle" onclick="startBattle()">⚔️ 開始戰鬥</button>
+      <button class="btn btn-orange" id="btnSell" onclick="toggleSellMode()">💰 移除</button>
+      <button class="btn btn-purple" id="btnMove" onclick="toggleMoveMode()">🔀 調整</button>
+    </div>
+  </div>
+  <div class="overlay" id="startOverlay">
+    <div style="font-size:60px;margin-bottom:8px;animation:pulse 2s infinite">⌚</div>
+    <h1 style="color:var(--green)">Ben 10 自走棋</h1>
+    <h2 style="font-size:16px;color:#ccc;margin-bottom:12px">Omnitrix Auto Chess</h2>
+    <div style="text-align:left;font-size:12px;color:#aaa;max-width:300px;line-height:1.6;margin-bottom:16px">
+      <div>🛒 <b style="color:#fff">商店</b>購買外星英雄放上場</div>
+      <div>🔄 每回合 <b style="color:var(--gold)">免費刷新4次</b></div>
+      <div>⭐ 重複角色 <b style="color:var(--gold)">自動合體升星</b>（最高5星）</div>
+      <div>🔗 3同職業觸發 <b style="color:var(--blue)">羈絆加成</b></div>
+      <div>⚔️ 10回合對戰，摧毀AI的 <b style="color:var(--red)">Omnitrix</b>！</div>
+    </div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center">
+      <button class="btn btn-green" style="font-size:18px;padding:12px 36px" onclick="openBanSelect()">🟢 開始</button>
+      <button class="btn btn-blue" style="font-size:14px;padding:10px 20px" onclick="openCodex()">📖 圖鑑</button>
+      <button class="btn btn-purple" style="font-size:14px;padding:10px 20px" onclick="openSynergy()">🔗 羈絆</button>
+    </div>
+  </div>
+  <div class="ban-overlay" id="banOverlay">
+    <div class="ban-title">🚫 選擇要禁用的職業</div>
+    <div class="ban-subtitle">該職業的5名怪物將不會在商店出現<br>（可不選，直接開始）</div>
+    <div class="ban-classes" id="banClasses"></div>
+    <button class="btn btn-green" style="font-size:16px;padding:10px 30px" onclick="confirmBanAndStart()">✓ 確認開始</button>
+    <div class="ban-skip">點擊職業選擇禁用，再次點擊取消</div>
+  </div>
+  <div class="codex-overlay" id="codexOverlay">
+    <div class="codex-header">
+      <h2>📖 外星英雄圖鑑</h2>
+      <span class="close-codex" onclick="closeCodex()">✕</span>
+    </div>
+    <div class="codex-tabs" id="codexTabs"></div>
+    <div class="codex-cards" id="codexCards"></div>
+  </div>
+  <div class="synergy-overlay" id="synergyOverlay">
+    <div class="codex-header">
+      <h2>🔗 職業羈絆</h2>
+      <span class="close-codex" onclick="closeSynergy()">✕</span>
+    </div>
+    <div class="synergy-content" id="synergyContent"></div>
+  </div>
+  <div class="overlay" id="endOverlay">
+    <h1 id="endTitle"></h1>
+    <h2 id="endSub"></h2>
+    <p id="endDesc"></p>
+    <button class="btn btn-green" onclick="location.reload()">重新開始</button>
+  </div>
+</div>
+
+<script>
+// ========== CARD DATABASE ==========
+const CLASS_NAMES = {warrior:'戰士',ranger:'射手',mage:'法師',assassin:'刺客',support:'輔助'};
+const CLASS_COLORS = {warrior:'#ef4444',ranger:'#f97316',mage:'#a855f7',assassin:'#06b6d4',support:'#00d26a'};
+const CLASS_EMOJIS = {warrior:'⚔️',ranger:'🏹',mage:'🔮',assassin:'🗡️',support:'💚'};
+
+const SYNERGY_DESC = {
+  warrior: {
+    t3: { label: '3 戰士', desc: '全體友方 +1000 生命值' },
+    t5: { label: '5 戰士', desc: '僅戰士 +5000 生命值 +200 防禦力' }
+  },
+  ranger: {
+    t3: { label: '3 射手', desc: '全體友方 +50% 攻擊速度' },
+    t5: { label: '5 射手', desc: '僅射手 +250% 攻擊速度 +2 射程' }
+  },
+  mage: {
+    t3: { label: '3 法師', desc: '全體友方 +20% 攻擊力' },
+    t5: { label: '5 法師', desc: '僅法師 +100% 攻擊力 +20% 閃避率' }
+  },
+  assassin: {
+    t3: { label: '3 刺客', desc: '全體友方 +30% 爆擊率與爆擊傷害' },
+    t5: { label: '5 刺客', desc: '僅刺客 +70% 爆擊率與爆擊傷害 +500% 移動速度' }
+  },
+  support: {
+    t3: { label: '3 輔助', desc: '全體友方 每秒回復 100 生命' },
+    t5: { label: '5 輔助', desc: '僅輔助 每秒回復 500 生命，攻擊固定為 50' }
+  }
+};
+
+const CARDS = [
+  // ===== WARRIORS =====
+  {id:1,name:'四臂霸王',en:'Four Arms',emoji:'💪',cls:'warrior',hp:1200,atk:80,atkSpd:1.0,range:1,atkType:'melee',
+    ability:'重拳衝擊',abilityDesc:'每3次攻擊，下一擊造成200%傷害',abilityCd:3},
+  {id:2,name:'巨型霸王',en:'Humungousaur',emoji:'🦕',cls:'warrior',hp:1500,atk:70,atkSpd:0.8,range:1,atkType:'melee',
+    ability:'巨化',abilityDesc:'血量低於50%時，攻擊力+50%',abilityCd:0},
+  {id:3,name:'炮彈方塊',en:'Cannonbolt',emoji:'🔵',cls:'warrior',hp:1100,atk:60,atkSpd:1.0,range:1,atkType:'melee',
+    ability:'滾動撞擊',abilityDesc:'每5秒對前方敵人造成150%傷害並暈1秒',abilityCd:5},
+  {id:4,name:'鑽石頭',en:'Diamondhead',emoji:'💎',cls:'warrior',hp:1000,atk:75,atkSpd:1.0,range:1,atkType:'melee',
+    ability:'水晶護盾',abilityDesc:'受傷減免15%',abilityCd:0},
+  {id:5,name:'狂暴虎',en:'Rath',emoji:'🐯',cls:'warrior',hp:950,atk:100,atkSpd:1.2,range:1,atkType:'melee',
+    ability:'狂暴',abilityDesc:'每次攻擊+3%攻擊力(可疊加)',abilityCd:0},
+  // ===== RANGERS =====
+  {id:6,name:'極速',en:'XLR8',emoji:'⚡',cls:'ranger',hp:550,atk:55,atkSpd:2.0,range:3,atkType:'ranged',
+    ability:'超速射擊',abilityDesc:'攻速額外+30%',abilityCd:0},
+  {id:7,name:'捷雷',en:'Jetray',emoji:'🦅',cls:'ranger',hp:600,atk:65,atkSpd:1.5,range:4,atkType:'ranged',
+    ability:'神經光束',abilityDesc:'每4次攻擊，發射光束造成100額外傷害',abilityCd:4},
+  {id:8,name:'臭爆蛙',en:'Stinkfly',emoji:'🪰',cls:'ranger',hp:580,atk:50,atkSpd:1.4,range:3,atkType:'ranged',
+    ability:'黏液射擊',abilityDesc:'攻擊使目標減速20%持續2秒',abilityCd:0},
+  {id:9,name:'多眼怪',en:'Eye Guy',emoji:'👁️',cls:'ranger',hp:620,atk:70,atkSpd:1.2,range:3,atkType:'ranged',
+    ability:'全方位視野',abilityDesc:'同時攻擊2個目標',abilityCd:0},
+  {id:10,name:'反饋電',en:'Feedback',emoji:'🔋',cls:'ranger',hp:600,atk:60,atkSpd:1.5,range:3,atkType:'ranged',
+    ability:'能量吸收',abilityDesc:'每次攻擊回復自身10%傷害的生命',abilityCd:0},
+  // ===== MAGES =====
+  {id:11,name:'熱爆',en:'Heatblast',emoji:'🔥',cls:'mage',hp:500,atk:90,atkSpd:1.0,range:3,atkType:'aoe',
+    ability:'火焰噴射',abilityDesc:'攻擊對目標周圍1格造成50%濺射',abilityCd:0},
+  {id:12,name:'沼澤火',en:'Swampfire',emoji:'🌿',cls:'mage',hp:650,atk:75,atkSpd:1.0,range:2,atkType:'aoe',
+    ability:'種子炸彈',abilityDesc:'每4秒對隨機敵人造成120%傷害',abilityCd:4},
+  {id:13,name:'大冰塊',en:'Big Chill',emoji:'🥶',cls:'mage',hp:550,atk:70,atkSpd:1.1,range:3,atkType:'ranged',
+    ability:'冰凍吐息',abilityDesc:'攻擊有25%機率凍結敵人1秒',abilityCd:0},
+  {id:14,name:'幽靈鬼',en:'Ghostfreak',emoji:'👻',cls:'mage',hp:480,atk:85,atkSpd:1.0,range:3,atkType:'ranged',
+    ability:'靈體穿透',abilityDesc:'攻擊無視15%防禦，有20%閃避',abilityCd:0},
+  {id:15,name:'智腦風暴',en:'Brainstorm',emoji:'🧠',cls:'mage',hp:450,atk:95,atkSpd:0.9,range:4,atkType:'ranged',
+    ability:'電磁衝擊',abilityDesc:'每5秒對全體敵人造成40點傷害',abilityCd:5},
+  // ===== ASSASSINS =====
+  {id:16,name:'利爪魚',en:'Ripjaws',emoji:'🦈',cls:'assassin',hp:600,atk:100,atkSpd:1.3,range:1,atkType:'melee',
+    ability:'撕咬',abilityDesc:'攻擊有30%機率造成180%傷害',abilityCd:0},
+  {id:17,name:'升級',en:'Upgrade',emoji:'🤖',cls:'assassin',hp:550,atk:85,atkSpd:1.4,range:2,atkType:'ranged',
+    ability:'科技融合',abilityDesc:'每擊殺一個敵人永久+15%攻擊',abilityCd:0},
+  {id:18,name:'變色龍',en:'Chamalien',emoji:'🦎',cls:'assassin',hp:500,atk:110,atkSpd:1.2,range:1,atkType:'melee',
+    ability:'隱身突襲',abilityDesc:'首次攻擊造成250%傷害',abilityCd:0},
+  {id:19,name:'極速俠',en:'Fasttrack',emoji:'🏃',cls:'assassin',hp:520,atk:95,atkSpd:1.6,range:1,atkType:'melee',
+    ability:'疾速強化',abilityDesc:'每秒永久提升1%攻速',abilityCd:0},
+  {id:20,name:'踢鷹',en:'Kickin Hawk',emoji:'🐔',cls:'assassin',hp:580,atk:90,atkSpd:1.5,range:1,atkType:'melee',
+    ability:'連環踢',abilityDesc:'每3次攻擊額外攻擊一次',abilityCd:3},
+  // ===== SUPPORTS =====
+  {id:21,name:'小灰',en:'Grey Matter',emoji:'🧪',cls:'support',hp:500,atk:1,atkSpd:0.5,range:7,atkType:'ranged',
+    ability:'智商加成',abilityDesc:'全體友方+10%攻擊力',abilityCd:0,isSupport:true},
+  {id:22,name:'黏液怪',en:'Goop',emoji:'🟢',cls:'support',hp:500,atk:1,atkSpd:0.5,range:7,atkType:'ranged',
+    ability:'酸液減速',abilityDesc:'攻擊減速敵人30%，持續2秒',abilityCd:0,isSupport:true},
+  {id:23,name:'分身',en:'Ditto',emoji:'👥',cls:'support',hp:500,atk:1,atkSpd:0.5,range:7,atkType:'ranged',
+    ability:'分身術',abilityDesc:'戰鬥開始時召喚1個50%屬性的分身',abilityCd:0,isSupport:true},
+  {id:24,name:'木乃伊',en:'Snare-oh',emoji:'🧟',cls:'support',hp:500,atk:1,atkSpd:0.5,range:7,atkType:'ranged',
+    ability:'繃帶束縛',abilityDesc:'每5秒束縛一個敵人2秒',abilityCd:5,isSupport:true},
+  {id:25,name:'野藤',en:'Wildvine',emoji:'🌱',cls:'support',hp:500,atk:1,atkSpd:0.5,range:7,atkType:'ranged',
+    ability:'自然治癒',abilityDesc:'每3秒治癒附近友方80點生命',abilityCd:3,isSupport:true},
+];
+
+const STAR5_UPGRADES = {
+  1: { desc: '每2次攻擊，下一擊造成220%傷害', counter: 2, dmgMult: 2.2 },
+  2: { desc: '血量低於60%時，攻擊力+80%', threshold: 0.6, bonus: 0.8 },
+  3: { desc: '每4秒造成180%傷害並暈1.5秒', cd: 4, dmgMult: 1.8, stun: 1.5 },
+  4: { desc: '受傷減免25%', reduction: 0.25 },
+  5: { desc: '每次攻擊+5%攻擊力', stackPct: 0.05 },
+  6: { desc: '攻速額外+50%', bonus: 0.5 },
+  7: { desc: '每3次攻擊，造成150額外傷害', counter: 3, dmg: 150 },
+  8: { desc: '減速35%持續3秒', slow: 0.35, dur: 3 },
+  9: { desc: '同時攻擊3個目標', targets: 3 },
+  10: { desc: '回復20%傷害的生命', lifesteal: 0.2 },
+  11: { desc: '濺射傷害70%', splash: 0.7 },
+  12: { desc: '每3秒造成150%傷害', cd: 3, dmgMult: 1.5 },
+  13: { desc: '40%機率凍結1.5秒', chance: 0.4, dur: 1.5 },
+  14: { desc: '無視25%防禦，30%閃避', penetrate: 0.25, dodge: 0.3 },
+  15: { desc: '每4秒對全體造成60點傷害', cd: 4, dmg: 60 },
+  16: { desc: '40%機率造成220%傷害', chance: 0.4, dmgMult: 2.2 },
+  17: { desc: '每擊殺+25%攻擊', bonus: 0.25 },
+  18: { desc: '首次攻擊造成300%傷害', dmgMult: 3.0 },
+  19: { desc: '每秒永久提升3%攻速', atkSpdPerSec: 0.03 },
+  20: { desc: '每2次攻擊額外攻擊一次', counter: 2 },
+  21: { desc: '全體友方+18%攻擊力', bonus: 0.18 },
+  22: { desc: '減速50%持續3秒', slow: 0.5, dur: 3 },
+  23: { desc: '召喚2個60%屬性的分身', clones: 2, mult: 0.6 },
+  24: { desc: '每4秒束縛敵人3秒', cd: 4, dur: 3 },
+  25: { desc: '每2秒治癒120點生命', cd: 2, heal: 120 }
+};
+
+// ========== GAME STATE ==========
+const ROWS = 8, COLS = 5, MAX_UNITS = 7, MAX_ROUND = 10, INIT_HP = 9;
+let state = {
+  round: 1,
+  phase: 'prep',
+  playerHP: INIT_HP,
+  enemyHP: INIT_HP,
+  playerUnits: [],
+  enemyUnits: [],
+  aiRoster: [],
+  aiPrimaryClass: null,
+  aiSecondaryClass: null,
+  shop: [],
+  refreshLeft: 4,
+  sellMode: false,
+  moveMode: false,
+  selectedUnit: null,
+  pendingCard: null,
+  battleTimer: null,
+  battleSpeed: 500,
+  gameOver: false,
+  bannedClass: null,
+};
+
+// ========== UNIT CLASS ==========
+class Unit {
+  constructor(cardId, star, row, col, isPlayer) {
+    const card = CARDS.find(c => c.id === cardId);
+    this.cardId = cardId;
+    this.card = card;
+    this.star = star;
+    this.row = row;
+    this.col = col;
+    this.isPlayer = isPlayer;
+    this.calcStats();
+    this.currentHP = this.maxHP;
+    this.atkCounter = 0;
+    this.abilityCdTimer = 0;
+    this.stunTimer = 0;
+    this.slowTimer = 0;
+    this.slowAmount = 0;
+    this.rathStacks = 0;
+    this.upgradeKills = 0;
+    this.permAtkSpdBonus = 0; // 極速俠永久攻速加成
+    this.permUpgradeKills = 0; // 升級永久擊殺數
+    this.firstAttack = true;
+    this.alive = true;
+    this.moveCounter = 0; // 移動計數器
+    this.lastMoveDir = null; // 記住上次移動方向，避免左右跳舞
+    this.id = Unit.nextId++;
+  }
+  calcStats() {
+    const card = this.card;
+    const mult = 1 + (this.star - 1) * 0.5;
+    const atkMult = 1 + (this.star - 1) * 0.4;
+    
+    if (card.isSupport) {
+      this.maxHP = Math.floor(card.hp * mult);
+      this.atk = card.atk;
+      this.atkSpd = card.atkSpd;
+      this.range = card.range;
+    } else {
+      this.maxHP = Math.floor(card.hp * mult);
+      this.atk = Math.floor(card.atk * atkMult);
+      this.atkSpd = card.atkSpd * (1 + (this.star - 1) * 0.1);
+      this.range = card.range;
+    }
+    this.cls = card.cls;
+    this.isStar5 = this.star >= 5;
+    this.critRate = 0;
+    this.critDmg = 1.5;
+    this.dmgReduction = 0;
+    this.dodgeRate = 0;
+    this.bonusAtkPct = 0;
+    this.bonusAtkSpdPct = 0;
+    this.bonusHPFlat = 0;
+    this.bonusDefense = 0;
+    this.bonusRange = 0;
+    this.bonusMoveSpd = 0;
+    this.fixedAtk = 0;
+    this.healPerSec = 0;
+    if (card.id === 4) this.dmgReduction = this.isStar5 ? 0.25 : 0.15;
+    if (card.id === 6) this.bonusAtkSpdPct = this.isStar5 ? 0.5 : 0.3;
+    if (card.id === 14) {
+      this.dmgReduction = this.isStar5 ? -0.25 : -0.15;
+      this.dodgeRate = this.isStar5 ? 0.3 : 0.2;
+    }
+  }
+  getEffAtk() {
+    if (this.fixedAtk > 0) return this.fixedAtk;
+    let a = this.atk * (1 + this.bonusAtkPct);
+    const rathStackPct = this.isStar5 ? 0.05 : 0.03;
+    if (this.card.id === 5) a *= (1 + this.rathStacks * rathStackPct);
+    const upgradeBonus = this.isStar5 ? 0.25 : 0.15;
+    // 使用永久擊殺數
+    const totalKills = this.upgradeKills + (this.permUpgradeKills || 0);
+    if (this.card.id === 17) a *= (1 + totalKills * upgradeBonus);
+    const humuThreshold = this.isStar5 ? 0.6 : 0.5;
+    const humuBonus = this.isStar5 ? 1.8 : 1.5;
+    if (this.card.id === 2 && this.currentHP < this.maxHP * humuThreshold) a *= humuBonus;
+    return Math.floor(a);
+  }
+  getEffAtkSpd() {
+    // 加入永久攻速加成
+    let s = this.atkSpd * (1 + this.bonusAtkSpdPct + (this.permAtkSpdBonus || 0));
+    if (this.slowTimer > 0) s *= (1 - this.slowAmount);
+    return Math.max(s, 0.3);
+  }
+  getEffRange() {
+    return this.range + (this.bonusRange || 0);
+  }
+  getMaxHP() { return this.maxHP + this.bonusHPFlat; }
+  // 獲取移速倍率（用於每tick移動多格）
+  getMoveSpeedMult() {
+    return 1 + (this.bonusMoveSpd || 0);
+  }
+}
+Unit.nextId = 1;
+
+// ========== HELPERS ==========
+function randInt(a, b) { return Math.floor(Math.random() * (b - a + 1)) + a; }
+function pick(arr) { return arr[randInt(0, arr.length - 1)]; }
+function shuffle(arr) { const a = [...arr]; for (let i = a.length - 1; i > 0; i--) { const j = randInt(0, i); [a[i], a[j]] = [a[j], a[i]]; } return a; }
+function dist(r1, c1, r2, c2) { return Math.abs(r1 - r2) + Math.abs(c1 - c2); }
+
+function findNearestEnemy(unit, enemies) {
+  if (enemies.length === 0) return null;
+  let nearest = null;
+  let minDist = Infinity;
+  for (const enemy of enemies) {
+    if (!enemy.alive) continue;
+    const d = dist(unit.row, unit.col, enemy.row, enemy.col);
+    if (d < minDist) { minDist = d; nearest = enemy; }
+  }
+  return { target: nearest, distance: minDist };
+}
+
+// 智能移動函數：禁止後退，記住方向避免左右跳舞
+function getNextMoveTowards(unit, target, allUnits) {
+  const isPlayer = unit.isPlayer;
+  // 玩家在下方(row 4-7)，前進=row減小；敵人在上方(row 0-3)，前進=row增大
+  const forwardDir = isPlayer ? -1 : 1;
+  
+  // 計算目標相對於單位的水平位置
+  const targetOnLeft = target.col < unit.col;
+  const targetOnRight = target.col > unit.col;
+  const targetSameCol = target.col === unit.col;
+  
+  // 建立所有可能的移動
+  const moves = {
+    forward: { dr: forwardDir, dc: 0 },
+    left: { dr: 0, dc: -1 },
+    right: { dr: 0, dc: 1 }
+  };
+  
+  const possibleMoves = [];
+  
+  for (const [name, dir] of Object.entries(moves)) {
+    const newRow = unit.row + dir.dr;
+    const newCol = unit.col + dir.dc;
+    
+    // 邊界檢查
+    if (newRow < 0 || newRow >= ROWS || newCol < 0 || newCol >= COLS) continue;
+    
+    // 碰撞檢查
+    const blocked = allUnits.find(u => u.alive && u.row === newRow && u.col === newCol && u.id !== unit.id);
+    if (blocked) continue;
+    
+    const newDist = dist(newRow, newCol, target.row, target.col);
+    const currentDist = dist(unit.row, unit.col, target.row, target.col);
+    
+    possibleMoves.push({
+      row: newRow,
+      col: newCol,
+      dist: newDist,
+      dir: name,
+      improves: newDist < currentDist,
+      towardsTarget: (name === 'left' && targetOnLeft) || (name === 'right' && targetOnRight) || name === 'forward'
+    });
+  }
+  
+  if (possibleMoves.length === 0) return null;
+  
+  // 選擇邏輯：
+  // 1. 優先前進（如果能縮短距離）
+  // 2. 如果前進被擋，選擇朝向目標的側向移動
+  // 3. 如果目標在正前方且前進被擋，堅持之前的側向方向（避免左右跳舞）
+  // 4. 如果沒有之前方向，選擇任意可行的側向移動並記住
+  
+  const forward = possibleMoves.find(m => m.dir === 'forward');
+  const leftMove = possibleMoves.find(m => m.dir === 'left');
+  const rightMove = possibleMoves.find(m => m.dir === 'right');
+  
+  // 優先：能縮短距離的前進
+  if (forward && forward.improves) {
+    unit.lastMoveDir = 'forward';
+    return forward;
+  }
+  
+  // 如果目標在左邊且可以向左
+  if (targetOnLeft && leftMove && leftMove.improves) {
+    unit.lastMoveDir = 'left';
+    return leftMove;
+  }
+  
+  // 如果目標在右邊且可以向右
+  if (targetOnRight && rightMove && rightMove.improves) {
+    unit.lastMoveDir = 'right';
+    return rightMove;
+  }
+  
+  // 前進被擋，目標在正前方 - 需要繞路
+  if (targetSameCol || (!leftMove?.improves && !rightMove?.improves)) {
+    // 檢查是否有之前的側向移動方向，且該方向仍然可行
+    if (unit.lastMoveDir === 'left' && leftMove) {
+      return leftMove;
+    }
+    if (unit.lastMoveDir === 'right' && rightMove) {
+      return rightMove;
+    }
+    
+    // 沒有之前方向或之前方向被擋，選擇一個新方向並記住
+    if (leftMove) {
+      unit.lastMoveDir = 'left';
+      return leftMove;
+    }
+    if (rightMove) {
+      unit.lastMoveDir = 'right';
+      return rightMove;
+    }
+  }
+  
+  // 嘗試任何能縮短距離的移動
+  const improving = possibleMoves.filter(m => m.improves);
+  if (improving.length > 0) {
+    // 優先選擇朝向目標的
+    const towards = improving.filter(m => m.towardsTarget);
+    if (towards.length > 0) {
+      const chosen = towards[0];
+      unit.lastMoveDir = chosen.dir;
+      return chosen;
+    }
+    const chosen = improving[0];
+    unit.lastMoveDir = chosen.dir;
+    return chosen;
+  }
+  
+  // 無法縮短距離，嘗試側向移動（繼續之前的方向）
+  if (unit.lastMoveDir === 'left' && leftMove) return leftMove;
+  if (unit.lastMoveDir === 'right' && rightMove) return rightMove;
+  
+  // 選擇任意可行方向
+  if (leftMove) {
+    unit.lastMoveDir = 'left';
+    return leftMove;
+  }
+  if (rightMove) {
+    unit.lastMoveDir = 'right';
+    return rightMove;
+  }
+  if (forward) {
+    unit.lastMoveDir = 'forward';
+    return forward;
+  }
+  
+  return null;
+}
+
+// ========== SYNERGY ==========
+function calcSynergies(units) {
+  const counts = {warrior:0, ranger:0, mage:0, assassin:0, support:0};
+  units.forEach(u => { if (u.alive) counts[u.cls]++; });
+  return counts;
+}
+
+function applySynergies(units, counts) {
+  units.forEach(u => u.calcStats());
+  
+  // 3 羈絆（全體友方）
+  if (counts.warrior >= 3 && counts.warrior < 5) units.forEach(u => u.bonusHPFlat += 1000);
+  if (counts.ranger >= 3 && counts.ranger < 5) units.forEach(u => u.bonusAtkSpdPct += 0.5);
+  if (counts.mage >= 3 && counts.mage < 5) units.forEach(u => u.bonusAtkPct += 0.2);
+  if (counts.assassin >= 3 && counts.assassin < 5) units.forEach(u => { u.critRate += 0.3; u.critDmg += 0.3; });
+  if (counts.support >= 3 && counts.support < 5) units.forEach(u => u.healPerSec += 100);
+  
+  // 5 羈絆（僅該職業）
+  if (counts.warrior >= 5) units.filter(u => u.cls === 'warrior').forEach(u => {
+    u.bonusHPFlat += 5000;
+    u.bonusDefense += 200;
+  });
+  if (counts.ranger >= 5) units.filter(u => u.cls === 'ranger').forEach(u => {
+    u.bonusAtkSpdPct += 2.5;
+    u.bonusRange += 2;
+  });
+  if (counts.mage >= 5) units.filter(u => u.cls === 'mage').forEach(u => {
+    u.bonusAtkPct += 1.0;
+    u.dodgeRate += 0.2;
+  });
+  if (counts.assassin >= 5) units.filter(u => u.cls === 'assassin').forEach(u => {
+    u.critRate += 0.7;
+    u.critDmg += 0.7;
+    u.bonusMoveSpd += 5.0; // +500% 移速
+  });
+  if (counts.support >= 5) units.filter(u => u.cls === 'support').forEach(u => {
+    u.healPerSec += 500;
+    u.fixedAtk = 50;
+  });
+  
+  // Grey Matter 光環
+  const gm = units.find(u => u.card.id === 21 && u.alive);
+  if (gm) {
+    const gmBonus = gm.isStar5 ? 0.18 : 0.10;
+    units.forEach(u => u.bonusAtkPct += gmBonus);
+  }
+  
+  units.forEach(u => {
+    const newMax = u.getMaxHP();
+    if (u.currentHP > newMax) u.currentHP = newMax;
+  });
+}
+
+// ========== SHOP ==========
+function generateShop() {
+  state.shop = [];
+  const maxedIds = state.playerUnits.filter(u => u.star >= 5).map(u => u.cardId);
+  let availableCards = CARDS.filter(c => !maxedIds.includes(c.id));
+  if (state.bannedClass) availableCards = availableCards.filter(c => c.cls !== state.bannedClass);
+  if (availableCards.length === 0) {
+    for (let i = 0; i < 3; i++) state.shop.push({...CARDS[randInt(0, CARDS.length - 1)], bought: false, maxed: true});
+    return;
+  }
+  for (let i = 0; i < 3; i++) state.shop.push({...availableCards[randInt(0, availableCards.length - 1)], bought: false});
+}
+
+function refreshShop() {
+  if (state.refreshLeft <= 0 || state.phase !== 'prep') return;
+  state.refreshLeft--;
+  generateShop();
+  renderShop();
+  renderActions();
+}
+
+// ========== PLACEMENT ==========
+function buyCard(shopIdx) {
+  if (state.phase !== 'prep') return;
+  const card = state.shop[shopIdx];
+  if (!card || card.bought) return;
+  const playerCount = state.playerUnits.length;
+  const existing = state.playerUnits.find(u => u.cardId === card.id);
+  if (!existing && playerCount >= MAX_UNITS) { showLog('已達上陣上限 7 隻！'); return; }
+  card.bought = true;
+  if (existing) {
+    existing.star = Math.min(5, existing.star + 1);
+    existing.calcStats();
+    existing.currentHP = existing.getMaxHP();
+    showLog(`${card.emoji} ${card.name} 合成 → ${existing.star}⭐`);
+    renderBoard(); renderShop(); renderSynergies(); renderUnitCount();
+    return;
+  }
+  state.sellMode = false; state.moveMode = false; state.selectedUnit = null;
+  document.getElementById('btnSell').style.outline = 'none';
+  document.getElementById('btnMove').style.outline = 'none';
+  clearHighlight();
+  state.pendingCard = card;
+  document.getElementById('placementMode').classList.add('show');
+  document.getElementById('placementMode').textContent = '點擊綠色格子放置';
+  highlightPlacement();
+  renderShop();
+}
+
+function highlightPlacement() {
+  document.querySelectorAll('.cell.player-zone').forEach(cell => {
+    const r = +cell.dataset.row, c = +cell.dataset.col;
+    const occupied = state.playerUnits.find(u => u.row === r && u.col === c);
+    if (!occupied) cell.classList.add('highlight');
+  });
+}
+
+function clearHighlight() {
+  document.querySelectorAll('.cell').forEach(c => { c.classList.remove('highlight'); c.classList.remove('selected'); });
+  document.querySelectorAll('.unit').forEach(u => u.classList.remove('selected-unit'));
+  if (!state.pendingCard) document.getElementById('placementMode').classList.remove('show');
+}
+
+function clearModes() {
+  state.sellMode = false; state.moveMode = false; state.selectedUnit = null; state.pendingCard = null;
+  document.getElementById('btnSell').style.outline = 'none';
+  document.getElementById('btnMove').style.outline = 'none';
+  document.getElementById('placementMode').classList.remove('show');
+  document.querySelectorAll('.cell').forEach(c => { c.classList.remove('highlight'); c.classList.remove('selected'); });
+  document.querySelectorAll('.unit').forEach(u => u.classList.remove('selected-unit'));
+}
+
+function placeUnit(row, col) {
+  if (!state.pendingCard) return;
+  const card = state.pendingCard;
+  const unit = new Unit(card.id, 1, row, col, true);
+  state.playerUnits.push(unit);
+  state.pendingCard = null; state.sellMode = false; state.moveMode = false; state.selectedUnit = null;
+  document.getElementById('btnSell').style.outline = 'none';
+  document.getElementById('btnMove').style.outline = 'none';
+  document.getElementById('placementMode').classList.remove('show');
+  document.querySelectorAll('.cell').forEach(c => { c.classList.remove('highlight'); c.classList.remove('selected'); });
+  showLog(`${card.emoji} ${card.name} 上場！`);
+  renderBoard(); renderShop(); renderSynergies(); renderUnitCount();
+}
+
+// ========== SELL/REMOVE ==========
+function toggleSellMode() {
+  if (state.phase !== 'prep') return;
+  clearModes(); state.sellMode = true;
+  document.getElementById('btnSell').style.outline = '2px solid #fff';
+  showLog('點擊場上己方單位移除');
+}
+
+function sellUnit(unit) {
+  const idx = state.playerUnits.indexOf(unit);
+  if (idx >= 0) {
+    state.playerUnits.splice(idx, 1);
+    showLog(`移除 ${unit.card.emoji} ${unit.card.name}`);
+    clearModes(); renderBoard(); renderSynergies(); renderUnitCount();
+  }
+}
+
+// ========== MOVE/SWAP ==========
+function toggleMoveMode() {
+  if (state.phase !== 'prep') return;
+  clearModes(); state.moveMode = true;
+  document.getElementById('btnMove').style.outline = '2px solid #fff';
+  document.getElementById('placementMode').textContent = '選擇要移動的單位';
+  document.getElementById('placementMode').classList.add('show');
+  showLog('選擇要移動的單位');
+}
+
+function selectUnitForMove(unit) {
+  state.selectedUnit = unit;
+  clearHighlight();
+  document.querySelectorAll('.cell.player-zone').forEach(cell => {
+    const r = +cell.dataset.row, c = +cell.dataset.col;
+    const occupied = state.playerUnits.find(u => u.row === r && u.col === c);
+    if (!occupied || occupied.id === unit.id) cell.classList.add('highlight');
+  });
+  const selectedCell = document.querySelector(`.cell[data-row="${unit.row}"][data-col="${unit.col}"]`);
+  if (selectedCell) {
+    selectedCell.classList.add('selected');
+    const unitEl = selectedCell.querySelector('.unit');
+    if (unitEl) unitEl.classList.add('selected-unit');
+  }
+  document.getElementById('placementMode').textContent = '選擇目標位置（可交換）';
+  showLog(`選擇 ${unit.card.emoji} ${unit.card.name} 的新位置`);
+}
+
+function moveOrSwapUnit(targetRow, targetCol) {
+  if (!state.selectedUnit) return;
+  const source = state.selectedUnit;
+  const target = state.playerUnits.find(u => u.row === targetRow && u.col === targetCol);
+  if (target && target.id !== source.id) {
+    const tempRow = source.row, tempCol = source.col;
+    source.row = target.row; source.col = target.col;
+    target.row = tempRow; target.col = tempCol;
+    showLog(`${source.card.emoji} 與 ${target.card.emoji} 交換位置`);
+  } else {
+    source.row = targetRow; source.col = targetCol;
+    showLog(`${source.card.emoji} 移動到新位置`);
+  }
+  clearModes(); renderBoard();
+}
+
+// ========== AI ==========
+function aiUpdateRoster() {
+  const availableClasses = Object.keys(CLASS_NAMES).filter(c => c !== state.bannedClass);
+  const availableCards = CARDS.filter(c => c.cls !== state.bannedClass);
+  
+  if (state.round === 1 || state.aiRoster.length === 0) {
+    state.aiRoster = [];
+    const shuffledClasses = shuffle(availableClasses);
+    state.aiPrimaryClass = shuffledClasses[0];
+    state.aiSecondaryClass = shuffledClasses[1] || shuffledClasses[0];
+    const classCards = shuffle(CARDS.filter(c => c.cls === state.aiPrimaryClass));
+    state.aiRoster.push({ cardId: classCards[0].id, star: 1 });
+    state.aiRoster.push({ cardId: classCards[1].id, star: 1 });
+    return;
+  }
+  
+  const maxUnits = Math.min(MAX_UNITS, 2 + Math.floor(state.round * 0.8));
+  const classCounts = {};
+  state.aiRoster.forEach(u => {
+    const card = CARDS.find(c => c.id === u.cardId);
+    if (card) classCounts[card.cls] = (classCounts[card.cls] || 0) + 1;
+  });
+  
+  while (state.aiRoster.length < maxUnits) {
+    let targetCls = null;
+    const pCnt = classCounts[state.aiPrimaryClass] || 0;
+    const sCnt = classCounts[state.aiSecondaryClass] || 0;
+    
+    if (pCnt === 4) targetCls = state.aiPrimaryClass;
+    else if (pCnt === 2) targetCls = state.aiPrimaryClass;
+    else if (pCnt < 5) targetCls = state.aiPrimaryClass;
+    else if (sCnt < 3) targetCls = state.aiSecondaryClass;
+    else targetCls = pick(availableClasses);
+    
+    const existingIds = state.aiRoster.map(u => u.cardId);
+    let candidates = availableCards.filter(c => c.cls === targetCls && !existingIds.includes(c.id));
+    
+    if (candidates.length > 0) {
+      const newCard = pick(candidates);
+      state.aiRoster.push({ cardId: newCard.id, star: 1 });
+      classCounts[targetCls] = (classCounts[targetCls] || 0) + 1;
+    } else {
+      const upgradeTarget = state.aiRoster.find(u => {
+        const card = CARDS.find(c => c.id === u.cardId);
+        return card && card.cls === targetCls && u.star < 5;
+      });
+      if (upgradeTarget) upgradeTarget.star = Math.min(5, upgradeTarget.star + 1);
+      break;
+    }
+  }
+  
+  const upgradeCount = Math.min(3, 1 + Math.floor((state.round - 1) / 3));
+  for (let i = 0; i < upgradeCount; i++) {
+    const upgradeable = state.aiRoster.filter(u => u.star < 5);
+    if (upgradeable.length === 0) break;
+    const primaryUpgrades = upgradeable.filter(u => {
+      const card = CARDS.find(c => c.id === u.cardId);
+      return card && card.cls === state.aiPrimaryClass;
+    });
+    let target = primaryUpgrades.length > 0 ? primaryUpgrades.sort((a, b) => a.star - b.star)[0] : upgradeable.sort((a, b) => a.star - b.star)[0];
+    target.star = Math.min(5, target.star + 1);
+  }
+  
+  if (state.round >= 6) {
+    const extraUpgrades = Math.floor((state.round - 5) / 2);
+    for (let i = 0; i < extraUpgrades; i++) {
+      const upgradeable = state.aiRoster.filter(u => u.star < 5);
+      if (upgradeable.length > 0) {
+        const target = upgradeable.sort((a, b) => a.star - b.star)[0];
+        target.star = Math.min(5, target.star + 1);
+      }
+    }
+  }
+}
+
+function aiPlaceUnits() {
+  state.enemyUnits = [];
+  const used = new Set();
+  const frontLineUnits = state.aiRoster.filter(u => {
+    const card = CARDS.find(c => c.id === u.cardId);
+    return card && (card.cls === 'warrior' || card.cls === 'assassin');
+  });
+  const backLineUnits = state.aiRoster.filter(u => {
+    const card = CARDS.find(c => c.id === u.cardId);
+    return card && (card.cls === 'ranger' || card.cls === 'mage' || card.cls === 'support');
+  });
+  
+  frontLineUnits.forEach(rosterUnit => {
+    const card = CARDS.find(c => c.id === rosterUnit.cardId);
+    if (!card) return;
+    for (let tries = 0; tries < 50; tries++) {
+      const r = randInt(2, 3), c = randInt(0, COLS - 1);
+      const key = `${r},${c}`;
+      if (!used.has(key)) {
+        used.add(key);
+        state.enemyUnits.push(new Unit(card.id, rosterUnit.star, r, c, false));
+        break;
+      }
+    }
+  });
+  
+  backLineUnits.forEach(rosterUnit => {
+    const card = CARDS.find(c => c.id === rosterUnit.cardId);
+    if (!card) return;
+    for (let tries = 0; tries < 50; tries++) {
+      const r = randInt(0, 1), c = randInt(0, COLS - 1);
+      const key = `${r},${c}`;
+      if (!used.has(key)) {
+        used.add(key);
+        state.enemyUnits.push(new Unit(card.id, rosterUnit.star, r, c, false));
+        break;
+      }
+    }
+  });
+}
+
+function aiPrepareForRound() {
+  aiUpdateRoster();
+  aiPlaceUnits();
+}
+
+// ========== BATTLE ==========
+function startBattle() {
+  if (state.phase !== 'prep' || state.gameOver) return;
+  if (state.playerUnits.length === 0) { showLog('至少放置1隻怪物！'); return; }
+  clearModes(); closeInfo();
+  
+  state.phase = 'battle';
+  document.getElementById('phaseText').textContent = '⚔️ 戰鬥中...';
+  disableShop();
+  
+  // 創建戰鬥用的單位副本，並傳入永久加成
+  const pBattle = state.playerUnits.map(u => {
+    const bu = new Unit(u.cardId, u.star, u.row, u.col, true);
+    bu.permAtkSpdBonus = u.permAtkSpdBonus || 0;
+    bu.permUpgradeKills = u.permUpgradeKills || 0;
+    return bu;
+  });
+  const eBattle = state.enemyUnits.map(u => new Unit(u.cardId, u.star, u.row, u.col, false));
+  
+  applySynergies(pBattle, calcSynergies(pBattle));
+  applySynergies(eBattle, calcSynergies(eBattle));
+  
+  pBattle.forEach(u => u.currentHP = u.getMaxHP());
+  eBattle.forEach(u => u.currentHP = u.getMaxHP());
+  
+  // Ditto clone
+  const dittoClones = [];
+  [...pBattle, ...eBattle].forEach(u => {
+    if (u.card.id === 23 && u.alive) {
+      const arr = u.isPlayer ? pBattle : eBattle;
+      const rowMin = u.isPlayer ? 4 : 0, rowMax = u.isPlayer ? 7 : 3;
+      const cloneCount = u.isStar5 ? 2 : 1;
+      const cloneMult = u.isStar5 ? 0.6 : 0.5;
+      const emptySpots = [];
+      for (let dr = -1; dr <= 1; dr++) {
+        for (let dc = -1; dc <= 1; dc++) {
+          if (dr === 0 && dc === 0) continue;
+          const nr = u.row + dr, nc = u.col + dc;
+          if (nr >= rowMin && nr <= rowMax && nc >= 0 && nc < COLS) {
+            const occupied = arr.find(x => x.row === nr && x.col === nc && x.alive) ||
+                             dittoClones.find(d => d.clone.row === nr && d.clone.col === nc);
+            if (!occupied) emptySpots.push({row: nr, col: nc});
+          }
+        }
+      }
+      for (let i = 0; i < Math.min(cloneCount, emptySpots.length); i++) {
+        const spot = emptySpots[i];
+        const clone = new Unit(u.cardId, Math.max(1, u.star - 1), spot.row, spot.col, u.isPlayer);
+        clone.maxHP = Math.floor(clone.maxHP * cloneMult);
+        clone.atk = Math.floor(clone.atk * cloneMult);
+        clone.currentHP = clone.maxHP;
+        dittoClones.push({arr, clone});
+      }
+    }
+  });
+  dittoClones.forEach(d => d.arr.push(d.clone));
+  
+  [...pBattle, ...eBattle].forEach(u => {
+    if (u.card.id === 18) u.firstAttack = true;
+  });
+  
+  renderBattle(pBattle, eBattle);
+  
+  let tick = 0;
+  const maxTicks = 60;
+  
+  state.battleTimer = setInterval(() => {
+    tick++;
+    const allP = pBattle.filter(u => u.alive);
+    const allE = eBattle.filter(u => u.alive);
+    
+    if (allP.length === 0 || allE.length === 0 || tick > maxTicks) {
+      clearInterval(state.battleTimer);
+      // 戰鬥結束：同步永久加成回原始單位
+      syncPermanentStats(pBattle);
+      endBattle(allP.length, allE.length);
+      return;
+    }
+    
+    const allUnits = [...pBattle, ...eBattle];
+    
+    [...allP, ...allE].forEach(u => {
+      if (!u.alive || u.stunTimer > 0) {
+        if (u.stunTimer > 0) u.stunTimer -= 0.5;
+        return;
+      }
+      if (u.slowTimer > 0) u.slowTimer -= 0.5;
+      
+      const enemies = u.isPlayer ? allE.filter(e => e.alive) : allP.filter(e => e.alive);
+      if (enemies.length === 0) return;
+      
+      const nearest = findNearestEnemy(u, enemies);
+      if (!nearest || !nearest.target) return;
+      let target = nearest.target;
+      let minD = nearest.distance;
+      const effRange = u.getEffRange();
+      
+      if (u.healPerSec > 0) {
+        const heal = Math.floor(u.healPerSec * 0.5);
+        u.currentHP = Math.min(u.getMaxHP(), u.currentHP + heal);
+      }
+      
+      u.abilityCdTimer += 0.5;
+      
+      // Fasttrack 每秒永久提升攻速
+      if (u.card.id === 19) {
+        if (!u._ftTimer) u._ftTimer = 0;
+        u._ftTimer += 0.5;
+        if (u._ftTimer >= 1) {
+          u._ftTimer = 0;
+          const atkSpdBoost = u.isStar5 ? 0.03 : 0.01;
+          u.permAtkSpdBonus = (u.permAtkSpdBonus || 0) + atkSpdBoost;
+        }
+      }
+      
+      // Wildvine heal
+      const wildvineCD = u.isStar5 ? 2 : 3;
+      const wildvineHeal = u.isStar5 ? 120 : 80;
+      if (u.card.id === 25 && u.abilityCdTimer >= wildvineCD) {
+        u.abilityCdTimer = 0;
+        const allies = u.isPlayer ? allP : allE;
+        allies.filter(a => a.alive && dist(u.row, u.col, a.row, a.col) <= 2).forEach(a => {
+          a.currentHP = Math.min(a.getMaxHP(), a.currentHP + wildvineHeal * u.star);
+        });
+      }
+      
+      // Snare-oh bind
+      const snareohCD = u.isStar5 ? 4 : 5;
+      const snareohDur = u.isStar5 ? 3 : 2;
+      if (u.card.id === 24 && u.abilityCdTimer >= snareohCD) {
+        u.abilityCdTimer = 0;
+        if (target) target.stunTimer = snareohDur;
+      }
+      
+      // Brainstorm AoE
+      const brainstormCD = u.isStar5 ? 4 : 5;
+      const brainstormDmg = u.isStar5 ? 60 : 40;
+      if (u.card.id === 15 && u.abilityCdTimer >= brainstormCD) {
+        u.abilityCdTimer = 0;
+        enemies.forEach(e => dealDmg(u, e, brainstormDmg * u.star, pBattle, eBattle));
+      }
+      
+      // Swampfire bomb
+      const swampfireCD = u.isStar5 ? 3 : 4;
+      const swampfireMult = u.isStar5 ? 1.5 : 1.2;
+      if (u.card.id === 12 && u.abilityCdTimer >= swampfireCD) {
+        u.abilityCdTimer = 0;
+        const rndE = pick(enemies.filter(e => e.alive));
+        if (rndE) dealDmg(u, rndE, Math.floor(u.getEffAtk() * swampfireMult), pBattle, eBattle);
+      }
+      
+      // Cannonbolt
+      const cannonboltCD = u.isStar5 ? 4 : 5;
+      const cannonboltMult = u.isStar5 ? 1.8 : 1.5;
+      const cannonboltStun = u.isStar5 ? 1.5 : 1;
+      if (u.card.id === 3 && u.abilityCdTimer >= cannonboltCD) {
+        u.abilityCdTimer = 0;
+        if (target && minD <= 2) {
+          dealDmg(u, target, Math.floor(u.getEffAtk() * cannonboltMult), pBattle, eBattle);
+          target.stunTimer = cannonboltStun;
+        }
+      }
+      
+      // ========== 重構的移動系統 ==========
+      // 每個 tick 累加移動點數，累積足夠就移動
+      // 移速倍率 = 1 + bonusMoveSpd，5刺客 = 6x
+      // 基礎每 tick 獲得 0.5 點移動能量（1秒移動1格）
+      // 6x 移速 = 每 tick 獲得 3 點，可以每 tick 移動3格
+      const moveSpeedMult = u.getMoveSpeedMult();
+      const moveEnergyPerTick = 0.5 * moveSpeedMult;
+      u.moveCounter = (u.moveCounter || 0) + moveEnergyPerTick;
+      
+      // 每累積 1 點就移動一格（最多每 tick 移動 moveSpeedMult 格）
+      let movesThisTick = 0;
+      const maxMovesPerTick = Math.ceil(moveSpeedMult);
+      
+      while (u.moveCounter >= 1 && movesThisTick < maxMovesPerTick) {
+        // 重新計算距離和目標
+        const currentNearest = findNearestEnemy(u, enemies.filter(e => e.alive));
+        if (!currentNearest || !currentNearest.target) break;
+        
+        const currentTarget = currentNearest.target;
+        const currentDist = currentNearest.distance;
+        const currentEffRange = u.getEffRange();
+        
+        // 如果已經在攻擊範圍內，停止移動
+        if (currentDist <= currentEffRange) break;
+        
+        u.moveCounter -= 1;
+        const nextMove = getNextMoveTowards(u, currentTarget, allUnits);
+        if (nextMove) {
+          u.row = nextMove.row;
+          u.col = nextMove.col;
+          movesThisTick++;
+        } else {
+          break; // 無法移動
+        }
+      }
+      
+      // 重新計算距離（移動後）
+      const newNearest = findNearestEnemy(u, enemies.filter(e => e.alive));
+      if (newNearest && newNearest.target) {
+        target = newNearest.target;
+        minD = newNearest.distance;
+      }
+      
+      // 攻擊
+      if (minD <= effRange) {
+        // 到達攻擊範圍，重置移動方向記憶
+        u.lastMoveDir = null;
+        u.atkCounter += u.getEffAtkSpd() * 0.5;
+        if (u.atkCounter >= 1) {
+          u.atkCounter -= 1;
+          let dmg = u.getEffAtk();
+          let isCrit = false;
+          
+          if (Math.random() < u.critRate) { dmg = Math.floor(dmg * u.critDmg); isCrit = true; }
+          
+          // Four Arms
+          if (u.card.id === 1) {
+            const faThreshold = u.isStar5 ? 2 : 3;
+            const faMult = u.isStar5 ? 2.2 : 2.0;
+            u._faCounter = (u._faCounter || 0) + 1;
+            if (u._faCounter >= faThreshold) { dmg = Math.floor(dmg * faMult); u._faCounter = 0; }
+          }
+          
+          // Ripjaws
+          if (u.card.id === 16) {
+            const rjChance = u.isStar5 ? 0.4 : 0.3;
+            const rjMult = u.isStar5 ? 2.2 : 1.8;
+            if (Math.random() < rjChance) dmg = Math.floor(dmg * rjMult);
+          }
+          
+          // Chamalien
+          if (u.card.id === 18 && u.firstAttack) {
+            const chaMult = u.isStar5 ? 3.0 : 2.5;
+            dmg = Math.floor(dmg * chaMult); u.firstAttack = false;
+          }
+          
+          // Kickin Hawk
+          if (u.card.id === 20) {
+            const khThreshold = u.isStar5 ? 2 : 3;
+            u._khCounter = (u._khCounter || 0) + 1;
+            if (u._khCounter >= khThreshold) { u._khCounter = 0; dealDmg(u, target, dmg, pBattle, eBattle, isCrit); }
+          }
+          
+          // Rath
+          if (u.card.id === 5) u.rathStacks++;
+          
+          // Stinkfly
+          if (u.card.id === 8) {
+            target.slowTimer = u.isStar5 ? 3 : 2;
+            target.slowAmount = u.isStar5 ? 0.35 : 0.2;
+          }
+          
+          // Goop
+          if (u.card.id === 22) {
+            target.slowTimer = u.isStar5 ? 3 : 2;
+            target.slowAmount = u.isStar5 ? 0.5 : 0.3;
+          }
+          
+          // Big Chill
+          if (u.card.id === 13) {
+            const bcChance = u.isStar5 ? 0.4 : 0.25;
+            const bcDur = u.isStar5 ? 1.5 : 1;
+            if (Math.random() < bcChance) target.stunTimer = bcDur;
+          }
+          
+          // Jetray
+          if (u.card.id === 7) {
+            const jrThreshold = u.isStar5 ? 3 : 4;
+            const jrDmg = u.isStar5 ? 150 : 100;
+            u._jrCounter = (u._jrCounter || 0) + 1;
+            if (u._jrCounter >= jrThreshold) { dmg += jrDmg * u.star; u._jrCounter = 0; }
+          }
+          
+          // Feedback
+          if (u.card.id === 10) {
+            const fbLifesteal = u.isStar5 ? 0.2 : 0.1;
+            u.currentHP = Math.min(u.getMaxHP(), u.currentHP + Math.floor(dmg * fbLifesteal));
+          }
+          
+          dealDmg(u, target, dmg, pBattle, eBattle, isCrit);
+          
+          // Eye Guy
+          if (u.card.id === 9) {
+            const egTargets = u.isStar5 ? 2 : 1;
+            const others = enemies.filter(e => e.alive && e.id !== target.id);
+            for (let t = 0; t < Math.min(egTargets, others.length); t++) {
+              dealDmg(u, others[t], Math.floor(dmg * 0.7), pBattle, eBattle);
+            }
+          }
+          
+          // Heatblast
+          if (u.card.id === 11) {
+            const hbSplash = u.isStar5 ? 0.7 : 0.5;
+            enemies.filter(e => e.alive && e.id !== target.id && dist(target.row, target.col, e.row, e.col) <= 1)
+              .forEach(e => dealDmg(u, e, Math.floor(dmg * hbSplash), pBattle, eBattle));
+          }
+        }
+      }
+    });
+    
+    renderBattle(pBattle, eBattle);
+  }, state.battleSpeed);
+}
+
+// 同步永久加成回原始單位
+function syncPermanentStats(battleUnits) {
+  battleUnits.forEach(bu => {
+    const original = state.playerUnits.find(u => u.cardId === bu.cardId);
+    if (original) {
+      // 極速俠：累加永久攻速加成
+      if (bu.card.id === 19) {
+        original.permAtkSpdBonus = bu.permAtkSpdBonus || 0;
+      }
+      // 升級：累加永久擊殺數
+      if (bu.card.id === 17) {
+        original.permUpgradeKills = (original.permUpgradeKills || 0) + bu.upgradeKills;
+      }
+    }
+  });
+}
+
+function dealDmg(attacker, target, dmg, pBattle, eBattle, isCrit = false) {
+  if (!target.alive) return;
+  
+  let reduction = target.dmgReduction;
+  if (attacker.card.id === 14) dmg = Math.floor(dmg * 1.15);
+  if (target.dodgeRate > 0 && Math.random() < target.dodgeRate) return;
+  
+  let finalDmg = Math.max(1, Math.floor(dmg * (1 - Math.max(0, reduction))));
+  
+  const defense = target.bonusDefense || 0;
+  if (defense > 0) finalDmg = Math.max(1, finalDmg - defense);
+  
+  target.currentHP -= finalDmg;
+  showDmgNumber(target, finalDmg, isCrit);
+  
+  if (target.currentHP <= 0) {
+    target.alive = false;
+    target.currentHP = 0;
+    if (attacker.card.id === 17) attacker.upgradeKills++;
+  }
+}
+
+function showDmgNumber(target, dmg, isCrit) {
+  if (!target._dmgNumbers) target._dmgNumbers = [];
+  target._dmgNumbers.push({ dmg, time: Date.now(), isCrit, id: Math.random() });
+}
+
+function endBattle(pAlive, eAlive) {
+  state.phase = 'result';
+  let msg = '';
+  if (pAlive === 0 && eAlive > 0) { state.playerHP--; msg = '😢 戰敗！玩家 -1 ❤️'; }
+  else if (eAlive === 0 && pAlive > 0) { state.enemyHP--; msg = '🎉 勝利！AI -1 ❤️'; }
+  else { msg = '⏱️ 時間到！平手'; }
+  
+  showLog(msg);
+  document.getElementById('pWatch').textContent = state.playerHP;
+  document.getElementById('eWatch').textContent = state.enemyHP;
+  
+  if (state.playerHP <= 0 || state.enemyHP <= 0 || state.round >= MAX_ROUND) {
+    setTimeout(() => endGame(), 1500);
+    return;
+  }
+  setTimeout(() => nextRound(), 2000);
+}
+
+function nextRound() {
+  state.round++;
+  state.phase = 'prep';
+  state.refreshLeft = 4;
+  
+  state.playerUnits.forEach((u, i) => {
+    if (u.row < 4 || u.row > 7) {
+      u.row = 4 + Math.floor(i / COLS);
+      u.col = i % COLS;
+    }
+    u.currentHP = u.getMaxHP();
+    u.alive = true;
+    u.atkCounter = 0;
+    u.abilityCdTimer = 0;
+    u.stunTimer = 0;
+    u.slowTimer = 0;
+    u.rathStacks = 0;
+    u.firstAttack = true;
+    u.moveCounter = 0;
+    // 保留永久加成：permAtkSpdBonus, permUpgradeKills
+  });
+  
+  document.getElementById('roundNum').textContent = `第 ${state.round} 回合`;
+  document.getElementById('phaseText').textContent = '準備階段';
+  
+  generateShop();
+  aiPrepareForRound();
+  enableShop();
+  renderAll();
+}
+
+function endGame() {
+  state.gameOver = true;
+  state.phase = 'end';
+  const overlay = document.getElementById('endOverlay');
+  const title = document.getElementById('endTitle');
+  const sub = document.getElementById('endSub');
+  const desc = document.getElementById('endDesc');
+  
+  if (state.playerHP > state.enemyHP || state.playerHP === state.enemyHP) {
+    title.textContent = '🏆 勝利！';
+    title.style.color = 'var(--gold)';
+    sub.textContent = 'Omnitrix 的力量獲勝了！';
+  } else {
+    title.textContent = '💀 戰敗...';
+    title.style.color = 'var(--red)';
+    sub.textContent = 'Omnitrix 能量耗盡...';
+  }
+  desc.textContent = `最終比分 玩家 ${state.playerHP} ❤️ vs AI ${state.enemyHP} ❤️ | 第 ${state.round} 回合結束`;
+  overlay.classList.add('show');
+}
+
+// ========== RENDERING ==========
+function renderAll() {
+  renderBoard(); renderShop(); renderSynergies(); renderActions(); renderUnitCount();
+}
+
+function renderBoard() {
+  const board = document.getElementById('board');
+  board.innerHTML = '';
+  for (let r = 0; r < ROWS; r++) {
+    const rowDiv = document.createElement('div');
+    rowDiv.className = 'board-row';
+    for (let c = 0; c < COLS; c++) {
+      const cell = document.createElement('div');
+      cell.className = `cell ${r < 4 ? 'enemy-zone' : 'player-zone'}`;
+      cell.dataset.row = r; cell.dataset.col = c;
+      const pu = state.playerUnits.find(u => u.row === r && u.col === c);
+      const eu = state.enemyUnits.find(u => u.row === r && u.col === c);
+      const unit = pu || eu;
+      if (unit) {
+        const unitEl = createUnitEl(unit);
+        if (state.selectedUnit && state.selectedUnit.id === unit.id) unitEl.classList.add('selected-unit');
+        cell.appendChild(unitEl);
+      }
+      cell.addEventListener('click', () => onCellClick(r, c));
+      rowDiv.appendChild(cell);
+    }
+    board.appendChild(rowDiv);
+  }
+}
+
+function createUnitEl(unit) {
+  const div = document.createElement('div');
+  div.className = `unit ${unit.isPlayer ? 'player-unit' : 'enemy-unit'}`;
+  const hpPct = Math.max(0, unit.currentHP / unit.getMaxHP() * 100);
+  div.innerHTML = `
+    <span class="u-emoji">${unit.card.emoji}</span>
+    <span class="u-stars">${'⭐'.repeat(unit.star)}</span>
+    <span class="u-name">${unit.card.name}</span>
+    <div class="hp-bar"><div class="hp-fill" style="width:${hpPct}%"></div></div>
+    <div class="dmg-flash"></div>
+  `;
+  return div;
+}
+
+function renderBattle(pBattle, eBattle) {
+  const board = document.getElementById('board');
+  board.innerHTML = '';
+  const allUnits = [...pBattle, ...eBattle];
+  for (let r = 0; r < ROWS; r++) {
+    const rowDiv = document.createElement('div');
+    rowDiv.className = 'board-row';
+    for (let c = 0; c < COLS; c++) {
+      const cell = document.createElement('div');
+      cell.className = `cell ${r < 4 ? 'enemy-zone' : 'player-zone'}`;
+      const unit = allUnits.find(u => u.alive && u.row === r && u.col === c);
+      if (unit) {
+        const el = createUnitEl(unit);
+        if (unit.stunTimer > 0) el.style.opacity = '0.5';
+        // 顯示多個傷害數字
+        if (unit._dmgNumbers && unit._dmgNumbers.length > 0) {
+          const now = Date.now();
+          unit._dmgNumbers = unit._dmgNumbers.filter(d => now - d.time < 3000);
+          unit._dmgNumbers.forEach((d, idx) => {
+            const dmgEl = document.createElement('span');
+            dmgEl.className = `float-dmg ${d.isCrit ? 'float-crit' : ''}`;
+            dmgEl.textContent = `-${d.dmg}`;
+            // 隨機位置避免重疊
+            const xOffset = (idx % 3 - 1) * 10;
+            const yOffset = Math.floor(idx / 3) * -8;
+            dmgEl.style.top = `${-2 + yOffset}px`;
+            dmgEl.style.left = `${50 + xOffset}%`;
+            dmgEl.style.transform = 'translateX(-50%)';
+            dmgEl.style.animationDelay = `${(now - d.time) / 1000 * -1}s`;
+            el.appendChild(dmgEl);
+          });
+          if (unit._dmgNumbers.some(d => now - d.time < 400)) el.classList.add('hit');
+        }
+        cell.appendChild(el);
+      }
+      rowDiv.appendChild(cell);
+    }
+    board.appendChild(rowDiv);
+  }
+}
+
+function renderShop() {
+  const container = document.getElementById('shopCards');
+  container.innerHTML = '';
+  const ownedIds = state.playerUnits.filter(u => u.star < 5).map(u => u.cardId);
+  state.shop.forEach((card, i) => {
+    const div = document.createElement('div');
+    const canMerge = !card.bought && ownedIds.includes(card.id);
+    div.className = `shop-card class-${card.cls} ${card.bought ? 'empty' : ''} ${canMerge ? 'can-merge' : ''}`;
+    if (card.bought) {
+      div.innerHTML = '<span style="color:#555">已購買</span>';
+    } else if (card.maxed) {
+      div.innerHTML = '<span style="color:#555">已滿星</span>';
+    } else {
+      const mergeHint = canMerge ? '<div style="color:var(--gold);font-size:8px;margin-top:2px">⭐ 可合成升星</div>' : '';
+      div.innerHTML = `
+        <span class="card-emoji">${card.emoji}</span>
+        <div class="card-name">${card.name}</div>
+        <div class="card-class">${CLASS_EMOJIS[card.cls]} ${CLASS_NAMES[card.cls]}</div>
+        <div class="card-stats">❤️${card.hp} ⚔️${card.atk} 🏹${card.range}</div>
+        <div class="card-ability">${card.ability}</div>
+        ${mergeHint}
+      `;
+      div.addEventListener('click', () => buyCard(i));
+    }
+    container.appendChild(div);
+  });
+}
+
+function renderSynergies() {
+  const bar = document.getElementById('synergyBar');
+  bar.innerHTML = '';
+  const counts = calcSynergies(state.playerUnits.map(u => ({...u, alive: true})));
+  for (const [cls, cnt] of Object.entries(counts)) {
+    const badge = document.createElement('span');
+    const isBanned = state.bannedClass === cls;
+    if (isBanned) {
+      badge.className = 'syn-badge';
+      badge.style.background = '#3f1f1f'; badge.style.color = '#888'; badge.style.textDecoration = 'line-through';
+      badge.textContent = `🚫${CLASS_EMOJIS[cls]}${CLASS_NAMES[cls]}`;
+    } else {
+      badge.className = `syn-badge ${cnt >= 5 ? 'active5' : cnt >= 3 ? 'active3' : 'inactive'}`;
+      badge.textContent = `${CLASS_EMOJIS[cls]}${CLASS_NAMES[cls]} ${cnt}`;
+    }
+    badge.addEventListener('click', () => showSynergyInfo(cls, cnt));
+    bar.appendChild(badge);
+  }
+}
+
+function showSynergyInfo(cls, cnt) {
+  const div = document.getElementById('unitInfo');
+  const content = document.getElementById('infoContent');
+  const syn = SYNERGY_DESC[cls];
+  const isBanned = state.bannedClass === cls;
+  if (isBanned) {
+    content.innerHTML = `
+      <div style="font-size:18px;margin-bottom:6px">${CLASS_EMOJIS[cls]} ${CLASS_NAMES[cls]} 羈絆</div>
+      <div style="color:var(--red);margin-bottom:8px;font-weight:700">🚫 此職業已被禁用</div>
+      <div style="color:#888;font-size:11px">本局遊戲中，${CLASS_NAMES[cls]}職業的5名怪物不會出現在商店中。</div>
+    `;
+    div.classList.add('show');
+    return;
+  }
+  let statusText = '';
+  if (cnt >= 5) statusText = `<span style="color:var(--gold)">✓ 5羈絆已啟動</span>`;
+  else if (cnt >= 3) statusText = `<span style="color:var(--blue)">✓ 3羈絆已啟動</span>（再 ${5 - cnt} 隻啟動5羈絆）`;
+  else statusText = `<span style="color:#888">尚未啟動</span>（再 ${3 - cnt} 隻啟動3羈絆）`;
+  content.innerHTML = `
+    <div style="font-size:18px;margin-bottom:6px">${CLASS_EMOJIS[cls]} ${CLASS_NAMES[cls]} 羈絆 <span style="color:var(--cyan)">(${cnt})</span></div>
+    <div style="margin-bottom:8px">${statusText}</div>
+    <div style="background:#0d1117;padding:6px 8px;border-radius:6px;margin-bottom:6px">
+      <div style="color:var(--blue);font-weight:700;font-size:10px">${syn.t3.label}</div>
+      <div style="font-size:11px">${syn.t3.desc}</div>
+    </div>
+    <div style="background:#0d1117;padding:6px 8px;border-radius:6px">
+      <div style="color:var(--gold);font-weight:700;font-size:10px">${syn.t5.label}</div>
+      <div style="font-size:11px">${syn.t5.desc}</div>
+    </div>
+  `;
+  div.classList.add('show');
+}
+
+function renderActions() {
+  document.getElementById('refreshCount').textContent = state.refreshLeft;
+  document.getElementById('btnRefresh').disabled = state.refreshLeft <= 0 || state.phase !== 'prep';
+  document.getElementById('btnBattle').disabled = state.phase !== 'prep';
+  document.getElementById('btnSell').disabled = state.phase !== 'prep';
+  document.getElementById('btnMove').disabled = state.phase !== 'prep';
+}
+
+function renderUnitCount() {
+  document.getElementById('unitCount').textContent = `上陣: ${state.playerUnits.length}/${MAX_UNITS}`;
+}
+
+function disableShop() {
+  document.getElementById('btnRefresh').disabled = true;
+  document.getElementById('btnBattle').disabled = true;
+  document.getElementById('btnSell').disabled = true;
+  document.getElementById('btnMove').disabled = true;
+}
+
+function enableShop() { renderActions(); }
+
+// ========== EVENT HANDLERS ==========
+function onCellClick(row, col) {
+  if (state.phase !== 'prep') return;
+  if (state.pendingCard) {
+    if (row >= 4 && row <= 7) {
+      const occupied = state.playerUnits.find(u => u.row === row && u.col === col);
+      if (!occupied) { placeUnit(row, col); return; }
+      else { showLog('此格已有單位！'); return; }
+    } else { showLog('只能放在己方區域（下方4行）'); return; }
+  }
+  if (state.moveMode) {
+    const unit = state.playerUnits.find(u => u.row === row && u.col === col);
+    if (state.selectedUnit) {
+      if (row >= 4 && row <= 7) moveOrSwapUnit(row, col);
+      else showLog('只能移動到己方區域');
+    } else if (unit) selectUnitForMove(unit);
+    return;
+  }
+  if (state.sellMode) {
+    const unit = state.playerUnits.find(u => u.row === row && u.col === col);
+    if (unit) { sellUnit(unit); return; }
+    return;
+  }
+  const pu = state.playerUnits.find(u => u.row === row && u.col === col);
+  if (pu) showUnitInfo(pu);
+}
+
+function showUnitInfo(unit) {
+  const div = document.getElementById('unitInfo');
+  const content = document.getElementById('infoContent');
+  const star5Upgrade = STAR5_UPGRADES[unit.cardId];
+  const isStar5 = unit.star >= 5;
+  
+  const counts = calcSynergies(state.playerUnits.map(u => ({...u, alive: true})));
+  const tempUnits = state.playerUnits.map(u => {
+    const tu = new Unit(u.cardId, u.star, u.row, u.col, true);
+    tu.permAtkSpdBonus = u.permAtkSpdBonus || 0;
+    tu.permUpgradeKills = u.permUpgradeKills || 0;
+    return tu;
+  });
+  applySynergies(tempUnits, counts);
+  const synU = tempUnits.find(u => u.cardId === unit.cardId && u.row === unit.row && u.col === unit.col);
+  
+  const displayHP = synU ? synU.getMaxHP() : unit.getMaxHP();
+  const displayAtk = synU ? synU.getEffAtk() : unit.getEffAtk();
+  const displayAtkSpd = synU ? synU.getEffAtkSpd() : unit.getEffAtkSpd();
+  const displayRange = synU ? synU.getEffRange() : unit.range;
+  const displayDef = synU ? (synU.bonusDefense || 0) : 0;
+  const displayDodge = synU ? (synU.dodgeRate || 0) : (unit.dodgeRate || 0);
+  
+  // 基礎數值（不含永久加成和羈絆）
+  const baseUnit = new Unit(unit.cardId, unit.star, unit.row, unit.col, true);
+  const baseHP = baseUnit.getMaxHP();
+  const baseAtk = baseUnit.getEffAtk();
+  const baseAtkSpd = baseUnit.getEffAtkSpd();
+  const baseRange = baseUnit.range;
+  
+  const hpBonus = displayHP - baseHP;
+  const atkBonus = displayAtk - baseAtk;
+  const atkSpdBonus = displayAtkSpd - baseAtkSpd;
+  const rangeBonus = displayRange - baseRange;
+  
+  const hpStr = hpBonus > 0 ? `${displayHP} <span style="color:var(--green)">(+${hpBonus})</span>` : `${displayHP}`;
+  const atkStr = atkBonus > 0 ? `${displayAtk} <span style="color:var(--green)">(+${atkBonus})</span>` : `${displayAtk}`;
+  const atkSpdStr = atkSpdBonus > 0.01 ? `${displayAtkSpd.toFixed(2)} <span style="color:var(--green)">(+${atkSpdBonus.toFixed(2)})</span>` : `${displayAtkSpd.toFixed(2)}`;
+  const rangeStr = rangeBonus > 0 ? `${displayRange} <span style="color:var(--green)">(+${rangeBonus})</span>` : `${displayRange}`;
+  
+  // 額外加成資訊
+  let extraStats = '';
+  if (displayDef > 0) extraStats += ` | 🛡️${displayDef}`;
+  if (displayDodge > 0) extraStats += ` | 💨${Math.round(displayDodge * 100)}%閃避`;
+  if (synU && synU.bonusMoveSpd > 0) extraStats += ` | 🏃+${Math.round(synU.bonusMoveSpd * 100)}%移速`;
+  if (synU && synU.fixedAtk > 0) extraStats += ` | ⚔️固定${synU.fixedAtk}`;
+  if (synU && synU.healPerSec > 0) extraStats += ` | 💚${synU.healPerSec}/秒`;
+  
+  // 永久加成顯示
+  let permStats = '';
+  if (unit.card.id === 19 && (unit.permAtkSpdBonus || 0) > 0) {
+    permStats = `<div class="perm-stats">⚡ 永久攻速加成: +${((unit.permAtkSpdBonus || 0) * 100).toFixed(0)}%</div>`;
+  }
+  if (unit.card.id === 17 && (unit.permUpgradeKills || 0) > 0) {
+    const upgradeBonus = unit.isStar5 ? 0.25 : 0.15;
+    const totalBonus = (unit.permUpgradeKills || 0) * upgradeBonus * 100;
+    permStats = `<div class="perm-stats">⚔️ 永久攻擊加成: +${totalBonus.toFixed(0)}% (${unit.permUpgradeKills}次擊殺)</div>`;
+  }
+  
+  const currentAbilityDesc = isStar5 && star5Upgrade ? star5Upgrade.desc : unit.card.abilityDesc;
+  
+  let star5Preview = '';
+  if (!isStar5 && star5Upgrade) {
+    star5Preview = `
+      <div style="background:linear-gradient(135deg,#3d2800,#5a3d00);border:1px solid var(--gold);border-radius:6px;padding:6px;margin-top:6px">
+        <div style="font-size:9px;color:var(--gold);font-weight:700;margin-bottom:2px">⭐⭐⭐⭐⭐ 滿星強化</div>
+        <div style="font-size:10px;color:#fcd34d">${star5Upgrade.desc}</div>
+      </div>
+    `;
+  }
+  
+  let star5Active = '';
+  if (isStar5) star5Active = `<span style="background:var(--gold);color:#000;font-size:8px;padding:1px 4px;border-radius:4px;margin-left:4px">滿星強化中</span>`;
+  
+  content.innerHTML = `
+    <div style="font-size:18px;margin-bottom:4px">${unit.card.emoji} ${unit.card.name} <span style="color:var(--gold)">${'⭐'.repeat(unit.star)}</span>${star5Active}</div>
+    <div style="color:${CLASS_COLORS[unit.cls]};margin-bottom:4px">${CLASS_EMOJIS[unit.cls]} ${CLASS_NAMES[unit.cls]} | ${unit.card.atkType === 'melee' ? '近戰' : unit.card.atkType === 'aoe' ? '範圍' : '遠程'}</div>
+    <div>❤️ ${hpStr} | ⚔️ ${atkStr} | 🏹 ${rangeStr} | ⚡ ${atkSpdStr}</div>
+    ${extraStats ? `<div style="color:var(--cyan);margin-top:2px;font-size:10px">羈絆加成：${extraStats.substring(3)}</div>` : ''}
+    ${permStats}
+    <div style="color:var(--purple);margin-top:4px">💫 ${unit.card.ability}：${currentAbilityDesc}</div>
+    ${star5Preview}
+  `;
+  div.classList.add('show');
+}
+
+function closeInfo() { document.getElementById('unitInfo').classList.remove('show'); }
+
+function showLog(msg) {
+  const log = document.getElementById('battleLog');
+  log.textContent = msg;
+  log.classList.add('show');
+  setTimeout(() => log.classList.remove('show'), 2000);
+}
+
+// ========== INIT ==========
+function startGame() {
+  document.getElementById('startOverlay').classList.remove('show');
+  state.round = 1; state.phase = 'prep'; state.playerHP = INIT_HP; state.enemyHP = INIT_HP;
+  state.playerUnits = []; state.enemyUnits = [];
+  state.aiRoster = []; state.aiPrimaryClass = null; state.aiSecondaryClass = null;
+  state.refreshLeft = 4; state.gameOver = false;
+  
+  document.getElementById('pWatch').textContent = state.playerHP;
+  document.getElementById('eWatch').textContent = state.enemyHP;
+  document.getElementById('roundNum').textContent = '第 1 回合';
+  document.getElementById('phaseText').textContent = '準備階段';
+  
+  if (state.bannedClass) showLog(`🚫 ${CLASS_EMOJIS[state.bannedClass]}${CLASS_NAMES[state.bannedClass]} 已禁用`);
+  
+  generateShop();
+  aiPrepareForRound();
+  renderAll();
+}
+
+// ========== CODEX ==========
+let codexFilter = 'all';
+
+function openCodex() {
+  document.getElementById('codexOverlay').classList.add('show');
+  renderCodexTabs(); renderCodexCards();
+}
+
+function closeCodex() { document.getElementById('codexOverlay').classList.remove('show'); }
+
+function renderCodexTabs() {
+  const tabs = document.getElementById('codexTabs');
+  tabs.innerHTML = '';
+  const allTab = document.createElement('span');
+  allTab.className = `codex-tab ${codexFilter === 'all' ? 'active' : ''}`;
+  allTab.textContent = '🌟 全部 (25)';
+  allTab.onclick = () => { codexFilter = 'all'; renderCodexTabs(); renderCodexCards(); };
+  tabs.appendChild(allTab);
+  for (const [cls, name] of Object.entries(CLASS_NAMES)) {
+    const tab = document.createElement('span');
+    tab.className = `codex-tab ${codexFilter === cls ? 'active' : ''}`;
+    tab.textContent = `${CLASS_EMOJIS[cls]} ${name} (5)`;
+    tab.onclick = () => { codexFilter = cls; renderCodexTabs(); renderCodexCards(); };
+    tabs.appendChild(tab);
+  }
+}
+
+function renderCodexCards() {
+  const container = document.getElementById('codexCards');
+  container.innerHTML = '';
+  const filtered = codexFilter === 'all' ? CARDS : CARDS.filter(c => c.cls === codexFilter);
+  filtered.forEach(card => {
+    const star5Upgrade = STAR5_UPGRADES[card.id];
+    const div = document.createElement('div');
+    div.className = 'codex-card';
+    div.innerHTML = `
+      <div class="c-emoji">${card.emoji}</div>
+      <div class="c-name">${card.name}</div>
+      <div class="c-en">${card.en}</div>
+      <span class="c-class ${card.cls}">${CLASS_EMOJIS[card.cls]} ${CLASS_NAMES[card.cls]}</span>
+      <div class="c-stats">❤️${card.hp} ⚔️${card.atk} ⚡${card.atkSpd} 🏹${card.range}</div>
+      <div class="c-ability">💫 ${card.ability}</div>
+      <div class="c-ability-desc">${card.abilityDesc}</div>
+      <div class="c-star5">
+        <div class="c-star5-label">⭐⭐⭐⭐⭐ 滿星強化</div>
+        <div class="c-star5-desc">${star5Upgrade ? star5Upgrade.desc : card.abilityDesc}</div>
+      </div>
+    `;
+    container.appendChild(div);
+  });
+}
+
+// ========== SYNERGY MODAL ==========
+function openSynergy() {
+  document.getElementById('synergyOverlay').classList.add('show');
+  renderSynergyContent();
+}
+
+function closeSynergy() { document.getElementById('synergyOverlay').classList.remove('show'); }
+
+function renderSynergyContent() {
+  const container = document.getElementById('synergyContent');
+  container.innerHTML = '';
+  for (const [cls, name] of Object.entries(CLASS_NAMES)) {
+    const syn = SYNERGY_DESC[cls];
+    const members = CARDS.filter(c => c.cls === cls);
+    const div = document.createElement('div');
+    div.className = 'synergy-class';
+    div.style.borderColor = CLASS_COLORS[cls];
+    div.innerHTML = `
+      <div class="synergy-class-header">
+        <span class="s-emoji">${CLASS_EMOJIS[cls]}</span>
+        <span class="s-name" style="color:${CLASS_COLORS[cls]}">${name}</span>
+      </div>
+      <div class="synergy-tier">
+        <div class="tier-label t3">${syn.t3.label}</div>
+        <div class="tier-desc">${syn.t3.desc}</div>
+      </div>
+      <div class="synergy-tier">
+        <div class="tier-label t5">${syn.t5.label}</div>
+        <div class="tier-desc">${syn.t5.desc}</div>
+      </div>
+      <div class="synergy-members">
+        ${members.map(m => `<span class="member">${m.emoji} ${m.name}</span>`).join('')}
+      </div>
+    `;
+    container.appendChild(div);
+  }
+}
+
+// ========== BAN CLASS SELECTION ==========
+let selectedBanClass = null;
+
+function openBanSelect() {
+  document.getElementById('startOverlay').classList.remove('show');
+  document.getElementById('banOverlay').classList.add('show');
+  selectedBanClass = null;
+  renderBanClasses();
+}
+
+function renderBanClasses() {
+  const container = document.getElementById('banClasses');
+  container.innerHTML = '';
+  for (const [cls, name] of Object.entries(CLASS_NAMES)) {
+    const members = CARDS.filter(c => c.cls === cls);
+    const div = document.createElement('div');
+    div.className = `ban-class-btn ${selectedBanClass === cls ? 'selected' : ''}`;
+    div.style.borderColor = selectedBanClass === cls ? 'var(--red)' : CLASS_COLORS[cls];
+    div.innerHTML = `
+      <span class="bc-emoji">${CLASS_EMOJIS[cls]}</span>
+      <span class="bc-name" style="color:${CLASS_COLORS[cls]}">${name}</span>
+      <span class="bc-count">${members.length} 名怪物</span>
+    `;
+    div.onclick = () => {
+      selectedBanClass = selectedBanClass === cls ? null : cls;
+      renderBanClasses();
+    };
+    container.appendChild(div);
+  }
+}
+
+function confirmBanAndStart() {
+  state.bannedClass = selectedBanClass;
+  document.getElementById('banOverlay').classList.remove('show');
+  if (selectedBanClass) showLog(`已禁用 ${CLASS_EMOJIS[selectedBanClass]}${CLASS_NAMES[selectedBanClass]} 職業`);
+  startGame();
+}
+
+document.getElementById('startOverlay').classList.add('show');
+renderBoard();
+</script>
+</body>
+</html>
