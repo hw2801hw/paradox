@@ -1,0 +1,2086 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>007入子彈 - 手機對戰版</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body {
+  width: 100%; height: 100%; overflow: hidden;
+  background: #0a0a1a;
+  font-family: 'Segoe UI', 'PingFang TC', 'Microsoft JhengHei', sans-serif;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+
+#game-container {
+  position: relative;
+  width: 100vw; height: 100vh;
+  max-width: 56.25vh;
+  margin: 0 auto;
+  display: flex; flex-direction: column;
+  background: linear-gradient(180deg, #0d1117 0%, #161b22 40%, #1a1a2e 100%);
+  overflow: hidden;
+}
+
+/* ===== Lobby Screen ===== */
+#lobby-screen {
+  position: absolute; top: 0; left: 0;
+  width: 100%; height: 100%;
+  background: linear-gradient(180deg, #0a0a1a 0%, #1a1a3e 50%, #0a0a1a 100%);
+  display: flex; flex-direction: column; align-items: center;
+  z-index: 200;
+  padding: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+#lobby-screen.hidden { display: none; }
+
+/* Lobby Header - 固定頂部 */
+.lobby-header {
+  width: 100%;
+  background: linear-gradient(180deg, #0a0a1a 0%, #12122a 100%);
+  padding: 2vh 4vw 1.5vh;
+  text-align: center;
+  flex-shrink: 0;
+  border-bottom: 1px solid #333;
+}
+.lobby-title {
+  font-size: clamp(26px, 7vw, 44px);
+  font-weight: 900;
+  color: #ff8800;
+  text-shadow: 0 0 30px rgba(255,136,0,.5);
+  margin-bottom: 0.3vh;
+}
+.lobby-sub {
+  font-size: clamp(13px, 3.2vw, 18px);
+  color: #888;
+  margin-bottom: 1.5vh;
+}
+
+/* ===== 版本切換 - 非常醒目 ===== */
+.version-toggle-wrap {
+  width: 100%;
+  max-width: 320px;
+  margin: 0 auto;
+  padding: 0 2vw;
+}
+.version-toggle {
+  display: flex;
+  width: 100%;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 3px solid #ff8800;
+  box-shadow: 0 0 20px rgba(255,136,0,0.3);
+}
+.ver-btn {
+  flex: 1;
+  padding: 1.5vh 0;
+  font-size: clamp(15px, 4vw, 20px);
+  font-weight: 800;
+  border: none;
+  cursor: pointer;
+  text-align: center;
+  transition: all 0.2s;
+  background: #1a1a2e;
+  color: #666;
+}
+.ver-btn.active {
+  color: #fff;
+}
+.ver-btn-classic.active {
+  background: linear-gradient(135deg, #44cc44, #228822);
+  color: #fff;
+  text-shadow: 0 0 10px rgba(68,204,68,0.5);
+}
+.ver-btn-advanced.active {
+  background: linear-gradient(135deg, #ff4400, #cc2200);
+  color: #fff;
+  text-shadow: 0 0 10px rgba(255,68,0,0.5);
+}
+
+/* Lobby Content - 可滾動 */
+.lobby-content {
+  flex: 1;
+  width: 100%;
+  padding: 2vh 4vw 4vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.5vh;
+}
+
+/* 規則框 */
+.rules-box {
+  width: 100%;
+  max-width: 340px;
+  background: rgba(255,255,255,0.05);
+  border-radius: 12px;
+  padding: 1.5vh 4vw;
+  font-size: clamp(11px, 2.6vw, 14px);
+  color: #bbb;
+  line-height: 1.6;
+  border: 1px solid #333;
+}
+.rules-box strong { color: #ff8800; }
+.rules-box.hidden { display: none; }
+
+/* Lobby Box */
+.lobby-box {
+  width: 100%;
+  max-width: 340px;
+  background: rgba(255,255,255,0.05);
+  border-radius: 14px;
+  padding: 2vh 4vw;
+  border: 1px solid #333;
+}
+.lobby-box h3 {
+  color: #ff8800;
+  font-size: clamp(16px, 4vw, 22px);
+  margin-bottom: 1vh;
+  text-align: center;
+}
+.lobby-box-desc {
+  color: #aaa;
+  font-size: clamp(11px, 2.5vw, 13px);
+  text-align: center;
+  margin-bottom: 1.2vh;
+}
+.lobby-input {
+  width: 100%;
+  padding: 1.2vh 3vw;
+  font-size: clamp(18px, 5vw, 24px);
+  border: 2px solid #444;
+  border-radius: 10px;
+  background: #1a1a2e;
+  color: #fff;
+  text-align: center;
+  margin-bottom: 1.2vh;
+  outline: none;
+  letter-spacing: 4px;
+}
+.lobby-input:focus { border-color: #ff8800; }
+.lobby-btn {
+  width: 100%;
+  padding: 1.6vh 0;
+  font-size: clamp(16px, 4vw, 22px);
+  font-weight: 800;
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: transform 0.15s;
+}
+.lobby-btn:active { transform: scale(0.95); }
+.btn-solo {
+  background: linear-gradient(135deg, #44cc44, #22aa22);
+  color: #fff;
+}
+.btn-create {
+  background: linear-gradient(135deg, #ff8800, #ff4400);
+  color: #fff;
+  margin-bottom: 0.8vh;
+}
+.btn-join {
+  background: linear-gradient(135deg, #4488ff, #2244cc);
+  color: #fff;
+}
+.lobby-or {
+  color: #666;
+  text-align: center;
+  margin: 1vh 0;
+  font-size: clamp(12px, 3vw, 16px);
+}
+
+/* Mode Divider */
+.mode-divider {
+  width: 100%;
+  max-width: 340px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0.5vh 0;
+}
+.mode-divider::before,
+.mode-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: #444;
+}
+.mode-divider span {
+  color: #888;
+  font-size: clamp(12px, 3vw, 16px);
+  white-space: nowrap;
+}
+
+/* Waiting Room */
+#waiting-room {
+  display: none;
+  width: 100%;
+  max-width: 340px;
+  text-align: center;
+  background: rgba(255,255,255,0.05);
+  border-radius: 14px;
+  padding: 2vh 4vw;
+  border: 1px solid #ff8800;
+}
+#waiting-room.show { display: block; }
+.room-code-display {
+  font-size: clamp(32px, 10vw, 56px);
+  font-weight: 900;
+  color: #ff8800;
+  letter-spacing: 10px;
+  margin: 1.5vh 0;
+  text-shadow: 0 0 20px rgba(255,136,0,0.4);
+}
+.waiting-players {
+  color: #aaa;
+  font-size: clamp(13px, 3.2vw, 18px);
+  margin: 1vh 0;
+}
+.player-slot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0.6vh 0;
+  font-size: clamp(14px, 3.5vw, 18px);
+  color: #ccc;
+}
+.player-slot .dot {
+  width: 12px; height: 12px;
+  border-radius: 50%;
+  display: inline-block;
+}
+.dot-ready {
+  background: #44ff44;
+  box-shadow: 0 0 8px #44ff44;
+}
+.dot-waiting {
+  background: #666;
+  animation: pulse 1s infinite;
+}
+@keyframes pulse {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 1; }
+}
+#cancel-btn {
+  margin-top: 1.5vh;
+  padding: 1.2vh 6vw;
+  font-size: clamp(14px, 3.5vw, 18px);
+  background: #333;
+  color: #aaa;
+  border: 1px solid #555;
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+#lobby-status {
+  color: #ffaa00;
+  font-size: clamp(12px, 3vw, 16px);
+  text-align: center;
+  margin-top: 0.8vh;
+  min-height: 3vh;
+  line-height: 1.5;
+}
+
+/* ===== Top Bar ===== */
+#top-bar {
+  flex: 0 0 auto;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1vh 3.5vw 0.3vh;
+  min-height: 4.5vh;
+}
+#round-label {
+  font-size: clamp(12px, 2.8vw, 16px);
+  color: #888;
+}
+#mode-label {
+  font-size: clamp(10px, 2.2vw, 13px);
+  color: #555;
+}
+#timer-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+#timer {
+  font-size: clamp(30px, 8vw, 48px);
+  font-weight: 900;
+  color: #ff3333;
+  text-shadow: 0 0 20px rgba(255,50,50,0.6);
+  line-height: 1;
+}
+#timer.safe { color: #44ff44; text-shadow: 0 0 15px rgba(68,255,68,0.4); }
+#timer.warning { color: #ffaa00; text-shadow: 0 0 15px rgba(255,170,0,0.5); }
+#timer.danger { color: #ff2222; text-shadow: 0 0 25px rgba(255,34,34,0.8); }
+#timer-note {
+  font-size: clamp(9px, 2vw, 11px);
+  color: #666;
+  margin-top: 2px;
+}
+
+/* ===== Arena ===== */
+#arena {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  padding: 0 1.5vw;
+  overflow: hidden;
+}
+
+/* 1v1 layout */
+#solo-opp-area {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0.3vh 2vw;
+}
+#solo-opp-area.hidden { display: none; }
+
+/* 4人 layout */
+#opponents-row {
+  display: flex;
+  justify-content: space-around;
+  width: 100%;
+  margin-bottom: 0.3vh;
+  gap: 1vw;
+}
+#opponents-row.hidden { display: none; }
+.opponent-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0.5vh 1vw;
+  border-radius: 8px;
+  min-width: 28%;
+  flex: 1;
+  transition: all 0.3s;
+}
+.opponent-card.dead { opacity: 0.3; filter: grayscale(0.8); }
+.player-tag {
+  font-size: clamp(10px, 2.4vw, 13px);
+  font-weight: 700;
+  letter-spacing: 1px;
+  margin-bottom: 0.2vh;
+}
+.hearts {
+  font-size: clamp(14px, 3.5vw, 20px);
+  letter-spacing: 1px;
+  min-height: 2.5vh;
+}
+.stickman-w {
+  width: clamp(38px, 11vw, 60px);
+  height: clamp(55px, 15vw, 85px);
+  position: relative;
+}
+.stickman-w svg { width: 100%; height: 100%; }
+.bullet-tag {
+  font-size: clamp(10px, 2.4vw, 13px);
+  color: #ffd700;
+  margin-top: 0.2vh;
+}
+
+/* Stickman anims */
+.stickman-hit { animation: hitShake 0.5s ease-in-out; }
+@keyframes hitShake {
+  0%, 100% { transform: translateX(0); }
+  10% { transform: translateX(-6px) rotate(-3deg); }
+  20% { transform: translateX(6px) rotate(3deg); }
+  30% { transform: translateX(-4px); }
+  40% { transform: translateX(4px); }
+}
+.stickman-shield { animation: shieldPulse 0.6s ease-in-out; }
+@keyframes shieldPulse {
+  0%, 100% { filter: drop-shadow(0 0 0 transparent); }
+  50% { filter: drop-shadow(0 0 12px #00ff88); }
+}
+.stickman-shoot { animation: shootKick 0.4s ease-out; }
+@keyframes shootKick {
+  0% { transform: translateX(0); }
+  30% { transform: translateX(4px) rotate(2deg); }
+  100% { transform: translateX(0); }
+}
+.stickman-load { animation: loadBounce 0.5s ease-in-out; }
+@keyframes loadBounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+.flash-red { animation: flashRed 0.4s ease-out; }
+@keyframes flashRed {
+  0% { box-shadow: inset 0 0 30px rgba(255,0,0,0.4); }
+  100% { box-shadow: none; }
+}
+
+/* VS / Status */
+#vs-divider {
+  font-size: clamp(16px, 4.5vw, 26px);
+  font-weight: 900;
+  color: rgba(255,255,255,0.08);
+  letter-spacing: 4px;
+  margin: 0.3vh 0;
+}
+#status-text {
+  font-size: clamp(11px, 2.6vw, 15px);
+  color: #eee;
+  text-align: center;
+  min-height: 5vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.3vh 3vw;
+  line-height: 1.5;
+  max-width: 95%;
+}
+
+/* My Area */
+#my-area {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0.3vh 2vw 0;
+}
+
+/* Reveal Areas */
+#reveal-area {
+  display: flex;
+  justify-content: space-around;
+  width: 98%;
+  margin: 0.3vh 0;
+  gap: 1vw;
+  flex-wrap: nowrap;
+}
+#reveal-area.hidden { display: none; }
+.reveal-box {
+  flex: 1;
+  text-align: center;
+  padding: 0.4vh 0.3vw;
+  border-radius: 5px;
+  font-size: clamp(8px, 1.9vw, 11px);
+  font-weight: 700;
+  opacity: 0;
+  transition: opacity 0.3s;
+  border: 1px solid transparent;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.reveal-box.show { opacity: 1; }
+
+#solo-reveal-area {
+  display: flex;
+  justify-content: space-around;
+  width: 85%;
+  margin: 0.5vh 0;
+  gap: 3vw;
+}
+#solo-reveal-area.hidden { display: none; }
+.solo-reveal-box {
+  flex: 1;
+  text-align: center;
+  padding: 0.8vh 1vw;
+  border-radius: 8px;
+  font-size: clamp(11px, 2.6vw, 14px);
+  font-weight: 700;
+  opacity: 0;
+  transition: opacity 0.3s;
+  border: 1px solid transparent;
+}
+.solo-reveal-box.show { opacity: 1; }
+
+/* Target Selector */
+#target-selector {
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.2vh;
+  padding: 2vh 4vw;
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(10,10,26,0.97);
+  border: 2px solid #ff4444;
+  border-radius: 16px;
+  z-index: 50;
+  width: 88%;
+  max-width: 320px;
+  box-shadow: 0 0 40px rgba(255,0,0,0.2);
+}
+#target-selector.show { display: flex; }
+#target-selector h3 {
+  color: #ff4444;
+  font-size: clamp(14px, 3.5vw, 20px);
+  font-weight: 800;
+}
+.target-btn {
+  width: 90%;
+  padding: 1.3vh 0;
+  border-radius: 12px;
+  font-size: clamp(13px, 3.2vw, 17px);
+  font-weight: 700;
+  cursor: pointer;
+  border: 2px solid;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: transform 0.15s;
+  margin-top: 3px;
+  background: rgba(0,0,0,0.5);
+}
+.target-btn:active { transform: scale(0.95); }
+.target-btn .color-dot {
+  width: 14px; height: 14px;
+  border-radius: 50%;
+  display: inline-block;
+}
+#target-cancel {
+  margin-top: 3px;
+  padding: 0.8vh 4vw;
+  font-size: clamp(12px, 3vw, 15px);
+  background: transparent;
+  color: #999;
+  border: 1px solid #555;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+/* Sub-action Selector */
+#sub-selector {
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  gap: 1vh;
+  padding: 2vh 4vw;
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(10,10,26,0.97);
+  border: 2px solid #ff8800;
+  border-radius: 16px;
+  z-index: 50;
+  width: 90%;
+  max-width: 330px;
+  box-shadow: 0 0 40px rgba(255,136,0,0.2);
+}
+#sub-selector.show { display: flex; }
+#sub-selector h3 {
+  font-size: clamp(14px, 3.5vw, 20px);
+  font-weight: 800;
+  color: #ff8800;
+  margin-bottom: 0.5vh;
+}
+.sub-btn {
+  width: 92%;
+  padding: 1.2vh 2vw;
+  border-radius: 12px;
+  font-size: clamp(12px, 2.8vw, 15px);
+  font-weight: 700;
+  cursor: pointer;
+  border: 2px solid;
+  transition: transform 0.15s;
+  background: rgba(0,0,0,0.5);
+  text-align: left;
+  line-height: 1.4;
+}
+.sub-btn:active { transform: scale(0.95); }
+.sub-btn .sub-title {
+  font-size: clamp(13px, 3.2vw, 17px);
+  font-weight: 800;
+  display: block;
+  margin-bottom: 2px;
+}
+.sub-btn .sub-desc {
+  font-size: clamp(10px, 2.3vw, 12px);
+  opacity: 0.7;
+  display: block;
+}
+#sub-cancel {
+  margin-top: 3px;
+  padding: 0.8vh 4vw;
+  font-size: clamp(12px, 3vw, 15px);
+  background: transparent;
+  color: #999;
+  border: 1px solid #555;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+/* Buttons Area */
+#buttons-area {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(5px, 1.8vw, 10px);
+  padding: 0.8vh 2.5vw 2.5vh;
+}
+.action-btn {
+  flex: 1;
+  max-width: 32%;
+  height: clamp(52px, 11vh, 75px);
+  border: 2px solid;
+  border-radius: 14px;
+  font-size: clamp(13px, 3.2vw, 18px);
+  font-weight: 800;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  transition: all 0.15s;
+  position: relative;
+  overflow: hidden;
+  -webkit-tap-highlight-color: transparent;
+}
+.action-btn .btn-icon { font-size: clamp(16px, 4.5vw, 24px); }
+.action-btn .btn-text { font-size: clamp(10px, 2.6vw, 14px); }
+.btn-load {
+  background: linear-gradient(135deg, #1a3a1a, #2a5a2a);
+  border-color: #44cc44;
+  color: #88ff88;
+}
+.btn-load:active:not(:disabled) {
+  background: linear-gradient(135deg, #2a5a2a, #3a7a3a);
+  transform: scale(0.95);
+}
+.btn-shoot {
+  background: linear-gradient(135deg, #3a1a1a, #5a2a2a);
+  border-color: #ff4444;
+  color: #ff8888;
+}
+.btn-shoot:active:not(:disabled) {
+  background: linear-gradient(135deg, #5a2a2a, #7a3a3a);
+  transform: scale(0.95);
+}
+.btn-protect {
+  background: linear-gradient(135deg, #1a2a3a, #2a3a5a);
+  border-color: #4488ff;
+  color: #88bbff;
+}
+.btn-protect:active:not(:disabled) {
+  background: linear-gradient(135deg, #2a3a5a, #3a5a7a);
+  transform: scale(0.95);
+}
+.action-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+  filter: grayscale(0.8);
+}
+.action-btn.selected {
+  transform: scale(0.95);
+  opacity: 0.9;
+}
+.action-btn.selected::after {
+  content: '✓';
+  position: absolute;
+  top: 2px; right: 4px;
+  font-size: clamp(12px, 2.8vw, 18px);
+  color: #fff;
+}
+.btn-load.selected { background: #44cc44; color: #fff; border-color: #66ff66; }
+.btn-shoot.selected { background: #ff4444; color: #fff; border-color: #ff6666; }
+.btn-protect.selected { background: #4488ff; color: #fff; border-color: #66aaff; }
+
+/* Overlay */
+#overlay {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  background: rgba(0,0,0,0.92);
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  padding: 3vh;
+  overflow-y: auto;
+}
+#overlay.show { display: flex; }
+#overlay-title {
+  font-size: clamp(26px, 7vw, 46px);
+  font-weight: 900;
+  margin-bottom: 1.5vh;
+  text-shadow: 0 0 30px currentColor;
+  text-align: center;
+}
+#overlay-title.win { color: #44ff44; }
+#overlay-title.lose { color: #ff4444; }
+#overlay-title.draw { color: #ffaa00; }
+#overlay-subtitle {
+  font-size: clamp(12px, 3vw, 17px);
+  color: #aaa;
+  margin-bottom: 1vh;
+  text-align: center;
+}
+#overlay-ranking {
+  font-size: clamp(12px, 3vw, 17px);
+  color: #ddd;
+  margin-bottom: 2.5vh;
+  text-align: center;
+  line-height: 2;
+}
+#restart-btn {
+  padding: 1.8vh 8vw;
+  font-size: clamp(16px, 4vw, 24px);
+  font-weight: 800;
+  background: linear-gradient(135deg, #ff8800, #ff4400);
+  color: #fff;
+  border: none;
+  border-radius: 14px;
+  cursor: pointer;
+}
+#restart-btn:active { transform: scale(0.95); }
+
+@media (max-height: 600px) {
+  #arena { padding: 0 1vw; }
+  #buttons-area { padding: 0.5vh 2vw 1.5vh; }
+  .stickman-w { width: clamp(30px, 9vw, 50px); height: clamp(42px, 12vw, 65px); }
+}
+</style>
+</head>
+<body>
+
+<div id="game-container">
+
+<!-- ===== Lobby Screen ===== -->
+<div id="lobby-screen">
+  <!-- Header 固定頂部 -->
+  <div class="lobby-header">
+    <div class="lobby-title">🔫 007入子彈</div>
+    <div class="lobby-sub">手機對戰版</div>
+    
+    <!-- 版本切換 - 非常醒目 -->
+    <div class="version-toggle-wrap">
+      <div class="version-toggle" id="version-toggle">
+        <button class="ver-btn ver-btn-classic active" id="btn-ver-classic" onclick="setVersion('classic')">📦 原版</button>
+        <button class="ver-btn ver-btn-advanced" id="btn-ver-advanced" onclick="setVersion('advanced')">⚡ 進階版</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Content 可滾動 -->
+  <div class="lobby-content">
+    <!-- 原版規則 -->
+    <div class="rules-box" id="rules-classic">
+      <strong>🎯 原版玩法：</strong>每回合限時選擇動作<br>
+      <strong>🔋 入子彈</strong> — 子彈+1<br>
+      <strong>💥 砰砰砰</strong> — 消耗1子彈射擊<br>
+      <strong>🛡️ 保護網</strong> — 擋一次射擊（不可連用）<br><br>
+      <strong>⏱ 計時：</strong>前6回合 <strong>7秒</strong>｜第7回合起 <strong>3秒</strong>｜全員1血 <strong>10秒</strong><br>
+      <strong>❌ 超時無動作 = 扣1血</strong>
+    </div>
+
+    <!-- 進階版規則 -->
+    <div class="rules-box hidden" id="rules-advanced">
+      <strong>⚡ 進階版玩法：</strong>保留原版3招 + 新增3招！<br><br>
+      <strong>🔋 入子彈</strong><br>
+      　📦 普通入彈：子彈+1<br>
+      　🎰 賭博入彈：70%機率+2，30%機率-1<br><br>
+      <strong>💥 砰砰砰</strong><br>
+      　📦 普通射擊：消耗1子彈射1人<br>
+      　💣 全體轟炸：消耗3子彈射所有人，<span style="color:#ff4444">無視保護網</span><br><br>
+      <strong>🛡️ 保護網</strong><br>
+      　📦 普通防禦：擋一次射擊（不可連用）<br>
+      　🪞 反彈護盾：反彈子彈傷害回去（<span style="color:#ff4444">整場僅限1次</span>）<br><br>
+      <strong>⏱ 計時：</strong>前6回合 <strong>7秒</strong>｜第7回合起 <strong>3秒</strong>｜全員1血 <strong>10秒</strong><br>
+      <strong>❌ 超時無動作 = 扣1血</strong>
+    </div>
+
+    <!-- 單人對戰 -->
+    <div id="lobby-solo" class="lobby-box">
+      <h3>🎮 單人對戰</h3>
+      <div class="lobby-box-desc">你 vs AI（純隨機）</div>
+      <button class="lobby-btn btn-solo" onclick="startSolo()">⚔️ 即刻開戰</button>
+    </div>
+
+    <div class="mode-divider"><span>👥 或者搵人一齊玩</span></div>
+
+    <!-- 4人混戰 -->
+    <div id="lobby-multi" class="lobby-box">
+      <h3>👥 4人混戰</h3>
+      <div class="lobby-box-desc">2真人 + 2 AI（🎭 唔知邊個係AI！）</div>
+      <button class="lobby-btn btn-create" onclick="createRoom()">🏠 創建房間</button>
+      <div class="lobby-or">— 或者 —</div>
+      <input id="room-input" class="lobby-input" placeholder="輸入4位數字房間號" maxlength="4" inputmode="numeric" pattern="[0-9]*" autocomplete="off">
+      <button class="lobby-btn btn-join" onclick="joinRoom()">🚪 加入房間</button>
+    </div>
+
+    <!-- 等待室 -->
+    <div id="waiting-room">
+      <h3 style="color:#ff8800;font-size:clamp(16px,4vw,22px);margin-bottom:1vh">等待玩家加入...</h3>
+      <div style="color:#aaa;font-size:clamp(11px,2.5vw,14px);margin-bottom:0.5vh">將房間號分享俾朋友</div>
+      <div class="room-code-display" id="room-code-display"></div>
+      <div class="waiting-players">
+        <div id="slot-1" class="player-slot"><span class="dot dot-waiting"></span> 等待中...</div>
+        <div id="slot-2" class="player-slot"><span class="dot dot-waiting"></span> 等待中...</div>
+      </div>
+      <button id="cancel-btn" onclick="cancelRoom()">❌ 取消</button>
+    </div>
+
+    <div id="lobby-status"></div>
+  </div>
+</div>
+
+<!-- ===== Game UI ===== -->
+<div id="top-bar">
+  <div>
+    <div id="round-label">第 1 回合</div>
+    <div id="mode-label"></div>
+  </div>
+  <div id="timer-wrap">
+    <div id="timer">7</div>
+    <div id="timer-note"></div>
+  </div>
+</div>
+
+<div id="arena">
+  <!-- 1v1 對手 -->
+  <div id="solo-opp-area" class="hidden">
+    <div class="player-tag" id="solo-opp-tag" style="color:#ff4444">🤖 AI</div>
+    <div class="stickman-w" id="solo-opp-stick"></div>
+    <div class="hearts" id="solo-opp-hearts">❤️❤️❤️</div>
+  </div>
+
+  <!-- 4人混戰對手 -->
+  <div id="opponents-row" class="hidden">
+    <div id="opp-0" class="opponent-card">
+      <div class="player-tag" id="opp-0-tag">？</div>
+      <div class="stickman-w" id="opp-0-stick"></div>
+      <div class="hearts" id="opp-0-hearts">❤️❤️❤️</div>
+    </div>
+    <div id="opp-1" class="opponent-card">
+      <div class="player-tag" id="opp-1-tag">？</div>
+      <div class="stickman-w" id="opp-1-stick"></div>
+      <div class="hearts" id="opp-1-hearts">❤️❤️❤️</div>
+    </div>
+    <div id="opp-2" class="opponent-card">
+      <div class="player-tag" id="opp-2-tag">？</div>
+      <div class="stickman-w" id="opp-2-stick"></div>
+      <div class="hearts" id="opp-2-hearts">❤️❤️❤️</div>
+    </div>
+  </div>
+
+  <div id="vs-divider">⚔ VS ⚔</div>
+  <div id="status-text">準備戰鬥！</div>
+
+  <!-- 4人混戰揭曉 -->
+  <div id="reveal-area" class="hidden">
+    <div id="reveal-0" class="reveal-box"></div>
+    <div id="reveal-1" class="reveal-box"></div>
+    <div id="reveal-2" class="reveal-box"></div>
+    <div id="reveal-3" class="reveal-box"></div>
+  </div>
+
+  <!-- 1v1揭曉 -->
+  <div id="solo-reveal-area" class="hidden">
+    <div id="solo-reveal-ai" class="solo-reveal-box"></div>
+    <div id="solo-reveal-me" class="solo-reveal-box"></div>
+  </div>
+
+  <!-- 射擊目標選擇 -->
+  <div id="target-selector">
+    <h3>💥 選擇攻擊目標</h3>
+    <div id="target-buttons"></div>
+    <button id="target-cancel" onclick="cancelTarget()">取消</button>
+  </div>
+
+  <!-- 進階版子選項 -->
+  <div id="sub-selector">
+    <h3 id="sub-title">選擇技能</h3>
+    <div id="sub-buttons"></div>
+    <button id="sub-cancel" onclick="cancelSub()">取消</button>
+  </div>
+</div>
+
+<div id="my-area">
+  <div class="hearts" id="my-hearts">❤️❤️❤️</div>
+  <div class="stickman-w" id="my-stick"></div>
+  <div class="player-tag" id="my-tag" style="color:#44aaff">🧑 你</div>
+  <div class="bullet-tag" id="my-bullets">🔋 子彈：0</div>
+</div>
+
+<div id="buttons-area">
+  <button id="btn-load" class="action-btn btn-load" onclick="chooseAction('load')" disabled>
+    <span class="btn-icon">🔋</span><span class="btn-text">入子彈</span>
+  </button>
+  <button id="btn-shoot" class="action-btn btn-shoot" onclick="chooseAction('shoot')" disabled>
+    <span class="btn-icon">💥</span><span class="btn-text">砰砰砰</span>
+  </button>
+  <button id="btn-protect" class="action-btn btn-protect" onclick="chooseAction('protect')" disabled>
+    <span class="btn-icon">🛡️</span><span class="btn-text">保護網</span>
+  </button>
+</div>
+
+<div id="overlay">
+  <div id="overlay-title"></div>
+  <div id="overlay-subtitle"></div>
+  <div id="overlay-ranking"></div>
+  <button id="restart-btn" onclick="backToLobby()">🏠 返回大廳</button>
+</div>
+
+</div>
+
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
+<script>
+// ==============================================
+// 007入子彈 - 手機對戰版
+// 原版 + 進階版 | 1v1 + 4人混戰
+// ==============================================
+
+const NUM_PLAYERS = 4;
+const NUM_AI = 2;
+const NUM_HUMAN = 2;
+
+let gameMode = '';
+let gameVersion = 'classic';
+
+// ---- Firebase ----
+let firebaseInited = false;
+let db = null;
+function initFirebase() {
+  if (firebaseInited) return;
+  firebase.initializeApp({
+    apiKey: "AIzaSyACjxWEkXkPUBv6xiWtVWZdsFvxeKURJ1Q",
+    authDomain: "time-f681a.firebaseapp.com",
+    databaseURL: "https://time-f681a-default-rtdb.firebaseio.com",
+    projectId: "time-f681a",
+    storageBucket: "time-f681a.firebasestorage.app",
+    messagingSenderId: "486171948384",
+    appId: "1:486171948384:web:715043928d3a0a0cd39a05"
+  });
+  db = firebase.database();
+  firebaseInited = true;
+}
+
+// ---- Colors ----
+const ALL_COLORS = [
+  { name: '紅色', hex: '#ff4444' },
+  { name: '藍色', hex: '#44aaff' },
+  { name: '綠色', hex: '#44cc44' },
+  { name: '紫色', hex: '#cc44ff' },
+  { name: '橙色', hex: '#ff8800' },
+  { name: '粉紅', hex: '#ff66aa' },
+  { name: '青色', hex: '#00cccc' },
+  { name: '金色', hex: '#ffd700' }
+];
+
+// ---- Audio ----
+let audioCtx = null;
+function getAC() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  return audioCtx;
+}
+function beep(f, d, t = 'square', v = 0.12) {
+  try {
+    const c = getAC(), o = c.createOscillator(), g = c.createGain();
+    o.type = t; o.frequency.value = f; g.gain.value = v;
+    o.connect(g); g.connect(c.destination);
+    o.start();
+    g.gain.exponentialRampToValueAtTime(0.001, c.currentTime + d);
+    o.stop(c.currentTime + d);
+  } catch (e) {}
+}
+const sfx = {
+  tick: () => beep(800, 0.08, 'square', 0.08),
+  urgent: () => beep(1200, 0.1, 'square', 0.15),
+  shoot: () => beep(150, 0.3, 'sawtooth', 0.2),
+  hit: () => { beep(200, 0.15, 'sawtooth', 0.25); setTimeout(() => beep(100, 0.2, 'sawtooth', 0.2), 80); },
+  shield: () => { beep(600, 0.2, 'sine', 0.12); setTimeout(() => beep(900, 0.15, 'sine', 0.12), 100); },
+  load: () => { beep(400, 0.1, 'triangle', 0.12); setTimeout(() => beep(600, 0.1, 'triangle', 0.12), 80); },
+  select: () => beep(500, 0.08, 'sine', 0.1),
+  win: () => { beep(523, 0.2, 'sine', 0.18); setTimeout(() => beep(659, 0.2, 'sine', 0.18), 150); setTimeout(() => beep(784, 0.3, 'sine', 0.18), 300); setTimeout(() => beep(1047, 0.4, 'sine', 0.22), 500); },
+  lose: () => { beep(400, 0.3, 'sawtooth', 0.18); setTimeout(() => beep(300, 0.3, 'sawtooth', 0.18), 250); setTimeout(() => beep(200, 0.5, 'sawtooth', 0.18), 500); },
+  timeout: () => beep(200, 0.4, 'square', 0.15),
+  gamble_win: () => { beep(800, 0.15, 'sine', 0.2); setTimeout(() => beep(1200, 0.2, 'sine', 0.2), 100); },
+  gamble_lose: () => { beep(200, 0.3, 'square', 0.15); },
+  reflect: () => { beep(1000, 0.1, 'sine', 0.2); setTimeout(() => beep(700, 0.15, 'sine', 0.15), 80); setTimeout(() => beep(1200, 0.2, 'sine', 0.2), 160); },
+  bomb: () => { beep(80, 0.5, 'sawtooth', 0.3); setTimeout(() => beep(60, 0.4, 'sawtooth', 0.25), 100); }
+};
+
+// ---- DOM ----
+const $ = id => document.getElementById(id);
+const dom = {
+  lobby: $('lobby-screen'),
+  lobbyContent: document.querySelector('.lobby-content'),
+  lobbySolo: $('lobby-solo'),
+  lobbyMulti: $('lobby-multi'),
+  waitRoom: $('waiting-room'),
+  lobbyStatus: $('lobby-status'),
+  timer: $('timer'),
+  timerNote: $('timer-note'),
+  roundLabel: $('round-label'),
+  modeLabel: $('mode-label'),
+  status: $('status-text'),
+  targetSel: $('target-selector'),
+  targetBtns: $('target-buttons'),
+  subSel: $('sub-selector'),
+  subBtns: $('sub-buttons'),
+  btnLoad: $('btn-load'),
+  btnShoot: $('btn-shoot'),
+  btnProtect: $('btn-protect'),
+  overlay: $('overlay'),
+  oTitle: $('overlay-title'),
+  oSub: $('overlay-subtitle'),
+  oRank: $('overlay-ranking'),
+  soloOppArea: $('solo-opp-area'),
+  soloRevealArea: $('solo-reveal-area'),
+  opponentsRow: $('opponents-row'),
+  revealArea: $('reveal-area')
+};
+
+// ---- Version Toggle ----
+function setVersion(ver) {
+  gameVersion = ver;
+  
+  const btnClassic = $('btn-ver-classic');
+  const btnAdvanced = $('btn-ver-advanced');
+  const rulesClassic = $('rules-classic');
+  const rulesAdvanced = $('rules-advanced');
+  
+  // 更新按鈕狀態
+  btnClassic.classList.remove('active');
+  btnAdvanced.classList.remove('active');
+  
+  if (ver === 'classic') {
+    btnClassic.classList.add('active');
+    rulesClassic.classList.remove('hidden');
+    rulesAdvanced.classList.add('hidden');
+  } else {
+    btnAdvanced.classList.add('active');
+    rulesClassic.classList.add('hidden');
+    rulesAdvanced.classList.remove('hidden');
+  }
+}
+
+// ---- Shared Utils ----
+function calcRoundTime(round, alivePlayers) {
+  if (alivePlayers.length > 1 && alivePlayers.every(p => p.hp <= 1)) return 10;
+  if (round >= 7) return 3;
+  return 7;
+}
+
+function updateTimerStyle(val) {
+  if (val > 4) dom.timer.className = 'safe';
+  else if (val > 2) dom.timer.className = 'warning';
+  else dom.timer.className = 'danger';
+}
+
+function drawStickman(el, color, alive) {
+  if (!el) return;
+  const op = alive ? 1 : 0.3;
+  el.innerHTML = `<svg viewBox="0 0 80 110" xmlns="http://www.w3.org/2000/svg" style="opacity:${op}">
+    <circle cx="40" cy="18" r="14" fill="none" stroke="${color}" stroke-width="3"/>
+    <circle cx="34" cy="15" r="2.5" fill="${color}"/>
+    <circle cx="46" cy="15" r="2.5" fill="${color}"/>
+    <line x1="34" y1="24" x2="46" y2="24" stroke="${color}" stroke-width="2" stroke-linecap="round"/>
+    <line x1="40" y1="32" x2="40" y2="70" stroke="${color}" stroke-width="3" stroke-linecap="round"/>
+    <line x1="40" y1="45" x2="15" y2="58" stroke="${color}" stroke-width="3" stroke-linecap="round"/>
+    <line x1="40" y1="45" x2="65" y2="58" stroke="${color}" stroke-width="3" stroke-linecap="round"/>
+    <line x1="40" y1="70" x2="20" y2="100" stroke="${color}" stroke-width="3" stroke-linecap="round"/>
+    <line x1="40" y1="70" x2="60" y2="100" stroke="${color}" stroke-width="3" stroke-linecap="round"/>
+    ${!alive ? '<line x1="30" y1="12" x2="38" y2="20" stroke="#ff0000" stroke-width="2"/><line x1="38" y1="12" x2="30" y2="20" stroke="#ff0000" stroke-width="2"/><line x1="42" y1="12" x2="50" y2="20" stroke="#ff0000" stroke-width="2"/><line x1="50" y1="12" x2="42" y2="20" stroke="#ff0000" stroke-width="2"/>' : ''}
+  </svg>`;
+}
+
+function disableAllBtns() {
+  dom.btnLoad.disabled = true;
+  dom.btnShoot.disabled = true;
+  dom.btnProtect.disabled = true;
+}
+
+function clearBtnSelected() {
+  dom.btnLoad.classList.remove('selected');
+  dom.btnShoot.classList.remove('selected');
+  dom.btnProtect.classList.remove('selected');
+}
+
+// 動作名稱
+const ADV_LABELS = {
+  load: '🔋入彈',
+  load_gamble: '🎰賭博入彈',
+  shoot: '💥砰砰',
+  shoot_bomb: '💣全體轟炸',
+  protect: '🛡️保護',
+  protect_reflect: '🪞反彈',
+  none: '❌無動作'
+};
+const CLASSIC_LABELS = { load: '🔋入彈', shoot: '💥砰砰', protect: '🛡️保護', none: '❌無動作' };
+function getActionLabel(action) {
+  return ADV_LABELS[action] || CLASSIC_LABELS[action] || action;
+}
+
+// ==============================================
+// ====          模式一：1v1 單人對戰          ====
+// ==============================================
+
+let solo = {
+  round: 0, myHp: 3, myBullets: 0, myLastProtect: false, myReflectUsed: false,
+  aiHp: 3, aiBullets: 0, aiLastProtect: false, aiReflectUsed: false,
+  timerInterval: null, timerValue: 7, localChoice: null, phase: ''
+};
+
+function startSolo() {
+  gameMode = 'solo';
+  solo = {
+    round: 0, myHp: 3, myBullets: 0, myLastProtect: false, myReflectUsed: false,
+    aiHp: 3, aiBullets: 0, aiLastProtect: false, aiReflectUsed: false,
+    timerInterval: null, timerValue: 7, localChoice: null, phase: ''
+  };
+  dom.lobby.classList.add('hidden');
+  dom.overlay.classList.remove('show');
+  dom.soloOppArea.classList.remove('hidden');
+  dom.opponentsRow.classList.add('hidden');
+  dom.revealArea.classList.add('hidden');
+  dom.soloRevealArea.classList.remove('hidden');
+  dom.targetSel.classList.remove('show');
+  dom.subSel.classList.remove('show');
+  dom.modeLabel.textContent = gameVersion === 'advanced' ? '🎮 單人對戰 ⚡進階' : '🎮 單人對戰 📦原版';
+  soloRender();
+  soloNextRound();
+}
+
+function soloRender() {
+  $('solo-opp-hearts').textContent = '❤️'.repeat(Math.max(0, solo.aiHp)) + '🖤'.repeat(Math.max(0, 3 - solo.aiHp));
+  drawStickman($('solo-opp-stick'), '#ff4444', solo.aiHp > 0);
+  dom.soloOppArea.style.opacity = solo.aiHp > 0 ? '1' : '0.35';
+  $('my-hearts').textContent = '❤️'.repeat(Math.max(0, solo.myHp)) + '🖤'.repeat(Math.max(0, 3 - solo.myHp));
+  $('my-bullets').textContent = `🔋 子彈：${solo.myBullets}`;
+  $('my-tag').textContent = '🧑 你';
+  $('my-tag').style.color = '#44aaff';
+  drawStickman($('my-stick'), '#44aaff', solo.myHp > 0);
+  $('my-area').style.opacity = solo.myHp > 0 ? '1' : '0.35';
+}
+
+function soloNextRound() {
+  solo.round++;
+  solo.localChoice = null;
+  solo.phase = 'choosing';
+  const alive = [];
+  if (solo.myHp > 0) alive.push({ hp: solo.myHp });
+  if (solo.aiHp > 0) alive.push({ hp: solo.aiHp });
+  const maxTime = calcRoundTime(solo.round, alive);
+  solo.timerValue = maxTime;
+  dom.roundLabel.textContent = `第 ${solo.round} 回合`;
+  dom.timer.textContent = solo.timerValue;
+  updateTimerStyle(solo.timerValue);
+  dom.status.textContent = '選擇你嘅動作！';
+  if (maxTime === 10) dom.timerNote.textContent = '⚠️ 雙方都1血！10秒';
+  else if (maxTime === 3) dom.timerNote.textContent = '⚡ 極速模式 3秒';
+  else dom.timerNote.textContent = '';
+  $('solo-reveal-ai').classList.remove('show');
+  $('solo-reveal-ai').textContent = '';
+  $('solo-reveal-me').classList.remove('show');
+  $('solo-reveal-me').textContent = '';
+  clearBtnSelected();
+  dom.btnLoad.disabled = false;
+  dom.btnShoot.disabled = (solo.myBullets < 1);
+  dom.btnProtect.disabled = !!solo.myLastProtect;
+  clearInterval(solo.timerInterval);
+  solo.timerInterval = setInterval(() => {
+    solo.timerValue--;
+    dom.timer.textContent = Math.max(0, solo.timerValue);
+    updateTimerStyle(solo.timerValue);
+    if (solo.timerValue > 3) sfx.tick(); else sfx.urgent();
+    if (solo.timerValue <= 0) { clearInterval(solo.timerInterval); soloResolve(); }
+  }, 1000);
+}
+
+function soloAIChoose() {
+  if (gameVersion === 'classic') {
+    const opts = ['load'];
+    if (solo.aiBullets >= 1) opts.push('shoot');
+    if (!solo.aiLastProtect) opts.push('protect');
+    return opts[Math.floor(Math.random() * opts.length)];
+  } else {
+    const opts = ['load', 'load_gamble'];
+    if (solo.aiBullets >= 1) opts.push('shoot');
+    if (solo.aiBullets >= 3) opts.push('shoot_bomb');
+    if (!solo.aiLastProtect) opts.push('protect');
+    if (!solo.aiReflectUsed && !solo.aiLastProtect) opts.push('protect_reflect');
+    return opts[Math.floor(Math.random() * opts.length)];
+  }
+}
+
+function soloResolve() {
+  if (solo.phase !== 'choosing') return;
+  solo.phase = 'revealing';
+  disableAllBtns();
+  dom.subSel.classList.remove('show');
+  const myAction = solo.localChoice || 'none';
+  if (myAction === 'none') sfx.timeout();
+  const aiAction = soloAIChoose();
+  const results = [];
+  let myDmg = 0, aiDmg = 0;
+
+  // 處理入彈
+  if (myAction === 'load') solo.myBullets++;
+  if (myAction === 'load_gamble') {
+    if (Math.random() < 0.7) { solo.myBullets += 2; results.push('🎰 你賭博入彈成功！子彈+2'); sfx.gamble_win(); }
+    else { solo.myBullets = Math.max(0, solo.myBullets - 1); results.push('🎰 你賭博入彈失敗！子彈-1'); sfx.gamble_lose(); }
+  }
+  if (aiAction === 'load') solo.aiBullets++;
+  if (aiAction === 'load_gamble') {
+    if (Math.random() < 0.7) { solo.aiBullets += 2; results.push('🎰 AI 賭博入彈成功！子彈+2'); }
+    else { solo.aiBullets = Math.max(0, solo.aiBullets - 1); results.push('🎰 AI 賭博入彈失敗！子彈-1'); }
+  }
+
+  // 消耗子彈
+  const myShoot = (myAction === 'shoot'), myBomb = (myAction === 'shoot_bomb');
+  const aiShoot = (aiAction === 'shoot'), aiBomb = (aiAction === 'shoot_bomb');
+  if (myShoot) solo.myBullets = Math.max(0, solo.myBullets - 1);
+  if (myBomb) solo.myBullets = Math.max(0, solo.myBullets - 3);
+  if (aiShoot) solo.aiBullets = Math.max(0, solo.aiBullets - 1);
+  if (aiBomb) solo.aiBullets = Math.max(0, solo.aiBullets - 3);
+
+  // 反彈標記
+  const myReflect = (myAction === 'protect_reflect');
+  const aiReflect = (aiAction === 'protect_reflect');
+  const myProtecting = (myAction === 'protect' || myReflect);
+  const aiProtecting = (aiAction === 'protect' || aiReflect);
+  if (myReflect) solo.myReflectUsed = true;
+  if (aiReflect) solo.aiReflectUsed = true;
+
+  // 判定射擊
+  if ((myShoot || myBomb) && (aiShoot || aiBomb) && !myBomb && !aiBomb) {
+    results.push('⚔️ 互射抵銷！');
+  } else {
+    if (myShoot) {
+      if (aiProtecting && !myBomb) {
+        if (aiReflect) { myDmg++; results.push('🪞 AI 反彈你嘅攻擊！你中彈！'); sfx.reflect(); }
+        else results.push('🛡️ AI 用保護網擋住你嘅攻擊！');
+      } else { aiDmg++; results.push('🎯 你射中 AI！'); }
+    }
+    if (myBomb) {
+      if (aiReflect) { myDmg++; results.push('🪞 AI 反彈你嘅轟炸！你中彈！'); sfx.reflect(); }
+      else { aiDmg++; results.push('💣 你嘅全體轟炸擊中 AI！'); sfx.bomb(); }
+    }
+    if (aiShoot) {
+      if (myProtecting && !aiBomb) {
+        if (myReflect) { aiDmg++; results.push('🪞 你反彈 AI 嘅攻擊！AI中彈！'); sfx.reflect(); }
+        else results.push('🛡️ 你用保護網擋住 AI 嘅攻擊！');
+      } else { myDmg++; results.push('💥 AI 射中你！'); }
+    }
+    if (aiBomb) {
+      if (myReflect) { aiDmg++; results.push('🪞 你反彈 AI 嘅轟炸！AI中彈！'); sfx.reflect(); }
+      else { myDmg++; results.push('💣 AI 全體轟炸擊中你！'); }
+    }
+  }
+
+  if (myAction === 'none') { myDmg++; results.push('⏰ 你冇做動作，扣1血！'); }
+
+  solo.myHp = Math.max(0, solo.myHp - myDmg);
+  solo.aiHp = Math.max(0, solo.aiHp - aiDmg);
+  solo.myLastProtect = myProtecting;
+  solo.aiLastProtect = aiProtecting;
+  if (results.length === 0) results.push('😶 和平回合，冇人受傷');
+
+  dom.timer.textContent = '⚡';
+  dom.timer.className = '';
+  dom.timerNote.textContent = '';
+  const rAi = $('solo-reveal-ai');
+  rAi.textContent = `AI：${getActionLabel(aiAction)}`;
+  rAi.style.background = '#ff444420';
+  rAi.style.color = '#ff6666';
+  rAi.style.borderColor = '#ff444444';
+  rAi.classList.add('show');
+  const rMe = $('solo-reveal-me');
+  rMe.textContent = `你：${getActionLabel(myAction)}`;
+  rMe.style.background = '#44aaff20';
+  rMe.style.color = '#88ccff';
+  rMe.style.borderColor = '#44aaff44';
+  rMe.classList.add('show');
+  dom.status.innerHTML = results.join('<br>');
+
+  const sO = $('solo-opp-stick'), sM = $('my-stick');
+  sO.classList.remove('stickman-hit', 'stickman-shield', 'stickman-shoot', 'stickman-load');
+  sM.classList.remove('stickman-hit', 'stickman-shield', 'stickman-shoot', 'stickman-load');
+  if (aiDmg > 0) { sO.classList.add('stickman-hit'); dom.soloOppArea.classList.add('flash-red'); sfx.hit(); }
+  else if (aiShoot || aiBomb) { sO.classList.add('stickman-shoot'); }
+  else if (aiProtecting) { sO.classList.add('stickman-shield'); sfx.shield(); }
+  else if (aiAction === 'load' || aiAction === 'load_gamble') { sO.classList.add('stickman-load'); }
+  if (myDmg > 0) { sM.classList.add('stickman-hit'); $('my-area').classList.add('flash-red'); sfx.hit(); }
+  else if (myShoot || myBomb) { sM.classList.add('stickman-shoot'); sfx.shoot(); }
+  else if (myProtecting) { sM.classList.add('stickman-shield'); sfx.shield(); }
+  else if (myAction === 'load' || myAction === 'load_gamble') { sM.classList.add('stickman-load'); sfx.load(); }
+
+  soloRender();
+  if (solo.myHp <= 0 || solo.aiHp <= 0) { solo.phase = 'ended'; setTimeout(() => soloGameOver(), 2000); }
+  else { setTimeout(() => { dom.soloOppArea.classList.remove('flash-red'); $('my-area').classList.remove('flash-red'); soloNextRound(); }, 2500); }
+}
+
+function soloGameOver() {
+  clearInterval(solo.timerInterval);
+  if (solo.myHp <= 0 && solo.aiHp <= 0) {
+    dom.oTitle.textContent = '⚔️ 同歸於盡！'; dom.oTitle.className = 'draw';
+    dom.oSub.textContent = `第${solo.round}回合結束`; dom.oRank.innerHTML = '雙方同時陣亡...'; sfx.lose();
+  } else if (solo.aiHp <= 0) {
+    dom.oTitle.textContent = '🎉 你贏咗！'; dom.oTitle.className = 'win';
+    dom.oSub.textContent = `用咗${solo.round}個回合擊敗AI！`; dom.oRank.innerHTML = ''; sfx.win();
+  } else {
+    dom.oTitle.textContent = '💀 AI贏咗！'; dom.oTitle.className = 'lose';
+    dom.oSub.textContent = `第${solo.round}回合你陣亡了`; dom.oRank.innerHTML = ''; sfx.lose();
+  }
+  dom.overlay.classList.add('show');
+}
+
+function soloChooseAction(action) {
+  if (solo.phase !== 'choosing' || solo.localChoice) return;
+  if (gameVersion === 'advanced') {
+    showSoloSubSelector(action);
+  } else {
+    solo.localChoice = action;
+    lockSoloBtns(action);
+  }
+}
+
+function showSoloSubSelector(action) {
+  dom.subBtns.innerHTML = '';
+  const subs = getSubActions(action, solo.myBullets, solo.myLastProtect, solo.myReflectUsed);
+  if (subs.length === 0) return;
+  $('sub-title').textContent = action === 'load' ? '🔋 選擇入彈方式' : action === 'shoot' ? '💥 選擇射擊方式' : '🛡️ 選擇防禦方式';
+  $('sub-title').style.color = action === 'load' ? '#44cc44' : action === 'shoot' ? '#ff4444' : '#4488ff';
+  dom.subSel.style.borderColor = action === 'load' ? '#44cc44' : action === 'shoot' ? '#ff4444' : '#4488ff';
+  subs.forEach(s => {
+    const btn = document.createElement('button');
+    btn.className = 'sub-btn';
+    btn.style.borderColor = action === 'load' ? '#44cc44' : action === 'shoot' ? '#ff4444' : '#4488ff';
+    btn.style.color = action === 'load' ? '#88ff88' : action === 'shoot' ? '#ff8888' : '#88bbff';
+    btn.innerHTML = `<span class="sub-title">${s.label}</span><span class="sub-desc">${s.desc}</span>`;
+    btn.onclick = () => { dom.subSel.classList.remove('show'); solo.localChoice = s.action; lockSoloBtns(action); };
+    dom.subBtns.appendChild(btn);
+  });
+  dom.subSel.classList.add('show');
+}
+
+function getSubActions(action, bullets, lastProtect, reflectUsed) {
+  const subs = [];
+  if (action === 'load') {
+    subs.push({ action: 'load', label: '📦 普通入彈', desc: '子彈+1，穩陣' });
+    subs.push({ action: 'load_gamble', label: '🎰 賭博入彈', desc: '70%子彈+2，30%子彈-1' });
+  } else if (action === 'shoot') {
+    if (bullets >= 1) subs.push({ action: 'shoot', label: '📦 普通射擊', desc: '消耗1子彈射擊1人' });
+    if (bullets >= 3) subs.push({ action: 'shoot_bomb', label: '💣 全體轟炸', desc: '消耗3子彈射所有人，無視保護網' });
+  } else if (action === 'protect') {
+    if (!lastProtect) subs.push({ action: 'protect', label: '📦 普通防禦', desc: '擋一次射擊（不可連用）' });
+    if (!reflectUsed && !lastProtect) subs.push({ action: 'protect_reflect', label: '🪞 反彈護盾', desc: '反彈子彈傷害（整場僅限1次）' });
+  }
+  return subs;
+}
+
+function cancelSub() { dom.subSel.classList.remove('show'); }
+
+function lockSoloBtns(action) {
+  clearBtnSelected();
+  if (action === 'load') dom.btnLoad.classList.add('selected');
+  if (action === 'shoot') dom.btnShoot.classList.add('selected');
+  if (action === 'protect') dom.btnProtect.classList.add('selected');
+  disableAllBtns();
+  dom.status.textContent = '已鎖定！等緊倒數結束...';
+  sfx.select();
+}
+
+// ==============================================
+// ====       模式二：4人混戰 (Firebase)       ====
+// ==============================================
+
+let myId = 'p_' + Math.random().toString(36).substr(2, 9) + '_' + Date.now().toString(36);
+let roomId = '', roomRef = null, isHost = false, gameState = null;
+let mySlot = -1, aiSlots = [];
+let multiTimerInterval = null, multiTimerValue = 7;
+let multiLocalChoice = null, multiLocalTarget = null;
+let multiRoundProcessing = false, multiCurrentRound = 0, multiRoundPhase = '';
+let choicesListener = null, multiGameFinishedShown = false, mainListener = null;
+
+function genCode() {
+  return String(Math.floor(Math.random() * 10000)).padStart(4, '0');
+}
+
+function createRoom() {
+  initFirebase();
+  gameMode = 'multi';
+  roomId = genCode();
+  isHost = true;
+  const shuffled = [...ALL_COLORS].sort(() => Math.random() - 0.5);
+  const colors = shuffled.slice(0, NUM_PLAYERS);
+
+  const slots = [0, 1, 2, 3];
+  const shuffledSlots = slots.sort(() => Math.random() - 0.5);
+  aiSlots = [shuffledSlots[0], shuffledSlots[1]];
+  const humanSlots = shuffledSlots.slice(2);
+  mySlot = humanSlots[0];
+
+  const players = {};
+  for (let i = 0; i < NUM_PLAYERS; i++) {
+    const isAI = aiSlots.includes(i);
+    players[i] = {
+      id: isAI ? 'AI_BOT' : (i === mySlot ? myId : ''),
+      color: colors[i].hex,
+      colorName: colors[i].name,
+      hp: 3, bullets: 0, lastProtect: false, alive: true, reflectUsed: false
+    };
+  }
+
+  roomRef = db.ref('rooms/' + roomId);
+  roomRef.set({
+    roomId, status: 'waiting', host: myId, aiSlots, version: gameVersion,
+    round: 0, players, roundData: null,
+    createdAt: firebase.database.ServerValue.TIMESTAMP
+  }).then(() => {
+    dom.lobbyStatus.textContent = '';
+    dom.lobbySolo.style.display = 'none';
+    dom.lobbyMulti.style.display = 'none';
+    document.querySelector('.mode-divider').style.display = 'none';
+    document.querySelector('.lobby-header').style.display = 'none';
+    $('rules-classic').style.display = 'none';
+    $('rules-advanced').style.display = 'none';
+    dom.waitRoom.classList.add('show');
+    $('room-code-display').textContent = roomId;
+    updateWaitSlots(players);
+    listenRoom();
+    roomRef.onDisconnect().remove();
+  }).catch(e => { dom.lobbyStatus.textContent = '❌ 創建失敗: ' + e.message; });
+}
+
+function joinRoom() {
+  initFirebase();
+  gameMode = 'multi';
+  const code = $('room-input').value.trim();
+  if (!code || code.length !== 4 || !/^\d{4}$/.test(code)) { dom.lobbyStatus.textContent = '⚠️ 請輸入4位數字房間號'; return; }
+  roomId = code;
+  isHost = false;
+  roomRef = db.ref('rooms/' + roomId);
+
+  roomRef.once('value').then(snap => {
+    if (!snap.exists()) { dom.lobbyStatus.textContent = '❌ 房間不存在'; return; }
+    const d = snap.val();
+    if (d.status !== 'waiting') { dom.lobbyStatus.textContent = '❌ 房間已開始或結束'; return; }
+    aiSlots = d.aiSlots || [];
+    gameVersion = d.version || 'classic';
+
+    let found = -1;
+    for (let i = 0; i < NUM_PLAYERS; i++) {
+      if (aiSlots.includes(i)) continue;
+      const pid = d.players[i].id;
+      if (!pid || pid === '') { found = i; break; }
+    }
+    if (found === -1) { dom.lobbyStatus.textContent = '❌ 房間已滿'; return; }
+    mySlot = found;
+    roomRef.child('players/' + found + '/id').set(myId).then(() => {
+      dom.lobbySolo.style.display = 'none';
+      dom.lobbyMulti.style.display = 'none';
+      document.querySelector('.mode-divider').style.display = 'none';
+      document.querySelector('.lobby-header').style.display = 'none';
+      $('rules-classic').style.display = 'none';
+      $('rules-advanced').style.display = 'none';
+      dom.waitRoom.classList.add('show');
+      $('room-code-display').textContent = roomId;
+      listenRoom();
+    });
+  }).catch(e => { dom.lobbyStatus.textContent = '❌ 加入失敗: ' + e.message; });
+}
+
+function cancelRoom() { cleanupMultiListeners(); if (isHost && roomRef) roomRef.remove(); resetLobbyUI(); }
+
+function resetLobbyUI() {
+  dom.lobbySolo.style.display = 'block';
+  dom.lobbyMulti.style.display = 'block';
+  const d = document.querySelector('.mode-divider');
+  if (d) d.style.display = 'flex';
+  const header = document.querySelector('.lobby-header');
+  if (header) header.style.display = 'block';
+  setVersion(gameVersion);
+  dom.waitRoom.classList.remove('show');
+  dom.lobbyStatus.textContent = '';
+}
+
+function updateWaitSlots(players) {
+  let humanIdx = 0;
+  for (let i = 0; i < NUM_PLAYERS; i++) {
+    if (aiSlots.includes(i)) continue;
+    humanIdx++;
+    const el = $('slot-' + humanIdx);
+    if (!el) continue;
+    const p = players[i];
+    if (p && p.id && p.id !== '' && p.id !== 'AI_BOT') {
+      const isMe = p.id === myId;
+      el.innerHTML = `<span class="dot dot-ready"></span> 玩家${humanIdx} ${isMe ? '(你)' : ''} ✔️`;
+    } else {
+      el.innerHTML = `<span class="dot dot-waiting"></span> 等待中...`;
+    }
+  }
+}
+
+function listenRoom() {
+  mainListener = roomRef.on('value', snap => {
+    if (!snap.exists()) { dom.lobbyStatus.textContent = '⚠️ 房間已關閉'; backToLobby(); return; }
+    const data = snap.val();
+    gameState = data;
+    aiSlots = data.aiSlots || [];
+    if (data.status === 'waiting') {
+      updateWaitSlots(data.players);
+      let allReady = true;
+      for (let i = 0; i < NUM_PLAYERS; i++) {
+        const pid = data.players[i].id;
+        if (!pid || pid === '') { allReady = false; break; }
+      }
+      if (allReady && isHost) {
+        roomRef.update({ status: 'playing', round: 1, roundData: { phase: 'start', ts: Date.now() } });
+      }
+    } else if (data.status === 'playing') { onMultiGameUpdate(data); }
+    else if (data.status === 'finished') { onMultiGameFinished(data); }
+  });
+}
+
+function cleanupMultiListeners() {
+  if (roomRef && mainListener !== null) { roomRef.off('value', mainListener); mainListener = null; }
+  if (choicesListener) { try { choicesListener(); } catch (e) {} choicesListener = null; }
+}
+
+function onMultiGameUpdate(data) {
+  if (!data.roundData) return;
+  dom.lobby.classList.add('hidden');
+  dom.overlay.classList.remove('show');
+  dom.soloOppArea.classList.add('hidden');
+  dom.soloRevealArea.classList.add('hidden');
+  dom.opponentsRow.classList.remove('hidden');
+  dom.revealArea.classList.remove('hidden');
+  const ver = data.version || 'classic';
+  dom.modeLabel.textContent = `👥 4人混戰 ${ver === 'advanced' ? '⚡進階' : '📦原版'}`;
+  gameVersion = ver;
+  const rd = data.roundData, round = data.round;
+  multiRenderPlayers(data);
+  if (rd.phase === 'start' && round !== multiCurrentRound) {
+    multiCurrentRound = round;
+    multiRoundPhase = 'choosing';
+    multiLocalChoice = null;
+    multiLocalTarget = null;
+    multiRoundProcessing = false;
+    multiGameFinishedShown = false;
+    startMultiRoundTimer(data);
+  } else if (rd.phase === 'reveal' && multiRoundPhase !== 'revealing') {
+    multiRoundPhase = 'revealing';
+    clearInterval(multiTimerInterval);
+    showMultiReveal(data);
+  }
+}
+
+function startMultiRoundTimer(data) {
+  clearInterval(multiTimerInterval);
+  disableAllBtns();
+  const alive = [];
+  for (let i = 0; i < NUM_PLAYERS; i++) { if (data.players[i].alive) alive.push(data.players[i]); }
+  const maxTime = calcRoundTime(data.round, alive);
+  multiTimerValue = maxTime;
+  dom.roundLabel.textContent = `第 ${data.round} 回合`;
+  dom.timer.textContent = multiTimerValue;
+  updateTimerStyle(multiTimerValue);
+  dom.status.textContent = '選擇你嘅動作！';
+  hideMultiReveals();
+  dom.targetSel.classList.remove('show');
+  dom.subSel.classList.remove('show');
+  if (maxTime === 10) dom.timerNote.textContent = '⚠️ 全員1血！10秒';
+  else if (maxTime === 3) dom.timerNote.textContent = '⚡ 極速模式 3秒';
+  else dom.timerNote.textContent = '';
+  clearBtnSelected();
+
+  const me = data.players[mySlot];
+  if (!me || !me.alive) {
+    dom.status.textContent = '你已陣亡...觀戰中 👻';
+    disableAllBtns();
+    if (!multiRoundProcessing) {
+      multiRoundProcessing = true;
+      roomRef.child('roundData/choices/' + mySlot).set({ action: 'none', target: -1 });
+      if (isHost) submitAllAI(data);
+      listenChoices(data);
+    }
+    return;
+  }
+
+  dom.btnLoad.disabled = false;
+  if (gameVersion === 'advanced') {
+    dom.btnShoot.disabled = (me.bullets < 1);
+    const protSubs = getSubActions('protect', me.bullets, me.lastProtect, me.reflectUsed || false);
+    dom.btnProtect.disabled = (protSubs.length === 0);
+  } else {
+    dom.btnShoot.disabled = (me.bullets < 1);
+    dom.btnProtect.disabled = !!me.lastProtect;
+  }
+
+  multiTimerInterval = setInterval(() => {
+    multiTimerValue--;
+    dom.timer.textContent = Math.max(0, multiTimerValue);
+    updateTimerStyle(multiTimerValue);
+    if (multiTimerValue > 3) sfx.tick(); else sfx.urgent();
+    if (multiTimerValue <= 0) { clearInterval(multiTimerInterval); submitMultiChoice(data); }
+  }, 1000);
+}
+
+function multiChooseAction(action) {
+  if (multiRoundPhase !== 'choosing' || multiLocalChoice) return;
+  if (!gameState || !gameState.players[mySlot] || !gameState.players[mySlot].alive) return;
+
+  if (gameVersion === 'advanced') {
+    showMultiSubSelector(action);
+  } else {
+    if (action === 'shoot') { showTargetSelector('shoot'); return; }
+    multiLocalChoice = action;
+    multiLocalTarget = null;
+    clearBtnSelected();
+    if (action === 'load') dom.btnLoad.classList.add('selected');
+    if (action === 'protect') dom.btnProtect.classList.add('selected');
+    disableAllBtns();
+    dom.status.textContent = '已鎖定！等緊倒數結束...';
+    sfx.select();
+  }
+}
+
+function showMultiSubSelector(action) {
+  const me = gameState.players[mySlot];
+  dom.subBtns.innerHTML = '';
+  const subs = getSubActions(action, me.bullets, me.lastProtect, me.reflectUsed || false);
+  if (subs.length === 0) return;
+  $('sub-title').textContent = action === 'load' ? '🔋 選擇入彈方式' : action === 'shoot' ? '💥 選擇射擊方式' : '🛡️ 選擇防禦方式';
+  $('sub-title').style.color = action === 'load' ? '#44cc44' : action === 'shoot' ? '#ff4444' : '#4488ff';
+  dom.subSel.style.borderColor = action === 'load' ? '#44cc44' : action === 'shoot' ? '#ff4444' : '#4488ff';
+  subs.forEach(s => {
+    const btn = document.createElement('button');
+    btn.className = 'sub-btn';
+    btn.style.borderColor = action === 'load' ? '#44cc44' : action === 'shoot' ? '#ff4444' : '#4488ff';
+    btn.style.color = action === 'load' ? '#88ff88' : action === 'shoot' ? '#ff8888' : '#88bbff';
+    btn.innerHTML = `<span class="sub-title">${s.label}</span><span class="sub-desc">${s.desc}</span>`;
+    btn.onclick = () => {
+      dom.subSel.classList.remove('show');
+      if (s.action === 'shoot' || s.action === 'shoot_bomb') {
+        multiLocalChoice = s.action;
+        if (s.action === 'shoot') showTargetSelector('shoot');
+        else {
+          multiLocalTarget = -1;
+          clearBtnSelected();
+          dom.btnShoot.classList.add('selected');
+          disableAllBtns();
+          dom.status.textContent = '已鎖定！💣 全體轟炸！';
+          sfx.select();
+        }
+      } else {
+        multiLocalChoice = s.action;
+        multiLocalTarget = null;
+        clearBtnSelected();
+        if (action === 'load') dom.btnLoad.classList.add('selected');
+        if (action === 'protect') dom.btnProtect.classList.add('selected');
+        disableAllBtns();
+        dom.status.textContent = '已鎖定！等緊倒數結束...';
+        sfx.select();
+      }
+    };
+    dom.subBtns.appendChild(btn);
+  });
+  dom.subSel.classList.add('show');
+}
+
+function showTargetSelector(shootType) {
+  dom.targetBtns.innerHTML = '';
+  const ps = gameState.players;
+  for (let i = 0; i < NUM_PLAYERS; i++) {
+    if (i === mySlot) continue;
+    if (!ps[i].alive) continue;
+    const c = ps[i].color, cn = ps[i].colorName;
+    const btn = document.createElement('button');
+    btn.className = 'target-btn';
+    btn.style.borderColor = c;
+    btn.style.color = c;
+    btn.innerHTML = `<span class="color-dot" style="background:${c}"></span> ${cn}火柴人`;
+    const slot = i;
+    btn.onclick = () => selectTarget(slot);
+    dom.targetBtns.appendChild(btn);
+  }
+  dom.targetSel.classList.add('show');
+}
+
+function cancelTarget() { dom.targetSel.classList.remove('show'); if (gameVersion === 'advanced') { multiLocalChoice = null; } }
+
+function selectTarget(slot) {
+  if (!multiLocalChoice) multiLocalChoice = 'shoot';
+  multiLocalTarget = slot;
+  dom.targetSel.classList.remove('show');
+  clearBtnSelected();
+  dom.btnShoot.classList.add('selected');
+  const tn = gameState.players[slot].colorName;
+  disableAllBtns();
+  dom.status.textContent = `已鎖定！🎯 射擊 ${tn}火柴人`;
+  sfx.select();
+}
+
+function submitMultiChoice(data) {
+  if (multiRoundProcessing) return;
+  multiRoundProcessing = true;
+  disableAllBtns();
+  dom.targetSel.classList.remove('show');
+  dom.subSel.classList.remove('show');
+  const action = multiLocalChoice || 'none';
+  const target = multiLocalTarget !== null ? multiLocalTarget : -1;
+  if (action === 'none') sfx.timeout();
+  roomRef.child('roundData/choices/' + mySlot).set({ action, target }).then(() => {
+    if (isHost) submitAllAI(data);
+    listenChoices(data);
+  });
+}
+
+function submitAllAI(data) {
+  for (const aiIdx of aiSlots) {
+    const ai = data.players[aiIdx];
+    if (!ai || !ai.alive) {
+      roomRef.child('roundData/choices/' + aiIdx).set({ action: 'none', target: -1 });
+      continue;
+    }
+    const ver = data.version || 'classic';
+    let action, target = -1;
+    if (ver === 'advanced') {
+      const opts = ['load', 'load_gamble'];
+      if (ai.bullets >= 1) opts.push('shoot');
+      if (ai.bullets >= 3) opts.push('shoot_bomb');
+      if (!ai.lastProtect) opts.push('protect');
+      if (!ai.reflectUsed && !ai.lastProtect) opts.push('protect_reflect');
+      action = opts[Math.floor(Math.random() * opts.length)];
+    } else {
+      const opts = ['load'];
+      if (ai.bullets >= 1) opts.push('shoot');
+      if (!ai.lastProtect) opts.push('protect');
+      action = opts[Math.floor(Math.random() * opts.length)];
+    }
+    if (action === 'shoot') {
+      const targets = [];
+      for (let i = 0; i < NUM_PLAYERS; i++) { if (i !== aiIdx && data.players[i].alive) targets.push(i); }
+      if (targets.length > 0) target = targets[Math.floor(Math.random() * targets.length)];
+    } else if (action === 'shoot_bomb') {
+      target = -1;
+    }
+    roomRef.child('roundData/choices/' + aiIdx).set({ action, target });
+  }
+}
+
+function listenChoices(data) {
+  const ref = roomRef.child('roundData/choices');
+  const handler = ref.on('value', snap => {
+    const choices = snap.val();
+    if (!choices) return;
+    const aliveSlots = [];
+    for (let i = 0; i < NUM_PLAYERS; i++) { if (data.players[i].alive) aliveSlots.push(i); }
+    const allDone = aliveSlots.every(s => choices[s] !== undefined && choices[s] !== null);
+    if (!allDone) return;
+    ref.off('value', handler);
+    choicesListener = null;
+    if (isHost) resolveMultiRound(data, choices);
+  });
+  choicesListener = () => ref.off('value', handler);
+}
+
+function resolveMultiRound(data, choices) {
+  const players = JSON.parse(JSON.stringify(data.players));
+  const ver = data.version || 'classic';
+  for (let i = 0; i < NUM_PLAYERS; i++) { if (!choices[i]) choices[i] = { action: 'none', target: -1 }; }
+  const results = [];
+  const damages = new Array(NUM_PLAYERS).fill(0);
+
+  for (let i = 0; i < NUM_PLAYERS; i++) {
+    if (!players[i].alive) continue;
+    const act = choices[i].action;
+    if (act === 'load') players[i].bullets++;
+    if (act === 'load_gamble') {
+      if (Math.random() < 0.7) { players[i].bullets += 2; results.push(`🎰 ${players[i].colorName} 賭博入彈成功！+2`); }
+      else { players[i].bullets = Math.max(0, players[i].bullets - 1); results.push(`🎰 ${players[i].colorName} 賭博入彈失敗！-1`); }
+    }
+    if (act === 'shoot') players[i].bullets = Math.max(0, players[i].bullets - 1);
+    if (act === 'shoot_bomb') players[i].bullets = Math.max(0, players[i].bullets - 3);
+  }
+
+  const reflecting = new Array(NUM_PLAYERS).fill(false);
+  const protecting = new Array(NUM_PLAYERS).fill(false);
+  for (let i = 0; i < NUM_PLAYERS; i++) {
+    if (!players[i].alive) continue;
+    if (choices[i].action === 'protect') protecting[i] = true;
+    if (choices[i].action === 'protect_reflect') { protecting[i] = true; reflecting[i] = true; players[i].reflectUsed = true; }
+  }
+
+  const shots = [];
+  const bombs = [];
+  for (let i = 0; i < NUM_PLAYERS; i++) {
+    if (!players[i].alive) continue;
+    if (choices[i].action === 'shoot' && choices[i].target >= 0) shots.push({ from: i, to: choices[i].target });
+    if (choices[i].action === 'shoot_bomb') bombs.push(i);
+  }
+
+  const processedMutual = new Set();
+  for (const shot of shots) {
+    const a = shot.from, d = shot.to;
+    const mutualShot = shots.find(s => s.from === d && s.to === a);
+    const pairKey = Math.min(a, d) + '_' + Math.max(a, d);
+    if (mutualShot && !processedMutual.has(pairKey)) {
+      processedMutual.add(pairKey);
+      results.push(`⚔️ ${players[a].colorName} 和 ${players[d].colorName} 互射抵銷！`);
+    } else if (!mutualShot) {
+      if (protecting[d]) {
+        if (reflecting[d]) {
+          damages[a]++;
+          results.push(`🪞 ${players[d].colorName} 反彈 ${players[a].colorName} 嘅攻擊！`);
+        } else {
+          results.push(`🛡️ ${players[d].colorName} 擋住 ${players[a].colorName} 嘅攻擊！`);
+        }
+      } else {
+        damages[d]++;
+        results.push(`🎯 ${players[a].colorName} 射中 ${players[d].colorName}！`);
+      }
+    }
+  }
+
+  for (const bomber of bombs) {
+    for (let t = 0; t < NUM_PLAYERS; t++) {
+      if (t === bomber || !players[t].alive) continue;
+      if (reflecting[t]) {
+        damages[bomber]++;
+        results.push(`🪞 ${players[t].colorName} 反彈 ${players[bomber].colorName} 嘅轟炸！`);
+      } else {
+        damages[t]++;
+        results.push(`💣 ${players[bomber].colorName} 轟炸擊中 ${players[t].colorName}！`);
+      }
+    }
+  }
+
+  for (let i = 0; i < NUM_PLAYERS; i++) {
+    if (!players[i].alive) continue;
+    if (choices[i].action === 'none') { damages[i]++; results.push(`⏰ ${players[i].colorName} 無動作，扣1血！`); }
+  }
+
+  for (let i = 0; i < NUM_PLAYERS; i++) {
+    if (!players[i].alive) continue;
+    players[i].hp = Math.max(0, players[i].hp - damages[i]);
+    if (players[i].hp <= 0) players[i].alive = false;
+    players[i].lastProtect = protecting[i];
+  }
+  if (results.length === 0) results.push('😶 和平回合，冇人受傷');
+
+  const alive = [];
+  for (let i = 0; i < NUM_PLAYERS; i++) { if (players[i].alive) alive.push(i); }
+  let newStatus = 'playing';
+  if (alive.length <= 1) newStatus = 'finished';
+
+  const updates = {};
+  for (let i = 0; i < NUM_PLAYERS; i++) {
+    updates['players/' + i + '/hp'] = players[i].hp;
+    updates['players/' + i + '/bullets'] = players[i].bullets;
+    updates['players/' + i + '/lastProtect'] = players[i].lastProtect || false;
+    updates['players/' + i + '/alive'] = players[i].alive;
+    updates['players/' + i + '/reflectUsed'] = players[i].reflectUsed || false;
+  }
+  updates['roundData'] = { phase: 'reveal', choices, damages, results, ts: Date.now() };
+  if (newStatus === 'finished') {
+    updates['status'] = 'finished';
+    if (alive.length === 1) { updates['winnerSlot'] = alive[0]; updates['winner'] = players[alive[0]].colorName; }
+    else { updates['winner'] = 'none'; }
+  }
+  roomRef.update(updates);
+  if (newStatus === 'playing') {
+    setTimeout(() => { roomRef.update({ round: data.round + 1, roundData: { phase: 'start', ts: Date.now() } }); }, 3500);
+  }
+}
+
+function showMultiReveal(data) {
+  clearInterval(multiTimerInterval);
+  disableAllBtns();
+  dom.targetSel.classList.remove('show');
+  dom.subSel.classList.remove('show');
+  const rd = data.roundData;
+  if (!rd || !rd.choices) return;
+  dom.timer.textContent = '⚡';
+  dom.timer.className = '';
+  dom.timerNote.textContent = '';
+
+  for (let i = 0; i < NUM_PLAYERS; i++) {
+    const el = $('reveal-' + i);
+    if (!el) continue;
+    const ch = rd.choices[i];
+    if (!ch) continue;
+    const p = data.players[i];
+    let txt = `${p.colorName}:${getActionLabel(ch.action)}`;
+    if (ch.action === 'shoot' && ch.target >= 0) txt += `→${data.players[ch.target].colorName}`;
+    if (ch.action === 'shoot_bomb') txt += '→全體';
+    el.textContent = txt;
+    el.style.background = p.color + '15';
+    el.style.color = p.color;
+    el.style.borderColor = p.color + '44';
+    el.classList.add('show');
+  }
+
+  dom.status.innerHTML = (rd.results || []).join('<br>');
+  const damages = rd.damages || new Array(NUM_PLAYERS).fill(0);
+  for (let i = 0; i < NUM_PLAYERS; i++) {
+    const stk = getMultiStickEl(i);
+    if (!stk) continue;
+    const act = rd.choices[i]?.action;
+    stk.classList.remove('stickman-hit', 'stickman-shield', 'stickman-shoot', 'stickman-load');
+    if (damages[i] > 0) {
+      stk.classList.add('stickman-hit');
+      const card = stk.closest('.opponent-card') || stk.closest('#my-area');
+      if (card) card.classList.add('flash-red');
+      if (i === mySlot) sfx.hit();
+    } else if (act === 'shoot' || act === 'shoot_bomb') { stk.classList.add('stickman-shoot'); if (i === mySlot) sfx.shoot(); }
+    else if (act === 'protect' || act === 'protect_reflect') { stk.classList.add('stickman-shield'); if (i === mySlot) sfx.shield(); }
+    else if (act === 'load' || act === 'load_gamble') { stk.classList.add('stickman-load'); if (i === mySlot) sfx.load(); }
+  }
+  multiRenderPlayers(data);
+}
+
+function getMultiStickEl(slot) {
+  if (slot === mySlot) return $('my-stick');
+  let idx = 0;
+  for (let i = 0; i < NUM_PLAYERS; i++) {
+    if (i === mySlot) continue;
+    if (i === slot) return $('opp-' + idx + '-stick');
+    idx++;
+  }
+  return null;
+}
+
+function hideMultiReveals() {
+  for (let i = 0; i < NUM_PLAYERS; i++) { const el = $('reveal-' + i); if (el) { el.classList.remove('show'); el.textContent = ''; } }
+}
+
+function onMultiGameFinished(data) {
+  clearInterval(multiTimerInterval);
+  dom.lobby.classList.add('hidden');
+  if (data.roundData && data.roundData.phase === 'reveal') showMultiReveal(data);
+  if (multiGameFinishedShown) return;
+  multiGameFinishedShown = true;
+
+  setTimeout(() => {
+    const ws = data.winnerSlot;
+    const myAiSlots = data.aiSlots || [];
+
+    if (ws === undefined || ws === null || data.winner === 'none') {
+      dom.oTitle.textContent = '💀 全軍覆沒！';
+      dom.oTitle.className = 'draw';
+      dom.oSub.textContent = '所有人同時陣亡...';
+      dom.oRank.innerHTML = '';
+      sfx.lose();
+    } else if (ws === mySlot) {
+      dom.oTitle.textContent = '🎉 你贏咗！';
+      dom.oTitle.className = 'win';
+      dom.oSub.textContent = `用咗 ${data.round} 個回合勝出！`;
+      dom.oRank.innerHTML = '';
+      sfx.win();
+    } else {
+      const wColor = data.players[ws].colorName;
+      const wasAI = myAiSlots.includes(ws);
+      dom.oTitle.textContent = '💀 你輸咗！';
+      dom.oTitle.className = 'lose';
+      dom.oSub.textContent = `${wColor}火柴人勝出（第 ${data.round} 回合）`;
+      dom.oRank.innerHTML = wasAI ? '🤖 原來贏家係AI！' : '🧑 贏家係真人玩家！';
+      sfx.lose();
+    }
+
+    const aiNames = myAiSlots.map(s => data.players[s].colorName).join('、');
+    dom.oRank.innerHTML += `<br><span style="color:#888;font-size:.85em">🎭 AI 真身：${aiNames}火柴人</span>`;
+
+    let summary = '<br>';
+    for (let i = 0; i < NUM_PLAYERS; i++) {
+      const p = data.players[i];
+      const tag = i === mySlot ? '(你)' : (myAiSlots.includes(i) ? '(AI)' : '(玩家)');
+      const status = p.alive ? '👑 存活' : '💀 陣亡';
+      summary += `<span style="color:${p.color}">${p.colorName} ${tag}: ${status}</span><br>`;
+    }
+    dom.oRank.innerHTML += summary;
+    dom.overlay.classList.add('show');
+    if (isHost) { setTimeout(() => { try { roomRef.remove(); } catch (e) {} }, 30000); }
+  }, 2500);
+}
+
+function multiRenderPlayers(data) {
+  if (!data || !data.players) return;
+  const me = data.players[mySlot];
+  if (me) {
+    $('my-hearts').textContent = '❤️'.repeat(Math.max(0, me.hp)) + '🖤'.repeat(Math.max(0, 3 - me.hp));
+    $('my-bullets').textContent = `🔋 子彈：${me.bullets}`;
+    $('my-tag').textContent = `🧑 你 (${me.colorName})`;
+    $('my-tag').style.color = me.color;
+    drawStickman($('my-stick'), me.color, me.alive);
+    $('my-area').style.opacity = me.alive ? '1' : '0.35';
+  }
+  let idx = 0;
+  for (let i = 0; i < NUM_PLAYERS; i++) {
+    if (i === mySlot) continue;
+    const p = data.players[i];
+    $('opp-' + idx + '-tag').textContent = p.colorName + '火柴人';
+    $('opp-' + idx + '-tag').style.color = p.color;
+    $('opp-' + idx + '-hearts').textContent = '❤️'.repeat(Math.max(0, p.hp)) + '🖤'.repeat(Math.max(0, 3 - p.hp));
+    drawStickman($('opp-' + idx + '-stick'), p.color, p.alive);
+    const card = $('opp-' + idx);
+    if (!p.alive) card.classList.add('dead'); else card.classList.remove('dead');
+    idx++;
+  }
+}
+
+// ==============================================
+// ====          共用 Router                   ====
+// ==============================================
+
+function chooseAction(action) {
+  if (gameMode === 'solo') soloChooseAction(action);
+  else if (gameMode === 'multi') multiChooseAction(action);
+}
+
+function backToLobby() {
+  gameMode = '';
+  clearInterval(solo.timerInterval);
+  clearInterval(multiTimerInterval);
+  cleanupMultiListeners();
+  dom.overlay.classList.remove('show');
+  dom.lobby.classList.remove('hidden');
+  dom.targetSel.classList.remove('show');
+  dom.subSel.classList.remove('show');
+  resetLobbyUI();
+  roomRef = null;
+  roomId = '';
+  mySlot = -1;
+  multiCurrentRound = 0;
+  multiRoundPhase = '';
+  multiGameFinishedShown = false;
+  aiSlots = [];
+  dom.soloOppArea.classList.add('hidden');
+  dom.opponentsRow.classList.add('hidden');
+  dom.revealArea.classList.add('hidden');
+  dom.soloRevealArea.classList.add('hidden');
+}
+
+// ==============================================
+// ====          Mobile 防 quirks              ====
+// ==============================================
+
+document.addEventListener('touchend', e => {
+  const t = e.target;
+  if (t.tagName === 'BUTTON' || t.closest('button') || t.classList.contains('target-btn') || t.classList.contains('sub-btn')) {
+    e.preventDefault();
+    t.click();
+  }
+}, { passive: false });
+document.addEventListener('contextmenu', e => e.preventDefault());
+$('room-input').addEventListener('touchend', e => { e.stopPropagation(); });
+
+// 頁面載入後初始化
+window.addEventListener('DOMContentLoaded', () => {
+  setVersion('classic');
+});
+</script>
+</body>
+</html>
