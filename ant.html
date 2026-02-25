@@ -1,0 +1,2015 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<!--
+  ============================================================
+  Paint Fight - 2人對戰塗色遊戲 (手機優化版)
+  ============================================================
+  【遊戲模式】
+  - 單人模式：玩家(紅) vs AI(藍)
+  - 雙人模式：玩家1(紅) vs 玩家2(藍) 本地對戰
+  
+  【遊戲規則】
+  - 30秒內盡可能塗滿格子
+  - 單人模式：AI 需等玩家塗滿 2 格才會開始行動
+  - AI 優先填滿空白格，然後才搶玩家的格子
+  
+  【6種特殊筆】
+  1. 爆裂筆 - 10秒後啟動，塗滿周圍3x3格，持續5秒
+  2. 封印筆 - 15秒後啟動，禁止對方行動，持續5秒
+  3. 疾風筆 - 20秒後啟動，移動速度+200%，持續5秒
+  4. 淨化筆 - 25秒後啟動，立即將對方10格變空白
+  5. 星爆筆 - 5秒後啟動，立即填滿30格隨機空白格
+  6. 混亂筆 - 每5秒顛倒對方方向，每次持續3秒
+  
+  【操作】
+  - 單人模式：下方搖桿控制
+  - 雙人模式：玩家1用下方搖桿，玩家2用上方搖桿
+  ============================================================
+-->
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#1a1a2e">
+<title>Paint Fight 🎨</title>
+<style>
+  *, *::before, *::after {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  html {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background: #1a1a2e;
+  }
+
+  body {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background: #1a1a2e;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  /* 遊戲區容器 */
+  #game-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #1a1a2e;
+  }
+
+  #gameCanvas {
+    display: block;
+    touch-action: none;
+  }
+
+  /* HUD */
+  #hud {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    pointer-events: none;
+    z-index: 10;
+    padding: max(env(safe-area-inset-top), 8px) 8px 0 8px;
+  }
+
+  .hud-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 4px;
+    gap: 8px;
+  }
+
+  .timer-display {
+    font-size: clamp(24px, 8vw, 40px);
+    font-weight: 900;
+    color: #fff;
+    text-shadow: 0 2px 8px rgba(0,0,0,0.5);
+    min-width: 50px;
+    text-align: center;
+    flex-shrink: 0;
+  }
+
+  .score-bar-container {
+    flex: 1;
+    height: clamp(24px, 6vw, 32px);
+    border-radius: 16px;
+    overflow: hidden;
+    background: rgba(255,255,255,0.2);
+    border: 2px solid rgba(255,255,255,0.4);
+    display: flex;
+    min-width: 0;
+  }
+
+  .score-red {
+    height: 100%;
+    background: linear-gradient(90deg, #ff0044, #ff3366);
+    transition: width 0.3s ease;
+    display: flex;
+    align-items: center;
+    padding-left: 6px;
+    min-width: 40px;
+  }
+
+  .score-blue {
+    height: 100%;
+    background: linear-gradient(90deg, #3388ff, #0066ff);
+    transition: width 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    padding-right: 6px;
+    min-width: 40px;
+  }
+
+  .score-label {
+    font-size: clamp(10px, 3vw, 14px);
+    font-weight: 800;
+    color: #fff;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+    white-space: nowrap;
+  }
+
+  /* 技能狀態列 */
+  #skill-status {
+    position: fixed;
+    top: max(env(safe-area-inset-top), 8px);
+    top: calc(max(env(safe-area-inset-top), 8px) + 60px);
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    z-index: 15;
+    pointer-events: none;
+    width: 90%;
+    max-width: 300px;
+  }
+
+  .skill-badge {
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: clamp(11px, 3vw, 14px);
+    font-weight: 700;
+    color: #fff;
+    animation: skillPulse 0.5s ease-in-out infinite alternate;
+    display: none;
+    text-align: center;
+    width: 100%;
+  }
+
+  .skill-badge.player {
+    background: rgba(255,0,68,0.9);
+    border: 2px solid #ff6699;
+  }
+
+  .skill-badge.ai {
+    background: rgba(0,102,255,0.9);
+    border: 2px solid #66aaff;
+  }
+
+  .skill-badge.active {
+    display: block;
+  }
+
+  @keyframes skillPulse {
+    from { transform: scale(1); }
+    to { transform: scale(1.03); }
+  }
+
+  /* 搖桿 - 玩家1 (下方) */
+  #joystick-container-p1 {
+    position: fixed;
+    bottom: max(env(safe-area-inset-bottom), 20px);
+    left: 50%;
+    transform: translateX(-50%);
+    width: clamp(120px, 35vw, 160px);
+    height: clamp(120px, 35vw, 160px);
+    z-index: 20;
+    display: none;
+    touch-action: none;
+  }
+
+  .joystick-base {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.15);
+    border: 3px solid rgba(255,255,255,0.4);
+    box-shadow: 0 0 20px rgba(0,0,0,0.3);
+  }
+
+  .joystick-stick {
+    position: absolute;
+    width: 45%;
+    height: 45%;
+    border-radius: 50%;
+    border: 3px solid rgba(255,255,255,0.6);
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    touch-action: none;
+  }
+
+  .joystick-stick.p1 {
+    background: linear-gradient(135deg, #ff0044, #ff3366);
+    box-shadow: 0 4px 15px rgba(255,0,68,0.5);
+  }
+
+  .joystick-stick.p2 {
+    background: linear-gradient(135deg, #0066ff, #3388ff);
+    box-shadow: 0 4px 15px rgba(0,102,255,0.5);
+  }
+
+  .joystick-stick.active {
+    box-shadow: 0 4px 25px rgba(255,255,255,0.8);
+  }
+
+  /* 搖桿 - 玩家2 (上方，旋轉180度) */
+  #joystick-container-p2 {
+    position: fixed;
+    top: max(env(safe-area-inset-top), 20px);
+    left: 50%;
+    transform: translateX(-50%);
+    width: clamp(120px, 35vw, 160px);
+    height: clamp(120px, 35vw, 160px);
+    z-index: 20;
+    display: none;
+    touch-action: none;
+  }
+
+  .player-cursor {
+    position: fixed;
+    width: clamp(16px, 5vw, 24px);
+    height: clamp(16px, 5vw, 24px);
+    border-radius: 50%;
+    border: 2px solid #fff;
+    pointer-events: none;
+    z-index: 15;
+    display: none;
+    transform: translate(-50%, -50%);
+  }
+
+  #player-cursor-p1 {
+    background: radial-gradient(circle, #ff0044 40%, transparent 70%);
+    box-shadow: 0 0 12px rgba(255,0,68,0.7);
+  }
+
+  #player-cursor-p2 {
+    background: radial-gradient(circle, #0066ff 40%, transparent 70%);
+    box-shadow: 0 0 12px rgba(0,102,255,0.7);
+  }
+
+  /* 開始畫面 */
+  #start-screen {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    z-index: 100;
+    padding: max(env(safe-area-inset-top), 16px) 16px max(env(safe-area-inset-bottom), 16px) 16px;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .game-title {
+    font-size: clamp(28px, 10vw, 48px);
+    font-weight: 900;
+    background: linear-gradient(135deg, #ff0044, #ff6600, #ffcc00, #00cc66, #0066ff, #9933ff);
+    background-size: 300% 300%;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    animation: gradientShift 3s ease infinite;
+    margin-top: 10px;
+    margin-bottom: 8px;
+    text-align: center;
+  }
+
+  @keyframes gradientShift {
+    0%, 100% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+  }
+
+  /* 模式選擇 */
+  .mode-selection {
+    display: flex;
+    gap: 10px;
+    margin: 10px 0;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .mode-btn {
+    padding: 10px 18px;
+    border-radius: 25px;
+    font-size: clamp(13px, 4vw, 16px);
+    font-weight: 700;
+    border: 3px solid transparent;
+    cursor: pointer;
+    transition: all 0.2s;
+    background: rgba(255,255,255,0.1);
+    color: #fff;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+
+  .mode-btn:active {
+    transform: scale(0.95);
+    background: rgba(255,255,255,0.25);
+  }
+
+  .mode-btn.active {
+    border-color: #ffcc00;
+    background: rgba(255,204,0,0.2);
+  }
+
+  .mode-btn .icon {
+    font-size: clamp(16px, 5vw, 20px);
+    margin-right: 6px;
+  }
+
+  .section-title {
+    font-size: clamp(14px, 4.5vw, 18px);
+    font-weight: 700;
+    color: #fff;
+    margin: 10px 0 8px 0;
+  }
+
+  /* 筆選擇區 */
+  .brush-selection {
+    width: 100%;
+    max-width: 360px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .brush-option {
+    display: flex;
+    align-items: center;
+    padding: 10px 12px;
+    border-radius: 12px;
+    background: rgba(255,255,255,0.1);
+    border: 2px solid transparent;
+    cursor: pointer;
+    transition: all 0.15s;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+
+  .brush-option:active {
+    transform: scale(0.98);
+    background: rgba(255,255,255,0.2);
+  }
+
+  .brush-option.selected {
+    border-color: #ffcc00;
+    background: rgba(255,204,0,0.15);
+  }
+
+  .brush-option.selected.p2-select {
+    border-color: #0066ff;
+    background: rgba(0,102,255,0.15);
+  }
+
+  .brush-icon {
+    font-size: clamp(20px, 6vw, 28px);
+    margin-right: 10px;
+    flex-shrink: 0;
+  }
+
+  .brush-info {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .brush-name {
+    font-size: clamp(13px, 4vw, 16px);
+    font-weight: 700;
+    color: #fff;
+  }
+
+  .brush-desc {
+    font-size: clamp(10px, 3vw, 12px);
+    color: rgba(255,255,255,0.6);
+    margin-top: 2px;
+  }
+
+  .brush-timing {
+    font-size: clamp(9px, 2.5vw, 11px);
+    color: #ffcc00;
+    font-weight: 600;
+  }
+
+  .start-btn {
+    padding: clamp(12px, 4vw, 18px) clamp(30px, 10vw, 60px);
+    font-size: clamp(18px, 5.5vw, 24px);
+    font-weight: 800;
+    color: #fff;
+    background: linear-gradient(135deg, #ff0044, #ff6600);
+    border: none;
+    border-radius: 50px;
+    cursor: pointer;
+    box-shadow: 0 4px 20px rgba(255,0,68,0.4);
+    margin: 16px 0 10px 0;
+    transition: transform 0.1s;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+
+  .start-btn:active {
+    transform: scale(0.95);
+  }
+
+  .hint-text {
+    font-size: clamp(10px, 3vw, 13px);
+    color: rgba(255,255,255,0.5);
+    text-align: center;
+    padding: 0 10px;
+  }
+
+  /* 結果畫面 */
+  #result-screen {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    background: rgba(0,0,0,0.85);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    gap: 16px;
+    padding: 20px;
+  }
+
+  .result-title {
+    font-size: clamp(32px, 10vw, 52px);
+    font-weight: 900;
+    text-shadow: 0 4px 20px rgba(0,0,0,0.5);
+    animation: resultBounce 0.8s ease-out;
+    text-align: center;
+  }
+
+  @keyframes resultBounce {
+    0% { transform: scale(0); opacity: 0; }
+    60% { transform: scale(1.2); }
+    100% { transform: scale(1); opacity: 1; }
+  }
+
+  .result-win { color: #ffcc00; }
+  .result-lose { color: #aaaacc; }
+  .result-draw { color: #ffffff; }
+  .result-p1 { color: #ff3366; }
+  .result-p2 { color: #3388ff; }
+
+  .result-scores {
+    display: flex;
+    gap: clamp(12px, 4vw, 24px);
+    align-items: center;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .result-score-box {
+    text-align: center;
+    padding: clamp(10px, 3vw, 16px) clamp(14px, 4vw, 24px);
+    border-radius: 14px;
+    min-width: clamp(80px, 25vw, 120px);
+  }
+
+  .result-score-box.red {
+    background: rgba(255,0,68,0.3);
+    border: 2px solid #ff0044;
+  }
+
+  .result-score-box.blue {
+    background: rgba(0,102,255,0.3);
+    border: 2px solid #0066ff;
+  }
+
+  .result-score-label {
+    font-size: clamp(11px, 3.5vw, 15px);
+    color: rgba(255,255,255,0.8);
+    margin-bottom: 4px;
+  }
+
+  .result-score-value {
+    font-size: clamp(24px, 8vw, 36px);
+    font-weight: 900;
+    color: #fff;
+  }
+
+  .result-vs-text {
+    font-size: clamp(16px, 5vw, 22px);
+    font-weight: 900;
+    color: rgba(255,255,255,0.5);
+  }
+
+  .restart-btn {
+    padding: clamp(10px, 3vw, 16px) clamp(24px, 8vw, 50px);
+    font-size: clamp(16px, 5vw, 22px);
+    font-weight: 800;
+    color: #fff;
+    background: linear-gradient(135deg, #00cc66, #009944);
+    border: none;
+    border-radius: 50px;
+    cursor: pointer;
+    box-shadow: 0 4px 20px rgba(0,204,102,0.4);
+    margin-top: 10px;
+    transition: transform 0.1s;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+
+  .restart-btn:active {
+    transform: scale(0.95);
+  }
+
+  /* 選擇標籤 */
+  .selection-tabs {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 6px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .tab-btn {
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-size: clamp(12px, 3.5vw, 15px);
+    font-weight: 700;
+    border: 2px solid transparent;
+    cursor: pointer;
+    transition: all 0.15s;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+
+  .tab-btn:active {
+    transform: scale(0.95);
+  }
+
+  .tab-btn.p1-tab {
+    background: rgba(255,0,68,0.2);
+    color: #ff3366;
+  }
+
+  .tab-btn.p1-tab.active {
+    background: #ff0044;
+    color: #fff;
+  }
+
+  .tab-btn.p2-tab {
+    background: rgba(0,102,255,0.2);
+    color: #3388ff;
+  }
+
+  .tab-btn.p2-tab.active {
+    background: #0066ff;
+    color: #fff;
+  }
+
+  .selected-brushes {
+    display: flex;
+    gap: 12px;
+    margin: 8px 0;
+    padding: 8px 16px;
+    background: rgba(255,255,255,0.1);
+    border-radius: 12px;
+    align-items: center;
+  }
+
+  .selected-brush-item {
+    text-align: center;
+  }
+
+  .selected-brush-item .icon {
+    font-size: clamp(22px, 7vw, 32px);
+  }
+
+  .selected-brush-item .label {
+    font-size: clamp(10px, 3vw, 12px);
+    color: rgba(255,255,255,0.7);
+    margin-top: 2px;
+  }
+
+  .vs-icon {
+    font-size: clamp(18px, 5vw, 26px);
+    color: #fff;
+  }
+
+  /* 橫向模式提示 */
+  @media (orientation: landscape) and (max-height: 500px) {
+    #start-screen {
+      padding-top: 8px;
+      padding-bottom: 8px;
+    }
+    .game-title {
+      font-size: clamp(20px, 6vw, 32px);
+      margin-bottom: 4px;
+    }
+    .brush-selection {
+      max-height: 40vh;
+      overflow-y: auto;
+    }
+    .mode-selection {
+      margin: 6px 0;
+    }
+    .start-btn {
+      margin: 8px 0;
+      padding: 10px 30px;
+    }
+  }
+</style>
+</head>
+<body>
+
+<div id="game-container">
+  <canvas id="gameCanvas"></canvas>
+</div>
+
+<div class="player-cursor" id="player-cursor-p1"></div>
+<div class="player-cursor" id="player-cursor-p2"></div>
+
+<div id="hud" style="display:none;">
+  <div class="hud-top">
+    <div class="timer-display" id="timer-display">30</div>
+    <div class="score-bar-container">
+      <div class="score-red" id="score-red" style="width:50%">
+        <span class="score-label" id="label-red">🖌️ 0</span>
+      </div>
+      <div class="score-blue" id="score-blue" style="width:50%">
+        <span class="score-label" id="label-blue">0 🤖</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="skill-status">
+  <div class="skill-badge player" id="player-skill-badge">技能啟動中</div>
+  <div class="skill-badge ai" id="ai-skill-badge">對手技能啟動中</div>
+</div>
+
+<!-- 玩家1搖桿 (下方) -->
+<div id="joystick-container-p1">
+  <div class="joystick-base" id="joystick-base-p1"></div>
+  <div class="joystick-stick p1" id="joystick-stick-p1"></div>
+</div>
+
+<!-- 玩家2搖桿 (上方) -->
+<div id="joystick-container-p2">
+  <div class="joystick-base" id="joystick-base-p2"></div>
+  <div class="joystick-stick p2" id="joystick-stick-p2"></div>
+</div>
+
+<!-- 開始畫面 -->
+<div id="start-screen">
+  <div class="game-title">🎨 Paint Fight</div>
+  
+  <!-- 模式選擇 -->
+  <div class="mode-selection">
+    <button class="mode-btn active" id="mode-single" type="button">
+      <span class="icon">🤖</span>單人模式
+    </button>
+    <button class="mode-btn" id="mode-two" type="button">
+      <span class="icon">👥</span>雙人模式
+    </button>
+  </div>
+  
+  <div class="selected-brushes">
+    <div class="selected-brush-item">
+      <div class="icon" id="selected-p1-icon">💥</div>
+      <div class="label">玩家1</div>
+    </div>
+    <div class="vs-icon">⚔️</div>
+    <div class="selected-brush-item">
+      <div class="icon" id="selected-p2-icon">🔒</div>
+      <div class="label"><span id="p2-label">AI</span></div>
+    </div>
+  </div>
+
+  <div class="selection-tabs">
+    <button class="tab-btn p1-tab active" id="tab-p1" type="button">玩家1 的筆</button>
+    <button class="tab-btn p2-tab" id="tab-p2" type="button"><span id="tab-p2-text">AI 的筆</span></button>
+  </div>
+
+  <div class="brush-selection" id="brush-list"></div>
+
+  <button class="start-btn" id="btn-start" type="button">⚔️ 開始對戰！</button>
+  <div class="hint-text" id="hint-text">⚠️ AI 會在你塗滿 2 格後啟動</div>
+</div>
+
+<!-- 結果畫面 -->
+<div id="result-screen">
+  <div class="result-title" id="result-title">你贏了！🎉</div>
+  <div class="result-scores">
+    <div class="result-score-box red">
+      <div class="result-score-label" id="result-label-red">🖌️ 玩家1</div>
+      <div class="result-score-value" id="result-red">0格</div>
+    </div>
+    <div class="result-vs-text">VS</div>
+    <div class="result-score-box blue">
+      <div class="result-score-label" id="result-label-blue">🤖 AI</div>
+      <div class="result-score-value" id="result-blue">0格</div>
+    </div>
+  </div>
+  <button class="restart-btn" id="btn-restart" type="button">🏠 返回主選單</button>
+</div>
+
+<script>
+(function() {
+  'use strict';
+
+  // ===== 常數 =====
+  const GAME_DURATION = 30;
+  const GRID_COLS = 10;
+  const GRID_ROWS = 10;
+  const TOTAL_CELLS = GRID_COLS * GRID_ROWS;
+  const PLAYER_COLOR = '#ff0044';
+  const PLAYER_COLOR_LIGHT = '#ff3366';
+  const P2_COLOR = '#0066ff';
+  const P2_COLOR_LIGHT = '#3388ff';
+  // 速度以「每幀移動格子寬度的百分比」計算，確保手機與電腦一致
+  const BASE_PLAYER_SPEED = 0.055; // 每幀移動格子寬度的 5.5%
+  const BASE_AI_SPEED = 0.045;     // 每幀移動格子寬度的 4.5%
+  const AI_ACTIVATION_CELLS = 2;
+
+  // ===== 6 種特殊筆定義 =====
+  const BRUSHES = [
+    {
+      id: 'blast',
+      name: '爆裂筆',
+      icon: '💥',
+      desc: '塗滿周圍3x3格',
+      timing: '10秒後啟動，持續5秒',
+      activateAt: 10,
+      duration: 5,
+      type: 'buff'
+    },
+    {
+      id: 'seal',
+      name: '封印筆',
+      icon: '🔒',
+      desc: '禁止對方行動',
+      timing: '15秒後啟動，持續5秒',
+      activateAt: 15,
+      duration: 5,
+      type: 'debuff'
+    },
+    {
+      id: 'wind',
+      name: '疾風筆',
+      icon: '💨',
+      desc: '移動速度 +200%',
+      timing: '20秒後啟動，持續5秒',
+      activateAt: 20,
+      duration: 5,
+      type: 'buff'
+    },
+    {
+      id: 'purify',
+      name: '淨化筆',
+      icon: '✨',
+      desc: '清除對方10格',
+      timing: '25秒後立即生效',
+      activateAt: 25,
+      duration: 0,
+      type: 'instant',
+      amount: 10
+    },
+    {
+      id: 'star',
+      name: '星爆筆',
+      icon: '⭐',
+      desc: '隨機填滿30格空白',
+      timing: '5秒後立即生效',
+      activateAt: 5,
+      duration: 0,
+      type: 'instant',
+      amount: 30
+    },
+    {
+      id: 'chaos',
+      name: '混亂筆',
+      icon: '🌀',
+      desc: '每5秒顛倒對方方向',
+      timing: '每5秒觸發，持續3秒',
+      activateAt: 5,
+      duration: 3,
+      interval: 5,
+      type: 'periodic'
+    }
+  ];
+
+  // ===== DOM =====
+  const canvas = document.getElementById('gameCanvas');
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  const hud = document.getElementById('hud');
+  const timerDisplay = document.getElementById('timer-display');
+  const scoreRedBar = document.getElementById('score-red');
+  const scoreBlueBar = document.getElementById('score-blue');
+  const labelRed = document.getElementById('label-red');
+  const labelBlue = document.getElementById('label-blue');
+  const startScreen = document.getElementById('start-screen');
+  const resultScreen = document.getElementById('result-screen');
+  const resultTitle = document.getElementById('result-title');
+  const resultRed = document.getElementById('result-red');
+  const resultBlue = document.getElementById('result-blue');
+  const resultLabelRed = document.getElementById('result-label-red');
+  const resultLabelBlue = document.getElementById('result-label-blue');
+  const btnStart = document.getElementById('btn-start');
+  const btnRestart = document.getElementById('btn-restart');
+  const brushListEl = document.getElementById('brush-list');
+  const tabP1 = document.getElementById('tab-p1');
+  const tabP2 = document.getElementById('tab-p2');
+  const tabP2Text = document.getElementById('tab-p2-text');
+  const selectedP1Icon = document.getElementById('selected-p1-icon');
+  const selectedP2Icon = document.getElementById('selected-p2-icon');
+  const p2Label = document.getElementById('p2-label');
+  const playerSkillBadge = document.getElementById('player-skill-badge');
+  const aiSkillBadge = document.getElementById('ai-skill-badge');
+  const modeSingleBtn = document.getElementById('mode-single');
+  const modeTwoBtn = document.getElementById('mode-two');
+  const hintText = document.getElementById('hint-text');
+
+  // 搖桿 DOM
+  const joystickContainerP1 = document.getElementById('joystick-container-p1');
+  const joystickStickP1 = document.getElementById('joystick-stick-p1');
+  const joystickBaseP1 = document.getElementById('joystick-base-p1');
+  const joystickContainerP2 = document.getElementById('joystick-container-p2');
+  const joystickStickP2 = document.getElementById('joystick-stick-p2');
+  const joystickBaseP2 = document.getElementById('joystick-base-p2');
+  const playerCursorP1 = document.getElementById('player-cursor-p1');
+  const playerCursorP2 = document.getElementById('player-cursor-p2');
+
+  // ===== 遊戲狀態 =====
+  let gameState = 'menu';
+  let gameMode = 'single';
+  let gameStartTime = 0;
+  let timeElapsed = 0;
+  let timeRemaining = GAME_DURATION;
+  let animFrameId = null;
+  let aiActivated = false;
+
+  // 選擇的筆
+  let p1BrushId = 'blast';
+  let p2BrushId = 'seal';
+  let currentTab = 'p1';
+
+  // 技能狀態
+  let p1SkillActive = false;
+  let p1SkillEndTime = 0;
+  let p1SkillTriggered = false;
+  let p2SkillActive = false;
+  let p2SkillEndTime = 0;
+  let p2SkillTriggered = false;
+
+  // 週期性技能追蹤
+  let p1ChaosLastTrigger = 0;
+  let p2ChaosLastTrigger = 0;
+
+  // 方向顛倒狀態
+  let p1Reversed = false;
+  let p2Reversed = false;
+
+  // 封印狀態
+  let p1Sealed = false;
+  let p2Sealed = false;
+
+  // ===== 方格系統 =====
+  let grid = [];
+  let cellWidth = 0;
+  let cellHeight = 0;
+  let gridOffsetX = 0;
+  let gridOffsetY = 0;
+  let redCells = 0;
+  let blueCells = 0;
+
+  // ===== Canvas =====
+  let canvasRect = { left: 0, top: 0, width: 0, height: 0 };
+  let scaleX = 1;
+  let scaleY = 1;
+
+  // ===== 玩家1 =====
+  let p1Pos = { x: 0, y: 0 };
+  let p1LastCell = { col: -1, row: -1 };
+
+  // ===== 玩家2 / AI =====
+  let p2Pos = { x: 0, y: 0 };
+  let p2LastCell = { col: -1, row: -1 };
+
+  // ===== 搖桿 =====
+  let joystickRadius = 35;
+
+  // 玩家1搖桿
+  let joystick1Active = false;
+  let joystick1TouchId = null;
+  let joystick1Center = { x: 0, y: 0 };
+  let joystick1Input = { x: 0, y: 0 };
+
+  // 玩家2搖桿
+  let joystick2Active = false;
+  let joystick2TouchId = null;
+  let joystick2Center = { x: 0, y: 0 };
+  let joystick2Input = { x: 0, y: 0 };
+
+  // ===== AI =====
+  let aiTarget = { x: 0, y: 0 };
+  let aiTargetCell = { col: -1, row: -1 };
+
+  // ===== 初始化 Canvas =====
+  function resizeCanvas() {
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    canvas.style.width = vw + 'px';
+    canvas.style.height = vh + 'px';
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    canvas.width = Math.floor(vw * dpr);
+    canvas.height = Math.floor(vh * dpr);
+    scaleX = canvas.width / vw;
+    scaleY = canvas.height / vh;
+
+    const rect = canvas.getBoundingClientRect();
+    canvasRect.left = rect.left;
+    canvasRect.top = rect.top;
+    canvasRect.width = rect.width;
+    canvasRect.height = rect.height;
+
+    const padding = 10 * scaleX;
+    const availableWidth = canvas.width - padding * 2;
+    const availableHeight = canvas.height - padding * 2;
+    const cellSize = Math.min(
+      Math.floor(availableWidth / GRID_COLS),
+      Math.floor(availableHeight / GRID_ROWS)
+    );
+    cellWidth = cellSize;
+    cellHeight = cellSize;
+    gridOffsetX = (canvas.width - cellWidth * GRID_COLS) / 2;
+    gridOffsetY = (canvas.height - cellHeight * GRID_ROWS) / 2;
+
+    // 動態計算搖桿半徑
+    const joystickSize = Math.min(vw * 0.35, 160);
+    joystickRadius = joystickSize * 0.25;
+
+    updateJoystickCenters();
+  }
+
+  function updateJoystickCenters() {
+    if (joystickContainerP1.style.display !== 'none') {
+      const rect1 = joystickBaseP1.getBoundingClientRect();
+      joystick1Center.x = rect1.left + rect1.width / 2;
+      joystick1Center.y = rect1.top + rect1.height / 2;
+    }
+
+    if (joystickContainerP2.style.display !== 'none') {
+      const rect2 = joystickBaseP2.getBoundingClientRect();
+      joystick2Center.x = rect2.left + rect2.width / 2;
+      joystick2Center.y = rect2.top + rect2.height / 2;
+    }
+  }
+
+  // ===== 方格 =====
+  function initGrid() {
+    grid = [];
+    for (let i = 0; i < TOTAL_CELLS; i++) grid.push(0);
+    redCells = 0;
+    blueCells = 0;
+  }
+
+  function paintCell(col, row, owner) {
+    if (col < 0 || col >= GRID_COLS || row < 0 || row >= GRID_ROWS) return false;
+    const index = row * GRID_COLS + col;
+    const current = grid[index];
+    if (current === owner) return false;
+    if (current === 1) redCells--;
+    else if (current === 2) blueCells--;
+    if (owner === 1) redCells++;
+    else if (owner === 2) blueCells++;
+    grid[index] = owner;
+    return true;
+  }
+
+  function clearCell(col, row) {
+    if (col < 0 || col >= GRID_COLS || row < 0 || row >= GRID_ROWS) return;
+    const index = row * GRID_COLS + col;
+    const current = grid[index];
+    if (current === 1) redCells--;
+    else if (current === 2) blueCells--;
+    grid[index] = 0;
+  }
+
+  function getCellFromPos(x, y) {
+    const col = Math.floor((x - gridOffsetX) / cellWidth);
+    const row = Math.floor((y - gridOffsetY) / cellHeight);
+    if (col >= 0 && col < GRID_COLS && row >= 0 && row < GRID_ROWS) {
+      return { col, row, valid: true };
+    }
+    return { col: -1, row: -1, valid: false };
+  }
+
+  function getCellCenter(col, row) {
+    return {
+      x: gridOffsetX + col * cellWidth + cellWidth / 2,
+      y: gridOffsetY + row * cellHeight + cellHeight / 2
+    };
+  }
+
+  // ===== 繪製 =====
+  function drawCanvas() {
+    ctx.fillStyle = '#1a1a2e';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    for (let row = 0; row < GRID_ROWS; row++) {
+      for (let col = 0; col < GRID_COLS; col++) {
+        const x = gridOffsetX + col * cellWidth;
+        const y = gridOffsetY + row * cellHeight;
+        const val = grid[row * GRID_COLS + col];
+
+        if (val === 1) {
+          const g = ctx.createLinearGradient(x, y, x + cellWidth, y + cellHeight);
+          g.addColorStop(0, PLAYER_COLOR);
+          g.addColorStop(1, PLAYER_COLOR_LIGHT);
+          ctx.fillStyle = g;
+        } else if (val === 2) {
+          const g = ctx.createLinearGradient(x, y, x + cellWidth, y + cellHeight);
+          g.addColorStop(0, P2_COLOR);
+          g.addColorStop(1, P2_COLOR_LIGHT);
+          ctx.fillStyle = g;
+        } else {
+          ctx.fillStyle = '#ffffff';
+        }
+        ctx.fillRect(x, y, cellWidth, cellHeight);
+
+        ctx.strokeStyle = '#cccccc';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(x, y, cellWidth, cellHeight);
+      }
+    }
+
+    // 畫 AI 位置指示（單人模式）
+    if (gameMode === 'single' && aiActivated && gameState === 'playing') {
+      ctx.beginPath();
+      ctx.arc(p2Pos.x, p2Pos.y, 8 * scaleX, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(0,102,255,0.7)';
+      ctx.fill();
+      ctx.strokeStyle = '#fff';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    }
+  }
+
+  // ===== 搖桿處理 =====
+  function getJoystick1Rect() {
+    return joystickBaseP1.getBoundingClientRect();
+  }
+
+  function getJoystick2Rect() {
+    return joystickBaseP2.getBoundingClientRect();
+  }
+
+  function isInsideJoystick(touch, rect, padding) {
+    const dx = touch.clientX - (rect.left + rect.width / 2);
+    const dy = touch.clientY - (rect.top + rect.height / 2);
+    return Math.sqrt(dx * dx + dy * dy) <= rect.width / 2 + padding;
+  }
+
+  function handleJoystickTouchStart(e) {
+    if (gameState !== 'playing') return;
+
+    const touches = e.changedTouches;
+    for (let i = 0; i < touches.length; i++) {
+      const touch = touches[i];
+
+      // 檢查玩家1搖桿
+      if (!joystick1Active) {
+        const rect1 = getJoystick1Rect();
+        if (isInsideJoystick(touch, rect1, 40)) {
+          e.preventDefault();
+          joystick1Active = true;
+          joystick1TouchId = touch.identifier;
+          joystickStickP1.classList.add('active');
+          updateJoystick1Position(touch.clientX, touch.clientY);
+          continue;
+        }
+      }
+
+      // 檢查玩家2搖桿（雙人模式）
+      if (gameMode === 'two' && !joystick2Active) {
+        const rect2 = getJoystick2Rect();
+        if (isInsideJoystick(touch, rect2, 40)) {
+          e.preventDefault();
+          joystick2Active = true;
+          joystick2TouchId = touch.identifier;
+          joystickStickP2.classList.add('active');
+          updateJoystick2Position(touch.clientX, touch.clientY);
+        }
+      }
+    }
+  }
+
+  function handleJoystickTouchMove(e) {
+    if (gameState !== 'playing') return;
+
+    const touches = e.changedTouches;
+    for (let i = 0; i < touches.length; i++) {
+      const touch = touches[i];
+      if (touch.identifier === joystick1TouchId && joystick1Active) {
+        e.preventDefault();
+        updateJoystick1Position(touch.clientX, touch.clientY);
+      }
+      if (touch.identifier === joystick2TouchId && joystick2Active) {
+        e.preventDefault();
+        updateJoystick2Position(touch.clientX, touch.clientY);
+      }
+    }
+  }
+
+  function handleJoystickTouchEnd(e) {
+    const touches = e.changedTouches;
+    for (let i = 0; i < touches.length; i++) {
+      const touch = touches[i];
+      if (touch.identifier === joystick1TouchId) {
+        resetJoystick1();
+      }
+      if (touch.identifier === joystick2TouchId) {
+        resetJoystick2();
+      }
+    }
+  }
+
+  function updateJoystick1Position(cx, cy) {
+    const rect = getJoystick1Rect();
+    joystick1Center.x = rect.left + rect.width / 2;
+    joystick1Center.y = rect.top + rect.height / 2;
+    
+    let dx = cx - joystick1Center.x;
+    let dy = cy - joystick1Center.y;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    const maxDist = rect.width * 0.25;
+    
+    if (dist > maxDist) {
+      dx = (dx / dist) * maxDist;
+      dy = (dy / dist) * maxDist;
+    }
+    
+    joystickStickP1.style.left = `calc(50% + ${dx}px)`;
+    joystickStickP1.style.top = `calc(50% + ${dy}px)`;
+    joystick1Input.x = dx / maxDist;
+    joystick1Input.y = dy / maxDist;
+  }
+
+  function updateJoystick2Position(cx, cy) {
+    const rect = getJoystick2Rect();
+    joystick2Center.x = rect.left + rect.width / 2;
+    joystick2Center.y = rect.top + rect.height / 2;
+    
+    let dx = cx - joystick2Center.x;
+    let dy = cy - joystick2Center.y;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    const maxDist = rect.width * 0.25;
+    
+    if (dist > maxDist) {
+      dx = (dx / dist) * maxDist;
+      dy = (dy / dist) * maxDist;
+    }
+    
+    joystickStickP2.style.left = `calc(50% + ${dx}px)`;
+    joystickStickP2.style.top = `calc(50% + ${dy}px)`;
+    // 容器旋轉180度只是視覺效果，輸入直接使用螢幕座標系
+    joystick2Input.x = dx / maxDist;
+    joystick2Input.y = dy / maxDist;
+  }
+
+  function resetJoystick1() {
+    joystick1Active = false;
+    joystick1TouchId = null;
+    joystick1Input.x = 0;
+    joystick1Input.y = 0;
+    joystickStickP1.style.left = '50%';
+    joystickStickP1.style.top = '50%';
+    joystickStickP1.classList.remove('active');
+  }
+
+  function resetJoystick2() {
+    joystick2Active = false;
+    joystick2TouchId = null;
+    joystick2Input.x = 0;
+    joystick2Input.y = 0;
+    joystickStickP2.style.left = '50%';
+    joystickStickP2.style.top = '50%';
+    joystickStickP2.classList.remove('active');
+  }
+
+  // 滑鼠支援（桌面測試）
+  let mouseDownP1 = false;
+  function handleMouseDown(e) {
+    if (gameState !== 'playing') return;
+    const rect1 = getJoystick1Rect();
+    const dx1 = e.clientX - (rect1.left + rect1.width / 2);
+    const dy1 = e.clientY - (rect1.top + rect1.height / 2);
+    if (Math.sqrt(dx1 * dx1 + dy1 * dy1) <= rect1.width / 2 + 40) {
+      mouseDownP1 = true;
+      joystick1Active = true;
+      joystickStickP1.classList.add('active');
+      updateJoystick1Position(e.clientX, e.clientY);
+    }
+  }
+  
+  function handleMouseMove(e) {
+    if (!mouseDownP1 || gameState !== 'playing') return;
+    updateJoystick1Position(e.clientX, e.clientY);
+  }
+  
+  function handleMouseUp() {
+    if (mouseDownP1) {
+      mouseDownP1 = false;
+      resetJoystick1();
+    }
+  }
+
+  // ===== 玩家1更新 =====
+  function updatePlayer1() {
+    if (p1Sealed) return;
+
+    // 速度基於格子寬度計算，確保不同設備速度一致
+    let speed = BASE_PLAYER_SPEED * cellWidth;
+    
+    const p1Brush = BRUSHES.find(b => b.id === p1BrushId);
+    if (p1Brush && p1Brush.id === 'wind' && p1SkillActive) {
+      speed *= 3;
+    }
+
+    let inputX = joystick1Input.x;
+    let inputY = joystick1Input.y;
+
+    if (p1Reversed) {
+      inputX = -inputX;
+      inputY = -inputY;
+    }
+
+    p1Pos.x += inputX * speed;
+    p1Pos.y += inputY * speed;
+
+    // 邊界
+    const minX = gridOffsetX + cellWidth / 2;
+    const maxX = gridOffsetX + cellWidth * GRID_COLS - cellWidth / 2;
+    const minY = gridOffsetY + cellHeight / 2;
+    const maxY = gridOffsetY + cellHeight * GRID_ROWS - cellHeight / 2;
+    p1Pos.x = Math.max(minX, Math.min(maxX, p1Pos.x));
+    p1Pos.y = Math.max(minY, Math.min(maxY, p1Pos.y));
+
+    // 塗色
+    const cell = getCellFromPos(p1Pos.x, p1Pos.y);
+    if (cell.valid && (cell.col !== p1LastCell.col || cell.row !== p1LastCell.row)) {
+      paintCell(cell.col, cell.row, 1);
+      p1LastCell.col = cell.col;
+      p1LastCell.row = cell.row;
+
+      // 爆裂筆
+      if (p1Brush && p1Brush.id === 'blast' && p1SkillActive) {
+        for (let dr = -1; dr <= 1; dr++) {
+          for (let dc = -1; dc <= 1; dc++) {
+            const nc = cell.col + dc;
+            const nr = cell.row + dr;
+            if (nc >= 0 && nc < GRID_COLS && nr >= 0 && nr < GRID_ROWS) {
+              paintCell(nc, nr, 1);
+            }
+          }
+        }
+      }
+    }
+
+    // 更新游標
+    const screenX = p1Pos.x / scaleX + canvasRect.left;
+    const screenY = p1Pos.y / scaleY + canvasRect.top;
+    playerCursorP1.style.left = screenX + 'px';
+    playerCursorP1.style.top = screenY + 'px';
+  }
+
+  // ===== 玩家2更新（雙人模式）=====
+  function updatePlayer2() {
+    if (p2Sealed) return;
+
+    // 速度基於格子寬度計算，確保不同設備速度一致
+    let speed = BASE_PLAYER_SPEED * cellWidth;
+    
+    const p2Brush = BRUSHES.find(b => b.id === p2BrushId);
+    if (p2Brush && p2Brush.id === 'wind' && p2SkillActive) {
+      speed *= 3;
+    }
+
+    let inputX = joystick2Input.x;
+    let inputY = joystick2Input.y;
+
+    if (p2Reversed) {
+      inputX = -inputX;
+      inputY = -inputY;
+    }
+
+    p2Pos.x += inputX * speed;
+    p2Pos.y += inputY * speed;
+
+    // 邊界
+    const minX = gridOffsetX + cellWidth / 2;
+    const maxX = gridOffsetX + cellWidth * GRID_COLS - cellWidth / 2;
+    const minY = gridOffsetY + cellHeight / 2;
+    const maxY = gridOffsetY + cellHeight * GRID_ROWS - cellHeight / 2;
+    p2Pos.x = Math.max(minX, Math.min(maxX, p2Pos.x));
+    p2Pos.y = Math.max(minY, Math.min(maxY, p2Pos.y));
+
+    // 塗色
+    const cell = getCellFromPos(p2Pos.x, p2Pos.y);
+    if (cell.valid && (cell.col !== p2LastCell.col || cell.row !== p2LastCell.row)) {
+      paintCell(cell.col, cell.row, 2);
+      p2LastCell.col = cell.col;
+      p2LastCell.row = cell.row;
+
+      // 爆裂筆
+      if (p2Brush && p2Brush.id === 'blast' && p2SkillActive) {
+        for (let dr = -1; dr <= 1; dr++) {
+          for (let dc = -1; dc <= 1; dc++) {
+            const nc = cell.col + dc;
+            const nr = cell.row + dr;
+            if (nc >= 0 && nc < GRID_COLS && nr >= 0 && nr < GRID_ROWS) {
+              paintCell(nc, nr, 2);
+            }
+          }
+        }
+      }
+    }
+
+    // 更新游標
+    const screenX = p2Pos.x / scaleX + canvasRect.left;
+    const screenY = p2Pos.y / scaleY + canvasRect.top;
+    playerCursorP2.style.left = screenX + 'px';
+    playerCursorP2.style.top = screenY + 'px';
+  }
+
+  // ===== AI =====
+  function initAI() {
+    p2Pos.x = gridOffsetX + (GRID_COLS - 1) * cellWidth + cellWidth / 2;
+    p2Pos.y = gridOffsetY + cellHeight / 2;
+    p2LastCell = { col: GRID_COLS - 1, row: 0 };
+    aiTargetCell = findAITarget();
+    updateAITargetPos();
+    aiActivated = false;
+  }
+
+  function findAITarget() {
+    // AI 優先填滿空白格
+    const emptyCells = [];
+    const playerCells = [];
+    
+    for (let row = 0; row < GRID_ROWS; row++) {
+      for (let col = 0; col < GRID_COLS; col++) {
+        const val = grid[row * GRID_COLS + col];
+        if (val === 0) {
+          emptyCells.push({ col, row });
+        } else if (val === 1) {
+          playerCells.push({ col, row });
+        }
+      }
+    }
+
+    // 優先選擇空白格
+    if (emptyCells.length > 0) {
+      if (Math.random() < 0.7 && p2LastCell.col >= 0) {
+        let best = emptyCells[0];
+        let bestDist = Infinity;
+        for (const c of emptyCells) {
+          const d = (c.col - p2LastCell.col) ** 2 + (c.row - p2LastCell.row) ** 2;
+          if (d < bestDist) { bestDist = d; best = c; }
+        }
+        return best;
+      }
+      return emptyCells[Math.floor(Math.random() * emptyCells.length)];
+    }
+
+    // 沒有空白格了，搶玩家的格子
+    if (playerCells.length > 0) {
+      if (Math.random() < 0.7 && p2LastCell.col >= 0) {
+        let best = playerCells[0];
+        let bestDist = Infinity;
+        for (const c of playerCells) {
+          const d = (c.col - p2LastCell.col) ** 2 + (c.row - p2LastCell.row) ** 2;
+          if (d < bestDist) { bestDist = d; best = c; }
+        }
+        return best;
+      }
+      return playerCells[Math.floor(Math.random() * playerCells.length)];
+    }
+
+    return {
+      col: Math.floor(Math.random() * GRID_COLS),
+      row: Math.floor(Math.random() * GRID_ROWS)
+    };
+  }
+
+  function updateAITargetPos() {
+    const c = getCellCenter(aiTargetCell.col, aiTargetCell.row);
+    aiTarget.x = c.x;
+    aiTarget.y = c.y;
+  }
+
+  function updateAI() {
+    if (!aiActivated) {
+      if (redCells >= AI_ACTIVATION_CELLS) {
+        aiActivated = true;
+      } else {
+        return;
+      }
+    }
+
+    if (p2Sealed) return;
+
+    // 速度基於格子寬度計算，確保不同設備速度一致
+    let speed = BASE_AI_SPEED * cellWidth;
+    
+    const p2Brush = BRUSHES.find(b => b.id === p2BrushId);
+    if (p2Brush && p2Brush.id === 'wind' && p2SkillActive) {
+      speed *= 3;
+    }
+
+    let dx = aiTarget.x - p2Pos.x;
+    let dy = aiTarget.y - p2Pos.y;
+
+    if (p2Reversed) {
+      dx = -dx;
+      dy = -dy;
+    }
+
+    const dist = Math.sqrt(dx * dx + dy * dy);
+
+    if (dist < speed) {
+      p2Pos.x = aiTarget.x;
+      p2Pos.y = aiTarget.y;
+    } else {
+      const moveX = (dx / dist) * speed;
+      const moveY = (dy / dist) * speed;
+      p2Pos.x += moveX;
+      p2Pos.y += moveY;
+    }
+
+    // 邊界
+    const minX = gridOffsetX + cellWidth / 2;
+    const maxX = gridOffsetX + cellWidth * GRID_COLS - cellWidth / 2;
+    const minY = gridOffsetY + cellHeight / 2;
+    const maxY = gridOffsetY + cellHeight * GRID_ROWS - cellHeight / 2;
+    p2Pos.x = Math.max(minX, Math.min(maxX, p2Pos.x));
+    p2Pos.y = Math.max(minY, Math.min(maxY, p2Pos.y));
+
+    const cell = getCellFromPos(p2Pos.x, p2Pos.y);
+    if (cell.valid && (cell.col !== p2LastCell.col || cell.row !== p2LastCell.row)) {
+      paintCell(cell.col, cell.row, 2);
+      p2LastCell = { col: cell.col, row: cell.row };
+
+      // AI 爆裂筆
+      if (p2Brush && p2Brush.id === 'blast' && p2SkillActive) {
+        for (let dr = -1; dr <= 1; dr++) {
+          for (let dc = -1; dc <= 1; dc++) {
+            const nc = cell.col + dc;
+            const nr = cell.row + dr;
+            if (nc >= 0 && nc < GRID_COLS && nr >= 0 && nr < GRID_ROWS) {
+              paintCell(nc, nr, 2);
+            }
+          }
+        }
+      }
+
+      // 到達目標後找新目標
+      if (cell.col === aiTargetCell.col && cell.row === aiTargetCell.row) {
+        aiTargetCell = findAITarget();
+        updateAITargetPos();
+      }
+    }
+
+    // 如果卡住或目標已變化，重新找目標
+    if (dist < speed) {
+      aiTargetCell = findAITarget();
+      updateAITargetPos();
+    }
+  }
+
+  // ===== 技能系統 =====
+  function updateSkills() {
+    const now = performance.now();
+    const p1Brush = BRUSHES.find(b => b.id === p1BrushId);
+    const p2Brush = BRUSHES.find(b => b.id === p2BrushId);
+
+    // === 玩家1技能 ===
+    if (p1Brush) {
+      if (p1Brush.type === 'periodic') {
+        const interval = p1Brush.interval * 1000;
+        if (timeElapsed * 1000 - p1ChaosLastTrigger >= interval && timeElapsed >= p1Brush.activateAt) {
+          p1ChaosLastTrigger = timeElapsed * 1000;
+          p2Reversed = true;
+          p1SkillActive = true;
+          p1SkillEndTime = now + p1Brush.duration * 1000;
+          showSkillBadge('player', '🌀 混亂筆發動！對手方向顛倒');
+        }
+        if (p1SkillActive && now >= p1SkillEndTime) {
+          p1SkillActive = false;
+          p2Reversed = false;
+          hideSkillBadge('player');
+        }
+      } else if (!p1SkillTriggered && timeElapsed >= p1Brush.activateAt) {
+        p1SkillTriggered = true;
+        activateSkill(p1Brush, 'p1');
+      }
+      
+      if (p1Brush.type === 'buff' || p1Brush.type === 'debuff') {
+        if (p1SkillActive && now >= p1SkillEndTime) {
+          p1SkillActive = false;
+          if (p1Brush.id === 'seal') p2Sealed = false;
+          hideSkillBadge('player');
+        }
+      }
+    }
+
+    // === 玩家2/AI 技能 ===
+    const canActivateP2 = gameMode === 'two' || aiActivated;
+    if (p2Brush && canActivateP2) {
+      if (p2Brush.type === 'periodic') {
+        const interval = p2Brush.interval * 1000;
+        if (timeElapsed * 1000 - p2ChaosLastTrigger >= interval && timeElapsed >= p2Brush.activateAt) {
+          p2ChaosLastTrigger = timeElapsed * 1000;
+          p1Reversed = true;
+          p2SkillActive = true;
+          p2SkillEndTime = now + p2Brush.duration * 1000;
+          const label = gameMode === 'single' ? 'AI' : '玩家2';
+          showSkillBadge('ai', `🌀 ${label} 混亂筆！你的方向顛倒`);
+        }
+        if (p2SkillActive && now >= p2SkillEndTime) {
+          p2SkillActive = false;
+          p1Reversed = false;
+          hideSkillBadge('ai');
+        }
+      } else if (!p2SkillTriggered && timeElapsed >= p2Brush.activateAt) {
+        p2SkillTriggered = true;
+        activateSkill(p2Brush, 'p2');
+      }
+
+      if (p2Brush.type === 'buff' || p2Brush.type === 'debuff') {
+        if (p2SkillActive && now >= p2SkillEndTime) {
+          p2SkillActive = false;
+          if (p2Brush.id === 'seal') p1Sealed = false;
+          hideSkillBadge('ai');
+        }
+      }
+    }
+  }
+
+  function activateSkill(brush, owner) {
+    const now = performance.now();
+    const isP1 = owner === 'p1';
+    const label = isP1 ? '' : (gameMode === 'single' ? 'AI ' : '玩家2 ');
+    const badgeOwner = isP1 ? 'player' : 'ai';
+
+    if (brush.type === 'buff') {
+      if (isP1) {
+        p1SkillActive = true;
+        p1SkillEndTime = now + brush.duration * 1000;
+      } else {
+        p2SkillActive = true;
+        p2SkillEndTime = now + brush.duration * 1000;
+      }
+      showSkillBadge(badgeOwner, `${brush.icon} ${label}${brush.name}發動！`);
+    } else if (brush.type === 'debuff') {
+      if (isP1) {
+        p1SkillActive = true;
+        p1SkillEndTime = now + brush.duration * 1000;
+        p2Sealed = true;
+        const target = gameMode === 'single' ? 'AI' : '玩家2';
+        showSkillBadge('player', `${brush.icon} 封印筆！${target} 無法行動`);
+      } else {
+        p2SkillActive = true;
+        p2SkillEndTime = now + brush.duration * 1000;
+        p1Sealed = true;
+        showSkillBadge('ai', `${brush.icon} ${label}封印你！無法行動`);
+      }
+    } else if (brush.type === 'instant') {
+      if (brush.id === 'purify') {
+        const targetOwner = isP1 ? 2 : 1;
+        const cells = [];
+        for (let r = 0; r < GRID_ROWS; r++) {
+          for (let c = 0; c < GRID_COLS; c++) {
+            if (grid[r * GRID_COLS + c] === targetOwner) {
+              cells.push({ col: c, row: r });
+            }
+          }
+        }
+        const count = Math.min(brush.amount, cells.length);
+        for (let i = 0; i < count; i++) {
+          const idx = Math.floor(Math.random() * cells.length);
+          clearCell(cells[idx].col, cells[idx].row);
+          cells.splice(idx, 1);
+        }
+        showSkillBadge(badgeOwner, `${brush.icon} ${label}淨化筆！清除${count}格`);
+        setTimeout(() => hideSkillBadge(badgeOwner), 2000);
+      } else if (brush.id === 'star') {
+        const owner_val = isP1 ? 1 : 2;
+        const empty = [];
+        for (let r = 0; r < GRID_ROWS; r++) {
+          for (let c = 0; c < GRID_COLS; c++) {
+            if (grid[r * GRID_COLS + c] === 0) {
+              empty.push({ col: c, row: r });
+            }
+          }
+        }
+        const count = Math.min(brush.amount, empty.length);
+        for (let i = 0; i < count; i++) {
+          const idx = Math.floor(Math.random() * empty.length);
+          paintCell(empty[idx].col, empty[idx].row, owner_val);
+          empty.splice(idx, 1);
+        }
+        showSkillBadge(badgeOwner, `${brush.icon} ${label}星爆筆！填滿${count}格`);
+        setTimeout(() => hideSkillBadge(badgeOwner), 2000);
+      }
+    }
+  }
+
+  function showSkillBadge(owner, text) {
+    const badge = owner === 'player' ? playerSkillBadge : aiSkillBadge;
+    badge.textContent = text;
+    badge.classList.add('active');
+  }
+
+  function hideSkillBadge(owner) {
+    const badge = owner === 'player' ? playerSkillBadge : aiSkillBadge;
+    badge.classList.remove('active');
+  }
+
+  // ===== HUD =====
+  function updateHUD() {
+    timerDisplay.textContent = Math.ceil(timeRemaining);
+    timerDisplay.style.color = timeRemaining <= 5 ? '#ff4444' : timeRemaining <= 10 ? '#ffaa00' : '#fff';
+
+    const total = redCells + blueCells;
+    if (total > 0) {
+      const rPct = (redCells / total) * 100;
+      scoreRedBar.style.width = Math.max(15, rPct) + '%';
+      scoreBlueBar.style.width = Math.max(15, 100 - rPct) + '%';
+    }
+    
+    const p2Icon = gameMode === 'single' ? '🤖' : '🎮';
+    labelRed.textContent = '🖌️ ' + redCells;
+    labelBlue.textContent = blueCells + ' ' + p2Icon;
+  }
+
+  // ===== 遊戲迴圈 =====
+  function gameLoop(timestamp) {
+    if (gameState === 'playing') {
+      timeElapsed = (timestamp - gameStartTime) / 1000;
+      timeRemaining = Math.max(0, GAME_DURATION - timeElapsed);
+
+      updateSkills();
+      updatePlayer1();
+      
+      if (gameMode === 'two') {
+        updatePlayer2();
+      } else {
+        updateAI();
+      }
+      
+      drawCanvas();
+      updateHUD();
+
+      if (timeRemaining <= 0) {
+        endGame();
+        return;
+      }
+    }
+    animFrameId = requestAnimationFrame(gameLoop);
+  }
+
+  // ===== 遊戲流程 =====
+  function startGame() {
+    gameState = 'playing';
+    startScreen.style.display = 'none';
+    resultScreen.style.display = 'none';
+    hud.style.display = 'block';
+    joystickContainerP1.style.display = 'block';
+    playerCursorP1.style.display = 'block';
+
+    if (gameMode === 'two') {
+      joystickContainerP2.style.display = 'block';
+      playerCursorP2.style.display = 'block';
+    } else {
+      joystickContainerP2.style.display = 'none';
+      playerCursorP2.style.display = 'none';
+    }
+
+    resizeCanvas();
+    initGrid();
+    resetJoystick1();
+    resetJoystick2();
+    
+    // 重設技能狀態
+    p1SkillActive = false;
+    p1SkillTriggered = false;
+    p2SkillActive = false;
+    p2SkillTriggered = false;
+    p1Reversed = false;
+    p2Reversed = false;
+    p1Sealed = false;
+    p2Sealed = false;
+    p1ChaosLastTrigger = 0;
+    p2ChaosLastTrigger = 0;
+    hideSkillBadge('player');
+    hideSkillBadge('ai');
+
+    timeRemaining = GAME_DURATION;
+    timeElapsed = 0;
+
+    // 玩家1起始位置（左下）
+    p1Pos.x = gridOffsetX + cellWidth / 2;
+    p1Pos.y = gridOffsetY + (GRID_ROWS - 1) * cellHeight + cellHeight / 2;
+    p1LastCell = { col: 0, row: GRID_ROWS - 1 };
+
+    // 玩家2/AI 起始位置（右上）
+    p2Pos.x = gridOffsetX + (GRID_COLS - 1) * cellWidth + cellWidth / 2;
+    p2Pos.y = gridOffsetY + cellHeight / 2;
+    p2LastCell = { col: GRID_COLS - 1, row: 0 };
+
+    if (gameMode === 'single') {
+      initAI();
+    } else {
+      aiActivated = true;
+    }
+
+    gameStartTime = performance.now();
+
+    const rect = canvas.getBoundingClientRect();
+    canvasRect.left = rect.left;
+    canvasRect.top = rect.top;
+
+    // 更新游標位置
+    setTimeout(() => {
+      updateJoystickCenters();
+      const screenX1 = p1Pos.x / scaleX + canvasRect.left;
+      const screenY1 = p1Pos.y / scaleY + canvasRect.top;
+      playerCursorP1.style.left = screenX1 + 'px';
+      playerCursorP1.style.top = screenY1 + 'px';
+
+      if (gameMode === 'two') {
+        const screenX2 = p2Pos.x / scaleX + canvasRect.left;
+        const screenY2 = p2Pos.y / scaleY + canvasRect.top;
+        playerCursorP2.style.left = screenX2 + 'px';
+        playerCursorP2.style.top = screenY2 + 'px';
+      }
+    }, 50);
+
+    drawCanvas();
+    animFrameId = requestAnimationFrame(gameLoop);
+  }
+
+  function endGame() {
+    gameState = 'ended';
+    joystickContainerP1.style.display = 'none';
+    joystickContainerP2.style.display = 'none';
+    playerCursorP1.style.display = 'none';
+    playerCursorP2.style.display = 'none';
+    hideSkillBadge('player');
+    hideSkillBadge('ai');
+
+    if (animFrameId) {
+      cancelAnimationFrame(animFrameId);
+      animFrameId = null;
+    }
+
+    resultRed.textContent = redCells + '格';
+    resultBlue.textContent = blueCells + '格';
+
+    if (gameMode === 'single') {
+      resultLabelRed.textContent = '🖌️ 你';
+      resultLabelBlue.textContent = '🤖 AI';
+      
+      if (redCells > blueCells) {
+        resultTitle.textContent = '🎉 你贏了！';
+        resultTitle.className = 'result-title result-win';
+      } else if (blueCells > redCells) {
+        resultTitle.textContent = '😢 你輸了…';
+        resultTitle.className = 'result-title result-lose';
+      } else {
+        resultTitle.textContent = '🤝 平手！';
+        resultTitle.className = 'result-title result-draw';
+      }
+    } else {
+      resultLabelRed.textContent = '🎮 玩家1';
+      resultLabelBlue.textContent = '🎮 玩家2';
+      
+      if (redCells > blueCells) {
+        resultTitle.textContent = '🎉 玩家1 獲勝！';
+        resultTitle.className = 'result-title result-p1';
+      } else if (blueCells > redCells) {
+        resultTitle.textContent = '🎉 玩家2 獲勝！';
+        resultTitle.className = 'result-title result-p2';
+      } else {
+        resultTitle.textContent = '🤝 平手！';
+        resultTitle.className = 'result-title result-draw';
+      }
+    }
+
+    setTimeout(() => {
+      resultScreen.style.display = 'flex';
+    }, 500);
+  }
+
+  function returnToMenu() {
+    gameState = 'menu';
+    resultScreen.style.display = 'none';
+    hud.style.display = 'none';
+    startScreen.style.display = 'flex';
+  }
+
+  // ===== 模式選擇 =====
+  function setGameMode(mode) {
+    gameMode = mode;
+    
+    if (mode === 'single') {
+      modeSingleBtn.classList.add('active');
+      modeTwoBtn.classList.remove('active');
+      p2Label.textContent = 'AI';
+      tabP2Text.textContent = 'AI 的筆';
+      hintText.textContent = '⚠️ AI 會在你塗滿 2 格後啟動';
+    } else {
+      modeTwoBtn.classList.add('active');
+      modeSingleBtn.classList.remove('active');
+      p2Label.textContent = '玩家2';
+      tabP2Text.textContent = '玩家2 的筆';
+      hintText.textContent = '👆 玩家2 使用上方搖桿（旋轉180度操控）';
+    }
+  }
+
+  // ===== 筆選擇 UI =====
+  function renderBrushList() {
+    brushListEl.innerHTML = '';
+    const selectedId = currentTab === 'p1' ? p1BrushId : p2BrushId;
+
+    BRUSHES.forEach(brush => {
+      const div = document.createElement('div');
+      div.className = 'brush-option' + (brush.id === selectedId ? ' selected' : '') + (currentTab === 'p2' ? ' p2-select' : '');
+      div.innerHTML = `
+        <div class="brush-icon">${brush.icon}</div>
+        <div class="brush-info">
+          <div class="brush-name">${brush.name}</div>
+          <div class="brush-desc">${brush.desc}</div>
+          <div class="brush-timing">${brush.timing}</div>
+        </div>
+      `;
+      div.addEventListener('click', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (currentTab === 'p1') {
+          p1BrushId = brush.id;
+          selectedP1Icon.textContent = brush.icon;
+        } else {
+          p2BrushId = brush.id;
+          selectedP2Icon.textContent = brush.icon;
+        }
+        renderBrushList();
+      });
+      brushListEl.appendChild(div);
+    });
+  }
+
+  function initBrushSelection() {
+    selectedP1Icon.textContent = BRUSHES.find(b => b.id === p1BrushId).icon;
+    selectedP2Icon.textContent = BRUSHES.find(b => b.id === p2BrushId).icon;
+
+    tabP1.addEventListener('click', function(e) {
+      e.preventDefault();
+      currentTab = 'p1';
+      tabP1.classList.add('active');
+      tabP2.classList.remove('active');
+      renderBrushList();
+    });
+
+    tabP2.addEventListener('click', function(e) {
+      e.preventDefault();
+      currentTab = 'p2';
+      tabP2.classList.add('active');
+      tabP1.classList.remove('active');
+      renderBrushList();
+    });
+
+    modeSingleBtn.addEventListener('click', function(e) {
+      e.preventDefault();
+      setGameMode('single');
+    });
+    
+    modeTwoBtn.addEventListener('click', function(e) {
+      e.preventDefault();
+      setGameMode('two');
+    });
+
+    renderBrushList();
+  }
+
+  // ===== 事件綁定 =====
+  function bindEvents() {
+    // 搖桿觸控事件 - 只在遊戲容器上監聽
+    document.addEventListener('touchstart', handleJoystickTouchStart, { passive: false });
+    document.addEventListener('touchmove', handleJoystickTouchMove, { passive: false });
+    document.addEventListener('touchend', handleJoystickTouchEnd, { passive: true });
+    document.addEventListener('touchcancel', handleJoystickTouchEnd, { passive: true });
+
+    // 滑鼠事件（桌面）
+    joystickContainerP1.addEventListener('mousedown', handleMouseDown);
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+
+    // 按鈕事件
+    btnStart.addEventListener('click', function(e) {
+      e.preventDefault();
+      startGame();
+    });
+    
+    btnRestart.addEventListener('click', function(e) {
+      e.preventDefault();
+      returnToMenu();
+    });
+
+    // 視窗大小變化
+    window.addEventListener('resize', function() {
+      resizeCanvas();
+      if (gameState === 'playing') {
+        drawCanvas();
+        updateJoystickCenters();
+      }
+    });
+
+    // 方向變化
+    window.addEventListener('orientationchange', function() {
+      setTimeout(function() {
+        resizeCanvas();
+        if (gameState === 'playing') {
+          drawCanvas();
+          updateJoystickCenters();
+        }
+      }, 100);
+    });
+
+    // 防止雙指縮放
+    document.addEventListener('gesturestart', function(e) {
+      e.preventDefault();
+    }, { passive: false });
+    
+    document.addEventListener('gesturechange', function(e) {
+      e.preventDefault();
+    }, { passive: false });
+  }
+
+  // ===== 初始化 =====
+  function init() {
+    resizeCanvas();
+    initGrid();
+    drawCanvas();
+    initBrushSelection();
+    bindEvents();
+    setGameMode('single');
+  }
+
+  // 等待 DOM 完全載入
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+
+})();
+</script>
+
+</body>
+</html>
