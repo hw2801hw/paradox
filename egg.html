@@ -1,0 +1,2023 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>🥚 搗蛋保衛戰 🥚</title>
+
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
+<style>
+  /* ===== 全域樣式 ===== */
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html, body {
+    width:100%; height:100%; overflow:hidden;
+    font-family: 'Segoe UI', 'PingFang TC', 'Microsoft JhengHei', sans-serif;
+    background:#f5f0e1;
+    touch-action:manipulation;
+  }
+
+  /* ===== 遊戲容器 ===== */
+  #game-wrapper {
+    position:relative;
+    width:100%; height:100%;
+    max-width:450px;
+    margin:0 auto;
+    background: linear-gradient(180deg, #faf6eb 0%, #f0e8d0 50%, #e8dfc5 100%);
+    display:flex; flex-direction:column;
+    overflow:hidden;
+  }
+
+  /* ===== 大廳畫面 ===== */
+  #lobby-screen {
+    position:absolute; top:0; left:0; width:100%; height:100%;
+    background: linear-gradient(180deg, #faf6eb 0%, #f0e8d0 50%, #e8dfc5 100%);
+    z-index:200;
+    display:flex; flex-direction:column;
+    align-items:center; justify-content:center;
+    text-align:center; padding:20px;
+  }
+  #lobby-screen.hidden { display:none; }
+
+  .lobby-title {
+    font-size:clamp(32px,9vw,48px);
+    font-weight:900;
+    color:#8b7355;
+    margin-bottom:8px;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.15);
+  }
+  .lobby-subtitle {
+    font-size:clamp(14px,3.5vw,18px);
+    color:#a08b6d;
+    margin-bottom:30px;
+  }
+
+  .lobby-btn {
+    display:block; width:80%; max-width:280px;
+    padding:16px 20px; margin:8px auto;
+    border:none; border-radius:16px;
+    font-size:clamp(16px,4.2vw,20px);
+    font-weight:bold; color:#fff;
+    cursor:pointer;
+    box-shadow:0 4px 12px rgba(0,0,0,0.2);
+    transition:transform 0.1s;
+    letter-spacing:1px;
+  }
+  .lobby-btn:active { transform:scale(0.95); }
+  .lobby-btn.btn-ai { background:linear-gradient(135deg,#66bb6a,#43a047); }
+  .lobby-btn.btn-create { background:linear-gradient(135deg,#42a5f5,#1e88e5); }
+  .lobby-btn.btn-join { background:linear-gradient(135deg,#ffa726,#f57c00); }
+  .lobby-btn.btn-back { background:linear-gradient(135deg,#bdbdbd,#9e9e9e); margin-top:16px; }
+  .lobby-btn.btn-cancel { background:linear-gradient(135deg,#ef5350,#e53935); margin-top:16px; }
+
+  /* 多人子畫面 */
+  #mp-menu, #mp-create, #mp-join, #mp-waiting { display:none; }
+  #mp-menu.show, #mp-create.show, #mp-join.show, #mp-waiting.show { display:block; }
+
+  .room-code-display {
+    font-size:clamp(40px,12vw,60px);
+    font-weight:900;
+    color:#5d4e37;
+    letter-spacing:12px;
+    margin:16px 0;
+    text-shadow:0 2px 4px rgba(0,0,0,0.1);
+  }
+  .room-info {
+    font-size:clamp(13px,3.5vw,17px);
+    color:#8b7355;
+    margin:8px 0;
+    line-height:1.6;
+  }
+
+  .room-input {
+    font-size:clamp(28px,8vw,40px);
+    font-weight:900;
+    text-align:center;
+    letter-spacing:10px;
+    width:200px;
+    padding:10px;
+    border:3px solid #c4a97d;
+    border-radius:12px;
+    background:#fff;
+    color:#5d4e37;
+    outline:none;
+    margin:12px 0;
+  }
+  .room-input:focus { border-color:#8b7355; }
+
+  .lobby-error {
+    color:#e53935;
+    font-size:clamp(12px,3vw,15px);
+    font-weight:bold;
+    margin-top:8px;
+    min-height:20px;
+  }
+
+  .waiting-dots::after {
+    content:'...';
+    display:inline-block;
+    width:1.2em;
+    text-align:left;
+    animation: dots 1.5s steps(4,end) infinite;
+    overflow:hidden;
+    vertical-align:bottom;
+  }
+  @keyframes dots { 0%{width:0} 100%{width:1.2em} }
+
+  /* ===== 頂部標題列 ===== */
+  #header {
+    text-align:center;
+    padding:6px 0 2px;
+    font-size:clamp(14px,3.5vw,18px);
+    font-weight:bold;
+    color:#8b7355;
+    letter-spacing:2px;
+    flex-shrink:0;
+  }
+
+  /* ===== 戰場區域 ===== */
+  #battlefield {
+    flex:1;
+    display:flex;
+    gap:0;
+    padding:4px 4px 0;
+    min-height:0;
+    position:relative;
+  }
+
+  .arena {
+    flex:1;
+    position:relative;
+    border-radius:16px;
+    overflow:hidden;
+    border:2px solid rgba(139,115,85,0.3);
+  }
+  .arena.player-arena { 
+    background:linear-gradient(180deg,#e8f5e9,#c8e6c9,#a5d6a7); 
+    margin-right:2px;
+  }
+  .arena.ai-arena { 
+    background:linear-gradient(180deg,#fce4ec,#f8bbd0,#f48fb1); 
+    margin-left:2px;
+  }
+
+  /* 中間技能欄 */
+  #center-skills {
+    width:44px;
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+    align-items:center;
+    gap:8px;
+    padding:4px 0;
+    flex-shrink:0;
+  }
+
+  .center-skill-btn {
+    width:40px;
+    height:40px;
+    border:none;
+    border-radius:50%;
+    font-size:20px;
+    cursor:pointer;
+    box-shadow:0 2px 6px rgba(0,0,0,0.25);
+    transition:transform 0.1s, opacity 0.2s;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    position:relative;
+  }
+  .center-skill-btn:active { transform:scale(0.9); }
+  .center-skill-btn.used {
+    opacity:0.35;
+    pointer-events:none;
+    filter:grayscale(1);
+  }
+  .center-skill-btn.disabled {
+    opacity:0.5;
+    pointer-events:none;
+  }
+
+  #btn-guardian { background:linear-gradient(135deg,#ffcc80,#ff9800); }
+  #btn-frenzy { background:linear-gradient(135deg,#ce93d8,#9c27b0); }
+  #btn-weaken { background:linear-gradient(135deg,#81d4fa,#03a9f4); }
+
+  .arena-label {
+    position:absolute; top:6px; left:50%; transform:translateX(-50%);
+    font-size:clamp(11px,2.8vw,14px); font-weight:bold;
+    color:rgba(0,0,0,0.5);
+    white-space:nowrap; z-index:5;
+  }
+
+  .egg-container {
+    position:absolute;
+    top:50%; left:50%;
+    transform:translate(-50%,-50%);
+    text-align:center;
+    z-index:3;
+    pointer-events:none;
+  }
+  .egg-emoji {
+    font-size:clamp(60px,18vw,90px);
+    filter:drop-shadow(0 4px 8px rgba(0,0,0,0.2));
+    display:block; line-height:1;
+    transition:filter 0.15s;
+  }
+  .egg-emoji.hurt {
+    filter:drop-shadow(0 4px 8px rgba(255,0,0,0.5)) brightness(0.8);
+  }
+
+  .hp-text {
+    position:absolute;
+    top:50%; left:50%;
+    transform:translate(-50%,-55%);
+    font-size:clamp(22px,6vw,34px);
+    font-weight:900; color:#fff;
+    text-shadow:
+      -2px -2px 0 #333, 2px -2px 0 #333,
+      -2px 2px 0 #333, 2px 2px 0 #333,
+      0 0 8px rgba(0,0,0,0.5);
+    z-index:4; pointer-events:none;
+  }
+
+  .hp-bar-bg {
+    position:absolute;
+    bottom:25%; left:10%; width:80%; height:10px;
+    background:rgba(0,0,0,0.25);
+    border-radius:5px; z-index:4; overflow:hidden;
+  }
+  .hp-bar-fill {
+    height:100%;
+    background:linear-gradient(90deg,#4caf50,#8bc34a);
+    border-radius:5px;
+    transition:width 0.3s;
+  }
+
+  .stats-panel {
+    position:absolute;
+    bottom:6px; left:0; width:100%;
+    display:flex; justify-content:center; gap:4px;
+    flex-wrap:wrap;
+    z-index:5;
+    font-size:clamp(8px,2vw,10px);
+    color:rgba(0,0,0,0.6); font-weight:600;
+  }
+  .stat-badge {
+    background:rgba(255,255,255,0.7);
+    padding:2px 4px; border-radius:6px;
+  }
+
+  /* 螞蟻 */
+  .ant {
+    position:absolute;
+    font-size:clamp(16px,4.5vw,22px);
+    z-index:2; pointer-events:none; line-height:1;
+    transition: left 0.1s linear, top 0.1s linear;
+  }
+  .ant.attacking { animation:antBite 0.3s infinite alternate; }
+  @keyframes antBite {
+    0%{transform:scale(1) rotate(0deg)}
+    100%{transform:scale(1.15) rotate(10deg)}
+  }
+
+  /* 蟻竇 */
+  .anthill {
+    position:absolute;
+    font-size:clamp(20px,5vw,28px);
+    z-index:1; pointer-events:none;
+    animation:anthillAppear 0.4s ease-out;
+  }
+  .anthill.boosted {
+    animation:anthillBoosted 0.5s infinite alternate;
+  }
+  @keyframes anthillAppear {
+    0%{transform:scale(0);opacity:0}
+    100%{transform:scale(1);opacity:1}
+  }
+  @keyframes anthillBoosted {
+    0%{filter:hue-rotate(0deg) brightness(1);}
+    100%{filter:hue-rotate(30deg) brightness(1.3);}
+  }
+
+  /* 母雞（護衛） */
+  .hen {
+    position:absolute;
+    font-size:clamp(36px,10vw,50px);
+    z-index:6;
+    pointer-events:none;
+    animation:henIdle 0.8s infinite alternate;
+    filter:drop-shadow(0 2px 6px rgba(0,0,0,0.3));
+  }
+  .hen.hurt {
+    animation:henHurt 0.2s;
+  }
+  @keyframes henIdle {
+    0%{transform:translateY(0) rotate(-3deg);}
+    100%{transform:translateY(-5px) rotate(3deg);}
+  }
+  @keyframes henHurt {
+    0%,100%{filter:brightness(1);}
+    50%{filter:brightness(0.5) sepia(1);}
+  }
+
+  .hen-hp-bar {
+    position:absolute;
+    width:50px; height:6px;
+    background:rgba(0,0,0,0.3);
+    border-radius:3px;
+    overflow:hidden;
+    z-index:7;
+  }
+  .hen-hp-fill {
+    height:100%;
+    background:linear-gradient(90deg,#ff9800,#ffc107);
+    border-radius:3px;
+    transition:width 0.2s;
+  }
+
+  /* 弱化效果指示器 */
+  .weaken-indicator {
+    position:absolute;
+    top:24px; left:50%;
+    transform:translateX(-50%);
+    background:rgba(100,181,246,0.9);
+    color:#fff;
+    padding:3px 8px;
+    border-radius:10px;
+    font-size:clamp(10px,2.5vw,12px);
+    font-weight:bold;
+    z-index:8;
+    animation:weakenPulse 1s infinite;
+  }
+  @keyframes weakenPulse {
+    0%,100%{opacity:1;}
+    50%{opacity:0.6;}
+  }
+
+  /* ===== 底部面板 ===== */
+  #bottom-panel {
+    flex-shrink:0;
+    background:linear-gradient(0deg,#d7cba8,#e8dfc5);
+    border-top:2px solid rgba(139,115,85,0.4);
+    padding:4px 4px calc(6px + env(safe-area-inset-bottom, 0px));
+  }
+
+  #resource-display {
+    text-align:center;
+    font-size:clamp(11px,2.8vw,14px);
+    font-weight:bold; color:#5d4e37;
+    margin-bottom:4px; line-height:1.3;
+  }
+
+  #skill-buttons {
+    display:flex; gap:4px;
+  }
+
+  .skill-btn {
+    flex:1;
+    padding:8px 2px 6px; border:none;
+    border-radius:10px;
+    font-size:clamp(10px,2.6vw,13px);
+    font-weight:bold; color:#fff;
+    cursor:pointer; text-align:center;
+    line-height:1.2;
+    box-shadow:0 2px 4px rgba(0,0,0,0.2);
+    transition:transform 0.1s, box-shadow 0.1s;
+    position:relative; overflow:hidden;
+  }
+  .skill-btn:active {
+    transform:scale(0.95);
+    box-shadow:0 1px 2px rgba(0,0,0,0.2);
+  }
+  .skill-btn.disabled { opacity:0.5; pointer-events:none; }
+  .skill-btn.used {
+    opacity:0.4;
+    background:#999 !important;
+    pointer-events:none;
+  }
+
+  .skill-btn .btn-label { display:block; font-size:clamp(10px,2.5vw,12px); }
+  .skill-btn .btn-cost { display:block; font-size:clamp(8px,2vw,10px); opacity:0.85; margin-top:1px; }
+
+  #btn-metabolism { background:linear-gradient(135deg,#66bb6a,#43a047); }
+  #btn-intervene { background:linear-gradient(135deg,#ef5350,#e53935); }
+  #btn-defense  { background:linear-gradient(135deg,#42a5f5,#1e88e5); }
+
+  /* ===== 結束畫面 ===== */
+  #end-screen {
+    display:none;
+    position:absolute;
+    top:0; left:0; width:100%; height:100%;
+    background:rgba(0,0,0,0.7);
+    z-index:100;
+    flex-direction:column;
+    align-items:center; justify-content:center;
+    text-align:center; color:#fff;
+  }
+  #end-screen.show { display:flex; }
+  #end-title {
+    font-size:clamp(28px,8vw,42px);
+    font-weight:900; margin-bottom:12px;
+    text-shadow:0 0 20px rgba(255,255,255,0.5);
+  }
+  #end-subtitle {
+    font-size:clamp(16px,4.5vw,22px);
+    margin-bottom:24px; opacity:0.9;
+  }
+  #restart-btn {
+    padding:14px 40px;
+    font-size:clamp(16px,4vw,20px);
+    font-weight:bold; border:none;
+    border-radius:30px;
+    background:linear-gradient(135deg,#ffd54f,#ffb300);
+    color:#5d4e37; cursor:pointer;
+    box-shadow:0 4px 15px rgba(0,0,0,0.3);
+  }
+  #restart-btn:active { transform:scale(0.95); }
+
+  .celebrate { animation:celebratePulse 0.6s infinite alternate; }
+  @keyframes celebratePulse {
+    0%{text-shadow:0 0 10px #ffd54f, 0 0 20px #ffb300}
+    100%{text-shadow:0 0 30px #ffd54f, 0 0 60px #ffb300, 0 0 80px #ff8f00}
+  }
+
+  .dmg-float {
+    position:absolute;
+    font-size:clamp(14px,3.5vw,18px);
+    font-weight:bold; color:#ff1744;
+    text-shadow:0 0 4px #fff;
+    pointer-events:none; z-index:10;
+    animation:floatUp 1s ease-out forwards;
+  }
+  @keyframes floatUp {
+    0%{opacity:1;transform:translateY(0)}
+    100%{opacity:0;transform:translateY(-40px)}
+  }
+
+  .heal-float {
+    position:absolute;
+    font-size:clamp(12px,3vw,15px);
+    font-weight:bold; color:#4caf50;
+    text-shadow:0 0 4px #fff;
+    pointer-events:none; z-index:10;
+    animation:floatUp 1s ease-out forwards;
+  }
+
+  .sweep-effect {
+    position:absolute;
+    top:0; left:0; width:100%; height:100%;
+    background:radial-gradient(circle at center, rgba(66,165,245,0.3), transparent 70%);
+    z-index:6; pointer-events:none;
+    animation:sweepPulse 0.5s ease-out forwards;
+  }
+  @keyframes sweepPulse {
+    0%{opacity:1;transform:scale(0.5)}
+    100%{opacity:0;transform:scale(1.5)}
+  }
+
+  /* 連線狀態指示器 */
+  #connection-status {
+    position:absolute; top:2px; right:8px;
+    font-size:10px; color:#aaa; z-index:50;
+  }
+  #connection-status.online { color:#4caf50; }
+  #connection-status.offline { color:#f44336; }
+
+  /* 斷線覆蓋 */
+  #disconnect-overlay {
+    display:none;
+    position:absolute;
+    top:0; left:0; width:100%; height:100%;
+    background:rgba(0,0,0,0.8);
+    z-index:150;
+    flex-direction:column;
+    align-items:center; justify-content:center;
+    text-align:center; color:#fff;
+  }
+  #disconnect-overlay.show { display:flex; }
+  #disconnect-overlay .disc-title {
+    font-size:clamp(22px,6vw,30px);
+    font-weight:bold; margin-bottom:12px;
+  }
+  #disconnect-overlay .disc-sub {
+    font-size:clamp(14px,3.5vw,18px);
+    margin-bottom:20px; opacity:0.85;
+  }
+</style>
+</head>
+<body>
+
+<div id="game-wrapper">
+
+  <!-- ===== 大廳畫面 ===== -->
+  <div id="lobby-screen">
+    <div id="main-menu">
+      <div class="lobby-title">🥚 搗蛋保衛戰</div>
+      <div class="lobby-subtitle">保衛你的蛋蛋，搗蛋對手的蛋蛋！</div>
+      <button class="lobby-btn btn-ai" onclick="startAIGame()">🤖 單人 vs AI</button>
+      <button class="lobby-btn btn-create" onclick="showMpMenu()">👥 雙人對戰</button>
+    </div>
+
+    <div id="mp-menu">
+      <div class="lobby-title" style="font-size:clamp(24px,7vw,36px)">👥 雙人對戰</div>
+      <div class="lobby-subtitle">透過房間號碼連接對手</div>
+      <button class="lobby-btn btn-create" onclick="createRoom()">🏠 建立房間</button>
+      <button class="lobby-btn btn-join" onclick="showJoinRoom()">🔗 加入房間</button>
+      <button class="lobby-btn btn-back" onclick="backToMain()">⬅️ 返回</button>
+    </div>
+
+    <div id="mp-create">
+      <div class="lobby-title" style="font-size:clamp(24px,7vw,36px)">🏠 房間已建立</div>
+      <div class="room-info">將此房間號碼分享給朋友：</div>
+      <div class="room-code-display" id="room-code-display">----</div>
+      <div class="room-info"><span class="waiting-dots">等待對手加入中</span></div>
+      <button class="lobby-btn btn-cancel" onclick="cancelRoom()">❌ 取消</button>
+    </div>
+
+    <div id="mp-join">
+      <div class="lobby-title" style="font-size:clamp(24px,7vw,36px)">🔗 加入房間</div>
+      <div class="room-info">輸入 4 位數房間號碼：</div>
+      <input class="room-input" id="room-input" type="tel" maxlength="4" placeholder="0000" inputmode="numeric">
+      <div class="lobby-error" id="join-error"></div>
+      <button class="lobby-btn btn-join" onclick="joinRoom()">✅ 加入</button>
+      <button class="lobby-btn btn-back" onclick="backToMpMenu()">⬅️ 返回</button>
+    </div>
+
+    <div id="mp-waiting">
+      <div class="lobby-title" style="font-size:clamp(24px,7vw,36px)">⚡ 配對成功！</div>
+      <div class="room-info"><span class="waiting-dots">遊戲即將開始</span></div>
+    </div>
+  </div>
+
+  <!-- ===== 遊戲 UI ===== -->
+  <div id="header">🥚 搗蛋保衛戰 🥚</div>
+
+  <div id="battlefield">
+    <div class="arena player-arena" id="player-arena">
+      <div class="arena-label" id="player-label">👤 玩家</div>
+      <div class="egg-container">
+        <span class="egg-emoji" id="player-egg">🥚</span>
+        <span class="hp-text" id="player-hp-text">100</span>
+      </div>
+      <div class="hp-bar-bg">
+        <div class="hp-bar-fill" id="player-hp-bar" style="width:100%"></div>
+      </div>
+      <div class="stats-panel" id="player-stats"></div>
+    </div>
+
+    <!-- 中間技能欄 -->
+    <div id="center-skills">
+      <button class="center-skill-btn" id="btn-guardian" onclick="useSpecialSkill('guardian')">🐔</button>
+      <button class="center-skill-btn" id="btn-frenzy" onclick="useSpecialSkill('frenzy')">⚡</button>
+      <button class="center-skill-btn" id="btn-weaken" onclick="useSpecialSkill('weaken')">🫩</button>
+    </div>
+
+    <div class="arena ai-arena" id="ai-arena">
+      <div class="arena-label" id="opponent-label">🤖 AI</div>
+      <div class="egg-container">
+        <span class="egg-emoji" id="ai-egg">🥚</span>
+        <span class="hp-text" id="ai-hp-text">100</span>
+      </div>
+      <div class="hp-bar-bg">
+        <div class="hp-bar-fill" id="ai-hp-bar" style="width:100%"></div>
+      </div>
+      <div class="stats-panel" id="ai-stats"></div>
+    </div>
+  </div>
+
+  <div id="bottom-panel">
+    <div id="resource-display">💧 0</div>
+    <div id="skill-buttons">
+      <button class="skill-btn" id="btn-metabolism" onclick="playerUpgrade('metabolism')">
+        <span class="btn-label">🧬 代謝 Lv.1</span>
+        <span class="btn-cost">💧 10</span>
+      </button>
+      <button class="skill-btn" id="btn-intervene" onclick="playerAction('intervene')">
+        <span class="btn-label">⚔️ 干預 Lv.1</span>
+        <span class="btn-cost">💧 10</span>
+      </button>
+      <button class="skill-btn" id="btn-defense" onclick="playerUpgrade('defense')">
+        <span class="btn-label">🛡️ 措施 Lv.1</span>
+        <span class="btn-cost">💧 10</span>
+      </button>
+    </div>
+  </div>
+
+  <div id="end-screen">
+    <div id="end-title"></div>
+    <div id="end-subtitle"></div>
+    <button id="restart-btn" onclick="restartGame()">🔄 重新開始</button>
+  </div>
+
+  <div id="connection-status"></div>
+
+  <div id="disconnect-overlay">
+    <div class="disc-title">😵 對手已斷線</div>
+    <div class="disc-sub">對手離開了遊戲</div>
+    <button class="lobby-btn btn-back" onclick="restartGame()">🔄 返回大廳</button>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// Firebase 初始化
+// ============================================================
+const firebaseConfig = {
+  apiKey: "AIzaSyACjxWEkXkPUBv6xiWtVWZdsFvxeKURJ1Q",
+  authDomain: "time-f681a.firebaseapp.com",
+  databaseURL: "https://time-f681a-default-rtdb.firebaseio.com",
+  projectId: "time-f681a",
+  storageBucket: "time-f681a.firebasestorage.app",
+  messagingSenderId: "486171948384",
+  appId: "1:486171948384:web:715043928d3a0a0cd39a05"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
+// ============================================================
+// 遊戲常數
+// ============================================================
+const UPGRADE_COSTS = [10, 50, 100, 200, 0, 0, 20, 100, 20];
+const MAX_LEVEL = 10;
+const INTERVENE_COST = 50;
+const BASE_WATER_PER_SEC = 10;
+const ANT_SPAWN_INTERVAL = 5;
+const ANT_SPAWN_INTERVAL_BOOSTED = 1;
+const ANT_TRAVEL_TIME_MIN = 4;
+const ANT_TRAVEL_TIME_MAX = 9;
+const ANT_DPS = 100;
+
+// 特殊技能（免費）
+const WEAKEN_DURATION = 10; // 秒
+
+// 多人同步間隔（毫秒）
+const SYNC_INTERVAL = 200;
+const ANT_SYNC_INTERVAL = 150;
+
+// ============================================================
+// 遊戲模式 & 狀態
+// ============================================================
+let gameMode = 'ai';
+let gameRunning = false;
+let lastTime = 0;
+let tickAccum = 0;
+
+// 多人模式變數
+let roomId = null;
+let myRole = null;
+let roomRef = null;
+let listeners = [];
+let lastSyncTime = 0;
+let lastAntSyncTime = 0;
+let opponentConnected = false;
+let myPlayerId = 'p_' + Math.random().toString(36).substr(2, 9);
+
+/** 建立玩家狀態 */
+function createPlayerState() {
+  return {
+    water: 0, hp: 100, maxHp: 100,
+    metabolismLv: 1, interveneLv: 1, defenseLv: 1,
+    defenseCooldown: 15,
+    anthills: [],      // [{el, x, y, timer, id, boosted}]
+    ants: [],          // [{el, x, y, startX, startY, targetX, targetY, progress, travelTime, attacking, id, targetHen}]
+    // 母雞（護衛）
+    hen: null,         // {el, hpBarEl, x, y, hp, maxHp}
+    // 特殊技能是否已用
+    usedGuardian: false,
+    usedFrenzy: false,
+    usedWeaken: false,
+    // 被弱化計時
+    weakenTimer: 0,
+  };
+}
+
+let player, opponent;
+
+// ============================================================
+// DOM 參考
+// ============================================================
+const $lobbyScreen = document.getElementById('lobby-screen');
+const $mainMenu = document.getElementById('main-menu');
+const $mpMenu = document.getElementById('mp-menu');
+const $mpCreate = document.getElementById('mp-create');
+const $mpJoin = document.getElementById('mp-join');
+const $mpWaiting = document.getElementById('mp-waiting');
+const $roomCodeDisplay = document.getElementById('room-code-display');
+const $roomInput = document.getElementById('room-input');
+const $joinError = document.getElementById('join-error');
+const $playerArena = document.getElementById('player-arena');
+const $aiArena = document.getElementById('ai-arena');
+const $playerHpText = document.getElementById('player-hp-text');
+const $aiHpText = document.getElementById('ai-hp-text');
+const $playerHpBar = document.getElementById('player-hp-bar');
+const $aiHpBar = document.getElementById('ai-hp-bar');
+const $playerEgg = document.getElementById('player-egg');
+const $aiEgg = document.getElementById('ai-egg');
+const $playerStats = document.getElementById('player-stats');
+const $aiStats = document.getElementById('ai-stats');
+const $playerLabel = document.getElementById('player-label');
+const $opponentLabel = document.getElementById('opponent-label');
+const $resourceDisplay = document.getElementById('resource-display');
+const $btnMetabolism = document.getElementById('btn-metabolism');
+const $btnIntervene = document.getElementById('btn-intervene');
+const $btnDefense = document.getElementById('btn-defense');
+const $btnGuardian = document.getElementById('btn-guardian');
+const $btnFrenzy = document.getElementById('btn-frenzy');
+const $btnWeaken = document.getElementById('btn-weaken');
+const $endScreen = document.getElementById('end-screen');
+const $endTitle = document.getElementById('end-title');
+const $endSubtitle = document.getElementById('end-subtitle');
+const $connStatus = document.getElementById('connection-status');
+const $disconnectOverlay = document.getElementById('disconnect-overlay');
+
+// ============================================================
+// 工具函式
+// ============================================================
+function lvText(lv) { return lv >= MAX_LEVEL ? 'MAX' : `Lv.${lv}`; }
+
+function getUpgradeCost(currentLv) {
+  if (currentLv >= MAX_LEVEL) return -1;
+  return UPGRADE_COSTS[currentLv - 1];
+}
+
+function calcMaxHp(metabolismLv) {
+  let hp = 100;
+  for (let i = 1; i < metabolismLv; i++) hp *= 1.5;
+  return Math.floor(hp);
+}
+
+function calcRegenPerSec(state) {
+  return Math.floor(state.maxHp * state.metabolismLv * 0.01);
+}
+
+function calcDefenseCooldown(defenseLv) {
+  return Math.max(1, 15 - (defenseLv - 1));
+}
+
+function calcDefenseSweepCount(defenseLv) { return defenseLv; }
+
+function randRange(min, max) { return min + Math.random() * (max - min); }
+
+let antIdCounter = 0;
+function nextAntId() { return ++antIdCounter; }
+
+// ============================================================
+// 大廳 UI 控制
+// ============================================================
+function hideAllLobbyPanels() {
+  $mainMenu.style.display = 'none';
+  $mpMenu.classList.remove('show');
+  $mpCreate.classList.remove('show');
+  $mpJoin.classList.remove('show');
+  $mpWaiting.classList.remove('show');
+}
+
+function showMpMenu() {
+  hideAllLobbyPanels();
+  $mpMenu.classList.add('show');
+}
+
+function backToMain() {
+  cancelRoom();
+  hideAllLobbyPanels();
+  $mainMenu.style.display = 'block';
+}
+
+function backToMpMenu() {
+  hideAllLobbyPanels();
+  $mpMenu.classList.add('show');
+  $joinError.textContent = '';
+}
+
+function showJoinRoom() {
+  hideAllLobbyPanels();
+  $mpJoin.classList.add('show');
+  $roomInput.value = '';
+  $joinError.textContent = '';
+  setTimeout(() => $roomInput.focus(), 100);
+}
+
+// ============================================================
+// 單人 vs AI 模式
+// ============================================================
+function startAIGame() {
+  gameMode = 'ai';
+  $lobbyScreen.classList.add('hidden');
+  $opponentLabel.textContent = '🤖 AI';
+  $playerLabel.textContent = '👤 玩家';
+  $connStatus.textContent = '';
+  initGame();
+}
+
+// ============================================================
+// 多人模式 - Firebase
+// ============================================================
+function generateRoomCode() {
+  return String(Math.floor(1000 + Math.random() * 9000));
+}
+
+async function createRoom() {
+  hideAllLobbyPanels();
+  $mpCreate.classList.add('show');
+
+  roomId = generateRoomCode();
+  $roomCodeDisplay.textContent = roomId;
+  myRole = 'player1';
+  roomRef = db.ref('rooms/' + roomId);
+
+  const snapshot = await roomRef.once('value');
+  if (snapshot.exists()) {
+    roomId = generateRoomCode();
+    $roomCodeDisplay.textContent = roomId;
+    roomRef = db.ref('rooms/' + roomId);
+  }
+
+  await roomRef.set({
+    status: 'waiting',
+    player1: { id: myPlayerId, connected: true },
+    player2: null,
+    createdAt: firebase.database.ServerValue.TIMESTAMP,
+  });
+
+  roomRef.child('player1/connected').onDisconnect().set(false);
+
+  const p2Listener = roomRef.child('player2').on('value', (snap) => {
+    const p2 = snap.val();
+    if (p2 && p2.id && p2.connected) {
+      opponentConnected = true;
+      roomRef.update({ status: 'playing' });
+      startMultiplayerGame();
+    }
+  });
+  listeners.push({ ref: roomRef.child('player2'), event: 'value', fn: p2Listener });
+}
+
+async function joinRoom() {
+  const code = $roomInput.value.trim();
+  if (code.length !== 4 || !/^\d{4}$/.test(code)) {
+    $joinError.textContent = '❌ 請輸入 4 位數字';
+    return;
+  }
+
+  roomId = code;
+  roomRef = db.ref('rooms/' + roomId);
+
+  const snapshot = await roomRef.once('value');
+  if (!snapshot.exists()) {
+    $joinError.textContent = '❌ 房間不存在';
+    return;
+  }
+
+  const data = snapshot.val();
+  if (data.status !== 'waiting') {
+    $joinError.textContent = '❌ 房間已滿或遊戲進行中';
+    return;
+  }
+
+  if (!data.player1 || !data.player1.connected) {
+    $joinError.textContent = '❌ 房主已離開';
+    return;
+  }
+
+  myRole = 'player2';
+  await roomRef.child('player2').set({ id: myPlayerId, connected: true });
+  roomRef.child('player2/connected').onDisconnect().set(false);
+
+  opponentConnected = true;
+  hideAllLobbyPanels();
+  $mpWaiting.classList.add('show');
+
+  setTimeout(() => startMultiplayerGame(), 1000);
+}
+
+function cancelRoom() {
+  cleanupFirebase();
+  hideAllLobbyPanels();
+  $mpMenu.classList.add('show');
+}
+
+function cleanupFirebase() {
+  listeners.forEach(l => l.ref.off(l.event, l.fn));
+  listeners = [];
+
+  if (roomRef && myRole === 'player1') {
+    roomRef.remove().catch(() => {});
+  } else if (roomRef && myRole === 'player2') {
+    roomRef.child('player2/connected').set(false).catch(() => {});
+  }
+
+  roomRef = null;
+  roomId = null;
+  myRole = null;
+  opponentConnected = false;
+}
+
+function startMultiplayerGame() {
+  gameMode = 'pvp';
+  $lobbyScreen.classList.add('hidden');
+  $disconnectOverlay.classList.remove('show');
+
+  if (myRole === 'player1') {
+    $playerLabel.textContent = '👤 你 (P1)';
+    $opponentLabel.textContent = '👤 對手 (P2)';
+  } else {
+    $playerLabel.textContent = '👤 你 (P2)';
+    $opponentLabel.textContent = '👤 對手 (P1)';
+  }
+
+  $connStatus.textContent = '🟢 已連線';
+  $connStatus.className = 'online';
+
+  initGame();
+  setupMultiplayerListeners();
+}
+
+function setupMultiplayerListeners() {
+  if (!roomRef) return;
+
+  const opponentRole = myRole === 'player1' ? 'player2' : 'player1';
+
+  // 監聽對手連線狀態
+  const connListener = roomRef.child(opponentRole + '/connected').on('value', (snap) => {
+    const connected = snap.val();
+    if (connected === false && gameRunning) {
+      opponentConnected = false;
+      gameRunning = false;
+      $connStatus.textContent = '🔴 對手已斷線';
+      $connStatus.className = 'offline';
+      $disconnectOverlay.classList.add('show');
+    }
+  });
+  listeners.push({ ref: roomRef.child(opponentRole + '/connected'), event: 'value', fn: connListener });
+
+  // 監聽對手的遊戲動作
+  const actionsListener = roomRef.child(opponentRole + '_actions').on('child_added', (snap) => {
+    const action = snap.val();
+    if (!action || !gameRunning) return;
+    processRemoteAction(action);
+    snap.ref.remove();
+  });
+  listeners.push({ ref: roomRef.child(opponentRole + '_actions'), event: 'child_added', fn: actionsListener });
+
+  // 監聯對手的狀態同步
+  const stateListener = roomRef.child(opponentRole + '_state').on('value', (snap) => {
+    const state = snap.val();
+    if (!state || !gameRunning) return;
+    applyRemoteState(state);
+  });
+  listeners.push({ ref: roomRef.child(opponentRole + '_state'), event: 'value', fn: stateListener });
+
+  // 監聽對手同步的螞蟻（這些螞蟻在對手的區域，即我的 $aiArena）
+  // 對手同步他的 player.ants → 我接收後更新 opponent.ants
+  const antsListener = roomRef.child(opponentRole + '_ants').on('value', (snap) => {
+    const antsData = snap.val();
+    if (!gameRunning) return;
+    syncRemoteAntsToOpponentArena(antsData);
+  });
+  listeners.push({ ref: roomRef.child(opponentRole + '_ants'), event: 'value', fn: antsListener });
+
+  // 監聽遊戲結果
+  const resultListener = roomRef.child('result').on('value', (snap) => {
+    const result = snap.val();
+    if (!result || !gameRunning) return;
+    gameRunning = false;
+    if (result.winner === myRole) {
+      opponent.hp = 0;
+    } else {
+      player.hp = 0;
+    }
+    showEndScreen();
+  });
+  listeners.push({ ref: roomRef.child('result'), event: 'value', fn: resultListener });
+}
+
+/** 處理對手的遠端動作 */
+function processRemoteAction(action) {
+  if (action.type === 'upgrade') {
+    const skill = action.skill;
+    if (skill === 'metabolism') {
+      opponent.metabolismLv = Math.min(MAX_LEVEL, opponent.metabolismLv + 1);
+      opponent.maxHp = calcMaxHp(opponent.metabolismLv);
+      opponent.hp = Math.min(opponent.hp + Math.floor(opponent.maxHp * 0.1), opponent.maxHp);
+    } else if (skill === 'intervene') {
+      opponent.interveneLv = Math.min(MAX_LEVEL, opponent.interveneLv + 1);
+    } else if (skill === 'defense') {
+      opponent.defenseLv = Math.min(MAX_LEVEL, opponent.defenseLv + 1);
+    }
+  } else if (action.type === 'anthill') {
+    // 對手在我方區域放了一個蟻竇
+    const x = action.x;
+    const y = action.y;
+    const el = document.createElement('div');
+    el.className = 'anthill';
+    el.textContent = '🕳️';
+    el.style.left = x + '%';
+    el.style.top = y + '%';
+    $playerArena.appendChild(el);
+    player.anthills.push({ el, x, y, timer: 0, id: action.id || nextAntId(), boosted: false });
+  } else if (action.type === 'special') {
+    // 對手使用特殊技能
+    if (action.skill === 'guardian') {
+      spawnHen(opponent, $aiArena, action.henHp);
+      opponent.usedGuardian = true;
+    } else if (action.skill === 'frenzy') {
+      // 對手狂暴了在我方區域的蟻竇
+      boostAnthillsRemote(player, action.boostedIds);
+      opponent.usedFrenzy = true;
+    } else if (action.skill === 'weaken') {
+      // 對手使用弱化：影響在對手區域的螞蟻（即 opponent.ants）
+      opponent.weakenTimer = WEAKEN_DURATION;
+      opponent.usedWeaken = true;
+      showWeakenIndicator($aiArena);
+    }
+  }
+}
+
+/** 套用對手同步的狀態 */
+function applyRemoteState(state) {
+  if (state.hp !== undefined) opponent.hp = state.hp;
+  if (state.maxHp !== undefined) opponent.maxHp = state.maxHp;
+  if (state.water !== undefined) opponent.water = state.water;
+  if (state.metabolismLv !== undefined) opponent.metabolismLv = state.metabolismLv;
+  if (state.interveneLv !== undefined) opponent.interveneLv = state.interveneLv;
+  if (state.defenseLv !== undefined) opponent.defenseLv = state.defenseLv;
+  if (state.henHp !== undefined && opponent.hen) {
+    opponent.hen.hp = state.henHp;
+  }
+  if (state.weakenTimer !== undefined) opponent.weakenTimer = state.weakenTimer;
+}
+
+/**
+ * 同步對手的螞蟻到對手區域（$aiArena）
+ * 對手同步的是他的 player.ants（在他區域的螞蟻）
+ * 我接收後更新 opponent.ants 並顯示在 $aiArena
+ */
+function syncRemoteAntsToOpponentArena(antsData) {
+  if (!antsData) {
+    // 清空對手區域的螞蟻
+    opponent.ants.forEach(a => a.el.remove());
+    opponent.ants = [];
+    return;
+  }
+
+  const remoteAnts = Object.values(antsData);
+  const remoteIds = new Set(remoteAnts.map(a => a.id));
+
+  // 移除不再存在的螞蟻
+  opponent.ants = opponent.ants.filter(a => {
+    if (!remoteIds.has(a.id)) {
+      a.el.remove();
+      return false;
+    }
+    return true;
+  });
+
+  // 更新或新增螞蟻
+  remoteAnts.forEach(ra => {
+    const existing = opponent.ants.find(a => a.id === ra.id);
+    if (existing) {
+      // 更新位置
+      existing.x = ra.x;
+      existing.y = ra.y;
+      existing.progress = ra.progress;
+      existing.attacking = ra.attacking;
+      existing.targetHen = ra.targetHen;
+      existing.el.style.left = ra.x + '%';
+      existing.el.style.top = ra.y + '%';
+      if (ra.attacking) {
+        existing.el.classList.add('attacking');
+      } else {
+        existing.el.classList.remove('attacking');
+      }
+    } else {
+      // 新增螞蟻到對手區域
+      const el = document.createElement('div');
+      el.className = 'ant';
+      el.textContent = '🐜';
+      el.style.left = ra.x + '%';
+      el.style.top = ra.y + '%';
+      if (ra.attacking) el.classList.add('attacking');
+      $aiArena.appendChild(el);
+      opponent.ants.push({
+        el,
+        id: ra.id,
+        x: ra.x,
+        y: ra.y,
+        startX: ra.startX || ra.x,
+        startY: ra.startY || ra.y,
+        targetX: ra.targetX || 50,
+        targetY: ra.targetY || 48,
+        progress: ra.progress || 0,
+        travelTime: ra.travelTime || 6,
+        attacking: ra.attacking || false,
+        targetHen: ra.targetHen || false,
+      });
+    }
+  });
+}
+
+/** 傳送動作到 Firebase */
+function sendAction(action) {
+  if (gameMode !== 'pvp' || !roomRef || !myRole) return;
+  roomRef.child(myRole + '_actions').push(action);
+}
+
+/** 定期同步我的狀態 */
+function syncMyState() {
+  if (gameMode !== 'pvp' || !roomRef || !myRole) return;
+
+  const now = Date.now();
+  if (now - lastSyncTime < SYNC_INTERVAL) return;
+  lastSyncTime = now;
+
+  const stateData = {
+    hp: player.hp,
+    maxHp: player.maxHp,
+    water: Math.floor(player.water),
+    metabolismLv: player.metabolismLv,
+    interveneLv: player.interveneLv,
+    defenseLv: player.defenseLv,
+    weakenTimer: player.weakenTimer,
+    timestamp: firebase.database.ServerValue.TIMESTAMP,
+  };
+  if (player.hen) {
+    stateData.henHp = player.hen.hp;
+  }
+  roomRef.child(myRole + '_state').set(stateData);
+}
+
+/**
+ * 同步我方區域的螞蟻給對手看
+ * 我同步 player.ants → 對手接收後更新他的 opponent.ants
+ */
+function syncMyAnts() {
+  if (gameMode !== 'pvp' || !roomRef || !myRole) return;
+
+  const now = Date.now();
+  if (now - lastAntSyncTime < ANT_SYNC_INTERVAL) return;
+  lastAntSyncTime = now;
+
+  const antsData = {};
+  player.ants.forEach(ant => {
+    antsData[ant.id] = {
+      id: ant.id,
+      x: ant.x,
+      y: ant.y,
+      startX: ant.startX,
+      startY: ant.startY,
+      targetX: ant.targetX,
+      targetY: ant.targetY,
+      progress: ant.progress,
+      travelTime: ant.travelTime,
+      attacking: ant.attacking,
+      targetHen: ant.targetHen || false,
+    };
+  });
+
+  roomRef.child(myRole + '_ants').set(antsData);
+}
+
+function sendGameEnd(winner) {
+  if (gameMode !== 'pvp' || !roomRef) return;
+  roomRef.child('result').set({
+    winner: winner,
+    timestamp: firebase.database.ServerValue.TIMESTAMP,
+  });
+}
+
+// ============================================================
+// 遊戲初始化
+// ============================================================
+function initGame() {
+  player = createPlayerState();
+  opponent = createPlayerState();
+  tickAccum = 0;
+  antIdCounter = 0;
+  gameRunning = true;
+
+  // 清除舊的 DOM
+  $playerArena.querySelectorAll('.ant, .anthill, .dmg-float, .heal-float, .sweep-effect, .hen, .hen-hp-bar, .weaken-indicator').forEach(e => e.remove());
+  $aiArena.querySelectorAll('.ant, .anthill, .dmg-float, .heal-float, .sweep-effect, .hen, .hen-hp-bar, .weaken-indicator').forEach(e => e.remove());
+
+  $endScreen.classList.remove('show');
+  $disconnectOverlay.classList.remove('show');
+
+  $playerEgg.textContent = '🥚';
+  $aiEgg.textContent = '🥚';
+  $playerEgg.classList.remove('hurt');
+  $aiEgg.classList.remove('hurt');
+
+  // 重置特殊技能按鈕
+  $btnGuardian.classList.remove('used', 'disabled');
+  $btnFrenzy.classList.remove('used', 'disabled');
+  $btnWeaken.classList.remove('used', 'disabled');
+
+  updateUI();
+  lastTime = performance.now();
+  requestAnimationFrame(gameLoop);
+}
+
+// ============================================================
+// 主迴圈
+// ============================================================
+function gameLoop(timestamp) {
+  if (!gameRunning) return;
+
+  const dt = Math.min((timestamp - lastTime) / 1000, 0.1);
+  lastTime = timestamp;
+  tickAccum += dt;
+
+  // 更新螞蟻移動
+  updateAnts(player, $playerArena, dt);
+  if (gameMode === 'ai') {
+    updateAnts(opponent, $aiArena, dt);
+  }
+  // PVP 模式下，opponent.ants 由對手同步，不需要本地更新移動
+
+  // 每秒邏輯
+  while (tickAccum >= 1) {
+    tickAccum -= 1;
+    onSecondTick();
+  }
+
+  // 多人模式同步
+  if (gameMode === 'pvp') {
+    syncMyState();
+    syncMyAnts();
+  }
+
+  updateUI();
+
+  // 勝負判定
+  if (player.hp <= 0 || opponent.hp <= 0) {
+    gameRunning = false;
+    if (gameMode === 'pvp') {
+      if (player.hp <= 0) sendGameEnd(myRole === 'player1' ? 'player2' : 'player1');
+      else sendGameEnd(myRole);
+    }
+    showEndScreen();
+    return;
+  }
+
+  requestAnimationFrame(gameLoop);
+}
+
+// ============================================================
+// 每秒邏輯
+// ============================================================
+function onSecondTick() {
+  // --- 水滴增長 ---
+  let playerWaterGain = BASE_WATER_PER_SEC;
+  let opponentWaterGain = BASE_WATER_PER_SEC;
+
+  if (player.metabolismLv >= MAX_LEVEL) playerWaterGain += 20;
+  if (opponent.metabolismLv >= MAX_LEVEL) opponentWaterGain += 20;
+
+  player.water += playerWaterGain;
+
+  if (gameMode === 'ai') {
+    opponent.water += opponentWaterGain;
+  }
+
+  // --- 弱化計時器 ---
+  if (player.weakenTimer > 0) {
+    player.weakenTimer--;
+    if (player.weakenTimer <= 0) {
+      removeWeakenIndicator($playerArena);
+    }
+  }
+  if (opponent.weakenTimer > 0) {
+    opponent.weakenTimer--;
+    if (opponent.weakenTimer <= 0) {
+      removeWeakenIndicator($aiArena);
+    }
+  }
+
+  // --- 回血 ---
+  regenHp(player, $playerArena);
+  if (gameMode === 'ai') {
+    regenHp(opponent, $aiArena);
+  }
+
+  // --- 螞蟻攻擊 ---
+  processAntDamage(player, $playerArena);
+  if (gameMode === 'ai') {
+    processAntDamage(opponent, $aiArena);
+  }
+
+  // --- 蟻竇生產螞蟻 ---
+  processAnthills(player, $playerArena);
+  if (gameMode === 'ai') {
+    processAnthills(opponent, $aiArena);
+  }
+
+  // --- 措施自動驅趕 ---
+  processDefense(player, $playerArena);
+  if (gameMode === 'ai') {
+    processDefense(opponent, $aiArena);
+  }
+
+  // --- AI 決策 ---
+  if (gameMode === 'ai') {
+    aiDecision();
+  }
+}
+
+/** 回血 */
+function regenHp(state, arenaEl) {
+  const regen = calcRegenPerSec(state);
+  if (regen > 0 && state.hp < state.maxHp && state.hp > 0) {
+    state.hp = Math.min(state.maxHp, state.hp + regen);
+    showFloatingText(arenaEl, `+${regen}`, 'heal-float');
+  }
+}
+
+/** 螞蟻傷害 */
+function processAntDamage(state, arenaEl) {
+  let attackingEggCount = 0;
+  let attackingHenCount = 0;
+  
+  state.ants.forEach(a => {
+    if (a.attacking) {
+      if (a.targetHen && state.hen) {
+        attackingHenCount++;
+      } else {
+        attackingEggCount++;
+      }
+    }
+  });
+
+  // 計算傷害（考慮弱化效果）
+  let dps = ANT_DPS;
+  if (state.weakenTimer > 0) {
+    dps = 1; // 被弱化時只造成1傷害
+  }
+
+  // 母雞受傷
+  if (attackingHenCount > 0 && state.hen) {
+    let henDmg = attackingHenCount * dps;
+    state.hen.hp -= henDmg;
+    
+    state.hen.el.classList.add('hurt');
+    setTimeout(() => state.hen.el.classList.remove('hurt'), 200);
+    
+    if (state.hen.hp <= 0) {
+      state.hen.el.remove();
+      state.hen.hpBarEl.remove();
+      state.hen = null;
+      state.ants.forEach(a => {
+        if (a.targetHen) {
+          a.targetHen = false;
+          a.targetX = 50;
+          a.targetY = 48;
+          a.attacking = false;
+          a.el.classList.remove('attacking');
+          a.startX = a.x;
+          a.startY = a.y;
+          a.progress = 0;
+          a.travelTime = randRange(ANT_TRAVEL_TIME_MIN, ANT_TRAVEL_TIME_MAX);
+        }
+      });
+    } else {
+      updateHenHpBar(state);
+    }
+  }
+
+  // 蛋受傷
+  if (attackingEggCount > 0) {
+    let totalDmg = attackingEggCount * dps;
+    if (state.defenseLv >= MAX_LEVEL) totalDmg = Math.floor(totalDmg / 2);
+
+    state.hp -= totalDmg;
+    if (state.hp < 0) state.hp = 0;
+
+    const eggEl = arenaEl.querySelector('.egg-emoji');
+    eggEl.classList.add('hurt');
+    setTimeout(() => eggEl.classList.remove('hurt'), 150);
+    showFloatingText(arenaEl, `-${totalDmg}`, 'dmg-float');
+  }
+}
+
+/** 蟻竇生螞蟻 */
+function processAnthills(state, arenaEl) {
+  state.anthills.forEach(hill => {
+    const interval = hill.boosted ? ANT_SPAWN_INTERVAL_BOOSTED : ANT_SPAWN_INTERVAL;
+    hill.timer++;
+    if (hill.timer >= interval) {
+      hill.timer = 0;
+      spawnAnt(state, arenaEl, hill.x, hill.y);
+    }
+  });
+}
+
+/** 措施驅趕 */
+function processDefense(state, arenaEl) {
+  state.defenseCooldown--;
+  if (state.defenseCooldown <= 0) {
+    const sweepCount = calcDefenseSweepCount(state.defenseLv);
+    sweepAnts(state, arenaEl, sweepCount);
+    state.defenseCooldown = calcDefenseCooldown(state.defenseLv);
+  }
+}
+
+// ============================================================
+// 螞蟻系統
+// ============================================================
+function spawnAnthill(state, arenaEl, isMine) {
+  let x, y;
+  for (let i = 0; i < 20; i++) {
+    x = randRange(10, 85);
+    y = randRange(15, 80);
+    const dx = x - 50, dy = y - 50;
+    if (Math.sqrt(dx * dx + dy * dy) > 20) break;
+  }
+
+  const el = document.createElement('div');
+  el.className = 'anthill';
+  el.textContent = '🕳️';
+  el.style.left = x + '%';
+  el.style.top = y + '%';
+  arenaEl.appendChild(el);
+
+  const id = nextAntId();
+  state.anthills.push({ el, x, y, timer: 0, id, boosted: false });
+  return { x, y, id };
+}
+
+function spawnAnt(state, arenaEl, fromX, fromY) {
+  const el = document.createElement('div');
+  el.className = 'ant';
+  el.textContent = '🐜';
+  el.style.left = fromX + '%';
+  el.style.top = fromY + '%';
+  arenaEl.appendChild(el);
+
+  let targetX = 50, targetY = 48;
+  let targetHen = false;
+  if (state.hen) {
+    targetX = state.hen.x;
+    targetY = state.hen.y;
+    targetHen = true;
+  }
+
+  const travelTime = randRange(ANT_TRAVEL_TIME_MIN, ANT_TRAVEL_TIME_MAX);
+  state.ants.push({
+    el, x: fromX, y: fromY,
+    startX: fromX, startY: fromY,
+    targetX, targetY,
+    progress: 0, travelTime,
+    attacking: false,
+    targetHen,
+    id: nextAntId(),
+  });
+}
+
+function updateAnts(state, arenaEl, dt) {
+  state.ants.forEach(ant => {
+    if (ant.attacking) return;
+
+    if (ant.targetHen && !state.hen) {
+      ant.targetHen = false;
+      ant.targetX = 50;
+      ant.targetY = 48;
+      ant.startX = ant.x;
+      ant.startY = ant.y;
+      ant.progress = 0;
+      ant.travelTime = randRange(ANT_TRAVEL_TIME_MIN, ANT_TRAVEL_TIME_MAX);
+    }
+
+    ant.progress += dt / ant.travelTime;
+    if (ant.progress >= 1) {
+      ant.progress = 1;
+      ant.attacking = true;
+      ant.el.classList.add('attacking');
+    }
+    ant.x = ant.startX + (ant.targetX - ant.startX) * ant.progress;
+    ant.y = ant.startY + (ant.targetY - ant.startY) * ant.progress;
+    ant.el.style.left = ant.x + '%';
+    ant.el.style.top = ant.y + '%';
+  });
+}
+
+function sweepAnts(state, arenaEl, count) {
+  let swept = 0;
+  for (let i = 0; i < state.ants.length && swept < count; i++) {
+    if (state.ants[i].attacking) {
+      resetAnt(state.ants[i], state);
+      swept++;
+    }
+  }
+  if (swept < count) {
+    const remaining = state.ants.filter(a => !a.attacking).sort((a, b) => b.progress - a.progress);
+    for (let i = 0; i < remaining.length && swept < count; i++) {
+      resetAnt(remaining[i], state);
+      swept++;
+    }
+  }
+  if (swept > 0) {
+    const fx = document.createElement('div');
+    fx.className = 'sweep-effect';
+    arenaEl.appendChild(fx);
+    setTimeout(() => fx.remove(), 600);
+  }
+}
+
+function resetAnt(ant, state) {
+  ant.attacking = false;
+  ant.el.classList.remove('attacking');
+  ant.progress = 0;
+  
+  const side = Math.floor(Math.random() * 4);
+  switch (side) {
+    case 0: ant.startX = randRange(5, 95); ant.startY = 5; break;
+    case 1: ant.startX = randRange(5, 95); ant.startY = 90; break;
+    case 2: ant.startX = 5; ant.startY = randRange(15, 85); break;
+    case 3: ant.startX = 95; ant.startY = randRange(15, 85); break;
+  }
+  ant.x = ant.startX;
+  ant.y = ant.startY;
+  ant.travelTime = randRange(ANT_TRAVEL_TIME_MIN, ANT_TRAVEL_TIME_MAX);
+  ant.el.style.left = ant.x + '%';
+  ant.el.style.top = ant.y + '%';
+
+  if (state.hen) {
+    ant.targetX = state.hen.x;
+    ant.targetY = state.hen.y;
+    ant.targetHen = true;
+  } else {
+    ant.targetX = 50;
+    ant.targetY = 48;
+    ant.targetHen = false;
+  }
+}
+
+// ============================================================
+// 母雞（護衛）系統
+// ============================================================
+function spawnHen(state, arenaEl, customHp) {
+  if (state.hen) return;
+
+  const x = 50;
+  const y = 70;
+  const hp = customHp || (state.hp * 3);
+
+  const el = document.createElement('div');
+  el.className = 'hen';
+  el.textContent = '🐔';
+  el.style.left = x + '%';
+  el.style.top = y + '%';
+  el.style.transform = 'translate(-50%, -50%)';
+  arenaEl.appendChild(el);
+
+  const hpBarEl = document.createElement('div');
+  hpBarEl.className = 'hen-hp-bar';
+  hpBarEl.style.left = 'calc(' + x + '% - 25px)';
+  hpBarEl.style.top = (y + 8) + '%';
+  hpBarEl.innerHTML = '<div class="hen-hp-fill" style="width:100%"></div>';
+  arenaEl.appendChild(hpBarEl);
+
+  state.hen = { el, hpBarEl, x, y, hp, maxHp: hp };
+
+  state.ants.forEach(ant => {
+    if (!ant.attacking) {
+      ant.targetX = x;
+      ant.targetY = y;
+      ant.targetHen = true;
+    }
+  });
+}
+
+function updateHenHpBar(state) {
+  if (!state.hen) return;
+  const pct = Math.max(0, state.hen.hp / state.hen.maxHp * 100);
+  const fill = state.hen.hpBarEl.querySelector('.hen-hp-fill');
+  if (fill) fill.style.width = pct + '%';
+}
+
+// ============================================================
+// 狂暴蟻竇
+// ============================================================
+function boostAnthills(state, arenaEl, count) {
+  const unboosted = state.anthills.filter(h => !h.boosted);
+  const toBoost = [];
+  for (let i = 0; i < count && unboosted.length > 0; i++) {
+    const idx = Math.floor(Math.random() * unboosted.length);
+    const hill = unboosted.splice(idx, 1)[0];
+    hill.boosted = true;
+    hill.el.classList.add('boosted');
+    toBoost.push(hill.id);
+  }
+  return toBoost;
+}
+
+function boostAnthillsRemote(state, ids) {
+  if (!ids) return;
+  state.anthills.forEach(h => {
+    if (ids.includes(h.id)) {
+      h.boosted = true;
+      h.el.classList.add('boosted');
+    }
+  });
+}
+
+// ============================================================
+// 弱化效果指示器
+// ============================================================
+function showWeakenIndicator(arenaEl) {
+  removeWeakenIndicator(arenaEl);
+  const el = document.createElement('div');
+  el.className = 'weaken-indicator';
+  el.textContent = '🫩 弱化中';
+  arenaEl.appendChild(el);
+}
+
+function removeWeakenIndicator(arenaEl) {
+  arenaEl.querySelectorAll('.weaken-indicator').forEach(e => e.remove());
+}
+
+// ============================================================
+// 飄字
+// ============================================================
+function showFloatingText(arenaEl, text, className) {
+  const el = document.createElement('div');
+  el.className = className;
+  el.textContent = text;
+  el.style.left = (40 + Math.random() * 20) + '%';
+  el.style.top = (35 + Math.random() * 15) + '%';
+  arenaEl.appendChild(el);
+  setTimeout(() => el.remove(), 1100);
+}
+
+// ============================================================
+// 玩家操作
+// ============================================================
+function playerUpgrade(skill) {
+  if (!gameRunning) return;
+
+  let currentLv;
+  if (skill === 'metabolism') currentLv = player.metabolismLv;
+  else if (skill === 'defense') currentLv = player.defenseLv;
+  else return;
+
+  const cost = getUpgradeCost(currentLv);
+  if (cost < 0) return;
+  if (player.water < cost) return;
+
+  player.water -= cost;
+
+  if (skill === 'metabolism') {
+    player.metabolismLv++;
+    player.maxHp = calcMaxHp(player.metabolismLv);
+    player.hp = Math.min(player.hp + Math.floor(player.maxHp * 0.1), player.maxHp);
+  } else if (skill === 'defense') {
+    player.defenseLv++;
+  }
+
+  if (gameMode === 'pvp') {
+    sendAction({ type: 'upgrade', skill: skill });
+  }
+
+  updateUI();
+}
+
+function playerAction(skill) {
+  if (!gameRunning) return;
+
+  if (skill === 'intervene') {
+    if (player.interveneLv < MAX_LEVEL) {
+      const cost = getUpgradeCost(player.interveneLv);
+      if (cost < 0) return;
+      if (player.water < cost) return;
+      player.water -= cost;
+      player.interveneLv++;
+
+      if (gameMode === 'pvp') {
+        sendAction({ type: 'upgrade', skill: 'intervene' });
+      }
+    } else {
+      if (player.water < INTERVENE_COST) return;
+      player.water -= INTERVENE_COST;
+
+      if (gameMode === 'ai') {
+        spawnAnthill(opponent, $aiArena, false);
+      } else {
+        let x, y;
+        for (let i = 0; i < 20; i++) {
+          x = randRange(10, 85);
+          y = randRange(15, 80);
+          const dx = x - 50, dy = y - 50;
+          if (Math.sqrt(dx * dx + dy * dy) > 20) break;
+        }
+        sendAction({ type: 'anthill', x, y, id: nextAntId() });
+
+        // 本地顯示（蟻竇在對手區域）
+        const el = document.createElement('div');
+        el.className = 'anthill';
+        el.textContent = '🕳️';
+        el.style.left = x + '%';
+        el.style.top = y + '%';
+        $aiArena.appendChild(el);
+        opponent.anthills.push({ el, x, y, timer: 0, id: nextAntId(), boosted: false });
+      }
+    }
+  }
+
+  updateUI();
+}
+
+// ============================================================
+// 特殊技能（免費）
+// ============================================================
+function useSpecialSkill(skill) {
+  if (!gameRunning) return;
+
+  if (skill === 'guardian') {
+    if (player.usedGuardian) return;
+    if (player.hen) return;
+
+    player.usedGuardian = true;
+    $btnGuardian.classList.add('used');
+
+    const henHp = player.hp * 3;
+    spawnHen(player, $playerArena, henHp);
+
+    if (gameMode === 'pvp') {
+      sendAction({ type: 'special', skill: 'guardian', henHp });
+    }
+  } else if (skill === 'frenzy') {
+    if (player.usedFrenzy) return;
+
+    // 需要有蟻竇才能狂暴（在對方區域的蟻竇）
+    const myAnthillsInOpponentArena = opponent.anthills;
+    if (myAnthillsInOpponentArena.length === 0) return;
+
+    player.usedFrenzy = true;
+    $btnFrenzy.classList.add('used');
+
+    const boostedIds = boostAnthills(opponent, $aiArena, 2);
+
+    if (gameMode === 'pvp') {
+      sendAction({ type: 'special', skill: 'frenzy', boostedIds });
+    }
+  } else if (skill === 'weaken') {
+    if (player.usedWeaken) return;
+
+    player.usedWeaken = true;
+    $btnWeaken.classList.add('used');
+
+    // 弱化效果：降低「在我方區域的敵方螞蟻」的傷害
+    player.weakenTimer = WEAKEN_DURATION;
+    showWeakenIndicator($playerArena);
+
+    if (gameMode === 'pvp') {
+      sendAction({ type: 'special', skill: 'weaken' });
+    }
+  }
+
+  updateUI();
+}
+
+// ============================================================
+// AI 邏輯
+// ============================================================
+function aiDecision() {
+  if (!gameRunning) return;
+
+  if (Math.random() < 0.3) return;
+
+  // 階段一：代謝未滿級 → 一定要先升代謝
+  if (opponent.metabolismLv < MAX_LEVEL) {
+    const cost = getUpgradeCost(opponent.metabolismLv);
+    if (cost >= 0 && opponent.water >= cost) {
+      opponent.water -= cost;
+      opponent.metabolismLv++;
+      opponent.maxHp = calcMaxHp(opponent.metabolismLv);
+      opponent.hp = Math.min(opponent.hp + Math.floor(opponent.maxHp * 0.1), opponent.maxHp);
+    }
+    return;
+  }
+
+  // 階段二：代謝已滿級，使用特殊技能
+  if (!opponent.usedGuardian && player.ants.length > 3) {
+    if (Math.random() < 0.3) {
+      opponent.usedGuardian = true;
+      spawnHen(opponent, $aiArena, opponent.hp * 3);
+      return;
+    }
+  }
+
+  if (!opponent.usedWeaken && opponent.ants.filter(a => a.attacking).length > 2) {
+    if (Math.random() < 0.4) {
+      opponent.usedWeaken = true;
+      opponent.weakenTimer = WEAKEN_DURATION;
+      showWeakenIndicator($aiArena);
+      return;
+    }
+  }
+
+  // 干預已 MAX → 持續放蟻竇
+  if (opponent.interveneLv >= MAX_LEVEL) {
+    if (opponent.water >= INTERVENE_COST + 30) {
+      opponent.water -= INTERVENE_COST;
+      spawnAnthill(player, $playerArena, true);
+
+      // AI 狂暴自己的蟻竇
+      if (!opponent.usedFrenzy && player.anthills.length >= 2) {
+        if (Math.random() < 0.5) {
+          opponent.usedFrenzy = true;
+          boostAnthills(player, $playerArena, 2);
+        }
+      }
+    }
+  }
+
+  if (opponent.interveneLv >= MAX_LEVEL && opponent.defenseLv >= MAX_LEVEL) {
+    return;
+  }
+
+  // 50% 隨機選擇升干預或措施
+  const choices = [];
+  if (opponent.interveneLv < MAX_LEVEL) choices.push('intervene');
+  if (opponent.defenseLv < MAX_LEVEL) choices.push('defense');
+
+  if (choices.length === 0) return;
+
+  const chosen = choices[Math.floor(Math.random() * choices.length)];
+  let currentLv;
+  if (chosen === 'intervene') currentLv = opponent.interveneLv;
+  else currentLv = opponent.defenseLv;
+
+  const cost = getUpgradeCost(currentLv);
+  if (cost >= 0 && opponent.water >= cost) {
+    opponent.water -= cost;
+    if (chosen === 'intervene') {
+      opponent.interveneLv++;
+    } else {
+      opponent.defenseLv++;
+    }
+  }
+}
+
+// ============================================================
+// UI 更新
+// ============================================================
+function updateUI() {
+  // 血量
+  $playerHpText.textContent = Math.max(0, Math.floor(player.hp));
+  $aiHpText.textContent = Math.max(0, Math.floor(opponent.hp));
+
+  const playerHpPct = Math.max(0, player.hp / player.maxHp * 100);
+  const opponentHpPct = Math.max(0, opponent.hp / opponent.maxHp * 100);
+  $playerHpBar.style.width = playerHpPct + '%';
+  $aiHpBar.style.width = opponentHpPct + '%';
+
+  // 血條顏色
+  $playerHpBar.style.background = playerHpPct > 50
+    ? 'linear-gradient(90deg,#4caf50,#8bc34a)'
+    : playerHpPct > 25
+      ? 'linear-gradient(90deg,#ff9800,#ffc107)'
+      : 'linear-gradient(90deg,#f44336,#ff5722)';
+  $aiHpBar.style.background = opponentHpPct > 50
+    ? 'linear-gradient(90deg,#4caf50,#8bc34a)'
+    : opponentHpPct > 25
+      ? 'linear-gradient(90deg,#ff9800,#ffc107)'
+      : 'linear-gradient(90deg,#f44336,#ff5722)';
+
+  // 資源顯示
+  const myAnts = player.ants.length;
+  const oppAnts = opponent.ants.length;
+  const myAtk = player.ants.filter(a => a.attacking).length;
+  const oppAtk = opponent.ants.filter(a => a.attacking).length;
+  $resourceDisplay.innerHTML = `💧 ${Math.floor(player.water)} | 🐜 我方:${myAtk}/${myAnts} 敵方:${oppAtk}/${oppAnts}`;
+
+  // 技能按鈕
+  updateSkillButton($btnMetabolism, '🧬 代謝', player.metabolismLv, 'metabolism');
+  updateSkillButton($btnIntervene, '⚔️ 干預', player.interveneLv, 'intervene');
+  updateSkillButton($btnDefense, '🛡️ 措施', player.defenseLv, 'defense');
+
+  // 特殊技能按鈕狀態
+  if (player.usedGuardian) {
+    $btnGuardian.classList.add('used');
+  } else if (player.hen) {
+    $btnGuardian.classList.add('disabled');
+  } else {
+    $btnGuardian.classList.remove('disabled');
+  }
+
+  if (player.usedFrenzy) {
+    $btnFrenzy.classList.add('used');
+  } else if (opponent.anthills.length === 0) {
+    $btnFrenzy.classList.add('disabled');
+  } else {
+    $btnFrenzy.classList.remove('disabled');
+  }
+
+  if (player.usedWeaken) {
+    $btnWeaken.classList.add('used');
+  }
+
+  // 雙方技能面板
+  $playerStats.innerHTML = `
+    <span class="stat-badge">🧬${lvText(player.metabolismLv)}</span>
+    <span class="stat-badge">⚔️${lvText(player.interveneLv)}</span>
+    <span class="stat-badge">🛡️${lvText(player.defenseLv)}</span>
+    ${player.hen ? '<span class="stat-badge">🐔' + Math.floor(player.hen.hp) + '</span>' : ''}
+  `;
+  $aiStats.innerHTML = `
+    <span class="stat-badge">🧬${lvText(opponent.metabolismLv)}</span>
+    <span class="stat-badge">⚔️${lvText(opponent.interveneLv)}</span>
+    <span class="stat-badge">🛡️${lvText(opponent.defenseLv)}</span>
+    ${opponent.hen ? '<span class="stat-badge">🐔' + Math.floor(opponent.hen.hp) + '</span>' : ''}
+  `;
+}
+
+function updateSkillButton(btnEl, name, lv, skill) {
+  const labelEl = btnEl.querySelector('.btn-label');
+  const costEl = btnEl.querySelector('.btn-cost');
+
+  if (lv >= MAX_LEVEL) {
+    labelEl.textContent = `${name} MAX`;
+    if (skill === 'intervene') {
+      costEl.textContent = `💧 ${INTERVENE_COST} 放蟻竇`;
+      btnEl.classList.toggle('disabled', player.water < INTERVENE_COST);
+    } else {
+      costEl.textContent = '✅ 已滿級';
+      btnEl.classList.add('disabled');
+    }
+  } else {
+    labelEl.textContent = `${name} ${lvText(lv)}`;
+    const cost = getUpgradeCost(lv);
+    costEl.textContent = cost === 0 ? '🆓 免費' : `💧 ${cost}`;
+    btnEl.classList.toggle('disabled', player.water < cost);
+  }
+}
+
+// ============================================================
+// 結束畫面
+// ============================================================
+function showEndScreen() {
+  $endScreen.classList.add('show');
+
+  const opponentName = gameMode === 'ai' ? 'AI' : '對手';
+
+  if (player.hp <= 0 && opponent.hp <= 0) {
+    $endTitle.textContent = '💥 同歸於盡！';
+    $endTitle.className = '';
+    $endSubtitle.textContent = '兩顆蛋都碎了...';
+  } else if (player.hp <= 0) {
+    $endTitle.textContent = '💔 你壞蛋了...';
+    $endTitle.className = '';
+    $endSubtitle.textContent = `${opponentName}的蛋成功存活了！`;
+    $playerEgg.textContent = '💔';
+  } else {
+    $endTitle.textContent = '🐣 成功孵化！';
+    $endTitle.className = 'celebrate';
+    $endSubtitle.textContent = '小雞雞出現了！恭喜你！🎉';
+    $playerEgg.textContent = '🐣';
+    $aiEgg.textContent = '💔';
+  }
+}
+
+function restartGame() {
+  gameRunning = false;
+  cleanupFirebase();
+
+  document.querySelectorAll('.ant, .anthill, .dmg-float, .heal-float, .sweep-effect, .hen, .hen-hp-bar, .weaken-indicator').forEach(e => e.remove());
+
+  $endScreen.classList.remove('show');
+  $disconnectOverlay.classList.remove('show');
+  $connStatus.textContent = '';
+
+  hideAllLobbyPanels();
+  $mainMenu.style.display = 'block';
+  $lobbyScreen.classList.remove('hidden');
+}
+
+// ============================================================
+// 初始化
+// ============================================================
+hideAllLobbyPanels();
+$mainMenu.style.display = 'block';
+
+$roomInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') joinRoom();
+});
+
+window.addEventListener('beforeunload', () => {
+  if (roomRef && myRole) {
+    roomRef.child(myRole + '/connected').set(false);
+  }
+});
+
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden && gameMode === 'pvp' && roomRef) {
+    roomRef.child(myRole + '/connected').set(true);
+    roomRef.child(myRole + '/connected').onDisconnect().set(false);
+  }
+});
+</script>
+
+</body>
+</html>
