@@ -1,0 +1,1868 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>因果</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+html, body {
+  width:100%; height:100%;
+  background:#050510;
+  overflow:hidden;
+  touch-action:none;
+  -webkit-touch-callout:none;
+  -webkit-user-select:none;
+  user-select:none;
+  font-family:'Segoe UI','Microsoft JhengHei','PingFang TC',sans-serif;
+}
+#gameContainer {
+  position:absolute;
+  top:50%; left:50%;
+  transform:translate(-50%,-50%);
+}
+canvas { display:block; }
+</style>
+</head>
+<body>
+<div id="gameContainer">
+  <canvas id="gameCanvas"></canvas>
+</div>
+<script>
+// ============================================================
+//  因果 — Karma Dice Duel
+//  最新版本：
+//  1. 聖盾骰：護盾點數系統（3點數，可抵擋傷害，再次獲得恢復為3）
+//  2. 混沌骰：25%機率同時前進自己和後退對手
+//  3. 陰陽骰：同時前進自己和後退對手5格，二段落後時為7格
+//  4. 奇襲骰：只擲奇數(1,3,5)，對手每擲到奇數，我方下回合有50%為5
+//  5. 神威骰：擲骰範圍2-7，第30回合後為3-7
+//  6. 命運骰：對手30%機率點數為0
+// ============================================================
+
+// ==================== 全域常數 ====================
+const DESIGN_W = 390;
+const DESIGN_H = 844;
+const TRACK_LEN = 50;
+const START_POS = 25;
+const MIN_FONT = 16;
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+let S = 1;
+
+// ==================== 畫面適配 ====================
+function resize(){
+  const ww = window.innerWidth, wh = window.innerHeight;
+  const ratio = DESIGN_W / DESIGN_H;
+  let cw, ch;
+  if(ww/wh < ratio){ cw=ww; ch=ww/ratio; }
+  else { ch=wh; cw=wh*ratio; }
+  canvas.width = cw; canvas.height = ch;
+  S = cw / DESIGN_W;
+  const c = document.getElementById('gameContainer');
+  c.style.width = cw+'px'; c.style.height = ch+'px';
+}
+window.addEventListener('resize', resize);
+resize();
+
+// ==================== 工具函式 ====================
+const ds = v => v * S;
+const ri = (a, b) => Math.floor(Math.random() * (b - a + 1)) + a;
+const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+const lerp = (a, b, t) => a + (b - a) * t;
+
+function rrect(x, y, w, h, r, fill, stroke, lw){
+  const X=ds(x),Y=ds(y),W=ds(w),H=ds(h),R=ds(Math.min(r,w/2,h/2));
+  ctx.beginPath();
+  ctx.moveTo(X+R,Y);
+  ctx.lineTo(X+W-R,Y); ctx.quadraticCurveTo(X+W,Y,X+W,Y+R);
+  ctx.lineTo(X+W,Y+H-R); ctx.quadraticCurveTo(X+W,Y+H,X+W-R,Y+H);
+  ctx.lineTo(X+R,Y+H); ctx.quadraticCurveTo(X,Y+H,X,Y+H-R);
+  ctx.lineTo(X,Y+R); ctx.quadraticCurveTo(X,Y,X+R,Y);
+  ctx.closePath();
+  if(fill){ ctx.fillStyle=fill; ctx.fill(); }
+  if(stroke){ ctx.strokeStyle=stroke; ctx.lineWidth=ds(lw||1); ctx.stroke(); }
+}
+
+function txt(t, x, y, sz, col, al, mw, bold){
+  const fontSize = Math.max(sz, MIN_FONT);
+  ctx.fillStyle = col || '#fff';
+  ctx.font = (bold?'bold ':'') + ds(fontSize) + 'px "Segoe UI","Microsoft JhengHei",sans-serif';
+  ctx.textAlign = al || 'center';
+  ctx.textBaseline = 'middle';
+  if(mw) ctx.fillText(t, ds(x), ds(y), ds(mw));
+  else ctx.fillText(t, ds(x), ds(y));
+}
+
+function wrapText(text, x, y, sz, col, maxW, lineH, bold){
+  const fontSize = Math.max(sz, MIN_FONT);
+  ctx.fillStyle = col || '#fff';
+  ctx.font = (bold?'bold ':'') + ds(fontSize) + 'px "Segoe UI","Microsoft JhengHei",sans-serif';
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'middle';
+  const lines = text.split('\n');
+  let cy = y;
+  lines.forEach(line => {
+    ctx.fillText(line, ds(x), ds(cy), ds(maxW));
+    cy += lineH;
+  });
+  return cy;
+}
+
+// ==================== 稀有度配色 ====================
+const RC = {
+  N:   { c:'#9ca3af', bg:'#1f2937', bd:'#6b7280', glow:'rgba(156,163,175,0.3)', label:'普通' },
+  R:   { c:'#60a5fa', bg:'#1e3a5f', bd:'#3b82f6', glow:'rgba(96,165,250,0.3)', label:'稀有' },
+  SR:  { c:'#a78bfa', bg:'#2e1065', bd:'#8b5cf6', glow:'rgba(167,139,250,0.3)', label:'超稀有' },
+  SSR: { c:'#fbbf24', bg:'#422006', bd:'#f59e0b', glow:'rgba(251,191,36,0.3)', label:'傳說' },
+  UR:  { c:'#f87171', bg:'#450a0a', bd:'#ef4444', glow:'rgba(248,113,113,0.4)', label:'究極' }
+};
+
+// ============================================================
+//  骰子組資料（12組 = 24顆骰子）
+// ============================================================
+const SETS = [];
+
+// ──── N ×2 ────
+SETS.push({
+  id:1, name:'穩步前行', rarity:'N',
+  pN:'穩定骰', pD:'只擲偶數(2,4,6)\n穩定前進',
+  aN:'衝刺骰', aD:'擲骰結果額外+2\n一次性的爆發',
+  pRoll(g){ return [2,4,6][ri(0,2)]; },
+  aFx(g, w){
+    const r = ri(1,6) + 2;
+    return { m:`衝刺！擲骰+2＝${r}點`, v:r, needChoice:true, roll:r };
+  }
+});
+// 奇襲骰重製：只擲奇數，對手每擲到奇數，我方下回合有50%為5
+SETS.push({
+  id:2, name:'奇數衝鋒', rarity:'N',
+  pN:'奇襲骰', pD:'只擲奇數(1,3,5)\n對手擲奇數時\n我方下回合50%擲5',
+  aN:'突擊骰', aD:'立即前進4格\n並令對手後退2格',
+  pRoll(g){ 
+    // 檢查是否觸發50%擲5
+    if(g.buf[g.cur].oddBonus && Math.random() < 0.5){
+      g.buf[g.cur].oddBonus = false;
+      return 5;
+    }
+    g.buf[g.cur].oddBonus = false;
+    return [1,3,5][ri(0,2)]; 
+  },
+  // 當對手擲到奇數時觸發
+  onEnemyRoll(g, who, roll){
+    if(roll % 2 === 1){
+      const me = who === 'p' ? 'a' : 'p';
+      g.buf[me].oddBonus = true;
+    }
+  },
+  aFx(g, w){
+    const o = w==='p'?'a':'p';
+    g.move(w, 4);
+    g.move(o, -2);
+    return { m:`突擊！自己+4，對手-2`, v:4, t:'atk' };
+  }
+});
+
+// ──── R ×2 ────
+SETS.push({
+  id:3, name:'連鎖反應', rarity:'R',
+  pN:'連鎖骰', pD:'擲到6時可再擲一次\n點數累加',
+  aN:'封印骰', aD:'封印對手下回合\n骰子效果無效',
+  pRoll(g){ let r=ri(1,6); if(r===6) g.bonus=true; return r; },
+  aFx(g, w){
+    const o = w==='p'?'a':'p';
+    g.deb[o].seal = true;
+    return { m:'封印！對手下回合無效', v:0, t:'deb' };
+  }
+});
+// 天賦骰：初始位於第30格
+SETS.push({
+  id:4, name:'天賦異稟', rarity:'R',
+  pN:'天賦骰', pD:'初始位於第30格\n正常擲1-6',
+  aN:'顛倒骰', aD:'令對手下回合\n前進後退互換',
+  pRoll(g){ return ri(1,6); },
+  aFx(g, w){
+    const o = w==='p'?'a':'p';
+    g.deb[o].swap = true;
+    return { m:'顛倒！對手下回合效果互換', v:0, t:'deb' };
+  },
+  initBonus: 30
+});
+
+// ──── SR ×2 ────
+SETS.push({
+  id:5, name:'暴風領域', rarity:'SR',
+  pN:'暴風骰', pD:'同時擲3顆骰子\n取最大值',
+  aN:'領域骰', aD:'對手接下來3回合\n擲到的點數-1',
+  pRoll(g){ 
+    const d1 = ri(1,6), d2 = ri(1,6), d3 = ri(1,6);
+    g.lastThreeDice = [d1,d2,d3].sort((a,b)=>a-b);
+    return Math.max(d1, d2, d3); 
+  },
+  aFx(g, w){
+    const o = w==='p'?'a':'p';
+    g.deb[o].weaken = (g.deb[o].weaken||0) + 3;
+    return { m:'領域！對手3回合點數-1', v:0, t:'deb' };
+  }
+});
+SETS.push({
+  id:6, name:'烈焰燃燒', rarity:'SR',
+  pN:'烈焰骰', pD:'擲到4,5,6時\n額外+1格',
+  aN:'爆燃骰', aD:'必定擲出5\n但下回合只能擲2',
+  pRoll(g){ const r=ri(1,6); if(r>=4) g.bm=(g.bm||0)+1; return r; },
+  aFx(g, w){
+    g.deb[w].f2 = true;
+    return { m:'爆燃！擲出5點', v:5, needChoice:true, roll:5 };
+  }
+});
+
+// ──── SSR ×3 ────
+SETS.push({
+  id:7, name:'幽靈步伐', rarity:'SSR',
+  pN:'幽靈骰', pD:'20%機率擲出7\n正常為1-6',
+  aN:'傳送骰', aD:'傳送到對手位置+1格\n(僅當對手在前方)',
+  pRoll(g){ return Math.random()<0.2 ? 7 : ri(1,6); },
+  aFx(g, w){
+    const o = w==='p'?'a':'p';
+    if(g.pos[o] > g.pos[w]){
+      const d = g.pos[o] - g.pos[w] + 1;
+      g.move(w, d);
+      return { m:`傳送！前進${d}格超越對手`, v:d };
+    }
+    return { m:'傳送失敗！對手不在前方', v:0 };
+  }
+});
+SETS.push({
+  id:8, name:'命運之輪', rarity:'SSR',
+  pN:'命運骰', pD:'正常擲1-6\n對手有30%機率\n點數變為0',
+  aN:'交換骰', aD:'與對手交換位置',
+  pRoll(g){
+    let r = ri(1,6);
+    // 標記對手下回合30%機率點數變0
+    const o = g.cur === 'p' ? 'a' : 'p';
+    g.deb[o].fateZero = true;
+    return r;
+  },
+  aFx(g, w){
+    const o = w==='p'?'a':'p';
+    const t = g.pos[w]; g.pos[w] = g.pos[o]; g.pos[o] = t;
+    return { m:'交換！雙方位置互換', v:0, t:'swap' };
+  }
+});
+// 聖盾骰：護盾改為3點數系統
+SETS.push({
+  id:9, name:'聖盾守護', rarity:'SSR',
+  pN:'聖盾骰', pD:'正常1-6\n擲1時獲得3點護盾\n(可抵擋後退傷害)',
+  aN:'審判骰', aD:'擲骰≥3：對手退6格\n否則對手退1格',
+  pRoll(g){
+    const r = ri(1,6);
+    if(r === 1){
+      // 護盾恢復為3點（不疊加，直接設為3）
+      g.buf[g.cur].shieldPts = 3;
+    }
+    return r;
+  },
+  aFx(g, w){
+    const r = ri(1,6), o = w==='p'?'a':'p';
+    if(r >= 3){
+      g.move(o, -6);
+      return { m:`審判成功(${r})！對手退6格`, v:-6, t:'atk' };
+    }
+    g.move(o, -1);
+    return { m:`審判(${r})！對手退1格`, v:-1, t:'atk' };
+  }
+});
+
+// ──── UR ×3 ────
+SETS.push({
+  id:10, name:'創世神骰', rarity:'UR',
+  pN:'神威骰', pD:'擲骰範圍2-7',
+  aN:'陰陽骰', aD:'【一段】同時前進自己\n和後退對手5格\n【二段】落後時為7格',
+  pRoll(g){
+    // 第30回合後範圍變為3-7
+    if(g.turn >= 30){
+      return ri(3,7);
+    }
+    return ri(2,7);
+  },
+  aFx(g, w){
+    const o = w==='p'?'a':'p';
+    const behind = g.pos[w] < g.pos[o];
+    const v = behind ? 7 : 5;
+    g.move(w, v);
+    g.move(o, -v);
+    let m = behind ? `陰陽二段！自己+${v}，對手-${v}` : `陰陽！自己+${v}，對手-${v}`;
+    return { m, v, t:'dual' };
+  }
+});
+// 混沌骰重製：25%機率同時前進自己和後退對手
+SETS.push({
+  id:11, name:'混沌支配', rarity:'UR',
+  pN:'混沌骰', pD:'正常擲1-6\n25%機率同時前進自己\n和後退對手',
+  aN:'支配骰', aD:'【一段】對手下回合必擲1\n【二段】領先>10格\n則連續2回合',
+  pRoll(g){
+    const r = ri(1,6);
+    // 25%機率觸發雙重效果
+    if(Math.random() < 0.25){
+      g.chaosDouble = true;
+    }
+    return r;
+  },
+  aFx(g, w){
+    const o = w==='p'?'a':'p';
+    const diff = g.pos[w] - g.pos[o];
+    if(diff > 10){
+      g.deb[o].f1c = 2;
+      return { m:'支配二段！對手連2回合擲1', v:0, t:'deb' };
+    }
+    g.deb[o].f1c = 1;
+    return { m:'支配！對手下回合必擲1', v:0, t:'deb' };
+  }
+});
+// 終結骰
+SETS.push({
+  id:12, name:'命運終結', rarity:'UR',
+  pN:'終焉骰', pD:'正常1-6\n若對手領先時選擇後退\n額外多退3格',
+  aN:'終結骰', aD:'【一段】同時擲3骰合計\n【二段】差距≥10格時\n擲4骰合計',
+  pRoll(g){
+    const r = ri(1,6);
+    return r;
+  },
+  pExtra(g, who, choice){
+    if(choice === 'back'){
+      const o = who==='p'?'a':'p';
+      if(g.pos[o] > g.pos[who]){
+        return 3;
+      }
+    }
+    return 0;
+  },
+  aFx(g, w){
+    const o = w==='p'?'a':'p';
+    const diff = Math.abs(g.pos[w] - g.pos[o]);
+    let diceCount = diff >= 10 ? 4 : 3;
+    let total = 0;
+    let diceResults = [];
+    for(let i=0; i<diceCount; i++){
+      const d = ri(1,6);
+      diceResults.push(d);
+      total += d;
+    }
+    g.lastMultiDice = diceResults;
+    const stageTxt = diceCount === 4 ? '二段' : '一段';
+    return { m:`終結${stageTxt}！擲${diceCount}骰=[${diceResults.join('+')}]=${total}`, v:total, needChoice:true, roll:total };
+  }
+});
+
+// ============================================================
+//  遊戲狀態
+// ============================================================
+const ST = {
+  TITLE:   'title',
+  CODEX:   'codex',
+  PICK:    'pick',
+  PLAY:    'play',
+  CHOICE:  'choice',
+  ANIM:    'anim',
+  RESULT:  'result',
+  OVER:    'over'
+};
+
+// ============================================================
+//  Game 主類
+// ============================================================
+class Game {
+  constructor(){
+    this.state = ST.TITLE;
+    this.reset();
+    this.codexScroll = 0;
+    this.codexMaxScr = 0;
+    this.codexDragging = false;
+    this.codexDragY0 = 0;
+    this.codexDragScr0 = 0;
+    this.codexExpand = -1;
+    this.pickScroll = 0;
+    this.pickMaxScr = 0;
+    this.pickDragging = false;
+    this.pickDragY0 = 0;
+    this.pickDragScr0 = 0;
+    this.pickSelected = -1;
+    this.pickConfirm = false;
+    this.aiSetIdx = -1;
+    this.pSetIdx = -1;
+    this.animT = 0;
+    this.trackAnimP = START_POS;
+    this.trackAnimA = START_POS;
+  }
+
+  reset(){
+    this.pos = {p:START_POS, a:START_POS};
+    this.turn = 1;
+    this.cur = 'p';
+    this.deb = {p:{}, a:{}};
+    this.buf = {p:{}, a:{}};
+    this.moved = {p:0, a:0};
+    this.lastMove = {p:0, a:0};
+    this.bonus = false;
+    this.bm = 0;
+    this.winner = null;
+    this.pUsedActive = false;
+    this.aUsedActive = false;
+    this.phase = 'action';
+    this.dice = {rolling:false, frame:0, val:0};
+    this.big = {show:false, v:'', t:0, col:'#fff'};
+    this.resMsg = '';
+    this.resTimer = 0;
+    this.particles = [];
+    this.aiWait = false;
+    this.aiCD = 0;
+    this.trackAnimP = START_POS;
+    this.trackAnimA = START_POS;
+    this.pSetIdx = -1;
+    this.aiSetIdx = -1;
+    this.pendingRoll = null;
+    this.lastThreeDice = null;
+    this.lastMultiDice = null;
+    this.firstTurnDecided = false;
+    this.chaosDouble = false;
+    this.lastRoll = {p:0, a:0};
+  }
+
+  startGame(playerSetIdx){
+    this.reset();
+    this.pSetIdx = playerSetIdx;
+    
+    // AI隨機選擇骰子組
+    let candidates = [];
+    for(let i=0; i<SETS.length; i++){
+      if(i === playerSetIdx) continue;
+      candidates.push(i);
+    }
+    for(let i = candidates.length - 1; i > 0; i--){
+      const j = Math.floor(Math.random() * (i + 1));
+      [candidates[i], candidates[j]] = [candidates[j], candidates[i]];
+    }
+    this.aiSetIdx = candidates[0];
+    
+    // 處理天賦骰初始位置加成
+    const pSet = SETS[this.pSetIdx];
+    const aSet = SETS[this.aiSetIdx];
+    if(pSet.initBonus){
+      this.pos.p = pSet.initBonus;
+      this.trackAnimP = pSet.initBonus;
+    }
+    if(aSet.initBonus){
+      this.pos.a = aSet.initBonus;
+      this.trackAnimA = aSet.initBonus;
+    }
+    
+    // 隨機決定先手
+    this.cur = Math.random() < 0.5 ? 'p' : 'a';
+    this.firstTurnDecided = true;
+    
+    this.state = ST.PLAY;
+    this.phase = 'action';
+    
+    // 如果AI先手，啟動AI回合
+    if(this.cur === 'a'){
+      this.aiWait = true;
+      this.aiCD = 60;
+    }
+  }
+
+  checkWin(){
+    if(this.pos.p >= TRACK_LEN){
+      this.winner = 'p';
+    } else if(this.pos.a >= TRACK_LEN){
+      this.winner = 'a';
+    } else if(this.pos.p <= 0){
+      this.winner = 'a';
+    } else if(this.pos.a <= 0){
+      this.winner = 'p';
+    }
+  }
+
+  // 移動函數：支援護盾點數系統
+  move(who, amt){
+    // 檢查護盾點數（僅對後退生效）
+    if(amt < 0){
+      const shieldPts = this.buf[who].shieldPts || 0;
+      if(shieldPts > 0){
+        const damage = Math.abs(amt);
+        const blocked = Math.min(shieldPts, damage);
+        const remaining = damage - blocked;
+        this.buf[who].shieldPts = shieldPts - blocked;
+        if(remaining > 0){
+          this.pos[who] = clamp(this.pos[who] - remaining, 0, TRACK_LEN);
+        }
+        // 記錄實際傷害
+        this.lastMove[who] = -remaining;
+        this.checkWin();
+        return blocked; // 返回被護盾擋掉的傷害
+      }
+    }
+    this.pos[who] = clamp(this.pos[who] + amt, 0, TRACK_LEN);
+    if(amt > 0) this.moved[who] = (this.moved[who]||0) + amt;
+    this.lastMove[who] = amt;
+    this.checkWin();
+    return 0;
+  }
+
+  getSet(who){
+    return who==='p' ? SETS[this.pSetIdx] : SETS[this.aiSetIdx];
+  }
+
+  usedActive(who){
+    return who==='p' ? this.pUsedActive : this.aUsedActive;
+  }
+
+  rollPassive(who){
+    const s = this.getSet(who);
+    this.bonus = false;
+    this.bm = 0;
+    this.chaosDouble = false;
+    
+    // 檢查封印
+    if(this.deb[who].seal){
+      this.deb[who].seal = false;
+      return {r:ri(1,6), b:0, re:false, info:'封印'};
+    }
+    // 檢查支配（強制擲1）
+    if(this.deb[who].f1){
+      this.deb[who].f1 = false;
+      return {r:1, b:0, re:false, info:'支配'};
+    }
+    if((this.deb[who].f1c||0) > 0){
+      this.deb[who].f1c--;
+      return {r:1, b:0, re:false, info:'支配'};
+    }
+    // 檢查爆燃後遺症（強制擲2）
+    if(this.deb[who].f2){
+      this.deb[who].f2 = false;
+      return {r:2, b:0, re:false, info:'爆燃'};
+    }
+    
+    // 檢查命運骰效果（30%機率點數為0）
+    if(this.deb[who].fateZero){
+      this.deb[who].fateZero = false;
+      if(Math.random() < 0.3){
+        return {r:0, b:0, re:false, info:'命運'};
+      }
+    }
+    
+    let r = s.pRoll(this);
+    let b = this.bm || 0;
+    
+    // 記錄擲骰結果（用於奇襲骰觸發）
+    this.lastRoll[who] = r;
+    
+    // 觸發對手的 onEnemyRoll
+    const o = who === 'p' ? 'a' : 'p';
+    const oSet = this.getSet(o);
+    if(oSet.onEnemyRoll){
+      oSet.onEnemyRoll(this, who, r);
+    }
+    
+    // 檢查領域削弱（點數-1）
+    if((this.deb[who].weaken||0) > 0){
+      this.deb[who].weaken--;
+      r = Math.max(1, r - 1);
+    }
+    
+    // 檢查混沌骰的雙重效果
+    const chaosTriggered = this.chaosDouble;
+    
+    return {r, b, re:this.bonus, chaosDouble: chaosTriggered};
+  }
+
+  applyDot(who){
+    if((this.deb[who].dot||0) > 0){
+      this.move(who, -1);
+      this.deb[who].dot--;
+      return true;
+    }
+    return false;
+  }
+
+  aiDecideAction(){
+    const s = this.getSet('a');
+    if(this.aUsedActive) return 'passive';
+    const diff = this.pos.p - this.pos.a;
+    const rarityBonus = {N:0, R:1, SR:2, SSR:3, UR:4}[s.rarity]||0;
+    let activeScore = 3 + rarityBonus + Math.random()*3;
+    
+    if(this.pos.a <= 10){
+      activeScore -= 5;
+    } else if(this.pos.a <= 18){
+      activeScore -= 2;
+    }
+    
+    if(diff > 10) activeScore += 4;
+    if(this.pos.a >= 38) activeScore += 5;
+    if(this.pos.p >= 42) activeScore += 6;
+    if(this.pos.p <= 15 && this.pos.a > 15) activeScore += 3;
+    if(this.turn <= 3) activeScore -= 3;
+    if(this.pos.a - this.pos.p > 10) activeScore -= 4;
+    return activeScore > 8 ? 'active' : 'passive';
+  }
+
+  aiDecideChoice(rollVal){
+    const diff = this.pos.p - this.pos.a;
+    const isSwapped = this.deb.a.swap;
+    
+    if(isSwapped){
+      return 'back';
+    }
+    
+    if(this.pos.a <= 8 + rollVal){
+      return 'forward';
+    }
+    if(this.pos.a <= 15){
+      return Math.random() < 0.7 ? 'forward' : 'back';
+    }
+    
+    if(this.pos.p <= 12) return 'back';
+    if(this.pos.a >= 40) return 'forward';
+    if(this.pos.p >= 42) return 'back';
+    if(diff > 8) return 'back';
+    
+    return Math.random() < 0.6 ? 'forward' : 'back';
+  }
+}
+
+const G = new Game();
+
+// ============================================================
+//  輸入處理
+// ============================================================
+function ePos(e){
+  const r = canvas.getBoundingClientRect();
+  const t = e.touches ? e.touches[0] : e;
+  return { x:(t.clientX - r.left)/S, y:(t.clientY - r.top)/S };
+}
+
+let touchP = null, touchMoved = false;
+
+function onDown(e){
+  e.preventDefault && e.preventDefault();
+  const p = ePos(e);
+  touchP = p;
+  touchMoved = false;
+
+  if(G.state === ST.CODEX){
+    G.codexDragging = true;
+    G.codexDragY0 = p.y;
+    G.codexDragScr0 = G.codexScroll;
+  }
+  if(G.state === ST.PICK && !G.pickConfirm){
+    G.pickDragging = true;
+    G.pickDragY0 = p.y;
+    G.pickDragScr0 = G.pickScroll;
+  }
+}
+
+function onMove(e){
+  e.preventDefault && e.preventDefault();
+  if(!touchP) return;
+  const p = ePos(e);
+  if(G.codexDragging){
+    const dy = p.y - G.codexDragY0;
+    G.codexScroll = clamp(G.codexDragScr0 - dy, 0, G.codexMaxScr);
+    if(Math.abs(dy)>5) touchMoved = true;
+  }
+  if(G.pickDragging){
+    const dy = p.y - G.pickDragY0;
+    G.pickScroll = clamp(G.pickDragScr0 - dy, 0, G.pickMaxScr);
+    if(Math.abs(dy)>5) touchMoved = true;
+  }
+}
+
+function onUp(e){
+  e.preventDefault && e.preventDefault();
+  G.codexDragging = false;
+  G.pickDragging = false;
+  if(!touchMoved && touchP) click(touchP);
+  touchP = null;
+  touchMoved = false;
+}
+
+canvas.addEventListener('touchstart', onDown, {passive:false});
+canvas.addEventListener('touchmove', onMove, {passive:false});
+canvas.addEventListener('touchend', onUp, {passive:false});
+canvas.addEventListener('mousedown', onDown);
+canvas.addEventListener('mousemove', onMove);
+canvas.addEventListener('mouseup', onUp);
+canvas.addEventListener('wheel', e => {
+  if(G.state === ST.CODEX){
+    G.codexScroll = clamp(G.codexScroll + e.deltaY*0.5, 0, G.codexMaxScr);
+  }
+  if(G.state === ST.PICK && !G.pickConfirm){
+    G.pickScroll = clamp(G.pickScroll + e.deltaY*0.5, 0, G.pickMaxScr);
+  }
+});
+
+// ============================================================
+//  點擊分派
+// ============================================================
+function click(p){
+  const {x, y} = p;
+
+  switch(G.state){
+    case ST.TITLE: clickTitle(x,y); break;
+    case ST.CODEX: clickCodex(x,y); break;
+    case ST.PICK:  clickPick(x,y); break;
+    case ST.PLAY:  clickPlay(x,y); break;
+    case ST.CHOICE: clickChoice(x,y); break;
+    case ST.RESULT:
+      if(G.winner) G.state = ST.OVER;
+      break;
+    case ST.OVER: clickOver(x,y); break;
+  }
+}
+
+function clickTitle(x, y){
+  if(x>75 && x<315 && y>420 && y<500){
+    G.state = ST.PICK;
+    G.pickScroll = 0;
+    G.pickSelected = -1;
+    G.pickConfirm = false;
+  }
+  if(x>75 && x<315 && y>520 && y<590){
+    G.state = ST.CODEX;
+    G.codexScroll = 0;
+    G.codexExpand = -1;
+  }
+}
+
+function clickCodex(x, y){
+  if(x>15 && x<100 && y>15 && y<55){
+    G.state = ST.TITLE;
+    return;
+  }
+  const sy = 75, ch = 70, chExp = 280, gap = 10;
+  let cy = sy;
+  for(let i=0; i<SETS.length; i++){
+    const isExp = (G.codexExpand === i);
+    const h = isExp ? chExp : ch;
+    const rY = cy - G.codexScroll;
+    if(rY > -h && rY < DESIGN_H){
+      if(x>15 && x<375 && y>rY && y<rY+h){
+        G.codexExpand = isExp ? -1 : i;
+        return;
+      }
+    }
+    cy += h + gap;
+  }
+}
+
+function clickPick(x, y){
+  if(G.pickConfirm){
+    if(x>50 && x<200 && y>755 && y<815){
+      G.startGame(G.pickSelected);
+      return;
+    }
+    if(x>210 && x<340 && y>755 && y<815){
+      G.pickConfirm = false;
+      G.pickSelected = -1;
+      return;
+    }
+    return;
+  }
+
+  if(x>15 && x<100 && y>15 && y<55){
+    G.state = ST.TITLE;
+    return;
+  }
+
+  const sy = 80, ch = 100, gap = 10;
+  for(let i=0; i<SETS.length; i++){
+    const rY = sy + i*(ch+gap) - G.pickScroll;
+    if(rY > 50 && rY+ch < DESIGN_H-10){
+      if(x>15 && x<375 && y>rY && y<rY+ch){
+        G.pickSelected = i;
+        G.pickConfirm = true;
+        return;
+      }
+    }
+  }
+}
+
+function clickPlay(x, y){
+  if(G.cur !== 'p' || G.aiWait) return;
+  if(G.phase !== 'action') return;
+
+  if(x>20 && x<190 && y>700 && y<790){
+    doPassive();
+  }
+  if(x>200 && x<370 && y>700 && y<790){
+    if(!G.pUsedActive) doActive();
+  }
+}
+
+function clickChoice(x, y){
+  if(G.cur !== 'p') return;
+  if(x>20 && x<190 && y>500 && y<570){
+    executeChoice('forward');
+  }
+  if(x>200 && x<370 && y>500 && y<570){
+    executeChoice('back');
+  }
+}
+
+function clickOver(x, y){
+  if(x>95 && x<295 && y>580 && y<660){
+    G.state = ST.TITLE;
+  }
+}
+
+// ============================================================
+//  玩家動作
+// ============================================================
+function doPassive(){
+  G.phase = 'rolling';
+  G.state = ST.ANIM;
+  G.dice = {rolling:true, frame:0, val:0};
+
+  setTimeout(()=>{
+    const res = G.rollPassive('p');
+    G.dice.rolling = false;
+    G.dice.val = Math.abs(res.r);
+    
+    if(res.info){
+      const total = res.r + res.b;
+      G.move('p', total);
+      G.applyDot('p');
+      let m = `被${res.info}！擲出${Math.abs(res.r)}`;
+      if(res.b) m += ` +額外${res.b}`;
+      showRes(m, total, '#f87171', true);
+    } else if(res.chaosDouble){
+      // 混沌骰觸發雙重效果 - 不需要選擇，直接執行
+      const total = res.r + res.b;
+      G.move('p', total);
+      G.move('a', -total);
+      G.applyDot('p');
+      showRes(`混沌！同時前進${total}格並令對手後退${total}格`, total, '#a78bfa', true);
+    } else {
+      G.pendingRoll = res;
+      G.state = ST.CHOICE;
+    }
+  }, 700);
+}
+
+function executeChoice(choice){
+  const res = G.pendingRoll;
+  const total = res.r + res.b;
+  const s = G.getSet('p');
+  const who = 'p';
+  const o = 'a';
+  const isFromActive = res.fromActive;
+  
+  const isSwapped = !isFromActive && G.deb[who].swap;
+  if(isSwapped){
+    G.deb[who].swap = false;
+  }
+  
+  let extra = 0;
+  if(!isFromActive && s.pExtra){
+    extra = s.pExtra(G, who, choice);
+  }
+  
+  let actualChoice = choice;
+  if(isSwapped){
+    actualChoice = choice === 'forward' ? 'selfBack' : 'enemyForward';
+  }
+  
+  const prefix = isFromActive ? '爆燃！' : '';
+  
+  if(actualChoice === 'forward'){
+    G.move(who, total);
+    G.applyDot(who);
+    let m = `${prefix}前進${total}格`;
+    if(res.b) m = `${prefix}前進${res.r}+${res.b}=${total}格`;
+    showRes(m, total, '#4ade80', true);
+  } else if(actualChoice === 'back'){
+    const backAmt = total + extra;
+    const blocked = G.move(o, -backAmt);
+    G.applyDot(who);
+    let m = `${prefix}令對手後退${backAmt}格`;
+    if(extra > 0) m = `對手後退${total}+${extra}=${backAmt}格！`;
+    if(blocked > 0) m += `(護盾擋${blocked})`;
+    showRes(m, -backAmt, '#f87171', true);
+  } else if(actualChoice === 'selfBack'){
+    G.move(who, -total);
+    G.applyDot(who);
+    showRes(`顛倒！自己後退${total}格`, -total, '#f87171', true);
+  } else if(actualChoice === 'enemyForward'){
+    G.move(o, total);
+    G.applyDot(who);
+    showRes(`顛倒！對手前進${total}格`, total, '#60a5fa', true);
+  }
+  
+  G.pendingRoll = null;
+}
+
+function doActive(){
+  G.pUsedActive = true;
+  G.phase = 'rolling';
+  G.state = ST.ANIM;
+  G.dice = {rolling:true, frame:0, val:0};
+
+  setTimeout(()=>{
+    const s = G.getSet('p');
+    const res = s.aFx(G, 'p');
+    G.dice.rolling = false;
+    G.dice.val = Math.abs(res.v) || 0;
+    
+    if(res.needChoice){
+      G.pendingRoll = {r:res.roll, b:0, re:false, fromActive:true};
+      G.state = ST.CHOICE;
+    } else {
+      G.applyDot('p');
+      const displayV = res.t === 'atk' ? res.v : res.v;
+      showRes('主動骰：'+res.m, displayV, res.t==='atk'?'#f87171':'#4ade80', true);
+    }
+  }, 700);
+}
+
+function showRes(m, v, c, autoNext){
+  G.state = ST.RESULT;
+  G.resMsg = m;
+  G.resTimer = autoNext ? 70 : 0;
+  if(v !== 0 && v !== undefined){
+    const displayV = v > 0 ? `+${v}` : `${v}`;
+    G.big = {show:true, v:displayV, t:50, col:c||'#fff'};
+    for(let i=0; i<12; i++){
+      G.particles.push({
+        x:195, y:330,
+        vx:(Math.random()-.5)*8,
+        vy:(Math.random()-.5)*8,
+        l:25+Math.random()*15,
+        c:c||'#fff',
+        s:2+Math.random()*3
+      });
+    }
+  }
+}
+
+function proceed(){
+  if(G.winner){ G.state = ST.OVER; return; }
+  if(G.cur === 'p'){
+    G.cur = 'a';
+    G.state = ST.PLAY;
+    G.aiWait = true;
+    G.aiCD = 45;
+  } else {
+    G.cur = 'p';
+    G.turn++;
+    G.state = ST.PLAY;
+    G.phase = 'action';
+  }
+}
+
+// ============================================================
+//  AI 回合
+// ============================================================
+function execAI(){
+  G.aiWait = false;
+  G.state = ST.ANIM;
+  G.dice = {rolling:true, frame:0, val:0};
+
+  const action = G.aiDecideAction();
+  const s = G.getSet('a');
+
+  if(action === 'active'){
+    G.aUsedActive = true;
+    setTimeout(()=>{
+      const res = s.aFx(G, 'a');
+      G.dice.rolling = false;
+      G.dice.val = Math.abs(res.v) || 0;
+      
+      if(res.needChoice){
+        const total = res.roll;
+        const choice = G.aiDecideChoice(total);
+        
+        if(choice === 'forward'){
+          G.move('a', total);
+          G.applyDot('a');
+          showRes(`AI主動：前進${total}格`, total, '#60a5fa', true);
+        } else {
+          const blocked = G.move('p', -total);
+          G.applyDot('a');
+          let m = `AI主動：令你後退${total}格`;
+          if(blocked > 0) m += `(護盾擋${blocked})`;
+          showRes(m, -total, '#f87171', true);
+        }
+      } else {
+        G.applyDot('a');
+        const displayV = res.t === 'atk' ? res.v : res.v;
+        showRes(`AI主動：${res.m}`, displayV, res.t==='atk'?'#f87171':'#60a5fa', true);
+      }
+    }, 700);
+  } else {
+    setTimeout(()=>{
+      const res = G.rollPassive('a');
+      G.dice.rolling = false;
+      G.dice.val = Math.abs(res.r);
+      const total = res.r + res.b;
+      
+      if(res.info){
+        G.move('a', total);
+        G.applyDot('a');
+        let m = `AI：被${res.info}擲${Math.abs(res.r)}`;
+        showRes(m, total, '#60a5fa', true);
+        return;
+      }
+      
+      // 混沌骰雙重效果
+      if(res.chaosDouble){
+        G.move('a', total);
+        const blocked = G.move('p', -total);
+        G.applyDot('a');
+        let m = `AI混沌！前進${total}格並令你後退${total}格`;
+        if(blocked > 0) m += `(護盾擋${blocked})`;
+        showRes(m, total, '#a78bfa', true);
+        return;
+      }
+      
+      const choice = G.aiDecideChoice(total);
+      
+      const isSwapped = G.deb.a.swap;
+      if(isSwapped){
+        G.deb.a.swap = false;
+      }
+      
+      let extra = 0;
+      if(s.pExtra){
+        extra = s.pExtra(G, 'a', choice);
+      }
+      
+      let actualChoice = choice;
+      if(isSwapped){
+        actualChoice = choice === 'forward' ? 'selfBack' : 'enemyForward';
+      }
+      
+      if(actualChoice === 'forward'){
+        G.move('a', total);
+        G.applyDot('a');
+        let m = `AI：前進${total}格`;
+        if(res.b) m = `AI：前進${res.r}+${res.b}格`;
+        showRes(m, total, '#60a5fa', true);
+      } else if(actualChoice === 'back'){
+        const backAmt = total + extra;
+        const blocked = G.move('p', -backAmt);
+        G.applyDot('a');
+        let m = `AI：令你後退${backAmt}格`;
+        if(extra > 0) m = `AI：令你後退${total}+${extra}格！`;
+        if(blocked > 0) m += `(護盾擋${blocked})`;
+        showRes(m, -backAmt, '#f87171', true);
+      } else if(actualChoice === 'selfBack'){
+        G.move('a', -total);
+        G.applyDot('a');
+        showRes(`AI被顛倒！後退${total}格`, -total, '#4ade80', true);
+      } else if(actualChoice === 'enemyForward'){
+        G.move('p', total);
+        G.applyDot('a');
+        showRes(`AI被顛倒！你前進${total}格`, total, '#4ade80', true);
+      }
+      
+      if(res.re && !G.winner){
+        setTimeout(()=>{
+          G.state = ST.PLAY;
+          G.aiWait = true;
+          G.aiCD = 35;
+        }, 1600);
+      }
+    }, 700);
+  }
+}
+
+// ============================================================
+//  繪製 — 標題畫面
+// ============================================================
+function drawTitle(){
+  const grad = ctx.createLinearGradient(0,0,0,ds(DESIGN_H));
+  grad.addColorStop(0,'#0a0015');
+  grad.addColorStop(0.3,'#1a0a30');
+  grad.addColorStop(0.6,'#0d1025');
+  grad.addColorStop(1,'#05080f');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0,0,ds(DESIGN_W),ds(DESIGN_H));
+
+  const t = Date.now()/1000;
+  for(let i=0; i<30; i++){
+    const px = (Math.sin(t*0.3+i*1.1)*0.45+0.5)*DESIGN_W;
+    const py = (Math.cos(t*0.25+i*0.8)*0.45+0.5)*DESIGN_H;
+    const a = 0.1 + Math.sin(t+i)*0.08;
+    ctx.beginPath();
+    ctx.arc(ds(px),ds(py),ds(1.5+Math.sin(t*0.7+i)*0.8),0,Math.PI*2);
+    ctx.fillStyle = `rgba(167,139,250,${a.toFixed(3)})`;
+    ctx.fill();
+  }
+
+  const cx = 195, cy = 200;
+  ctx.save();
+  ctx.translate(ds(cx), ds(cy));
+  ctx.rotate(t * 0.3);
+  const glow = ctx.createRadialGradient(0,0,ds(30),0,0,ds(75));
+  glow.addColorStop(0,'rgba(139,92,246,0.25)');
+  glow.addColorStop(0.7,'rgba(139,92,246,0.05)');
+  glow.addColorStop(1,'transparent');
+  ctx.fillStyle = glow;
+  ctx.fillRect(ds(-80),ds(-80),ds(160),ds(160));
+  ctx.restore();
+
+  txt('🎲', 195, 195, 65, '#fff');
+
+  txt('因', 155, 300, 52, '#e0d4ff', null, null, true);
+  txt('果', 235, 300, 52, '#fbbf24', null, null, true);
+  txt('KARMA DICE', 195, 350, 18, '#8b8ba0');
+
+  txt('選擇你的命運之骰', 195, 390, 16, '#aaa');
+
+  const bg1 = ctx.createLinearGradient(ds(75),ds(420),ds(315),ds(500));
+  bg1.addColorStop(0,'#6366f1');
+  bg1.addColorStop(1,'#8b5cf6');
+  rrect(75, 420, 240, 80, 16, bg1);
+  const pulse = 0.6 + Math.sin(t*3)*0.3;
+  ctx.shadowColor = 'rgba(99,102,241,'+pulse.toFixed(2)+')';
+  ctx.shadowBlur = ds(15);
+  rrect(75, 420, 240, 80, 16, null, 'rgba(139,92,246,0.5)', 2);
+  ctx.shadowBlur = 0;
+  txt('⚔ 開始對決', 195, 450, 22, '#fff', null, null, true);
+  txt('選擇骰子組後開始', 195, 478, 16, 'rgba(255,255,255,0.6)');
+
+  rrect(75, 520, 240, 70, 16, 'rgba(255,255,255,0.06)', 'rgba(255,255,255,0.2)', 1.5);
+  txt('📖 骰子圖鑑', 195, 555, 20, '#ccc', null, null, true);
+
+  const pa = 0.5+Math.sin(t*2.5)*0.3;
+  txt('點擊按鈕開始', 195, 750, 16, `rgba(255,255,255,${pa.toFixed(2)})`);
+  
+  txt('勝利條件：到達50格 或 令對手歸0', 195, 790, 16, '#666');
+}
+
+// ============================================================
+//  繪製 — 圖鑑
+// ============================================================
+function drawCodex(){
+  const grad = ctx.createLinearGradient(0,0,0,ds(DESIGN_H));
+  grad.addColorStop(0,'#0a0015');
+  grad.addColorStop(0.5,'#0d1025');
+  grad.addColorStop(1,'#05080f');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0,0,ds(DESIGN_W),ds(DESIGN_H));
+
+  rrect(0, 0, DESIGN_W, 70, 0, 'rgba(0,0,0,0.7)');
+  txt('📖 骰子圖鑑', 195, 28, 22, '#fff', null, null, true);
+  txt('共 '+SETS.length+' 組', 195, 52, 16, '#888');
+
+  rrect(15, 15, 85, 40, 10, 'rgba(255,255,255,0.08)', 'rgba(255,255,255,0.2)', 1);
+  txt('← 返回', 57, 35, 16, '#aaa');
+
+  const sy = 80, ch = 70, chExp = 300, gap = 10;
+  let totalH = 0;
+  for(let i=0; i<SETS.length; i++){
+    totalH += (G.codexExpand===i ? chExp : ch) + gap;
+  }
+  G.codexMaxScr = Math.max(0, totalH - (DESIGN_H - sy - 10));
+
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(ds(0), ds(70), ds(DESIGN_W), ds(DESIGN_H-70));
+  ctx.clip();
+
+  let cy = sy;
+  for(let i=0; i<SETS.length; i++){
+    const s = SETS[i];
+    const isExp = (G.codexExpand === i);
+    const h = isExp ? chExp : ch;
+    const rY = cy - G.codexScroll;
+
+    if(rY + h > 65 && rY < DESIGN_H){
+      const rc = RC[s.rarity];
+
+      rrect(15, rY, 360, h, 12, rc.bg, rc.bd, 1.5);
+
+      rrect(22, rY+8, 45, 24, 6, rc.c);
+      txt(s.rarity, 44, rY+20, 16, '#000', null, null, true);
+
+      txt(s.name, 75, rY+20, 18, '#fff', 'left', null, true);
+
+      txt(rc.label, 340, rY+20, 16, rc.c, 'center');
+
+      if(!isExp){
+        txt('⚪'+s.pN + ' | 🔴'+s.aN, 75, rY+48, 16, '#aaa', 'left', 260);
+        txt('▼', 360, rY+h/2, 16, 'rgba(255,255,255,0.3)');
+      } else {
+        txt('▲', 360, rY+20, 16, 'rgba(255,255,255,0.3)');
+
+        rrect(22, rY+45, 348, 115, 8, 'rgba(255,255,255,0.04)', 'rgba(74,222,128,0.2)', 1);
+        txt('⚪ 被動骰：'+s.pN, 32, rY+65, 16, '#4ade80', 'left', 280, true);
+        txt('可重複', 330, rY+65, 16, '#666');
+        wrapText(s.pD, 32, rY+92, 16, '#ccc', 320, 22);
+
+        rrect(22, rY+170, 348, 115, 8, 'rgba(255,255,255,0.04)', 'rgba(251,191,36,0.2)', 1);
+        txt('🔴 主動骰：'+s.aN, 32, rY+190, 16, '#fbbf24', 'left', 280, true);
+        txt('限一次', 330, rY+190, 16, '#f87171');
+        wrapText(s.aD, 32, rY+217, 16, '#ccc', 320, 22);
+      }
+    }
+    cy += h + gap;
+  }
+  ctx.restore();
+
+  if(G.codexMaxScr > 0){
+    const barH = Math.max(30, (DESIGN_H-70)*(DESIGN_H-70)/totalH);
+    const barY = 70 + (G.codexScroll/G.codexMaxScr)*(DESIGN_H-70-barH);
+    rrect(382, barY, 5, barH, 3, 'rgba(255,255,255,0.2)');
+  }
+}
+
+// ============================================================
+//  繪製 — 選骰畫面
+// ============================================================
+function drawPick(){
+  const grad = ctx.createLinearGradient(0,0,0,ds(DESIGN_H));
+  grad.addColorStop(0,'#0a0015');
+  grad.addColorStop(0.5,'#15102a');
+  grad.addColorStop(1,'#0d1025');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0,0,ds(DESIGN_W),ds(DESIGN_H));
+
+  rrect(0, 0, DESIGN_W, 70, 0, 'rgba(0,0,0,0.7)');
+  txt('⚔ 選擇你的骰子組', 195, 28, 20, '#fff', null, null, true);
+  txt('選定後整場對局不可更改', 195, 52, 16, '#f87171');
+
+  rrect(15, 15, 85, 40, 10, 'rgba(255,255,255,0.08)', 'rgba(255,255,255,0.2)', 1);
+  txt('← 返回', 57, 35, 16, '#aaa');
+
+  if(G.pickConfirm && G.pickSelected >= 0){
+    drawPickConfirm();
+    return;
+  }
+
+  const sy = 80, ch = 100, gap = 10;
+  const totalH = SETS.length * (ch+gap);
+  G.pickMaxScr = Math.max(0, totalH - (DESIGN_H - sy - 20));
+
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(ds(0), ds(70), ds(DESIGN_W), ds(DESIGN_H-70));
+  ctx.clip();
+
+  for(let i=0; i<SETS.length; i++){
+    const s = SETS[i];
+    const rY = sy + i*(ch+gap) - G.pickScroll;
+    if(rY+ch < 70 || rY > DESIGN_H) continue;
+
+    const rc = RC[s.rarity];
+    const sel = (G.pickSelected === i);
+
+    rrect(15, rY, 360, ch, 12, rc.bg, sel?'#fff':rc.bd, sel?2.5:1.5);
+    if(sel){
+      rrect(15, rY, 360, ch, 12, 'rgba(255,255,255,0.05)');
+    }
+
+    rrect(22, rY+8, 45, 24, 6, rc.c);
+    txt(s.rarity, 44, rY+20, 16, '#000', null, null, true);
+
+    txt(s.name, 75, rY+20, 18, '#fff', 'left', null, true);
+    txt(rc.label, 340, rY+20, 16, rc.c);
+
+    txt('⚪ '+s.pN, 30, rY+48, 16, '#4ade80', 'left', 160);
+    txt('🔴 '+s.aN, 200, rY+48, 16, '#fbbf24', 'left', 160);
+
+    const pd = s.pD.split('\n')[0];
+    const ad = s.aD.split('\n')[0];
+    txt(pd, 30, rY+72, 16, '#999', 'left', 160);
+    txt(ad, 200, rY+72, 16, '#999', 'left', 160);
+
+    txt('選擇 ▶', 340, rY+ch/2, 16, 'rgba(255,255,255,0.35)');
+  }
+  ctx.restore();
+
+  if(G.pickMaxScr > 0){
+    const barH = Math.max(30, (DESIGN_H-70)*(DESIGN_H-70)/totalH);
+    const barY = 70 + (G.pickScroll/G.pickMaxScr)*(DESIGN_H-70-barH);
+    rrect(382, barY, 5, barH, 3, 'rgba(255,255,255,0.2)');
+  }
+}
+
+function drawPickConfirm(){
+  const s = SETS[G.pickSelected];
+  const rc = RC[s.rarity];
+
+  ctx.fillStyle = 'rgba(0,0,0,0.6)';
+  ctx.fillRect(0,ds(70),ds(DESIGN_W),ds(DESIGN_H-70));
+
+  rrect(20, 90, 350, 650, 16, '#0d0d20', rc.bd, 2);
+
+  const t = Date.now()/1000;
+  const glowA = 0.15 + Math.sin(t*2)*0.08;
+  rrect(20, 90, 350, 650, 16, `rgba(${s.rarity==='UR'?'248,113,113':s.rarity==='SSR'?'251,191,36':'167,139,250'},${glowA.toFixed(3)})`);
+
+  rrect(130, 105, 130, 35, 8, rc.c);
+  txt(rc.label + ' ' + s.rarity, 195, 122, 16, '#000', null, null, true);
+
+  txt('🎲', 195, 185, 55);
+
+  txt(s.name, 195, 250, 28, '#fff', null, null, true);
+
+  ctx.beginPath();
+  ctx.moveTo(ds(60), ds(280));
+  ctx.lineTo(ds(330), ds(280));
+  ctx.strokeStyle = 'rgba(255,255,255,0.1)';
+  ctx.lineWidth = ds(1);
+  ctx.stroke();
+
+  rrect(35, 295, 320, 150, 8, 'rgba(74,222,128,0.06)', 'rgba(74,222,128,0.2)', 1);
+  txt('⚪ 被動骰：'+s.pN, 50, 318, 18, '#4ade80', 'left', 280, true);
+  txt('可重複', 320, 318, 16, '#666');
+  wrapText(s.pD, 50, 350, 16, '#ddd', 290, 24);
+
+  rrect(35, 460, 320, 160, 8, 'rgba(251,191,36,0.06)', 'rgba(251,191,36,0.2)', 1);
+  txt('🔴 主動骰：'+s.aN, 50, 483, 18, '#fbbf24', 'left', 280, true);
+  txt('限一次', 320, 483, 16, '#f87171');
+  wrapText(s.aD, 50, 515, 16, '#ddd', 290, 24);
+
+  if(s.rarity === 'UR'){
+    rrect(90, 635, 210, 32, 8, 'rgba(248,113,113,0.15)', '#ef4444', 1);
+    txt('✦ 兩段效果 — 條件觸發 ✦', 195, 651, 16, '#f87171', null, null, true);
+  }
+
+  if(s.rarity === 'SSR'){
+    rrect(110, 635, 170, 32, 8, 'rgba(251,191,36,0.15)', '#f59e0b', 1);
+    txt('★ 傳說級骰子 ★', 195, 651, 16, '#fbbf24', null, null, true);
+  }
+
+  const bg = ctx.createLinearGradient(ds(50),ds(755),ds(200),ds(815));
+  bg.addColorStop(0,'#6366f1');
+  bg.addColorStop(1,'#8b5cf6');
+  rrect(50, 755, 150, 60, 12, bg);
+  txt('✔ 確認選擇', 125, 785, 18, '#fff', null, null, true);
+
+  rrect(210, 755, 130, 60, 12, 'rgba(255,255,255,0.06)', 'rgba(255,255,255,0.2)', 1);
+  txt('重新選擇', 275, 785, 16, '#aaa', null, null, true);
+}
+
+// ============================================================
+//  繪製 — 遊玩畫面
+// ============================================================
+function drawPlay(){
+  const grad = ctx.createLinearGradient(0,0,0,ds(DESIGN_H));
+  grad.addColorStop(0,'#0a0015');
+  grad.addColorStop(0.4,'#0d1025');
+  grad.addColorStop(1,'#050810');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0,0,ds(DESIGN_W),ds(DESIGN_H));
+
+  drawPlayInfo();
+  drawTrack();
+  drawTurnIndicator();
+  drawPlayActions();
+}
+
+function drawPlayInfo(){
+  const y = 5;
+
+  const aiSet = G.getSet('a');
+  const aiRc = RC[aiSet.rarity];
+  rrect(8, y, 182, 60, 10, 'rgba(96,165,250,0.1)', '#3b82f644', 1);
+  txt('🤖 電腦', 20, y+18, 16, '#60a5fa', 'left', null, true);
+  rrect(90, y+8, 40, 22, 5, aiRc.c);
+  txt(aiSet.rarity, 110, y+19, 16, '#000', null, null, true);
+  txt(`位置 ${G.pos.a}/${TRACK_LEN}`, 20, y+44, 16, '#ccc', 'left');
+  const aw = clamp(G.pos.a/TRACK_LEN*70, 0, 70);
+  rrect(110, y+38, 70, 10, 5, 'rgba(255,255,255,0.06)');
+  if(aw>0) rrect(110, y+38, aw, 10, 5, '#3b82f6');
+
+  const pSet = G.getSet('p');
+  const pRc = RC[pSet.rarity];
+  rrect(200, y, 182, 60, 10, 'rgba(74,222,128,0.1)', '#22c55e44', 1);
+  txt('🧑 玩家', 212, y+18, 16, '#4ade80', 'left', null, true);
+  rrect(282, y+8, 40, 22, 5, pRc.c);
+  txt(pSet.rarity, 302, y+19, 16, '#000', null, null, true);
+  txt(`位置 ${G.pos.p}/${TRACK_LEN}`, 212, y+44, 16, '#ccc', 'left');
+  const pw = clamp(G.pos.p/TRACK_LEN*70, 0, 70);
+  rrect(302, y+38, 70, 10, 5, 'rgba(255,255,255,0.06)');
+  if(pw>0) rrect(302, y+38, pw, 10, 5, '#22c55e');
+  
+  // 顯示護盾點數
+  if((G.buf.p.shieldPts||0) > 0){
+    txt(`🛡${G.buf.p.shieldPts}`, 372, y+18, 16, '#60a5fa');
+  }
+  if((G.buf.a.shieldPts||0) > 0){
+    txt(`🛡${G.buf.a.shieldPts}`, 180, y+18, 16, '#60a5fa');
+  }
+}
+
+function drawTrack(){
+  const TY = 72, TH = 500, TW = 55;
+  const LX = 60, RX = 275;
+  const cY = TY+28, cH = TH-32;
+
+  rrect(8, TY-4, 374, TH+25, 12, 'rgba(0,0,0,0.3)');
+
+  txt('🤖 AI', LX+TW/2, TY+12, 16, '#60a5fa', null, null, true);
+  txt('🧑 玩家', RX+TW/2, TY+12, 16, '#4ade80', null, null, true);
+
+  [{x:LX, w:'a', c:'#60a5fa', c2:'#3b82f6'}, {x:RX, w:'p', c:'#4ade80', c2:'#22c55e'}].forEach(tr => {
+    rrect(tr.x, cY, TW, cH, 8, 'rgba(255,255,255,0.03)', 'rgba(255,255,255,0.08)', 1);
+
+    for(let m=0; m<=10; m++){
+      const my = cY + cH - (m/10)*cH;
+      ctx.beginPath();
+      ctx.moveTo(ds(tr.x+2), ds(my));
+      ctx.lineTo(ds(tr.x+TW-2), ds(my));
+      ctx.strokeStyle = m%2===0 ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.06)';
+      ctx.lineWidth = ds(0.5);
+      ctx.stroke();
+      if(m%2===0){
+        txt(m*5, tr.x-18, my, 16, 'rgba(255,255,255,0.4)');
+      }
+    }
+
+    const startY = cY + cH - (START_POS/TRACK_LEN)*cH;
+    txt('🚩', tr.x+TW+16, startY, 16);
+    
+    [50].forEach(mk => {
+      const mky = cY + cH - (mk/TRACK_LEN)*cH;
+      if(mk===50){
+        txt('🏁', tr.x+TW+16, mky, 16);
+      }
+    });
+
+    const p = G.pos[tr.w];
+    const animKey = tr.w==='p' ? 'trackAnimP' : 'trackAnimA';
+    G[animKey] = lerp(G[animKey], p, 0.12);
+    const ap = G[animKey];
+    const fH = (ap/TRACK_LEN)*cH;
+
+    if(fH > 0){
+      const fg = ctx.createLinearGradient(0, ds(cY+cH-fH), 0, ds(cY+cH));
+      fg.addColorStop(0, tr.c);
+      fg.addColorStop(1, tr.c2+'44');
+      rrect(tr.x+3, cY+cH-fH, TW-6, fH, 5, fg);
+    }
+
+    const iy = cY + cH - (ap/TRACK_LEN)*cH - 14;
+    const cy2 = clamp(iy, cY-8, cY+cH-28);
+
+    ctx.shadowColor = tr.c;
+    ctx.shadowBlur = ds(8);
+    rrect(tr.x+5, cy2, TW-10, 26, 8, tr.c);
+    ctx.shadowBlur = 0;
+    txt(Math.round(ap), tr.x+TW/2, cy2+13, 16, '#000', null, null, true);
+  });
+
+  txt('VS', 195, TY+TH/2+8, 24, 'rgba(255,255,255,0.12)', null, null, true);
+
+  rrect(140, TY+TH+2, 110, 28, 8, 'rgba(0,0,0,0.5)');
+  txt(`第 ${G.turn} 回合`, 195, TY+TH+16, 16, '#888');
+
+  const midY = TY + TH/2;
+  ctx.beginPath();
+  ctx.moveTo(ds(LX+TW+5), ds(midY));
+  ctx.lineTo(ds(RX-5), ds(midY));
+  ctx.setLineDash([ds(3),ds(3)]);
+  ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+  ctx.lineWidth = ds(1);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  const diff = G.pos.p - G.pos.a;
+  if(diff !== 0){
+    const diffCol = diff > 0 ? '#4ade80' : '#f87171';
+    const diffTxt = diff > 0 ? `+${diff}` : `${diff}`;
+    txt(diffTxt, 195, midY-15, 18, diffCol, null, null, true);
+    txt('差距', 195, midY+8, 16, 'rgba(255,255,255,0.3)');
+  }
+
+  let debTxtP = [], debTxtA = [];
+  if(G.deb.p.swap) debTxtP.push('⚠顛倒');
+  if(G.deb.p.seal) debTxtP.push('⚠封印');
+  if(G.deb.p.f1||(G.deb.p.f1c||0)>0) debTxtP.push('⚠支配');
+  if(G.deb.p.f2) debTxtP.push('⚠爆燃');
+  if((G.deb.p.weaken||0)>0) debTxtP.push('⚠領域');
+  if(G.deb.p.fateZero) debTxtP.push('⚠命運');
+  if(G.deb.a.swap) debTxtA.push('⚠顛倒');
+  if(G.deb.a.seal) debTxtA.push('⚠封印');
+  if(G.deb.a.f1||(G.deb.a.f1c||0)>0) debTxtA.push('⚠支配');
+  if(G.deb.a.f2) debTxtA.push('⚠爆燃');
+  if((G.deb.a.weaken||0)>0) debTxtA.push('⚠領域');
+  if(G.deb.a.fateZero) debTxtA.push('⚠命運');
+
+  if(debTxtA.length) txt(debTxtA.join(' '), LX+TW/2, TY+TH+30, 16, '#f87171');
+  if(debTxtP.length) txt(debTxtP.join(' '), RX+TW/2, TY+TH+30, 16, '#f87171');
+}
+
+function drawTurnIndicator(){
+  const y = 608;
+  const isP = G.cur === 'p';
+  const tTxt = isP ? '🧑 你的回合' : '🤖 AI的回合';
+  const tCol = isP ? '#4ade80' : '#60a5fa';
+  const bgCol = isP ? 'rgba(74,222,128,0.1)' : 'rgba(96,165,250,0.1)';
+  const bdCol = isP ? 'rgba(74,222,128,0.3)' : 'rgba(96,165,250,0.3)';
+
+  rrect(90, y, 210, 36, 10, bgCol, bdCol, 1);
+  txt(tTxt, 195, y+18, 18, tCol, null, null, true);
+}
+
+function drawPlayActions(){
+  if(G.cur !== 'p' || G.aiWait) return;
+  if(G.phase !== 'action') return;
+
+  const s = G.getSet('p');
+  const rc = RC[s.rarity];
+  const y = 650;
+
+  rrect(8, y, 374, 190, 12, 'rgba(0,0,0,0.5)', 'rgba(255,255,255,0.08)', 1);
+
+  rrect(120, y+5, 150, 28, 8, rc.bg, rc.bd, 1);
+  txt(`🎲 ${s.name}`, 195, y+19, 16, '#fff', null, null, true);
+
+  txt('選擇使用方式', 195, y+42, 16, '#777');
+
+  const pbg = ctx.createLinearGradient(ds(20),ds(y+55),ds(190),ds(y+140));
+  pbg.addColorStop(0,'#059669');
+  pbg.addColorStop(1,'#10b981');
+  rrect(20, y+55, 170, 90, 12, pbg);
+  rrect(20, y+55, 170, 90, 12, null, 'rgba(255,255,255,0.1)', 1);
+  txt('⚪ 被動骰', 105, y+78, 18, '#fff', null, null, true);
+  txt(s.pN, 105, y+102, 16, 'rgba(255,255,255,0.9)');
+  txt('可重複使用', 105, y+125, 16, 'rgba(255,255,255,0.5)');
+
+  if(!G.pUsedActive){
+    const abg = ctx.createLinearGradient(ds(200),ds(y+55),ds(370),ds(y+140));
+    abg.addColorStop(0,'#dc2626');
+    abg.addColorStop(1,'#ef4444');
+    rrect(200, y+55, 170, 90, 12, abg);
+    rrect(200, y+55, 170, 90, 12, null, 'rgba(255,255,255,0.1)', 1);
+    txt('🔴 主動骰', 285, y+78, 18, '#fff', null, null, true);
+    txt(s.aN, 285, y+102, 16, 'rgba(255,255,255,0.9)');
+    txt('僅限一次！', 285, y+125, 16, 'rgba(255,200,200,0.7)');
+  } else {
+    rrect(200, y+55, 170, 90, 12, '#222', '#444', 1);
+    txt('🔴 主動骰', 285, y+78, 18, '#555', null, null, true);
+    txt('已使用 ✓', 285, y+105, 16, '#444');
+  }
+
+  let warns = [];
+  if(G.deb.p.swap) warns.push('⚠顛倒');
+  if(G.deb.p.seal) warns.push('⚠封印');
+  if(G.deb.p.f1||(G.deb.p.f1c||0)>0) warns.push('⚠支配');
+  if(G.deb.p.f2) warns.push('⚠爆燃');
+  if((G.deb.p.weaken||0)>0) warns.push('⚠領域');
+  if(G.deb.p.fateZero) warns.push('⚠命運');
+  if(warns.length){
+    txt(warns.join(' '), 195, y+158, 16, '#f87171');
+  }
+}
+
+// ============================================================
+//  繪製 — 選擇畫面（前進或後退對手）
+// ============================================================
+function drawChoice(){
+  drawPlay();
+  
+  ctx.fillStyle = 'rgba(0,0,0,0.75)';
+  ctx.fillRect(0, ds(280), ds(DESIGN_W), ds(420));
+  
+  const res = G.pendingRoll;
+  const total = res.r + res.b;
+  const s = G.getSet('p');
+  const who = 'p';
+  const isFromActive = res.fromActive;
+  
+  const isSwapped = !isFromActive && G.deb[who].swap;
+  
+  let extraBack = 0;
+  if(!isFromActive && s.pExtra){
+    const o = 'a';
+    if(G.pos[o] > G.pos[who]) extraBack = 3;
+  }
+  
+  rrect(130, 300, 130, 80, 14, '#fff');
+  const faces = ['⚀','⚁','⚂','⚃','⚄','⚅'];
+  txt(total<=6 ? faces[total-1] : `${total}`, 195, 340, 50, '#222');
+  
+  // 只有暴風骰(id:5)顯示三顆骰子，混沌骰不再擲三顆
+  if(G.lastThreeDice && s.id === 5){
+    txt(`[${G.lastThreeDice.join(', ')}]→最大值`, 195, 400, 16, '#aaa');
+  }
+  if(G.lastMultiDice && s.id === 12){
+    txt(`[${G.lastMultiDice.join('+')}]=${total}`, 195, 400, 16, '#aaa');
+  }
+  
+  txt(`擲出 ${total} 點！選擇效果：`, 195, 440, 20, '#fff', null, null, true);
+  
+  if(isSwapped){
+    rrect(60, 455, 270, 30, 8, 'rgba(248,113,113,0.2)', '#ef4444', 1);
+    txt('⚠ 被顛倒！效果將反轉', 195, 470, 16, '#f87171', null, null, true);
+  }
+  
+  const btnY = isSwapped ? 500 : 500;
+  
+  const fbg = ctx.createLinearGradient(ds(20),ds(btnY),ds(190),ds(btnY+70));
+  fbg.addColorStop(0,'#059669');
+  fbg.addColorStop(1,'#10b981');
+  rrect(20, btnY, 170, 70, 12, fbg);
+  if(isSwapped){
+    txt('⬆ 自己前進', 105, btnY+22, 18, '#fff', null, null, true);
+    txt(`(實際後退${total}格)`, 105, btnY+48, 16, '#fbbf24');
+  } else {
+    txt('⬆ 自己前進', 105, btnY+22, 18, '#fff', null, null, true);
+    txt(`+${total} 格`, 105, btnY+48, 16, '#fff');
+  }
+  
+  const bbg = ctx.createLinearGradient(ds(200),ds(btnY),ds(370),ds(btnY+70));
+  bbg.addColorStop(0,'#dc2626');
+  bbg.addColorStop(1,'#ef4444');
+  rrect(200, btnY, 170, 70, 12, bbg);
+  if(isSwapped){
+    txt('⬇ 對手後退', 285, btnY+22, 18, '#fff', null, null, true);
+    txt(`(對手前進${total}格)`, 285, btnY+48, 16, '#fbbf24');
+  } else {
+    txt('⬇ 對手後退', 285, btnY+22, 18, '#fff', null, null, true);
+    if(extraBack > 0){
+      txt(`-${total}-${extraBack} 格！`, 285, btnY+48, 16, '#fbbf24', null, null, true);
+    } else {
+      txt(`-${total} 格`, 285, btnY+48, 16, '#fff');
+    }
+  }
+  
+  txt('點擊選擇你的策略', 195, btnY+95, 16, '#888');
+}
+
+// ============================================================
+//  繪製 — AI思考
+// ============================================================
+function drawAIThinking(){
+  const d = '.'.repeat(Math.floor(Date.now()/300)%4);
+  rrect(80, 510, 230, 70, 14, 'rgba(10,10,30,0.95)', '#60a5fa', 2);
+  txt(`🤖 AI思考中${d}`, 195, 538, 18, '#60a5fa', null, null, true);
+  txt(G.getSet('a').name, 195, 562, 16, '#888');
+}
+
+// ============================================================
+//  繪製 — 骰子動畫
+// ============================================================
+function drawDiceAnim(){
+  const faces = ['⚀','⚁','⚂','⚃','⚄','⚅'];
+  const y = 400;
+
+  if(G.dice.rolling){
+    G.dice.frame++;
+    const wobble = Math.sin(G.dice.frame*0.6)*8;
+
+    rrect(150+wobble, y-50, 90, 90, 14, '#fff');
+    txt(faces[G.dice.frame%6], 195+wobble, y-5, 50, '#222');
+  } else if(G.dice.val > 0 && G.state === ST.RESULT){
+    rrect(150, y-50, 90, 90, 14, '#fff');
+    const idx = clamp(G.dice.val, 1, 12);
+    txt(idx<=6 ? faces[idx-1] : `${idx}`, 195, y-5, 50, '#222');
+  }
+}
+
+// ============================================================
+//  繪製 — 結果覆蓋
+// ============================================================
+function drawResult(){
+  ctx.fillStyle = 'rgba(0,0,0,0.6)';
+  ctx.fillRect(0, ds(340), ds(DESIGN_W), ds(510));
+
+  if(G.resMsg){
+    rrect(18, 355, 354, 70, 12, 'rgba(15,15,35,0.95)', 'rgba(255,255,255,0.12)', 1);
+    const lines = [];
+    const maxC = 16;
+    let msg = G.resMsg;
+    while(msg.length > 0){
+      lines.push(msg.substring(0, maxC));
+      msg = msg.substring(maxC);
+    }
+    lines.forEach((line, i) => {
+      txt(line, 195, 378 + i*22, 16, '#fff', null, 340);
+    });
+  }
+
+  drawDiceAnim();
+
+  if(G.big.show && G.big.t > 0){
+    const a = Math.min(1, G.big.t/15);
+    const sc = 1 + (50-G.big.t)*0.02;
+    ctx.globalAlpha = a;
+    txt(G.big.v, 195, 310, 42*sc, G.big.col, null, null, true);
+    ctx.globalAlpha = 1;
+  }
+
+  if(!G.winner && G.resTimer > 0){
+    const remaining = Math.ceil(G.resTimer / 30);
+    txt(`${remaining}秒後繼續...`, 195, 560, 16, '#666');
+  }
+  
+  if(G.winner){
+    rrect(95, 545, 200, 50, 12, '#f59e0b');
+    txt(G.winner==='p' ? '🏆 你贏了！' : '💀 你輸了...', 195, 570, 20, '#fff', null, null, true);
+  }
+}
+
+// ============================================================
+//  繪製 — 遊戲結束
+// ============================================================
+function drawOver(){
+  const grad = ctx.createLinearGradient(0,0,0,ds(DESIGN_H));
+  grad.addColorStop(0,'#0a0015');
+  grad.addColorStop(0.5,'#1a0a30');
+  grad.addColorStop(1,'#05080f');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0,0,ds(DESIGN_W),ds(DESIGN_H));
+
+  const win = G.winner === 'p';
+  const t = Date.now()/1000;
+
+  if(win){
+    const colors = ['#fbbf24','#f59e0b','#ef4444','#8b5cf6','#4ade80','#60a5fa'];
+    for(let i=0; i<40; i++){
+      const px = (Math.sin(t*0.5+i*0.9)*0.4+0.5)*DESIGN_W;
+      const py = (Math.sin(t*0.35+i*1.1)*0.35+0.3)*DESIGN_H;
+      ctx.beginPath();
+      ctx.arc(ds(px),ds(py),ds(2+Math.sin(t*1.2+i)*1.5),0,Math.PI*2);
+      ctx.fillStyle = colors[i%colors.length]+'88';
+      ctx.fill();
+    }
+  }
+
+  txt(win?'🏆':'💀', 195, 200, 75);
+
+  txt(win?'勝 利！':'敗 北...', 195, 310, 42, win?'#fbbf24':'#ef4444', null, null, true);
+
+  let winReason = '';
+  if(G.pos.p >= TRACK_LEN) winReason = '到達終點！';
+  else if(G.pos.a >= TRACK_LEN) winReason = 'AI到達終點';
+  else if(G.pos.p <= 0) winReason = '你被推回起點';
+  else if(G.pos.a <= 0) winReason = '將AI推回起點！';
+  txt(winReason, 195, 355, 18, '#aaa');
+
+  txt('因果循環・命運已定', 195, 385, 16, '#666');
+
+  rrect(50, 420, 290, 140, 12, 'rgba(255,255,255,0.04)', 'rgba(255,255,255,0.1)', 1);
+  txt('對局統計', 195, 445, 18, '#aaa', null, null, true);
+
+  txt(`你的位置`, 80, 478, 16, '#4ade80', 'left');
+  txt(`${G.pos.p}/${TRACK_LEN}`, 310, 478, 16, '#4ade80');
+
+  txt(`AI的位置`, 80, 506, 16, '#60a5fa', 'left');
+  txt(`${G.pos.a}/${TRACK_LEN}`, 310, 506, 16, '#60a5fa');
+
+  txt(`總回合數`, 80, 534, 16, '#ccc', 'left');
+  txt(`${G.turn}`, 310, 534, 16, '#ccc');
+
+  const bg = ctx.createLinearGradient(ds(95),ds(580),ds(295),ds(660));
+  bg.addColorStop(0,'#6366f1');
+  bg.addColorStop(1,'#8b5cf6');
+  rrect(95, 580, 200, 80, 16, bg);
+  txt('返回主選單', 195, 612, 20, '#fff', null, null, true);
+  txt('再來一局', 195, 640, 16, 'rgba(255,255,255,0.6)');
+}
+
+// ============================================================
+//  繪製 — 粒子
+// ============================================================
+function drawParticles(){
+  G.particles.forEach(p => {
+    if(p.l > 0){
+      ctx.beginPath();
+      ctx.arc(ds(p.x), ds(p.y), ds(p.s*(p.l/40)), 0, Math.PI*2);
+      const al = Math.min(255, Math.floor(p.l/40*255));
+      const hex = al.toString(16).padStart(2,'0');
+      ctx.fillStyle = p.c + hex;
+      ctx.fill();
+    }
+  });
+}
+
+// ============================================================
+//  主循環
+// ============================================================
+function update(){
+  G.animT++;
+
+  if(G.resTimer > 0) G.resTimer--;
+  if(G.big.t > 0) G.big.t--;
+  if(G.big.t <= 0) G.big.show = false;
+
+  G.particles.forEach(p => {
+    p.x += p.vx;
+    p.y += p.vy;
+    p.vy += 0.15;
+    p.l--;
+  });
+  G.particles = G.particles.filter(p => p.l > 0);
+
+  if(G.aiWait && G.state === ST.PLAY){
+    G.aiCD--;
+    if(G.aiCD <= 0) execAI();
+  }
+
+  if(G.state === ST.RESULT && G.resTimer <= 0){
+    if(G.winner){
+      G.state = ST.OVER;
+    } else {
+      proceed();
+    }
+  }
+}
+
+function draw(){
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  switch(G.state){
+    case ST.TITLE:
+      drawTitle();
+      break;
+
+    case ST.CODEX:
+      drawCodex();
+      break;
+
+    case ST.PICK:
+      drawPick();
+      break;
+
+    case ST.PLAY:
+      drawPlay();
+      if(G.aiWait) drawAIThinking();
+      break;
+
+    case ST.CHOICE:
+      drawChoice();
+      break;
+
+    case ST.ANIM:
+      drawPlay();
+      ctx.fillStyle = 'rgba(0,0,0,0.55)';
+      ctx.fillRect(0, ds(340), ds(DESIGN_W), ds(510));
+      drawDiceAnim();
+      break;
+
+    case ST.RESULT:
+      drawPlay();
+      drawResult();
+      drawParticles();
+      break;
+
+    case ST.OVER:
+      drawOver();
+      break;
+  }
+}
+
+function loop(){
+  update();
+  draw();
+  requestAnimationFrame(loop);
+}
+
+loop();
+</script>
+</body>
+</html>
