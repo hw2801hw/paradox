@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>簡單鬧鐘 PWA</title>
+  <meta name="theme-color" content="#1a237e">
+
+  <link rel="manifest" href="manifest.json">
+  <!-- 簡單 icon，用 emoji 代替真圖檔 -->
+  <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⏰</text></svg>">
+
+  <style>
+    body {
+      margin:0; font-family:system-ui,sans-serif; background:#121212; color:#fff;
+      height:100vh; display:flex; flex-direction:column; align-items:center;
+      justify-content:center; text-align:center;
+    }
+    h1 { margin:0.4em 0; font-size:3.8rem; font-weight:300; letter-spacing:6px; }
+    #time { font-size:5.5rem; font-weight:bold; margin:0.2em 0 0.8em; }
+    .set-alarm {
+      background:#1e88e5; padding:1.2rem 2rem; border-radius:12px;
+      margin:1.5rem 0; width:90%; max-width:360px;
+    }
+    select, button {
+      padding:0.9rem; font-size:1.1rem; margin:0.5rem;
+      border:none; border-radius:8px; background:#fff; color:#000;
+    }
+    button { background:#ff5252; color:white; cursor:pointer; }
+    button:hover { opacity:0.9; }
+    #status { margin-top:1.5rem; font-size:1.1rem; opacity:0.8; }
+  </style>
+</head>
+<body>
+
+<h1>鬧鐘</h1>
+<div id="time">--:--:--</div>
+
+<div class="set-alarm">
+  <div>設定鬧鐘時間</div>
+  <select id="hour"></select> 時
+  <select id="minute"></select> 分
+  <button id="setBtn">設定</button>
+  <button id="clearBtn" style="background:#555;">清除</button>
+</div>
+
+<div id="status">尚未設定鬧鐘</div>
+
+<script>
+// ────────────── 目前時間顯示 ──────────────
+const timeEl = document.getElementById('time');
+function updateTime() {
+  const now = new Date();
+  const h = String(now.getHours()).padStart(2,'0');
+  const m = String(now.getMinutes()).padStart(2,'0');
+  const s = String(now.getSeconds()).padStart(2,'0');
+  timeEl.textContent = `${h}:${m}:${s}`;
+}
+setInterval(updateTime, 1000);
+updateTime();
+
+// ────────────── 產生選項 00~23, 00~59 ──────────────
+const hourSel   = document.getElementById('hour');
+const minuteSel = document.getElementById('minute');
+for(let i=0; i<24; i++) hourSel.innerHTML   += `<option>${String(i).padStart(2,'0')}</option>`;
+for(let i=0; i<60; i++) minuteSel.innerHTML += `<option>${String(i).padStart(2,'0')}</option>`;
+
+// ────────────── 鬧鐘邏輯 ──────────────
+let alarmTimeout = null;
+const status = document.getElementById('status');
+
+function checkAlarm() {
+  const now = new Date();
+  const alarmStr = localStorage.getItem('alarmTime');
+  if (!alarmStr) return;
+
+  const [ah, am] = alarmStr.split(':').map(Number);
+  if (now.getHours() === ah && now.getMinutes() === am && now.getSeconds() < 5) {
+    triggerAlarm();
+  }
+}
+
+function triggerAlarm() {
+  status.textContent = "鬧鐘響了！";
+
+  // 播放簡單 beep 聲
+  try {
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = audioCtx.createOscillator();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(880, audioCtx.currentTime);
+    osc.connect(audioCtx.destination);
+    osc.start();
+    osc.stop(audioCtx.currentTime + 0.7);
+  } catch(e) { console.log("音效失敗", e); }
+
+  // 桌面/手機通知
+  if (Notification.permission === "granted") {
+    new Notification("鬧鐘時間到！", {
+      body: "該起床／該做事囉～ ⏰",
+      icon: "data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⏰</text></svg>"
+    });
+  } else if (Notification.permission !== "denied") {
+    Notification.requestPermission().then(perm => {
+      if (perm === "granted") triggerAlarm();
+    });
+  }
+
+  // 響完自動清除（避免重複）
+  setTimeout(() => {
+    localStorage.removeItem('alarmTime');
+    status.textContent = "尚未設定鬧鐘";
+  }, 8000);
+}
+
+// 載入已設定的鬧鐘
+const saved = localStorage.getItem('alarmTime');
+if (saved) {
+  status.textContent = `已設定：${saved}`;
+}
+
+// 設定按鈕
+document.getElementById('setBtn').onclick = () => {
+  const h = hourSel.value;
+  const m = minuteSel.value;
+  localStorage.setItem('alarmTime', `${h}:${m}`);
+  status.textContent = `已設定：${h}:${m}`;
+  alert(`鬧鐘已設定為 ${h}:${m}`);
+};
+
+// 清除按鈕
+document.getElementById('clearBtn').onclick = () => {
+  localStorage.removeItem('alarmTime');
+  status.textContent = "尚未設定鬧鐘";
+  if (alarmTimeout) clearTimeout(alarmTimeout);
+};
+
+// 每分鐘檢查一次（精確到秒由 setInterval 處理）
+setInterval(checkAlarm, 10000);   // 每10秒檢查一次即可
+checkAlarm();
+
+// ────────────── Service Worker ──────────────
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js')
+      .then(reg => console.log('SW registered'))
+      .catch(err => console.log('SW failed', err));
+  });
+}
+</script>
+</body>
+</html>
