@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>單一檔案 PWA 完整範例</title>
+
+  <!-- 內嵌 Web App Manifest（推薦方式，無需額外 .json 檔） -->
+  <script type="application/manifest+json">
+  {
+    "name": "單一檔案 PWA 示範",
+    "short_name": "單檔PWA",
+    "description": "完全只用一個 HTML 檔就能安裝的漸進式網頁應用",
+    "start_url": ".",
+    "display": "standalone",
+    "display_override": ["standalone", "minimal-ui"],
+    "background_color": "#ffffff",
+    "theme_color": "#1976d2",
+    "orientation": "any",
+    "icons": [
+      {
+        "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='45' fill='%231976d2'/><text x='50' y='68' font-size='60' text-anchor='middle' fill='white'>P</text></svg>",
+        "sizes": "192x192",
+        "type": "image/svg+xml",
+        "purpose": "any maskable"
+      },
+      {
+        "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='45' fill='%231976d2'/><text x='50' y='68' font-size='60' text-anchor='middle' fill='white'>P</text></svg>",
+        "sizes": "512x512",
+        "type": "image/svg+xml",
+        "purpose": "any maskable"
+      }
+    ]
+  }
+  </script>
+
+  <!-- iOS/macOS Safari 額外支援（splash screen & status bar） -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="theme-color" content="#1976d2">
+
+  <style>
+    body {
+      font-family: system-ui, sans-serif;
+      margin: 0;
+      padding: 20px;
+      background: #f0f4f8;
+      color: #333;
+      text-align: center;
+    }
+    h1 { color: #1976d2; }
+    button {
+      padding: 12px 24px;
+      font-size: 1.1rem;
+      background: #1976d2;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      margin: 10px;
+    }
+    #status { margin-top: 20px; font-style: italic; color: #555; }
+  </style>
+</head>
+<body>
+  <h1>單一 HTML 檔案 PWA</h1>
+  <p>這是完全單檔、無需任何外部資源的 PWA 範例。<br>在 Chrome/Edge 中打開後，應該會看到「安裝」按鈕或提示。</p>
+
+  <button id="installBtn" style="display:none;">安裝應用程式</button>
+  <div id="status">檢查安裝狀態中...</div>
+
+  <!-- 註冊 Service Worker + 處理 beforeinstallprompt（安裝提示） -->
+  <script type="module">
+    let deferredPrompt; // 用來儲存安裝提示事件
+
+    // 檢查是否支援 Service Worker
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', async () => {
+        try {
+          // 使用 Blob 內嵌一個簡單的 Service Worker（快取目前頁面）
+          const swCode = `
+            const CACHE_NAME = 'single-file-pwa-v1';
+            const urlsToCache = ['.'];
+
+            self.addEventListener('install', event => {
+              event.waitUntil(
+                caches.open(CACHE_NAME)
+                  .then(cache => cache.addAll(urlsToCache))
+              );
+            });
+
+            self.addEventListener('fetch', event => {
+              event.respondWith(
+                caches.match(event.request)
+                  .then(response => response || fetch(event.request))
+              );
+            });
+          `;
+
+          const blob = new Blob([swCode], { type: 'application/javascript' });
+          const swUrl = URL.createObjectURL(blob);
+
+          const registration = await navigator.serviceWorker.register(swUrl, { scope: './' });
+          console.log('Service Worker 註冊成功:', registration.scope);
+
+          document.getElementById('status').textContent = 'Service Worker 已啟用 ✓ （支援離線）';
+        } catch (err) {
+          console.error('Service Worker 註冊失敗:', err);
+          document.getElementById('status').textContent = 'Service Worker 註冊失敗 ✗';
+        }
+      });
+    } else {
+      document.getElementById('status').textContent = '您的瀏覽器不支援 Service Worker（無法完整離線）';
+    }
+
+    // 監聽 beforeinstallprompt 事件（Chrome/Edge 的安裝提示）
+    window.addEventListener('beforeinstallprompt', (e) => {
+      // 防止瀏覽器自動顯示提示，我們改用自訂按鈕
+      e.preventDefault();
+      deferredPrompt = e;
+      document.getElementById('installBtn').style.display = 'inline-block';
+      document.getElementById('status').textContent += ' （可安裝！）';
+    });
+
+    // 自訂安裝按鈕點擊事件
+    document.getElementById('installBtn').addEventListener('click', async () => {
+      if (deferredPrompt) {
+        deferredPrompt.prompt();
+        const { outcome } = await deferredPrompt.userChoice;
+        console.log('安裝結果:', outcome);
+        deferredPrompt = null;
+        document.getElementById('installBtn').style.display = 'none';
+      }
+    });
+
+    // 監聽 appinstalled（成功安裝後）
+    window.addEventListener('appinstalled', () => {
+      console.log('PWA 已安裝成功！');
+      document.getElementById('status').textContent = '應用程式已安裝到您的裝置 🎉';
+    });
+  </script>
+</body>
+</html>
