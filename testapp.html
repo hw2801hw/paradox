@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-  <title>單一檔案 PWA - GitHub Pages 版（無 SW）</title>
+  <title>單一檔案 PWA - GitHub Pages 優化版</title>
 
   <!-- 內嵌 Manifest -->
   <script type="application/manifest+json">
@@ -32,27 +32,25 @@
   }
   </script>
 
-  <!-- 相容性 meta -->
-  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="theme-color" content="#1976d2">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
-  <meta name="theme-color" content="#1976d2">
 
   <style>
     body { font-family: system-ui, sans-serif; margin: 0; padding: 20px; background: #f0f4f8; color: #333; text-align: center; }
     h1 { color: #1976d2; }
     button { padding: 12px 24px; font-size: 1.1rem; background: #1976d2; color: white; border: none; border-radius: 8px; cursor: pointer; margin: 10px; }
     #status { margin-top: 20px; font-style: italic; color: #555; white-space: pre-wrap; }
-    pre { background: #eee; padding: 10px; border-radius: 6px; text-align: left; max-width: 90%; margin: 20px auto; overflow: auto; font-size: 0.9rem; }
+    pre { background: #eee; padding: 10px; border-radius: 6px; text-align: left; max-width: 90%; margin: 20px auto; overflow: auto; }
   </style>
 </head>
 <body>
-  <h1>單一 HTML PWA（已移除 SW 註冊）</h1>
-  <p>現在應該會出現「安裝」按鈕或地址列圖示。<br>（離線功能暫時不可用，但 PWA 安裝正常）</p>
+  <h1>單一 HTML PWA（GitHub Pages 版）</h1>
+  <p>請用 DevTools（F12） → Console 查看詳細 log。<br>如果 SW 失敗，請把錯誤完整貼給我。</p>
 
   <button id="installBtn" style="display:none;">安裝到裝置</button>
   <div id="status">載入中...</div>
-  <pre id="log">Log 輸出區...\n</pre>
+  <pre id="log"></pre>
 
   <script type="module">
     const logElement = document.getElementById('log');
@@ -64,10 +62,67 @@
       logElement.textContent += msg + '\n';
     }
 
-    statusElement.textContent = 'PWA manifest 已載入（安裝可用）';
-    appendLog('無 Service Worker（blob: 協議不支援）');
+    statusElement.textContent = '檢查環境中...';
 
-    // 安裝提示處理
+    if (!('serviceWorker' in navigator)) {
+      statusElement.textContent = '瀏覽器不支援 Service Worker（無法離線）';
+      appendLog('錯誤：無 serviceWorker 支援');
+      return;
+    }
+
+    appendLog('Service Worker API 可用');
+
+    window.addEventListener('load', async () => {
+      try {
+        appendLog('開始註冊 Service Worker...');
+
+        const swCode = `
+          const CACHE_NAME = 'single-pwa-v1';
+          const urlsToCache = ['.'];
+
+          self.addEventListener('install', event => {
+            event.waitUntil(
+              caches.open(CACHE_NAME)
+                .then(cache => cache.addAll(urlsToCache))
+                .then(() => self.skipWaiting())
+            );
+          });
+
+          self.addEventListener('activate', event => {
+            event.waitUntil(self.clients.claim());
+          });
+
+          self.addEventListener('fetch', event => {
+            event.respondWith(
+              caches.match(event.request)
+                .then(response => response || fetch(event.request))
+            );
+          });
+        `;
+
+        const blob = new Blob([swCode], { type: 'application/javascript' });
+        const swUrl = URL.createObjectURL(blob);
+
+        appendLog('Blob SW URL: ' + swUrl);
+
+        const registration = await navigator.serviceWorker.register(swUrl, { scope: './' });
+
+        appendLog('註冊成功！Scope: ' + registration.scope);
+        statusElement.textContent = 'Service Worker 已註冊 ✓（支援離線）';
+
+        // 監聽狀態變化
+        registration.addEventListener('updatefound', () => appendLog('發現更新...'));
+      } catch (err) {
+        appendLog('註冊失敗：');
+        appendLog('錯誤名稱: ' + err.name);
+        appendLog('錯誤訊息: ' + err.message);
+        appendLog('完整錯誤: ' + err);
+
+        statusElement.textContent = 'Service Worker 註冊失敗 ✗\n請檢查 Console 錯誤';
+      }
+    });
+
+    // 安裝提示（beforeinstallprompt）
     window.addEventListener('beforeinstallprompt', (e) => {
       e.preventDefault();
       deferredPrompt = e;
