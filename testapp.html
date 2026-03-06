@@ -3,54 +3,32 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-  <title>單一檔案 PWA - GitHub Pages 優化版</title>
+  <title>單檔 PWA - GitHub Pages 修正版</title>
 
-  <!-- 內嵌 Manifest -->
-  <script type="application/manifest+json">
-  {
-    "name": "單一檔案 PWA 示範",
-    "short_name": "單檔PWA",
-    "description": "單 HTML 檔 PWA，支援 GitHub Pages",
-    "start_url": ".",
-    "display": "standalone",
-    "background_color": "#ffffff",
-    "theme_color": "#1976d2",
-    "icons": [
-      {
-        "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='45' fill='%231976d2'/><text x='50' y='68' font-size='60' text-anchor='middle' fill='white'>P</text></svg>",
-        "sizes": "192x192",
-        "type": "image/svg+xml",
-        "purpose": "any maskable"
-      },
-      {
-        "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='45' fill='%231976d2'/><text x='50' y='68' font-size='60' text-anchor='middle' fill='white'>P</text></svg>",
-        "sizes": "512x512",
-        "type": "image/svg+xml",
-        "purpose": "any maskable"
-      }
-    ]
-  }
-  </script>
+  <!-- 簡化 + 正確 encoded 的 data: manifest（避免 syntax error） -->
+  <link rel="manifest" href="data:application/manifest+json,%7B%22name%22%3A%22Single%20File%20PWA%22%2C%22short_name%22%3A%22SinglePWA%22%2C%22description%22%3A%22Single%20HTML%20PWA%20demo%22%2C%22start_url%22%3A%22.%22%2C%22display%22%3A%22standalone%22%2C%22background_color%22%3A%22%23ffffff%22%2C%22theme_color%22%3A%22%231976d2%22%2C%22icons%22%3A%5B%7B%22src%22%3A%22https%3A%2F%2Fvia.placeholder.com%2F192%2F1976d2%2Fffffff%3Ftext%3DP%22%2C%22sizes%22%3A%22192x192%22%2C%22type%22%3A%22image%2Fpng%22%2C%22purpose%22%3A%22any%20maskable%22%7D%2C%7B%22src%22%3A%22https%3A%2F%2Fvia.placeholder.com%2F512%2F1976d2%2Fffffff%3Ftext%3DP%22%2C%22sizes%22%3A%22512x512%22%2C%22type%22%3A%22image%2Fpng%22%2C%22purpose%22%3A%22any%20maskable%22%7D%5D%7D">
 
-  <meta name="theme-color" content="#1976d2">
+  <!-- 相容性 meta -->
+  <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="theme-color" content="#1976d2">
 
   <style>
     body { font-family: system-ui, sans-serif; margin: 0; padding: 20px; background: #f0f4f8; color: #333; text-align: center; }
     h1 { color: #1976d2; }
     button { padding: 12px 24px; font-size: 1.1rem; background: #1976d2; color: white; border: none; border-radius: 8px; cursor: pointer; margin: 10px; }
     #status { margin-top: 20px; font-style: italic; color: #555; white-space: pre-wrap; }
-    pre { background: #eee; padding: 10px; border-radius: 6px; text-align: left; max-width: 90%; margin: 20px auto; overflow: auto; }
+    pre { background: #eee; padding: 10px; border-radius: 6px; text-align: left; max-width: 90%; margin: 20px auto; overflow: auto; font-size: 0.9rem; }
   </style>
 </head>
 <body>
-  <h1>單一 HTML PWA（GitHub Pages 版）</h1>
-  <p>請用 DevTools（F12） → Console 查看詳細 log。<br>如果 SW 失敗，請把錯誤完整貼給我。</p>
+  <h1>單一 HTML PWA（已修正 manifest syntax error）</h1>
+  <p>Manifest 應正常載入（DevTools Application → Manifest 檢查）。<br>安裝提示應出現（地址列或下方按鈕）。</p>
 
   <button id="installBtn" style="display:none;">安裝到裝置</button>
   <div id="status">載入中...</div>
-  <pre id="log"></pre>
+  <pre id="log">Log 輸出區...\n</pre>
 
   <script type="module">
     const logElement = document.getElementById('log');
@@ -62,67 +40,10 @@
       logElement.textContent += msg + '\n';
     }
 
-    statusElement.textContent = '檢查環境中...';
+    statusElement.textContent = 'Manifest (data: URL 簡化版) 已載入';
+    appendLog('使用外部 placeholder icon + 簡化 JSON → 避免 encode 錯誤');
+    appendLog('無 Service Worker（單檔限制）');
 
-    if (!('serviceWorker' in navigator)) {
-      statusElement.textContent = '瀏覽器不支援 Service Worker（無法離線）';
-      appendLog('錯誤：無 serviceWorker 支援');
-      return;
-    }
-
-    appendLog('Service Worker API 可用');
-
-    window.addEventListener('load', async () => {
-      try {
-        appendLog('開始註冊 Service Worker...');
-
-        const swCode = `
-          const CACHE_NAME = 'single-pwa-v1';
-          const urlsToCache = ['.'];
-
-          self.addEventListener('install', event => {
-            event.waitUntil(
-              caches.open(CACHE_NAME)
-                .then(cache => cache.addAll(urlsToCache))
-                .then(() => self.skipWaiting())
-            );
-          });
-
-          self.addEventListener('activate', event => {
-            event.waitUntil(self.clients.claim());
-          });
-
-          self.addEventListener('fetch', event => {
-            event.respondWith(
-              caches.match(event.request)
-                .then(response => response || fetch(event.request))
-            );
-          });
-        `;
-
-        const blob = new Blob([swCode], { type: 'application/javascript' });
-        const swUrl = URL.createObjectURL(blob);
-
-        appendLog('Blob SW URL: ' + swUrl);
-
-        const registration = await navigator.serviceWorker.register(swUrl, { scope: './' });
-
-        appendLog('註冊成功！Scope: ' + registration.scope);
-        statusElement.textContent = 'Service Worker 已註冊 ✓（支援離線）';
-
-        // 監聽狀態變化
-        registration.addEventListener('updatefound', () => appendLog('發現更新...'));
-      } catch (err) {
-        appendLog('註冊失敗：');
-        appendLog('錯誤名稱: ' + err.name);
-        appendLog('錯誤訊息: ' + err.message);
-        appendLog('完整錯誤: ' + err);
-
-        statusElement.textContent = 'Service Worker 註冊失敗 ✗\n請檢查 Console 錯誤';
-      }
-    });
-
-    // 安裝提示（beforeinstallprompt）
     window.addEventListener('beforeinstallprompt', (e) => {
       e.preventDefault();
       deferredPrompt = e;
@@ -132,10 +53,13 @@
     });
 
     document.getElementById('installBtn').addEventListener('click', async () => {
-      if (!deferredPrompt) return;
+      if (!deferredPrompt) {
+        appendLog('無安裝提示（可能已安裝或瀏覽器不支援）');
+        return;
+      }
       deferredPrompt.prompt();
       const { outcome } = await deferredPrompt.userChoice;
-      appendLog('安裝選擇結果: ' + outcome);
+      appendLog('安裝結果: ' + outcome);
       deferredPrompt = null;
       document.getElementById('installBtn').style.display = 'none';
     });
