@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>我的記事本</title>
+  
+  <!-- PWA 必要 meta -->
+  <meta name="theme-color" content="#ffffff"/>
+  <link rel="manifest" href="/manifest.json"/>
+  <link rel="icon" href="/icons/icon-192.png"/>
+  
+  <!-- iOS 支援 -->
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-status-bar-style" content="default"/>
+  <link rel="apple-touch-icon" href="/icons/icon-192.png"/>
+
+  <link rel="stylesheet" href="style.css"/>
+</head>
+<body>
+  <header>
+    <h1>記事本</h1>
+    <div class="status">已儲存</div>
+  </header>
+
+  <textarea id="note" placeholder="開始寫點什麼吧..."></textarea>
+
+  <script src="app.js"></script>
+
+  <!-- 註冊 Service Worker -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js')
+          .then(reg => console.log('Service Worker 註冊成功', reg))
+          .catch(err => console.log('Service Worker 註冊失敗', err));
+      });
+    }
+  </script>
+</body>
+</html>
