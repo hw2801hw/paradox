@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>數字華容道 - 經典 15 拼圖</title>
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --card-bg: #1e293b;
+            --accent-color: #6366f1;
+            --accent-hover: #818cf8;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --tile-bg: #334155;
+            --tile-text: #f8fafc;
+            --tile-empty: #1e293b;
+            --success-color: #22c55e;
+            --transition-speed: 0.2s;
+        }
+
+        * {
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+
+        /* 9:16 容器設計 */
+        .app-container {
+            width: 100%;
+            max-width: 500px;
+            height: 100vh;
+            max-height: 888px; /* 500 * 16/9 ≈ 888 */
+            background-color: var(--card-bg);
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            overflow: hidden;
+        }
+
+        @media (min-width: 640px) {
+            .app-container {
+                border-radius: 2rem;
+                height: 90vh;
+                max-height: 800px;
+            }
+        }
+
+        /* Header 區域 */
+        header {
+            padding: 2rem 1.5rem 1rem;
+            text-align: center;
+        }
+
+        h1 {
+            margin: 0 0 1.5rem 0;
+            font-size: 1.75rem;
+            font-weight: 800;
+            letter-spacing: -0.025em;
+            background: linear-gradient(to right, #818cf8, #c084fc);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .stats-bar {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .stat-card {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 0.75rem;
+            border-radius: 1rem;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .stat-label {
+            font-size: 0.875rem;
+            color: var(--text-muted);
+            display: block;
+            margin-bottom: 0.25rem;
+        }
+
+        .stat-value {
+            font-size: 1.25rem;
+            font-weight: 700;
+            font-variant-numeric: tabular-nums;
+        }
+
+        /* 遊戲棋盤 */
+        .game-area {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 1.5rem;
+        }
+
+        .puzzle-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            grid-template-rows: repeat(4, 1fr);
+            gap: 10px;
+            width: 100%;
+            max-width: 340px;
+            aspect-ratio: 1 / 1;
+            background: rgba(0, 0, 0, 0.2);
+            padding: 10px;
+            border-radius: 1rem;
+            box-shadow: inset 0 2px 4px 0 rgba(0, 0, 0, 0.06);
+        }
+
+        .tile {
+            aspect-ratio: 1 / 1;
+            background-color: var(--tile-bg);
+            color: var(--tile-text);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 1.5rem;
+            font-weight: 700;
+            border-radius: 0.75rem;
+            cursor: pointer;
+            transition: transform var(--transition-speed), background-color var(--transition-speed), box-shadow var(--transition-speed);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .tile:active {
+            transform: scale(0.95);
+            background-color: var(--accent-color);
+        }
+
+        .tile.empty {
+            background-color: var(--tile-empty);
+            box-shadow: inset 0 2px 4px 0 rgba(0, 0, 0, 0.4);
+            border: none;
+            cursor: default;
+            pointer-events: none;
+        }
+
+        /* 控制按鈕 */
+        .controls {
+            padding: 1.5rem;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.75rem;
+        }
+
+        .btn {
+            padding: 0.875rem 1rem;
+            font-size: 1rem;
+            font-weight: 600;
+            border: none;
+            border-radius: 0.75rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .btn-primary {
+            background-color: var(--accent-color);
+            color: white;
+            grid-column: span 2;
+        }
+
+        .btn-primary:hover {
+            background-color: var(--accent-hover);
+        }
+
+        .btn-secondary {
+            background-color: #475569;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background-color: #64748b;
+        }
+
+        /* Modal 彈窗 */
+        .modal-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(15, 23, 42, 0.8);
+            backdrop-filter: blur(4px);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+
+        .modal-overlay.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .modal {
+            background: var(--card-bg);
+            width: 85%;
+            max-width: 320px;
+            padding: 2rem;
+            border-radius: 1.5rem;
+            text-align: center;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);
+        }
+
+        .modal h2 {
+            margin-top: 0;
+            font-size: 1.5rem;
+            color: var(--text-main);
+        }
+
+        .modal p {
+            font-size: 1rem;
+            color: var(--text-muted);
+            line-height: 1.5;
+            margin-bottom: 1.5rem;
+        }
+
+        .modal-btn {
+            width: 100%;
+            background-color: var(--accent-color);
+            color: white;
+            padding: 0.75rem;
+            border-radius: 0.75rem;
+            border: none;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        /* 音效開關 */
+        .sound-toggle {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            background: rgba(255, 255, 255, 0.1);
+            border: none;
+            color: white;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 1.2rem;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="app-container">
+        <button class="sound-toggle" id="soundToggle" title="切換音效">🔊</button>
+        
+        <header>
+            <h1>數字華容道</h1>
+            <div class="stats-bar">
+                <div class="stat-card">
+                    <span class="stat-label">已用時間</span>
+                    <span class="stat-value" id="timer">00:00</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-label">移動步數</span>
+                    <span class="stat-value" id="moves">0</span>
+                </div>
+            </div>
+        </header>
+
+        <div class="game-area">
+            <div class="puzzle-grid" id="grid">
+                <!-- Tiles generated by JS -->
+            </div>
+        </div>
+
+        <div class="controls">
+            <button class="btn btn-primary" id="newGameBtn">🎮 新遊戲</button>
+            <button class="btn btn-secondary" id="resetBtn">🔄 重新開始</button>
+            <button class="btn btn-secondary" id="howToBtn">❓ 如何玩</button>
+        </div>
+
+        <!-- 勝利彈窗 -->
+        <div class="modal-overlay" id="winModal">
+            <div class="modal">
+                <h2 style="color: var(--success-color);">🎉 恭喜完成！</h2>
+                <p id="winStats">用時 00:00，共移動 0 步</p>
+                <p id="bestTimeMsg" style="font-weight: bold; color: var(--accent-color); margin-bottom: 1.5rem;"></p>
+                <button class="modal-btn" onclick="closeModal('winModal')">太棒了！</button>
+            </div>
+        </div>
+
+        <!-- 說明彈窗 -->
+        <div class="modal-overlay" id="helpModal">
+            <div class="modal">
+                <h2>遊戲規則</h2>
+                <p>將數字 1-15 依序排列，最後一格留空。<br><br>
+                   點擊或滑動與空白格相鄰的方塊即可移動。<br><br>
+                   支援鍵盤方向鍵操作！</p>
+                <button class="modal-btn" onclick="closeModal('helpModal')">明白了</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        /**
+         * 遊戲邏輯類
+         */
+        class PuzzleGame {
+            constructor() {
+                this.gridSize = 4;
+                this.tiles = []; // 0 代表空白格
+                this.moves = 0;
+                this.startTime = null;
+                this.timerInterval = null;
+                this.isGameActive = false;
+                this.initialState = []; // 用於「重新開始」
+                this.soundEnabled = true;
+
+                // DOM 元素
+                this.gridElement = document.getElementById('grid');
+                this.timerElement = document.getElementById('timer');
+                this.movesElement = document.getElementById('moves');
+                this.winModal = document.getElementById('winModal');
+                this.winStats = document.getElementById('winStats');
+                this.bestTimeMsg = document.getElementById('bestTimeMsg');
+
+                this.initAudio();
+                this.bindEvents();
+                this.startNewGame();
+            }
+
+            initAudio() {
+                this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+
+            playMoveSound() {
+                if (!this.soundEnabled) return;
+                const osc = this.audioCtx.createOscillator();
+                const gain = this.audioCtx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(400, this.audioCtx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(200, this.audioCtx.currentTime + 0.1);
+                gain.gain.setValueAtTime(0.1, this.audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.audioCtx.currentTime + 0.1);
+                osc.connect(gain);
+                gain.connect(this.audioCtx.destination);
+                osc.start();
+                osc.stop(this.audioCtx.currentTime + 0.1);
+            }
+
+            bindEvents() {
+                document.getElementById('newGameBtn').addEventListener('click', () => this.startNewGame());
+                document.getElementById('resetBtn').addEventListener('click', () => this.resetCurrentGame());
+                document.getElementById('howToBtn').addEventListener('click', () => this.showModal('helpModal'));
+                document.getElementById('soundToggle').addEventListener('click', (e) => {
+                    this.soundEnabled = !this.soundEnabled;
+                    e.target.innerText = this.soundEnabled ? '🔊' : '🔇';
+                });
+
+                // 鍵盤操作
+                window.addEventListener('keydown', (e) => {
+                    if (!this.isGameActive) return;
+                    let moveDir = null;
+                    if (e.key === 'ArrowUp') moveDir = 'up';
+                    if (e.key === 'ArrowDown') moveDir = 'down';
+                    if (e.key === 'ArrowLeft') moveDir = 'left';
+                    if (e.key === 'ArrowRight') moveDir = 'right';
+                    if (moveDir) this.handleKeyboardMove(moveDir);
+                });
+
+                // 滑動操作 (Swipe)
+                let touchStartX = 0;
+                let touchStartY = 0;
+                this.gridElement.addEventListener('touchstart', (e) => {
+                    touchStartX = e.changedTouches[0].screenX;
+                    touchStartY = e.changedTouches[0].screenY;
+                }, { passive: true });
+
+                this.gridElement.addEventListener('touchend', (e) => {
+                    if (!this.isGameActive) return;
+                    const touchEndX = e.changedTouches[0].screenX;
+                    const touchEndY = e.changedTouches[0].screenY;
+                    this.handleSwipe(touchStartX, touchStartY, touchEndX, touchEndY);
+                }, { passive: true });
+            }
+
+            startNewGame() {
+                this.stopTimer();
+                this.moves = 0;
+                this.updateStats();
+                
+                // 生成可解的隨機局面
+                this.tiles = this.generateSolvableBoard();
+                this.initialState = [...this.tiles];
+                
+                this.render();
+                this.isGameActive = true;
+                this.startTimer();
+            }
+
+            resetCurrentGame() {
+                this.stopTimer();
+                this.moves = 0;
+                this.updateStats();
+                this.tiles = [...this.initialState];
+                this.render();
+                this.isGameActive = true;
+                this.startTimer();
+            }
+
+            generateSolvableBoard() {
+                // 為了保證 100% 可解，從完成狀態開始進行大量隨機合法移動
+                let board = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 0];
+                let shuffleMoves = 200;
+                
+                for (let i = 0; i < shuffleMoves; i++) {
+                    const emptyIdx = board.indexOf(0);
+                    const neighbors = this.getNeighbors(emptyIdx);
+                    const randomNeighbor = neighbors[Math.floor(Math.random() * neighbors.length)];
+                    [board[emptyIdx], board[randomNeighbor]] = [board[randomNeighbor], board[emptyIdx]];
+                }
+                return board;
+            }
+
+            getNeighbors(idx) {
+                const neighbors = [];
+                const row = Math.floor(idx / 4);
+                const col = idx % 4;
+
+                if (row > 0) neighbors.push(idx - 4); // Up
+                if (row < 3) neighbors.push(idx + 4); // Down
+                if (col > 0) neighbors.push(idx - 1); // Left
+                if (col < 3) neighbors.push(idx + 1); // Right
+                return neighbors;
+            }
+
+            handleTileClick(idx) {
+                if (!this.isGameActive) return;
+                const emptyIdx = this.tiles.indexOf(0);
+                if (this.getNeighbors(emptyIdx).includes(idx)) {
+                    this.swapTiles(idx, emptyIdx);
+                }
+            }
+
+            handleKeyboardMove(dir) {
+                const emptyIdx = this.tiles.indexOf(0);
+                const row = Math.floor(emptyIdx / 4);
+                const col = emptyIdx % 4;
+                let targetIdx = -1;
+
+                if (dir === 'up' && row < 3) targetIdx = emptyIdx + 4;
+                if (dir === 'down' && row > 0) targetIdx = emptyIdx - 4;
+                if (dir === 'left' && col < 3) targetIdx = emptyIdx + 1;
+                if (dir === 'right' && col > 0) targetIdx = emptyIdx - 1;
+
+                if (targetIdx !== -1) this.swapTiles(targetIdx, emptyIdx);
+            }
+
+            handleSwipe(sx, sy, ex, ey) {
+                const dx = ex - sx;
+                const dy = ey - sy;
+                const absX = Math.abs(dx);
+                const absY = Math.abs(dy);
+                const threshold = 30;
+
+                if (Math.max(absX, absY) < threshold) return;
+
+                if (absX > absY) {
+                    this.handleKeyboardMove(dx > 0 ? 'left' : 'right');
+                } else {
+                    this.handleKeyboardMove(dy > 0 ? 'up' : 'down');
+                }
+            }
+
+            swapTiles(idx, emptyIdx) {
+                [this.tiles[idx], this.tiles[emptyIdx]] = [this.tiles[emptyIdx], this.tiles[idx]];
+                this.moves++;
+                this.updateStats();
+                this.playMoveSound();
+                this.render();
+                this.checkWin();
+            }
+
+            render() {
+                this.gridElement.innerHTML = '';
+                this.tiles.forEach((val, idx) => {
+                    const tileDiv = document.createElement('div');
+                    tileDiv.className = `tile ${val === 0 ? 'empty' : ''}`;
+                    tileDiv.innerText = val === 0 ? '' : val;
+                    tileDiv.addEventListener('click', () => this.handleTileClick(idx));
+                    this.gridElement.appendChild(tileDiv);
+                });
+            }
+
+            startTimer() {
+                this.startTime = Date.now();
+                this.timerInterval = setInterval(() => {
+                    const elapsed = Date.now() - this.startTime;
+                    this.timerElement.innerText = this.formatTime(elapsed);
+                }, 1000);
+            }
+
+            stopTimer() {
+                clearInterval(this.timerInterval);
+            }
+
+            formatTime(ms) {
+                const totalSeconds = Math.floor(ms / 1000);
+                const mins = Math.floor(totalSeconds / 60).toString().padStart(2, '0');
+                const secs = (totalSeconds % 60).toString().padStart(2, '0');
+                return `${mins}:${secs}`;
+            }
+
+            updateStats() {
+                this.movesElement.innerText = this.moves;
+            }
+
+            checkWin() {
+                const winState = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 0];
+                const isWin = this.tiles.every((val, idx) => val === winState[idx]);
+                if (isWin) {
+                    this.isGameActive = false;
+                    this.stopTimer();
+                    this.handleVictory();
+                }
+            }
+
+            handleVictory() {
+                const finalTimeStr = this.timerElement.innerText;
+                const finalTimeMs = Date.now() - this.startTime;
+                this.winStats.innerText = `用時 ${finalTimeStr}，共移動 ${this.moves} 步`;
+
+                // 處理最佳記錄
+                const bestTime = localStorage.getItem('puzzleBestTime');
+                if (!bestTime || finalTimeMs < parseInt(bestTime)) {
+                    localStorage.setItem('puzzleBestTime', finalTimeMs);
+                    this.bestTimeMsg.innerText = "🏆 破紀錄了！你是最快的！";
+                } else {
+                    const bestTimeStr = this.formatTime(parseInt(bestTime));
+                    this.bestTimeMsg.innerText = `最佳記錄：${bestTimeStr}`;
+                }
+                this.showModal('winModal');
+            }
+
+            showModal(id) {
+                document.getElementById(id).classList.add('active');
+            }
+        }
+
+        // 全域輔助函數
+        function closeModal(id) {
+            document.getElementById(id).classList.remove('active');
+        }
+
+        // 初始化遊戲
+        window.addEventListener('DOMContentLoaded', () => {
+            window.game = new PuzzleGame();
+        });
+    </script>
+</body>
+</html>
