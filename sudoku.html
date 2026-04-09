@@ -1,0 +1,878 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>數獨遊戲</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    <style>
+        * {
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            font-size: 16px;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin: 0;
+            padding: 10px;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        .game-container {
+            width: 100%;
+            max-width: 430px;
+            aspect-ratio: 9/16;
+            max-height: 95vh;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 20px;
+            padding: clamp(10px, 3vw, 20px);
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+
+        .screen {
+            display: none;
+            flex-direction: column;
+            height: 100%;
+        }
+
+        .screen.active {
+            display: flex;
+        }
+
+        .title {
+            font-size: clamp(24px, 6vw, 36px);
+            font-weight: bold;
+            color: #fff;
+            text-align: center;
+            margin-bottom: clamp(15px, 4vw, 30px);
+            text-shadow: 0 2px 10px rgba(0, 200, 255, 0.5);
+        }
+
+        .menu-btn {
+            font-size: 18px;
+            padding: clamp(12px, 3vw, 16px);
+            margin: clamp(5px, 1.5vw, 10px) 0;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 600;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #00d4ff, #0099cc);
+            color: #fff;
+        }
+
+        .btn-secondary {
+            background: linear-gradient(135deg, #ff6b6b, #ee5a5a);
+            color: #fff;
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #51cf66, #40c057);
+            color: #fff;
+        }
+
+        .btn-warning {
+            background: linear-gradient(135deg, #ffd43b, #fab005);
+            color: #333;
+        }
+
+        .menu-btn:active {
+            transform: scale(0.96);
+        }
+
+        .game-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: clamp(8px, 2vw, 15px);
+            color: #fff;
+        }
+
+        .timer {
+            font-size: clamp(18px, 5vw, 24px);
+            font-weight: bold;
+            color: #00d4ff;
+        }
+
+        .back-btn {
+            background: rgba(255, 255, 255, 0.1);
+            border: none;
+            color: #fff;
+            padding: 8px 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+
+        /* 棋盤外層包住，用於定位 input */
+        .board-wrapper {
+            position: relative;
+            width: 100%;
+            margin: 0 auto;
+            display: flex;
+            justify-content: center;
+        }
+
+        .sudoku-board {
+            display: grid;
+            grid-template-columns: repeat(9, 1fr);
+            gap: 1px;
+            background: #444;
+            border: 3px solid #00d4ff;
+            border-radius: 8px;
+            overflow: hidden;
+            width: min(100%, 92vw, 58vh);
+            height: min(100%, 92vw, 58vh);
+            aspect-ratio: 1;
+        }
+
+        .cell {
+            aspect-ratio: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: clamp(16px, 4.5vw, 22px);
+            font-weight: bold;
+            background: #1a1a2e;
+            color: #fff;
+            cursor: pointer;
+            border: 1px solid #333;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        .cell:nth-child(3n) {
+            border-right: 2px solid #00d4ff;
+        }
+
+        .cell:nth-child(9n) {
+            border-right: none;
+        }
+
+        .cell:nth-child(n+19):nth-child(-n+27),
+        .cell:nth-child(n+46):nth-child(-n+54) {
+            border-bottom: 2px solid #00d4ff;
+        }
+
+        /* 隱藏的 input，覆蓋在棋盤上接收輸入 */
+        #hiddenInput {
+            position: absolute;
+            opacity: 0;
+            pointer-events: none;
+            width: 1px;
+            height: 1px;
+            top: 0;
+            left: 0;
+            font-size: 16px; /* 防止 iOS 自動縮放 */
+            border: none;
+            outline: none;
+            background: transparent;
+            color: transparent;
+            caret-color: transparent;
+        }
+
+        .room-section {
+            margin: clamp(10px, 3vw, 20px) 0;
+        }
+
+        .room-input {
+            width: 100%;
+            font-size: 24px;
+            padding: 15px;
+            text-align: center;
+            border: 2px solid #00d4ff;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+            letter-spacing: 10px;
+            margin-bottom: 15px;
+        }
+
+        .room-input::placeholder {
+            letter-spacing: 2px;
+            color: #666;
+        }
+
+        .room-code {
+            font-size: clamp(32px, 10vw, 48px);
+            font-weight: bold;
+            color: #00d4ff;
+            text-align: center;
+            letter-spacing: 10px;
+            padding: 20px;
+            background: rgba(0, 212, 255, 0.1);
+            border-radius: 12px;
+            margin: 15px 0;
+        }
+
+        .status-text {
+            font-size: clamp(16px, 4vw, 20px);
+            color: #888;
+            text-align: center;
+            margin: 10px 0;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: #1a1a2e;
+            padding: 30px;
+            border-radius: 20px;
+            text-align: center;
+            max-width: 300px;
+            border: 2px solid #00d4ff;
+        }
+
+        .modal-title {
+            font-size: 24px;
+            color: #fff;
+            margin-bottom: 15px;
+        }
+
+        .modal-text {
+            font-size: 18px;
+            color: #888;
+            margin-bottom: 20px;
+            white-space: pre-line;
+        }
+
+        .label {
+            font-size: clamp(14px, 3.5vw, 16px);
+            color: #888;
+            margin-bottom: 5px;
+        }
+
+        .spacer {
+            flex: 1;
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <!-- 主選單 -->
+        <div id="menuScreen" class="screen active">
+            <h1 class="title">🎯 數獨遊戲</h1>
+            <div class="spacer"></div>
+            <button class="menu-btn btn-primary" onclick="startPracticeMode()">🎯 單人練習</button>
+            <button class="menu-btn btn-success" onclick="showCreateRoom()">🏠 創建房間</button>
+            <button class="menu-btn btn-warning" onclick="showJoinRoom()">🚪 加入房間</button>
+            <div class="spacer"></div>
+        </div>
+
+        <!-- 創建房間 -->
+        <div id="createRoomScreen" class="screen">
+            <h2 class="title">🏠 創建房間</h2>
+            <p class="label">房間號碼：</p>
+            <div class="room-code" id="roomCodeDisplay">----</div>
+            <p class="status-text" id="createStatus">等待對手加入...</p>
+            <div class="spacer"></div>
+            <button class="menu-btn btn-secondary" onclick="backToMenu()">返回</button>
+        </div>
+
+        <!-- 加入房間 -->
+        <div id="joinRoomScreen" class="screen">
+            <h2 class="title">🚪 加入房間</h2>
+            <div class="room-section">
+                <input type="text" class="room-input" id="roomCodeInput" maxlength="4" placeholder="輸入4位房間號" inputmode="numeric">
+            </div>
+            <button class="menu-btn btn-primary" onclick="joinRoom()">加入對戰</button>
+            <div class="spacer"></div>
+            <button class="menu-btn btn-secondary" onclick="backToMenu()">返回</button>
+        </div>
+
+        <!-- 遊戲畫面 -->
+        <div id="gameScreen" class="screen">
+            <div class="game-header">
+                <button class="back-btn" onclick="backToMenu()">← 返回</button>
+                <div class="timer" id="timer">00:00</div>
+            </div>
+
+            <div class="board-wrapper">
+                <div class="sudoku-board" id="board"></div>
+                <!-- 隱藏 input 接收手機鍵盤 -->
+                <input id="hiddenInput" type="tel" inputmode="numeric" maxlength="1" autocomplete="off" autocorrect="off" spellcheck="false">
+            </div>
+
+            <div class="spacer"></div>
+        </div>
+    </div>
+
+    <!-- 彈窗 -->
+    <div class="modal" id="modal">
+        <div class="modal-content">
+            <div class="modal-title" id="modalTitle"></div>
+            <div class="modal-text" id="modalText"></div>
+                <button class="menu-btn btn-primary" id="modalConfirmBtn" type="button">確定</button>
+        </div>
+    </div>
+
+    <script>
+        // Firebase 配置
+        const firebaseConfig = {
+            apiKey: "AIzaSyACjxWEkXkPUBv6xiWtVWZdsFvxeKURJ1Q",
+            authDomain: "time-f681a.firebaseapp.com",
+            databaseURL: "https://time-f681a-default-rtdb.firebaseio.com",
+            projectId: "time-f681a",
+            storageBucket: "time-f681a.firebasestorage.app",
+            messagingSenderId: "486171948384",
+            appId: "1:486171948384:web:715043928d3a0a0cd39a05"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+
+        // 遊戲狀態
+        let gameMode = 'practice';
+        let board = [];
+        let solution = [];
+        let givenCells = [];
+        let selectedCell = null;
+        let timerInterval = null;
+        let timerStartTime = 0;
+        let seconds = 0;
+        let roomCode = null;
+        let playerId = null;
+        let opponentId = null;
+        let isHost = false;
+        let roomRef = null;
+        let gameStarted = false;
+        let gameOver = false;
+        let roomCleaningUp = false;
+        let modalConfirmHandler = null;
+
+        // ─── 清理狀態 ─────────────────────────────────────────
+        function cleanupBattleState(disconnect = false) {
+            roomCleaningUp = true;
+            stopTimer();
+            if (roomRef) {
+                if (isHost && disconnect) {
+                    roomRef.remove(); // 房主斷線時自動移除房間
+                }
+                roomRef.off();
+                roomRef = null;
+            }
+            roomCode = null;
+            playerId = null;
+            opponentId = null;
+            isHost = false;
+            gameStarted = false;
+            gameOver = false;
+            setTimeout(() => { roomCleaningUp = false; }, 500);
+        }
+
+        // ─── 棋盤初始化 ───────────────────────────────────────
+        function initBoard() {
+            const boardEl = document.getElementById('board');
+            boardEl.innerHTML = '';
+            for (let i = 0; i < 81; i++) {
+                const cell = document.createElement('div');
+                cell.className = 'cell';
+                cell.dataset.index = i;
+                cell.addEventListener('pointerdown', (e) => {
+                    e.preventDefault();
+                    selectCell(i);
+                });
+                boardEl.appendChild(cell);
+            }
+        }
+
+        // ─── 生成數獨 ─────────────────────────────────────────
+        function generateSudoku() {
+            solution = Array(81).fill(0);
+            solveSudoku(solution);
+
+            board = [...solution];
+
+            const indices = [...Array(81).keys()];
+            shuffleArray(indices);
+
+            givenCells = [];
+            const removeCount = 81 - 34;
+
+            for (let i = 0; i < removeCount; i++) {
+                board[indices[i]] = 0;
+            }
+
+            for (let i = 0; i < 81; i++) {
+                if (board[i] !== 0) givenCells.push(i);
+            }
+        }
+
+        function solveSudoku(b) {
+            const empty = b.indexOf(0);
+            if (empty === -1) return true;
+
+            const row = Math.floor(empty / 9);
+            const col = empty % 9;
+            const nums = [1, 2, 3, 4, 5, 6, 7, 8, 9];
+            shuffleArray(nums);
+
+            for (const num of nums) {
+                if (isValid(b, row, col, num)) {
+                    b[empty] = num;
+                    if (solveSudoku(b)) return true;
+                    b[empty] = 0;
+                }
+            }
+            return false;
+        }
+
+        function isValid(b, row, col, num) {
+            for (let i = 0; i < 9; i++) {
+                if (b[row * 9 + i] === num) return false;
+            }
+            for (let i = 0; i < 9; i++) {
+                if (b[i * 9 + col] === num) return false;
+            }
+            const boxRow = Math.floor(row / 3) * 3;
+            const boxCol = Math.floor(col / 3) * 3;
+            for (let i = 0; i < 3; i++) {
+                for (let j = 0; j < 3; j++) {
+                    if (b[(boxRow + i) * 9 + (boxCol + j)] === num) return false;
+                }
+            }
+            return true;
+        }
+
+        function shuffleArray(arr) {
+            for (let i = arr.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [arr[i], arr[j]] = [arr[j], arr[i]];
+            }
+        }
+
+        // ─── 渲染棋盤（無任何高亮）────────────────────────────
+        function renderBoard() {
+            const cells = document.querySelectorAll('.cell');
+            cells.forEach((cell, index) => {
+                const value = board[index];
+
+                cell.textContent = value || '';
+
+                // 保持所有格子一致，不做任何高亮
+                cell.className = 'cell';
+            });
+        }
+
+        // ─── 選格 ─────────────────────────────────────────────
+        function selectCell(index) {
+            if (givenCells.includes(index)) {
+                selectedCell = null;
+                renderBoard();
+                return;
+            }
+            if (gameOver) return;
+
+            selectedCell = index;
+            renderBoard();
+
+            // 聚焦隱藏 input 以喚起手機鍵盤
+            const inp = document.getElementById('hiddenInput');
+            inp.value = '';
+            inp.focus();
+        }
+
+        // ─── 輸入數字 ─────────────────────────────────────────
+        function inputNumber(num) {
+            if (selectedCell === null || givenCells.includes(selectedCell) || gameOver) return;
+
+            board[selectedCell] = num;
+            renderBoard();
+
+            if (gameMode === 'battle' && roomRef) {
+                roomRef.child(`players/${playerId}/board`).set(board.join(','));
+            }
+
+            checkWin();
+        }
+
+        function eraseNumber() {
+            if (selectedCell === null || givenCells.includes(selectedCell) || gameOver) return;
+
+            board[selectedCell] = 0;
+            renderBoard();
+
+            if (gameMode === 'battle' && roomRef) {
+                roomRef.child(`players/${playerId}/board`).set(board.join(','));
+            }
+        }
+
+        // ─── 隱藏 Input 事件（手機鍵盤輸入）──────────────────
+        const hiddenInput = document.getElementById('hiddenInput');
+
+        hiddenInput.addEventListener('input', (e) => {
+            const val = hiddenInput.value.replace(/[^1-9]/g, '');
+            hiddenInput.value = '';
+            if (val.length > 0) {
+                const num = parseInt(val[val.length - 1]);
+                if (num >= 1 && num <= 9) {
+                    inputNumber(num);
+                }
+            }
+        });
+
+        hiddenInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Backspace' || e.key === 'Delete') {
+                eraseNumber();
+            } else if (e.key === 'ArrowUp' && selectedCell !== null && selectedCell >= 9) {
+                selectCell(selectedCell - 9);
+            } else if (e.key === 'ArrowDown' && selectedCell !== null && selectedCell < 72) {
+                selectCell(selectedCell + 9);
+            } else if (e.key === 'ArrowLeft' && selectedCell !== null && selectedCell % 9 > 0) {
+                selectCell(selectedCell - 1);
+            } else if (e.key === 'ArrowRight' && selectedCell !== null && selectedCell % 9 < 8) {
+                selectCell(selectedCell + 1);
+            }
+        });
+
+        // 桌機鍵盤支援
+        document.addEventListener('keydown', (e) => {
+            if (document.activeElement === hiddenInput) return; // 已由 hiddenInput 處理
+            if (selectedCell === null) return;
+
+            if (e.key >= '1' && e.key <= '9') {
+                inputNumber(parseInt(e.key));
+            } else if (e.key === 'Backspace' || e.key === 'Delete') {
+                eraseNumber();
+            } else if (e.key === 'ArrowUp' && selectedCell >= 9) {
+                selectCell(selectedCell - 9);
+            } else if (e.key === 'ArrowDown' && selectedCell < 72) {
+                selectCell(selectedCell + 9);
+            } else if (e.key === 'ArrowLeft' && selectedCell % 9 > 0) {
+                selectCell(selectedCell - 1);
+            } else if (e.key === 'ArrowRight' && selectedCell % 9 < 8) {
+                selectCell(selectedCell + 1);
+            }
+        });
+
+        // ─── 勝負判斷（填滿才自動檢查）──────────────────────
+        function checkWin() {
+            // 尚有空格，不檢查
+            if (board.includes(0)) return false;
+
+            // 全部填滿，檢查是否正確
+            let hasError = false;
+            for (let i = 0; i < board.length; i++) {
+                if (!givenCells.includes(i) && board[i] !== solution[i]) {
+                    hasError = true;
+                    break;
+                }
+            }
+
+            if (hasError) {
+                showModal('🚫 錯誤！', '請檢查清楚');
+                return false;
+            }
+
+            // 正確完成
+            stopTimer();
+            gameOver = true;
+
+            if (gameMode === 'battle') {
+                roomRef.child('winner').set(playerId);
+                showModal('🎉 獲勝！', `恭喜你率先完成！\n用時：${formatTime(seconds)}`);
+            } else {
+                showModal('🎉 恭喜！', `完成數獨！\n用時：${formatTime(seconds)}`);
+            }
+            return true;
+        }
+
+        // ─── 計時器 ───────────────────────────────────────────
+        function startTimer() {
+            stopTimer();
+            timerStartTime = Date.now();
+            seconds = 0;
+            updateTimerDisplay();
+            timerInterval = setInterval(() => {
+                // 使用真實時間差計算，即使手機休眠/切換APP時間也不會失準
+                seconds = Math.floor((Date.now() - timerStartTime) / 1000);
+                updateTimerDisplay();
+            }, 500);
+        }
+
+        function stopTimer() {
+            if (timerInterval) {
+                clearInterval(timerInterval);
+                timerInterval = null;
+            }
+        }
+
+        function updateTimerDisplay() {
+            document.getElementById('timer').textContent = formatTime(seconds);
+        }
+
+        function formatTime(sec) {
+            const m = Math.floor(sec / 60).toString().padStart(2, '0');
+            const s = (sec % 60).toString().padStart(2, '0');
+            return `${m}:${s}`;
+        }
+
+        // ─── 畫面切換 ─────────────────────────────────────────
+        function showScreen(screenId) {
+            document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+            document.getElementById(screenId).classList.add('active');
+            requestAnimationFrame(fitBoardToScreen);
+        }
+
+        function backToMenu() {
+            cleanupBattleState(true);
+            gameMode = 'practice';
+            selectedCell = null;
+            document.getElementById('hiddenInput').blur();
+            showScreen('menuScreen');
+        }
+
+        // ─── 單人模式 ─────────────────────────────────────────
+        function startPracticeMode() {
+            cleanupBattleState(false);
+            gameMode = 'practice';
+            gameStarted = true;
+            gameOver = false;
+            selectedCell = null;
+
+            generateSudoku();
+            initBoard();
+            renderBoard();
+            startTimer();
+            showScreen('gameScreen');
+            fitBoardToScreen();
+        }
+
+        // ─── 創建房間 ─────────────────────────────────────────
+        function showCreateRoom() {
+            cleanupBattleState(false);
+            roomCode = Math.floor(1000 + Math.random() * 9000).toString();
+            playerId = 'player1';
+            isHost = true;
+
+            document.getElementById('roomCodeDisplay').textContent = roomCode;
+            document.getElementById('createStatus').textContent = '等待對手加入...';
+            showScreen('createRoomScreen');
+
+            generateSudoku();
+
+            roomRef = db.ref(`rooms/${roomCode}`);
+            roomRef.set({
+                board: solution.join(','),
+                puzzle: board.join(','),
+                givenCells: givenCells.join(','),
+                status: 'waiting',
+                players: {
+                    player1: { board: board.join(',') }
+                },
+                winner: null
+            });
+
+            roomRef.onDisconnect().remove();
+            roomRef.child(`players/${playerId}`).onDisconnect().remove();
+
+            roomRef.child('players').on('value', (snapshot) => {
+                const players = snapshot.val();
+                // 確保只觸發一次
+                if (players && Object.keys(players).length === 2 && !gameStarted) {
+                    opponentId = Object.keys(players).find(id => id !== playerId);
+                    document.getElementById('createStatus').textContent = '對手已加入！遊戲即將開始...';
+                    // 房主負責「鳴槍起跑」
+                    setTimeout(() => {
+                        roomRef.child('status').set('playing');
+                    }, 1000);
+                }
+            });
+
+            // 雙方統一監聽「起跑信號」
+            roomRef.child('status').on('value', (snapshot) => {
+                if (snapshot.val() === 'playing' && !gameStarted) {
+                    startBattle();
+                }
+            });
+
+            roomRef.child('players/player2').on('value', (snapshot) => {
+                if (gameStarted && !gameOver && !roomCleaningUp && !snapshot.exists()) {
+                    handleOpponentLeft();
+                }
+            });
+        }
+
+        // ─── 加入房間 ─────────────────────────────────────────
+        function showJoinRoom() {
+            document.getElementById('roomCodeInput').value = '';
+            document.querySelector('#joinRoomScreen .title').textContent = '🚪 加入房間';
+            document.querySelector('#joinRoomScreen .btn-primary').style.display = 'inline-block';
+            showScreen('joinRoomScreen');
+        }
+
+        function joinRoom() {
+            const code = document.getElementById('roomCodeInput').value.trim();
+            if (code.length !== 4) {
+                showModal('錯誤', '請輸入4位數字房間號！');
+                return;
+            }
+
+            roomCode = code;
+            playerId = 'player2';
+            isHost = false;
+
+            roomRef = db.ref(`rooms/${roomCode}`);
+
+            roomRef.once('value', (snapshot) => {
+                const data = snapshot.val();
+                if (!data) {
+                    showModal('錯誤', '房間不存在！');
+                    return;
+                }
+
+                if (data.players && Object.keys(data.players).length >= 2) {
+                    showModal('錯誤', '房間已滿！');
+                    return;
+                }
+
+                solution = data.board.split(',').map(Number);
+                board = data.puzzle.split(',').map(Number);
+                givenCells = data.givenCells.split(',').map(Number);
+
+                roomRef.child(`players/${playerId}`).set({
+                    board: board.join(',')
+                });
+
+                roomRef.child(`players/${playerId}`).onDisconnect().remove();
+
+                opponentId = 'player1';
+                
+                // 介面切換為等待狀態
+                document.querySelector('#joinRoomScreen .title').textContent = '⏳ 等待開始...';
+                document.querySelector('#joinRoomScreen .btn-primary').style.display = 'none';
+
+                // 監聽房主發出的「起跑信號」
+                roomRef.child('status').on('value', (snap) => {
+                    if (snap.val() === 'playing' && !gameStarted) {
+                        startBattle();
+                    }
+                });
+            });
+        }
+
+        // ─── 開始對戰 ─────────────────────────────────────────
+        function startBattle() {
+            gameMode = 'battle';
+            gameStarted = true;
+            gameOver = false;
+            selectedCell = null;
+
+            initBoard();
+            renderBoard();
+            startTimer();
+            showScreen('gameScreen');
+            fitBoardToScreen();
+
+            roomRef.child('players').on('value', (snapshot) => {
+                const players = snapshot.val() || {};
+                const count = Object.keys(players).length;
+                if (gameStarted && !gameOver && !roomCleaningUp && count < 2) {
+                    handleOpponentLeft();
+                }
+            });
+
+            // 監聽勝負
+            roomRef.child('winner').on('value', (snapshot) => {
+                const winner = snapshot.val();
+                if (winner && winner !== playerId) {
+                    stopTimer();
+                    gameOver = true;
+                    showModal('😞 失敗', '對手已率先完成，你輸了！', '回主選單', () => backToMenu(true));
+                }
+            });
+        }
+
+        // ─── 彈窗 ─────────────────────────────────────────────
+        function showModal(title, text, confirmText = '確定', onConfirm = null) {
+            document.getElementById('modalTitle').textContent = title;
+            document.getElementById('modalText').textContent = text;
+            document.getElementById('modalConfirmBtn').textContent = confirmText;
+            modalConfirmHandler = onConfirm;
+            document.getElementById('modal').classList.add('active');
+        }
+
+        function closeModal() {
+            document.getElementById('modal').classList.remove('active');
+            modalConfirmHandler = null;
+        }
+
+        document.getElementById('modalConfirmBtn').addEventListener('click', () => {
+            const handler = modalConfirmHandler;
+            closeModal();
+            if (typeof handler === 'function') handler();
+        });
+
+        document.getElementById('modal').addEventListener('click', (e) => {
+            if (e.target.id === 'modal') closeModal();
+        });
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && document.getElementById('modal').classList.contains('active')) {
+                closeModal();
+            }
+        });
+
+        function handleOpponentLeft() {
+            if (roomCleaningUp) return;
+            showModal('房間結束', '對手已離開，房間已自動解散。', '回主選單', () => backToMenu(true));
+            cleanupBattleState(true);
+        }
+
+        // 初始化
+        initBoard();
+
+        function fitBoardToScreen() {
+            const gameScreen = document.getElementById('gameScreen');
+            const boardEl = document.getElementById('board');
+            if (!gameScreen || !boardEl || !gameScreen.classList.contains('active')) return;
+
+            const header = gameScreen.querySelector('.game-header');
+            const battle = gameScreen.querySelector('.battle-info');
+            const headerHeight = header ? header.getBoundingClientRect().height : 0;
+            const battleHeight = battle && battle.style.display !== 'none' ? battle.getBoundingClientRect().height : 0;
+
+            const containerWidth = gameScreen.getBoundingClientRect().width;
+            const containerHeight = gameScreen.getBoundingClientRect().height;
+            const padding = 8;
+            const reservedHeight = headerHeight + battleHeight + 32;
+            const size = Math.floor(Math.min(containerWidth - padding, containerHeight - reservedHeight, 420));
+
+            if (size > 0) {
+                boardEl.style.width = `${size}px`;
+                boardEl.style.height = `${size}px`;
+            }
+        }
+
+        window.addEventListener('resize', fitBoardToScreen);
+        window.addEventListener('orientationchange', fitBoardToScreen);
+    </script>
+</body>
+</html>
