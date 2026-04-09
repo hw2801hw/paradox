@@ -261,9 +261,10 @@
       text-align: center; width: 100%;
     }
 
+    /* ===== 輸入區域修改 ===== */
     .input-section {
-      width: 100%; display: flex; justify-content: center;
-      align-items: center; padding: 10px 0; flex-shrink: 0;
+      width: 100%; display: flex; flex-direction: column; justify-content: center;
+      align-items: center; padding: 10px 0; gap: 12px; flex-shrink: 0;
     }
     #answer-input {
       width: 100%; height: 80px; background: #2a2a2a;
@@ -364,6 +365,7 @@
       .question-text { font-size: 36px; }
       #answer-input { height: 64px; font-size: 28px; }
       .btn-next { min-height: 56px; font-size: 22px; }
+      #enter-btn { min-height: 56px !important; font-size: 20px !important; }
       .question-section { padding: 10px 0; }
     }
     @media (min-width: 768px) {
@@ -474,10 +476,14 @@
     <div class="question-section">
       <div class="question-text" id="question-text">47 × 68</div>
     </div>
+    
+    <!-- 輸入與送出按鈕區域 -->
     <div class="input-section" id="input-section">
-      <input type="tel" id="answer-input" placeholder="輸入答案，按 Enter 確認"
+      <input type="tel" id="answer-input" placeholder="輸入答案"
         autocomplete="off" inputmode="numeric" pattern="[0-9]*">
+      <button class="btn btn-primary" id="enter-btn" style="width: 100%; min-height: 64px; font-size: 22px; border-radius: 16px;">送出答案 ↵</button>
     </div>
+
     <div class="result-section" id="result-section"></div>
     <div class="next-section" id="next-section">
       <button class="btn btn-next" id="next-btn">好的 👍</button>
@@ -571,6 +577,7 @@ const $currentQ      = $('current-q');
 const $totalQ        = $('total-q');
 const $questionText  = $('question-text');
 const $answerInput   = $('answer-input');
+const $enterBtn      = $('enter-btn'); // 新增的送出按鈕
 const $inputSection  = $('input-section');
 const $resultSection = $('result-section');
 const $nextSection   = $('next-section');
@@ -720,6 +727,11 @@ function loadQuestion() {
 
   $answerInput.value = '';
   $answerInput.disabled = false;
+  
+  // 顯示送出按鈕
+  $enterBtn.style.display = 'inline-flex';
+  $enterBtn.disabled = false;
+
   $resultSection.innerHTML = '';
   $inputSection.style.display = 'flex';
   $nextSection.style.display = 'none';
@@ -765,7 +777,10 @@ function handleTimeout() {
   q.userAnswer = null;
   q.isCorrect = false;
   q.timeTaken = TIME_LIMIT;
+  
   $answerInput.disabled = true;
+  $enterBtn.style.display = 'none'; // 時間到隱藏送出按鈕
+  
   $resultSection.innerHTML = `
     <div class="animate-in" style="text-align:center;">
       <div class="timeout-text">⏰ 時間到！</div>
@@ -792,7 +807,9 @@ function submitAnswer() {
   q.timeTaken = timeTaken;
   totalAnswerTime += timeTaken;
   answeredCount++;
+  
   $answerInput.disabled = true;
+  $enterBtn.style.display = 'none'; // 送出後隱藏送出按鈕
 
   if (userAns === q.answer) {
     q.isCorrect = true;
@@ -1341,6 +1358,12 @@ $leaveRoomBtn.addEventListener('click', leaveRoom);
 
 // 遊戲畫面
 $nextBtn.addEventListener('click', goNext);
+
+// 新增：送出按鈕點擊事件
+$enterBtn.addEventListener('click', () => {
+  if (!answered) submitAnswer();
+});
+
 $answerInput.addEventListener('keydown', e => {
   if (e.key === 'Enter') {
     e.preventDefault();
