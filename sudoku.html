@@ -259,7 +259,7 @@
             padding: 30px;
             border-radius: 20px;
             text-align: center;
-            max-width: 300px;
+            max-width: 320px;
             border: 2px solid #00d4ff;
         }
 
@@ -274,6 +274,18 @@
             color: #888;
             margin-bottom: 20px;
             white-space: pre-line;
+        }
+
+        .modal-buttons {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            width: 100%;
+        }
+
+        .modal-buttons .menu-btn {
+            margin: 0;
+            flex: 1;
         }
 
         .label {
@@ -306,7 +318,7 @@
             <div class="room-code" id="roomCodeDisplay">----</div>
             <p class="status-text" id="createStatus">等待對手加入...</p>
             <div class="spacer"></div>
-            <button class="menu-btn btn-secondary" onclick="backToMenu()">返回</button>
+            <button class="menu-btn btn-secondary" onclick="confirmBackToMenu()">返回</button>
         </div>
 
         <!-- 加入房間 -->
@@ -317,13 +329,13 @@
             </div>
             <button class="menu-btn btn-primary" onclick="joinRoom()">加入對戰</button>
             <div class="spacer"></div>
-            <button class="menu-btn btn-secondary" onclick="backToMenu()">返回</button>
+            <button class="menu-btn btn-secondary" onclick="confirmBackToMenu()">返回</button>
         </div>
 
         <!-- 遊戲畫面 -->
         <div id="gameScreen" class="screen">
             <div class="game-header">
-                <button class="back-btn" onclick="backToMenu()">← 返回</button>
+                <button class="back-btn" onclick="confirmBackToMenu()">← 返回</button>
                 <div class="timer" id="timer">00:00</div>
             </div>
 
@@ -341,7 +353,10 @@
         <div class="modal-content">
             <div class="modal-title" id="modalTitle"></div>
             <div class="modal-text" id="modalText"></div>
+            <div class="modal-buttons">
+                <button class="menu-btn btn-secondary" id="modalCancelBtn" type="button" style="display: none;">取消</button>
                 <button class="menu-btn btn-primary" id="modalConfirmBtn" type="button">確定</button>
+            </div>
         </div>
     </div>
 
@@ -672,6 +687,18 @@
             requestAnimationFrame(fitBoardToScreen);
         }
 
+        // 返回前的二次確認邏輯
+        function confirmBackToMenu() {
+            // 如果遊戲已經開始，或者是處於房間連線的狀態
+            if (gameStarted || roomCode || document.getElementById('createRoomScreen').classList.contains('active') || document.getElementById('joinRoomScreen').classList.contains('active')) {
+                showModal('確認離開', '確定要返回主選單嗎？\n目前的進度與連線將會遺失！', '確定', () => {
+                    backToMenu();
+                }, true); // 開啟取消按鈕
+            } else {
+                backToMenu();
+            }
+        }
+
         function backToMenu() {
             cleanupBattleState(true);
             gameMode = 'practice';
@@ -818,11 +845,19 @@
             });
         }
 
-        function showModal(title, text, confirmText = '確定', onConfirm = null) {
+        // 修改後的 showModal 支援是否顯示「取消」按鈕
+        function showModal(title, text, confirmText = '確定', onConfirm = null, showCancel = false) {
             document.getElementById('modalTitle').textContent = title;
             document.getElementById('modalText').textContent = text;
             document.getElementById('modalConfirmBtn').textContent = confirmText;
             modalConfirmHandler = onConfirm;
+            
+            if (showCancel) {
+                document.getElementById('modalCancelBtn').style.display = 'inline-block';
+            } else {
+                document.getElementById('modalCancelBtn').style.display = 'none';
+            }
+            
             document.getElementById('modal').classList.add('active');
         }
 
@@ -835,6 +870,10 @@
             const handler = modalConfirmHandler;
             closeModal();
             if (typeof handler === 'function') handler();
+        });
+
+        document.getElementById('modalCancelBtn').addEventListener('click', () => {
+            closeModal();
         });
 
         document.getElementById('modal').addEventListener('click', (e) => {
