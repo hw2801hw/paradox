@@ -1,0 +1,1477 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>瘋狂競技場 Crazy Arena!</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #000;
+      font-family: sans-serif;
+    }
+
+    body {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    #gameContainer {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      overflow: hidden;
+    }
+
+    #gameWrapper {
+      position: relative;
+      width: 360px;
+      height: 640px;
+      flex-shrink: 0;
+      transform-origin: center center;
+      background: linear-gradient(180deg, #1a1a2e 0%, #0f0f1e 100%);
+      overflow: hidden;
+    }
+
+    canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 360px;
+      height: 640px;
+    }
+
+    .screen {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 360px;
+      height: 640px;
+      display: none;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+      z-index: 10;
+    }
+
+    .screen.active {
+      display: flex;
+    }
+
+    .title {
+      font-size: 38px;
+      font-weight: bold;
+      color: #fff;
+      text-shadow: 0 0 20px #ff6b6b, 0 0 40px #ff6b6b;
+      margin-bottom: 16px;
+      text-align: center;
+      animation: pulse 2s ease-in-out infinite;
+    }
+
+    .subtitle {
+      font-size: 18px;
+      color: #aaa;
+      margin-bottom: 40px;
+      text-align: center;
+    }
+
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.05); }
+    }
+
+    .btn {
+      font-size: 20px;
+      padding: 15px 40px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+      box-shadow: 0 4px 15px rgba(102, 126, 234, 0.5);
+      transition: all 0.2s;
+      margin: 8px;
+      min-width: 180px;
+    }
+
+    .btn:active {
+      transform: scale(0.96);
+    }
+
+    .section-title {
+      font-size: 24px;
+      color: #fff;
+      margin-bottom: 16px;
+      text-shadow: 0 2px 10px rgba(255,255,255,0.3);
+      text-align: center;
+    }
+
+    .weapon-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 6px;
+      width: 340px;
+    }
+
+    .weapon-card {
+      background: rgba(255,255,255,0.08);
+      border: 2px solid rgba(255,255,255,0.2);
+      border-radius: 12px;
+      padding: 10px 4px;
+      cursor: pointer;
+      transition: all 0.2s;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .weapon-card:active {
+      transform: scale(0.95);
+      border-color: #667eea;
+      background: rgba(102,126,234,0.25);
+    }
+
+    .weapon-icon {
+      font-size: 32px;
+      margin-bottom: 6px;
+    }
+
+    .weapon-name {
+      font-size: 13px;
+      color: #fff;
+      font-weight: bold;
+      margin-bottom: 4px;
+    }
+
+    .weapon-type-badge {
+      display: inline-block;
+      font-size: 11px;
+      padding: 2px 6px;
+      border-radius: 20px;
+      margin-bottom: 6px;
+      font-weight: bold;
+    }
+
+    .melee { background: #c0392b; color: #fff; }
+    .ranged { background: #2980b9; color: #fff; }
+
+    .weapon-stats {
+      font-size: 11px;
+      color: #ddd;
+      line-height: 1.6;
+      text-align: center;
+    }
+
+    .weapon-desc {
+      font-size: 10px;
+      color: #f9ca24;
+      margin-top: 6px;
+      font-style: italic;
+    }
+
+    .weapon-ability {
+      font-size: 10px;
+      color: #4ecdc4;
+      margin-top: 4px;
+      background: rgba(78,205,196,0.15);
+      padding: 3px 4px;
+      border-radius: 4px;
+    }
+
+    .result-title {
+      font-size: 42px;
+      font-weight: bold;
+      margin-bottom: 12px;
+      text-shadow: 0 0 20px currentColor;
+      text-align: center;
+    }
+
+    .result-title.win { color: #4ecdc4; }
+    .result-title.lose { color: #ff6b6b; }
+
+    .result-stats {
+      font-size: 18px;
+      color: #fff;
+      margin-bottom: 30px;
+      line-height: 2;
+      text-align: center;
+    }
+
+    #roundOverlay {
+      position: absolute;
+      top: 0; left: 0;
+      width: 360px; height: 640px;
+      display: none;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      background: rgba(0,0,0,0.6);
+      z-index: 20;
+    }
+
+    #roundOverlay.active {
+      display: flex;
+    }
+
+    .round-result-text {
+      font-size: 40px;
+      font-weight: bold;
+      color: #fff;
+      text-shadow: 0 0 20px #fff;
+      margin-bottom: 10px;
+    }
+
+    .round-sub-text {
+      font-size: 20px;
+      color: #ccc;
+    }
+
+    #codexScreen {
+      justify-content: flex-start;
+      padding-top: 20px;
+      overflow-y: auto;
+    }
+
+    .codex-category {
+      width: 100%;
+      margin-bottom: 20px;
+    }
+
+    .codex-category-title {
+      font-size: 18px;
+      color: #aaa;
+      margin-bottom: 10px;
+      text-align: center;
+      border-bottom: 1px solid rgba(255,255,255,0.2);
+      padding-bottom: 5px;
+    }
+
+    .codex-weapon-card {
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 10px;
+      padding: 12px;
+      margin-bottom: 10px;
+    }
+
+    .codex-weapon-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 8px;
+    }
+
+    .codex-weapon-icon {
+      font-size: 32px;
+    }
+
+    .codex-weapon-name {
+      font-size: 16px;
+      color: #fff;
+      font-weight: bold;
+    }
+
+    .codex-weapon-stats {
+      font-size: 12px;
+      color: #ccc;
+      line-height: 1.6;
+    }
+
+    .codex-weapon-ability {
+      font-size: 12px;
+      color: #4ecdc4;
+      margin-top: 6px;
+      background: rgba(78,205,196,0.1);
+      padding: 4px 8px;
+      border-radius: 4px;
+    }
+
+    .back-btn {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      font-size: 16px;
+      padding: 10px 20px;
+      background: rgba(255,255,255,0.1);
+      color: white;
+      border: 1px solid rgba(255,255,255,0.3);
+      border-radius: 8px;
+      cursor: pointer;
+      z-index: 30;
+    }
+  </style>
+</head>
+<body>
+<div id="gameContainer">
+  <div id="gameWrapper">
+    <canvas id="starCanvas" width="360" height="640"></canvas>
+    <canvas id="battleCanvas" width="360" height="640"></canvas>
+
+    <div id="roundOverlay">
+      <div class="round-result-text" id="roundResultText"></div>
+      <div class="round-sub-text" id="roundSubText"></div>
+    </div>
+
+    <div id="titleScreen" class="screen active">
+      <div class="title">⚔️ 瘋狂競技場 ⚔️</div>
+      <div class="subtitle">Crazy Arena!</div>
+      <button class="btn" onclick="game.startCharacterSelect()">🎮 開始遊戲</button>
+      <button class="btn" onclick="game.showCodex('character')">👤 角色圖鑑</button>
+      <button class="btn" onclick="game.showCodex('weapon')">📖 武器圖鑑</button>
+      <button class="btn" onclick="game.showCodex('buff')">✨ 加成圖鑑</button>
+    </div>
+
+    <div id="threeSelectScreen" class="screen">
+      <div class="section-title" id="selectTitle">🎰 選擇（三選一）</div>
+      <div class="weapon-grid" id="threeSelectGrid"></div>
+      <div id="specialActionContainer" style="margin-top: 20px; display: flex; gap: 10px; justify-content: center; width: 100%;"></div>
+    </div>
+
+    <div id="codexScreen" class="screen">
+      <button class="back-btn" onclick="game.showScreen('titleScreen')">← 返回</button>
+      <div class="section-title" id="codexTitle" style="margin-top:50px;">📖 圖鑑</div>
+      <div id="codexContent"></div>
+    </div>
+
+    <div id="battleScreen" class="screen" style="padding:0;background:transparent;pointer-events:none;"></div>
+
+    <div id="resultScreen" class="screen">
+      <div class="result-title" id="resultTitle"></div>
+      <div class="result-stats" id="resultStats"></div>
+      <button class="btn" onclick="game.restart()">🔄 再戰一次</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const CANVAS_W = 360;
+const CANVAS_H = 640;
+const GROUND_Y = 500;
+const FIGHTER_RADIUS = 22;
+const FIGHTER_HP = 200;
+const PLAYER_MAX_HP = 10;
+const ROUND_TIME = 20;
+const JUMP_COOLDOWN = 10000;
+const GRID_SIZE = 40;
+const MELEE_ATTACK_RANGE = 60;
+const JUMP_VELOCITY = -600;
+
+const JUMPPAD = {
+  cx: 180,
+  top: GROUND_Y - 5,
+  w: 70,
+  h: 14
+};
+
+const CHARACTERS = [
+  {
+    id: 'char_vampire',
+    name: '生命竊賊',
+    icon: '🧛',
+    desc: '開局對方愛心-1，我方愛心+1'
+  },
+  {
+    id: 'char_reroll',
+    name: '重鑄大師',
+    icon: '🎲',
+    desc: '每回合都能刷新1次加成'
+  },
+  {
+    id: 'char_greedy',
+    name: '貪婪暴君',
+    icon: '👑',
+    desc: '整局遊戲中可全選1次加成'
+  },
+  {
+    id: 'char_destroyer',
+    name: '破壞神',
+    icon: '💥',
+    desc: '每回合15%機率隨機移除對方加成'
+  },
+  {
+    id: 'char_lucky',
+    name: '幸運星',
+    icon: '🍀',
+    desc: '勝利時下回合50%機率獲取2個加成'
+  },
+  {
+    id: 'char_picker',
+    name: '尋寶獵人',
+    icon: '🧭',
+    desc: '加成由三選一變為六選一'
+  }
+];
+
+const WEAPONS = [
+  { id: 'berserk_sword', name: '狂暴巨劍', icon: '🗡️', type: 'melee', typeName: '近戰', damage: 40, attackSpeed: 0.5, attackSpeedDisplay: '每2秒1下', range: 1, desc: '超高傷害，但出手緩慢', ability: '⚡ 暴擊率20%（傷害×2）' },
+  { id: 'shock_claw', name: '電擊爪', icon: '⚡', type: 'melee', typeName: '近戰', damage: 10, attackSpeed: 2, attackSpeedDisplay: '每1秒2下', range: 1, desc: '快速連擊，輸出穩定', ability: '🩸 吸血率10%（傷害10%回復）' },
+  { id: 'indomitable_knight', name: '不屈騎士', icon: '🛡️', type: 'melee', typeName: '近戰', damage: 30, attackSpeed: 1/3, attackSpeedDisplay: '每3秒1下', range: 2, desc: '堅韌防禦，反擊強力', ability: '🛡️ 減傷50%（受到傷害減半）' },
+  { id: 'laser_rifle', name: '雷射步槍', icon: '🔫', type: 'ranged', typeName: '遠攻', damage: 5, attackSpeed: 2, attackSpeedDisplay: '每1秒2下', range: 5, desc: '中距離穩定遠程輸出', ability: '❄️ 減速50%（移速×0.5）' },
+  { id: 'thermometer', name: '溫度計', icon: '🌡️', type: 'ranged', typeName: '遠攻', damage: 20, attackSpeed: 1, attackSpeedDisplay: '每1秒1下', range: 100, desc: '必定命中 無處可逃！', ability: '💚 每秒回復2%生命' },
+  { id: 'fries_trap', name: '薯條陷阱', icon: '🍟', type: 'ranged', typeName: '遠攻', damage: 30, attackSpeed: 1, attackSpeedDisplay: '每1秒1下', range: 3, desc: '設置陷阱爆炸傷害', ability: '💥 地面陷阱，接近爆炸' }
+];
+
+const BUFFS = [
+  { id: 'damage_mult_50', name: '狂暴之力', icon: '🔥', desc: '傷害+50%' },
+  { id: 'damage_add_5', name: '鋒利打磨', icon: '🔪', desc: '基礎傷害+5' },
+  { id: 'charge_attack', name: '蓄力一擊', icon: '⏳', desc: '準備5秒後，該回合傷害+100%' },
+  { id: 'first_strike', name: '先發制人', icon: '🎯', desc: '每回合首擊傷害+200%' },
+  { id: 'attack_speed_50', name: '疾風之速', icon: '💨', desc: '攻擊速度+50%' },
+  { id: 'auto_dmg', name: '暗影折磨', icon: '👻', desc: '每1秒自動令對方造成2~10隨機傷害' },
+  { id: 'regen_5', name: '生生不息', icon: '🌿', desc: '每2秒回復5%最大生命' },
+  { id: 'hp_up_50', name: '巨人之軀', icon: '❤️‍🔥', desc: '最大生命+50%' },
+  { id: 'random_hp_boost', name: '命運輪盤', icon: '🎲', desc: '新回合生命隨機+100/200/500' },
+  { id: 'confuse_slow', name: '混亂泥沼', icon: '🌀', desc: '每5秒令對方轉向，且對方移速+50%' },
+  { id: 'speed_up_200', name: '神速步伐', icon: '👟', desc: '移速+100%' },
+  { id: 'range_up_1', name: '鷹眼瞄準', icon: '🦅', desc: '射程+1格' },
+  { id: 'dmg_spd_30', name: '全能強化', icon: '🌟', desc: '傷害和攻速都+30%' },
+  { id: 'freeze_low_hp', name: '絕對零度', icon: '❄️', desc: '對方生命低於50%時，冰凍1秒' },
+  { id: 'wall_damage', name: '荊棘之牆', icon: '🌵', desc: '對方碰到牆壁時，損失20%最大生命' },
+  { id: 'random_teleport', name: '時空行者', icon: '🌌', desc: '每4秒隨機傳送(包含空中)' },
+  { id: 'wall_speed', name: '極限反彈', icon: '🪃', desc: '碰牆後3秒移速+300%' },
+  { id: 'knockback_chance', name: '斥力力場', icon: '🛡️', desc: '每2秒50%機率令對方後退5格' },
+  { id: 'teleport_behind', name: '背刺大師', icon: '🥷', desc: '每3秒50%機率傳送至對方身後' },
+  { id: 'berserker_blood', name: '狂戰士之血', icon: '🩸', desc: '每損失10%生命，傷害、攻速、移速+10%' },
+  { id: 'immune_low_hp', name: '絕境護盾', icon: '🛡️', desc: '自身生命低於50%時，免疫2次傷害' },
+  { id: 'dmg_reflect_low_hp', name: '死亡怨念', icon: '💀', desc: '生命低於50%時，立即令對方損失20%最大生命' },
+  { id: 'root_low_hp', name: '束縛詛咒', icon: '⛓️', desc: '生命低於50%時，禁止對方移動3秒' },
+  { id: 'heal_low_hp', name: '絕境逢生', icon: '💖', desc: '生命低於50%時，立即回復20%最大生命(每回合1次)' },
+  { id: 'fly_low_hp', name: '浮空術', icon: '🎈', desc: '生命低於50%時，強制飛在空中3秒' }
+];
+
+function applyScale() {
+  const wrapper = document.getElementById('gameWrapper');
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+  const scale = Math.min(vw / CANVAS_W, vh / CANVAS_H);
+  wrapper.style.transform = `scale(${scale})`;
+}
+
+window.addEventListener('resize', applyScale);
+window.addEventListener('orientationchange', () => setTimeout(applyScale, 200));
+
+function initStars() {
+  const canvas = document.getElementById('starCanvas');
+  const ctx = canvas.getContext('2d');
+  const stars = [];
+  for (let i = 0; i < 120; i++) {
+    stars.push({
+      x: Math.random() * CANVAS_W, y: Math.random() * CANVAS_H,
+      r: Math.random() * 1.5 + 0.3, alpha: Math.random() * 0.8 + 0.2, speed: (Math.random() - 0.5) * 0.015
+    });
+  }
+  function drawStars() {
+    ctx.fillStyle = '#0f0f1e'; ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+    stars.forEach(s => {
+      s.alpha += s.speed;
+      if (s.alpha > 1) { s.alpha = 1; s.speed *= -1; }
+      if (s.alpha < 0.1) { s.alpha = 0.1; s.speed *= -1; }
+      ctx.fillStyle = `rgba(255,255,255,${s.alpha})`;
+      ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2); ctx.fill();
+    });
+    requestAnimationFrame(drawStars);
+  }
+  drawStars();
+}
+
+class Game {
+  constructor() {
+    this.playerHP = PLAYER_MAX_HP;
+    this.aiHP = PLAYER_MAX_HP;
+    this.playerCharacter = null;
+    this.aiCharacter = null;
+    this.playerWeapon = null;
+    this.aiWeapon = null;
+    this.roundsWon = 0;
+    this.roundsLost = 0;
+    this.playerBuffs = [];
+    this.aiBuffs = [];
+    
+    // 角色特權狀態
+    this.hasUsedGreedy = false;
+    this.hasRerolledThisRound = false;
+    this.extraBuffPicks = 0;
+    this.aiExtraBuffPicks = 0;
+
+    this.battle = null;
+    this.battleCanvas = document.getElementById('battleCanvas');
+    this.battleCtx = this.battleCanvas.getContext('2d');
+  }
+
+  get currentRound() { return this.roundsWon + this.roundsLost + 1; }
+
+  showScreen(id) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+    this.battleCanvas.style.display = (id === 'battleScreen') ? 'block' : 'none';
+    document.getElementById('roundOverlay').classList.remove('active');
+  }
+
+  showCodex(type) {
+    this.showScreen('codexScreen');
+    const content = document.getElementById('codexContent');
+    const title = document.getElementById('codexTitle');
+    content.innerHTML = '';
+    
+    const renderCat = (catTitle, list, isDescOnly = false) => {
+      const cat = document.createElement('div');
+      cat.className = 'codex-category';
+      cat.innerHTML = `<div class="codex-category-title">${catTitle}</div>`;
+      list.forEach(w => {
+        let statsHtml = isDescOnly 
+          ? `<div class="codex-weapon-stats">效果：${w.desc}</div>`
+          : `<div class="codex-weapon-stats">傷害：${w.damage} | 攻速：${w.attackSpeedDisplay} | 射程：${w.range >= 100 ? '∞' : w.range + '格'}</div>
+             <div class="codex-weapon-ability">${w.ability || ''}</div>`;
+        cat.innerHTML += `
+          <div class="codex-weapon-card">
+            <div class="codex-weapon-header">
+              <span class="codex-weapon-icon">${w.icon}</span>
+              <span class="codex-weapon-name">${w.name}</span>
+            </div>
+            ${statsHtml}
+          </div>
+        `;
+      });
+      content.appendChild(cat);
+    };
+
+    if (type === 'character') {
+      title.textContent = '👤 角色圖鑑';
+      renderCat('👤 角色', CHARACTERS, true);
+    } else if (type === 'weapon') {
+      title.textContent = '📖 武器圖鑑';
+      renderCat('⚔️ 近戰武器', WEAPONS.filter(w => w.type === 'melee'));
+      renderCat('🎯 遠攻武器', WEAPONS.filter(w => w.type === 'ranged'));
+    } else if (type === 'buff') {
+      title.textContent = '✨ 加成圖鑑';
+      renderCat('✨ 加成', BUFFS, true);
+    }
+  }
+
+  startCharacterSelect() {
+    document.getElementById('selectTitle').textContent = '👤 選擇你的角色（三選一）';
+    const shuffled = [...CHARACTERS].sort(() => Math.random() - 0.5);
+    const options = shuffled.slice(0, 3);
+    
+    this.showScreen('threeSelectScreen');
+    const grid = document.getElementById('threeSelectGrid');
+    grid.innerHTML = '';
+    const actionContainer = document.getElementById('specialActionContainer');
+    if(actionContainer) actionContainer.innerHTML = '';
+
+    options.forEach(c => {
+      const card = document.createElement('div');
+      card.className = 'weapon-card';
+      card.innerHTML = `
+        <div class="weapon-icon">${c.icon}</div>
+        <div class="weapon-name" style="font-size: 15px;">${c.name}</div>
+        <div class="weapon-ability" style="margin-top:auto; font-size:11px;">${c.desc}</div>
+      `;
+      card.addEventListener('click', () => {
+          this.playerCharacter = c;
+          const aiShuffled = [...CHARACTERS].sort(() => Math.random() - 0.5);
+          this.aiCharacter = aiShuffled[0];
+          this.startWeaponSelect();
+      });
+      grid.appendChild(card);
+    });
+  }
+
+  startWeaponSelect() {
+    document.getElementById('selectTitle').textContent = '🎰 選擇你的武器（三選一）';
+    const shuffled = [...WEAPONS].sort(() => Math.random() - 0.5);
+    const options = shuffled.slice(0, 3);
+    
+    this.showScreen('threeSelectScreen');
+    const grid = document.getElementById('threeSelectGrid');
+    grid.innerHTML = '';
+    const actionContainer = document.getElementById('specialActionContainer');
+    if(actionContainer) actionContainer.innerHTML = '';
+
+    options.forEach(w => {
+      const card = document.createElement('div');
+      card.className = 'weapon-card';
+      card.innerHTML = `
+        <div class="weapon-icon">${w.icon}</div>
+        <div class="weapon-name">${w.name}</div>
+        <span class="weapon-type-badge ${w.type}">${w.typeName}</span>
+        <div class="weapon-stats">傷害：${w.damage}<br>攻速：${w.attackSpeedDisplay}</div>
+        <div class="weapon-ability">${w.ability || ''}</div>
+      `;
+      card.addEventListener('click', () => {
+          this.playerWeapon = w;
+          const aiShuffled = [...WEAPONS].sort(() => Math.random() - 0.5);
+          this.aiWeapon = aiShuffled[0];
+          
+          // 開局能力結算：生命竊賊
+          if (this.playerCharacter.id === 'char_vampire') { this.playerHP++; this.aiHP--; }
+          if (this.aiCharacter.id === 'char_vampire') { this.aiHP++; this.playerHP--; }
+          if (this.aiHP < 1) this.aiHP = 1;
+          if (this.playerHP < 1) this.playerHP = 1;
+          
+          this.startBuffSelect();
+      });
+      grid.appendChild(card);
+    });
+  }
+
+  startBuffSelect() {
+    const availableBuffs = BUFFS.filter(b => !this.playerBuffs.includes(b.id));
+    if (availableBuffs.length === 0) {
+      this.startBattle();
+      return;
+    }
+
+    let titleText = `✨ 第 ${this.currentRound} 回合 - 選擇加成`;
+    if (this.extraBuffPicks > 0) titleText = '🍀 幸運觸發！額外選擇加成';
+    
+    // 如果是尋寶獵人，標題動態改變為六選一
+    const optionsCount = this.playerCharacter.id === 'char_picker' ? 6 : 3;
+    if (this.playerCharacter.id === 'char_picker') {
+       titleText = titleText.replace('選擇', '選擇（六選一）');
+    }
+    
+    document.getElementById('selectTitle').textContent = titleText;
+    
+    const shuffled = [...availableBuffs].sort(() => Math.random() - 0.5);
+    const options = shuffled.slice(0, optionsCount);
+    
+    this.showScreen('threeSelectScreen');
+    const grid = document.getElementById('threeSelectGrid');
+    grid.innerHTML = '';
+    
+    options.forEach(b => {
+      const card = document.createElement('div');
+      card.className = 'weapon-card';
+      card.innerHTML = `
+        <div class="weapon-icon">${b.icon}</div>
+        <div class="weapon-name">${b.name}</div>
+        <div class="weapon-ability" style="margin-top:auto;">${b.desc}</div>
+      `;
+      card.addEventListener('click', () => {
+          this.playerBuffs.push(b.id);
+          // 只有在常規的最後一次選擇時才觸發 AI 獲取 Buff，防止 AI 重複獲得
+          if (this.extraBuffPicks === 0) {
+              this.processAIBuffPicks(1);
+          }
+          this.afterBuffPick();
+      });
+      grid.appendChild(card);
+    });
+
+    const actionContainer = document.getElementById('specialActionContainer');
+    actionContainer.innerHTML = '';
+    
+    if (this.playerCharacter.id === 'char_reroll' && !this.hasRerolledThisRound && this.extraBuffPicks === 0) {
+        const btn = document.createElement('button');
+        btn.className = 'btn';
+        btn.style.minWidth = '120px'; btn.style.padding = '10px 20px';
+        btn.innerHTML = '🎲 刷新';
+        btn.onclick = () => {
+            this.hasRerolledThisRound = true;
+            this.startBuffSelect();
+        };
+        actionContainer.appendChild(btn);
+    }
+    
+    if (this.playerCharacter.id === 'char_greedy' && !this.hasUsedGreedy && this.extraBuffPicks === 0) {
+        const btn = document.createElement('button');
+        btn.className = 'btn';
+        btn.style.minWidth = '120px'; btn.style.padding = '10px 20px';
+        btn.innerHTML = '👑 全要了！';
+        btn.onclick = () => {
+            this.hasUsedGreedy = true;
+            options.forEach(b => this.playerBuffs.push(b.id));
+            if (this.extraBuffPicks === 0) {
+                this.processAIBuffPicks(1); 
+            }
+            this.afterBuffPick(true); 
+        };
+        actionContainer.appendChild(btn);
+    }
+  }
+
+  processAIBuffPicks(count = 1) {
+    let picks = count + this.aiExtraBuffPicks;
+    this.aiExtraBuffPicks = 0;
+    for(let i=0; i<picks; i++) {
+        const aiAvailable = BUFFS.filter(b => !this.aiBuffs.includes(b.id));
+        if (aiAvailable.length > 0) {
+            const aiPick = aiAvailable[Math.floor(Math.random() * aiAvailable.length)];
+            this.aiBuffs.push(aiPick.id);
+        }
+    }
+  }
+
+  afterBuffPick(skipExtra = false) {
+      if (!skipExtra && this.extraBuffPicks > 0) {
+          this.extraBuffPicks--;
+          this.startBuffSelect();
+      } else {
+          this.extraBuffPicks = 0; 
+          this.startBattle();
+      }
+  }
+
+  startBattle() {
+    this.hasRerolledThisRound = false;
+    this.showScreen('battleScreen');
+    if (this.battle) this.battle.destroy();
+    
+    let destroyerText = '';
+    if (this.playerCharacter.id === 'char_destroyer' && Math.random() < 0.15 && this.aiBuffs.length > 0) {
+        let idx = Math.floor(Math.random() * this.aiBuffs.length);
+        let removed = BUFFS.find(b => b.id === this.aiBuffs[idx]);
+        this.aiBuffs.splice(idx, 1);
+        destroyerText += ` 💥你破壞了對方的【${removed.name}】!`;
+    }
+    if (this.aiCharacter.id === 'char_destroyer' && Math.random() < 0.15 && this.playerBuffs.length > 0) {
+        let idx = Math.floor(Math.random() * this.playerBuffs.length);
+        let removed = BUFFS.find(b => b.id === this.playerBuffs[idx]);
+        this.playerBuffs.splice(idx, 1);
+        destroyerText += ` 💥對方破壞了你的【${removed.name}】!`;
+    }
+
+    this.battle = new Battle(this, destroyerText);
+    this.battle.start();
+  }
+
+  endRound(playerWon) {
+    if (playerWon) {
+      this.aiHP = Math.max(0, this.aiHP - 1);
+      this.roundsWon++;
+      if (this.playerCharacter.id === 'char_lucky' && Math.random() < 0.5) this.extraBuffPicks++;
+    } else {
+      this.playerHP = Math.max(0, this.playerHP - 1);
+      this.roundsLost++;
+      if (this.aiCharacter.id === 'char_lucky' && Math.random() < 0.5) this.aiExtraBuffPicks++;
+    }
+    
+    const overlay = document.getElementById('roundOverlay');
+    const rt = document.getElementById('roundResultText');
+    const rs = document.getElementById('roundSubText');
+    rt.textContent = playerWon ? '🎉 你贏了！' : '💀 你輸了！';
+    rt.style.color = playerWon ? '#4ecdc4' : '#ff6b6b';
+    rs.textContent = `玩家 ❤️×${this.playerHP}  VS  AI ❤️×${this.aiHP}`;
+    overlay.classList.add('active');
+    
+    if (this.playerHP <= 0 || this.aiHP <= 0) {
+      setTimeout(() => this.showResult(this.playerHP > 0), 2000);
+    } else {
+      setTimeout(() => {
+        overlay.classList.remove('active');
+        this.startBuffSelect();
+      }, 2000);
+    }
+  }
+
+  showResult(won) {
+    this.showScreen('resultScreen');
+    const title = document.getElementById('resultTitle');
+    const stats = document.getElementById('resultStats');
+    title.textContent = won ? '🏆 最終勝利！' : '💀 最終失敗！';
+    title.className = 'result-title ' + (won ? 'win' : 'lose');
+    stats.innerHTML = `勝利回合：${this.roundsWon}<br>失敗回合：${this.roundsLost}`;
+  }
+
+  restart() {
+    this.playerHP = PLAYER_MAX_HP;
+    this.aiHP = PLAYER_MAX_HP;
+    this.playerWeapon = null;
+    this.aiWeapon = null;
+    this.playerCharacter = null;
+    this.aiCharacter = null;
+    this.roundsWon = 0;
+    this.roundsLost = 0;
+    this.playerBuffs = [];
+    this.aiBuffs = [];
+    this.hasUsedGreedy = false;
+    this.hasRerolledThisRound = false;
+    this.extraBuffPicks = 0;
+    this.aiExtraBuffPicks = 0;
+    if (this.battle) this.battle.destroy();
+    this.showScreen('titleScreen');
+  }
+}
+
+class Battle {
+  constructor(game, startMsg) {
+    this.game = game;
+    this.ctx = game.battleCtx;
+    this.running = false;
+    this.ended = false;
+    this.animId = null;
+    this.timerInterval = null;
+    this.timeLeft = ROUND_TIME;
+    this.lastTime = null;
+    this.projectiles = [];
+    this.damageTexts = [];
+    this.particles = [];
+    this.traps = [];
+    this.jumpPadCooldown = false;
+    this.jumpPadCooldownStart = 0;
+    this.fighters = [];
+
+    let pMain = this.createFighter(game.playerWeapon, game.playerBuffs, true, true);
+    let aMain = this.createFighter(game.aiWeapon, game.aiBuffs, false, true);
+    pMain.x = 70; aMain.x = 290;
+    this.fighters.push(pMain, aMain);
+
+    if (startMsg) {
+        this.damageTexts.push({ x: CANVAS_W/2, y: 200, text: startMsg, alpha: 2, vy: -15, color: '#ff9800' });
+    }
+  }
+
+  createFighter(weapon, buffs, isPlayer, isMain) {
+    const groundCenterY = GROUND_Y - FIGHTER_RADIUS;
+    const hpMultiplier = this.game.currentRound >= 5 ? 2 : 1;
+    let baseHp = FIGHTER_HP * hpMultiplier;
+
+    let f = {
+      x: 0, y: groundCenterY, vx: 0, vy: 0, moveDirection: isPlayer ? 1 : -1,
+      onGround: true, jumping: false, hp: baseHp, maxHp: baseHp,
+      weapon: weapon, buffs: buffs, attackTimer: 0, 
+      isPlayer: isPlayer, isMain: isMain,
+      flashTimer: 0, bobTimer: 0, slowTimer: 0
+    };
+    this.initFighterStats(f);
+    return f;
+  }
+
+  initFighterStats(f) {
+    f.baseDamage = f.weapon.damage;
+    f.baseEffAttackSpeed = f.weapon.attackSpeed * (f.buffs.includes('attack_speed_50') ? 1.5 : 1);
+    if (f.buffs.includes('dmg_spd_30')) f.baseEffAttackSpeed *= 1.3;
+    f.effAttackSpeed = f.baseEffAttackSpeed;
+    f.prepTimeLeft = f.buffs.includes('charge_attack') ? 5 : 0;
+    f.isCharged = false;
+    f.hasAttacked = false;
+    
+    f.autoDmgTimer = 0; f.regenTimer = 0; f.confuseTimer = 0; f.freezeTimer = 0;
+    f.hasBeenFrozen = false; f.randomTpTimer = 0; f.wallSpeedTimer = 0;
+    f.knockbackTimer = 0; f.tpBehindTimer = 0;
+
+    // 新增低血量觸發相關屬性
+    f.immuneLowHpCount = f.buffs.includes('immune_low_hp') ? 2 : 0;
+    f.hasTriggeredDmgReflect = false;
+    f.hasTriggeredRoot = false;
+    f.hasTriggeredHealLowHp = false;
+    f.hasTriggeredFly = false;
+    f.flyTimer = 0;
+    f.rootTimer = 0;
+
+    if (f.buffs.includes('hp_up_50')) f.maxHp *= 1.5;
+    if (f.buffs.includes('random_hp_boost')) {
+      const r = Math.random();
+      let bonus = r < 0.2 ? 500 : (r < 0.7 ? 200 : 100);
+      f.maxHp += bonus;
+    }
+    f.hp = f.maxHp;
+  }
+
+  start() {
+    this.running = true;
+    this.lastTime = performance.now();
+    this.timerInterval = setInterval(() => {
+      if (!this.running) return;
+      this.timeLeft--;
+      if (this.timeLeft <= 0) { this.timeLeft = 0; this.endBattle(); }
+    }, 1000);
+    
+    if (this.game.currentRound === 5) {
+        this.damageTexts.push({ x: CANVAS_W/2, y: 300, text: '血量翻倍!', alpha: 1.5, vy: -30, color: '#ff6b6b' });
+    }
+    this.loop(performance.now());
+  }
+
+  destroy() {
+    this.running = false;
+    if (this.animId) cancelAnimationFrame(this.animId);
+    if (this.timerInterval) clearInterval(this.timerInterval);
+  }
+
+  loop(timestamp) {
+    if (!this.running) return;
+    const dt = Math.min((timestamp - this.lastTime) / 1000, 0.05);
+    this.lastTime = timestamp;
+    this.update(dt);
+    this.draw();
+    this.animId = requestAnimationFrame(t => this.loop(t));
+  }
+
+  update(dt) {
+    // 各自找目標更新狀態
+    this.fighters.forEach(f => {
+        if (f.hp <= 0) return;
+        let enemies = this.fighters.filter(e => e.isPlayer !== f.isPlayer && e.hp > 0);
+        if (enemies.length === 0) return;
+        
+        let enemy = enemies.reduce((min, e) => {
+            let d1 = Math.abs(e.x - f.x);
+            let d2 = Math.abs(min.x - f.x);
+            return d1 < d2 ? e : min;
+        }, enemies[0]);
+        
+        this.updateFighter(f, enemy, dt);
+    });
+    
+    // 碰撞推擠
+    for (let i = 0; i < this.fighters.length; i++) {
+      for (let j = i + 1; j < this.fighters.length; j++) {
+        let f1 = this.fighters[i], f2 = this.fighters[j];
+        if (f1.hp <= 0 || f2.hp <= 0) continue;
+        let dx = f1.x - f2.x; let dy = f1.y - f2.y;
+        let dist = Math.hypot(dx, dy);
+        let minDist = FIGHTER_RADIUS * 2;
+        if (dist < minDist && dist > 0.01) {
+          let overlap = (minDist - dist) / 2;
+          let angle = Math.atan2(dy, dx);
+          let pushX = Math.cos(angle) * overlap;
+          f1.x += pushX; f2.x -= pushX;
+        }
+      }
+    }
+
+    this.updateProjectiles(dt);
+    this.updateDamageTexts(dt);
+    this.updateParticles(dt);
+    this.updateTraps(dt);
+  }
+
+  checkWallDamage(fighter, enemy) {
+    if (enemy.buffs.includes('wall_damage')) {
+      const dmg = fighter.maxHp * 0.2;
+      this.dealDamage(fighter, dmg);
+      this.damageTexts.push({ x: fighter.x, y: fighter.y - 40, text: '🌵碰撞!', alpha: 1, vy: -40, color: '#4caf50' });
+    }
+  }
+
+  updateFighter(f, enemy, dt) {
+    if (f.freezeTimer > 0) { f.freezeTimer -= dt; return; }
+
+    // 低血量狀態觸發判定
+    if (f.hp > 0 && f.hp < f.maxHp * 0.5) {
+        if (f.buffs.includes('dmg_reflect_low_hp') && !f.hasTriggeredDmgReflect) {
+            f.hasTriggeredDmgReflect = true;
+            this.dealDamage(enemy, enemy.maxHp * 0.2);
+            this.damageTexts.push({ x: enemy.x, y: enemy.y - 60, text: '💀怨念!', alpha: 1, vy: -40, color: '#9c27b0' });
+        }
+        if (f.buffs.includes('root_low_hp') && !f.hasTriggeredRoot) {
+            f.hasTriggeredRoot = true;
+            enemy.rootTimer = 3;
+            this.damageTexts.push({ x: enemy.x, y: enemy.y - 60, text: '⛓️束縛!', alpha: 1, vy: -40, color: '#607d8b' });
+        }
+        if (f.buffs.includes('heal_low_hp') && !f.hasTriggeredHealLowHp) {
+            f.hasTriggeredHealLowHp = true;
+            const heal = f.maxHp * 0.2;
+            f.hp = Math.min(f.maxHp, f.hp + heal);
+            this.damageTexts.push({ x: f.x, y: f.y - 60, text: '💖絕境逢生!', alpha: 1, vy: -40, color: '#e91e63' });
+        }
+        if (f.buffs.includes('fly_low_hp') && !f.hasTriggeredFly) {
+            f.hasTriggeredFly = true;
+            f.flyTimer = 3;
+            f.onGround = false;
+            this.damageTexts.push({ x: f.x, y: f.y - 60, text: '🎈浮空!', alpha: 1, vy: -40, color: '#03a9f4' });
+        }
+    }
+
+    if (f.weapon.id === 'thermometer') f.hp = Math.min(f.maxHp, f.hp + f.maxHp * 0.02 * dt);
+    if (f.flashTimer > 0) f.flashTimer -= dt;
+    if (f.slowTimer > 0) f.slowTimer -= dt;
+    if (f.rootTimer > 0) f.rootTimer -= dt;
+    f.bobTimer += dt;
+
+    if (f.buffs.includes('random_teleport')) {
+      f.randomTpTimer += dt;
+      if (f.randomTpTimer >= 4) {
+        f.randomTpTimer -= 4;
+        f.x = FIGHTER_RADIUS + 5 + Math.random() * (CANVAS_W - 2 * FIGHTER_RADIUS - 10);
+        f.y = FIGHTER_RADIUS + 5 + Math.random() * (GROUND_Y - 2 * FIGHTER_RADIUS - 10);
+        if (f.y < GROUND_Y - FIGHTER_RADIUS) f.onGround = false;
+        f.vx = 0; f.vy = 0;
+        this.damageTexts.push({ x: f.x, y: f.y - 40, text: '🌌傳送!', alpha: 1, vy: -40, color: '#9c27b0' });
+      }
+    }
+
+    if (f.buffs.includes('knockback_chance')) {
+      f.knockbackTimer += dt;
+      if (f.knockbackTimer >= 2) {
+        f.knockbackTimer -= 2;
+        if (Math.random() < 0.5) {
+          let kbDir = enemy.x > f.x ? 1 : -1;
+          enemy.x += kbDir * (5 * GRID_SIZE);
+          enemy.x = Math.max(FIGHTER_RADIUS + 5, Math.min(CANVAS_W - FIGHTER_RADIUS - 5, enemy.x));
+          this.damageTexts.push({ x: enemy.x, y: enemy.y - 40, text: '🛡️斥力擊退!', alpha: 1, vy: -40, color: '#ff9800' });
+        }
+      }
+    }
+
+    if (f.buffs.includes('teleport_behind')) {
+      f.tpBehindTimer += dt;
+      if (f.tpBehindTimer >= 3) {
+        f.tpBehindTimer -= 3;
+        if (Math.random() < 0.5) {
+          let behindDir = -enemy.moveDirection;
+          f.x = enemy.x + behindDir * (FIGHTER_RADIUS * 2 + 10);
+          if (f.x < FIGHTER_RADIUS + 5 || f.x > CANVAS_W - FIGHTER_RADIUS - 5) f.x = enemy.x - behindDir * (FIGHTER_RADIUS * 2 + 10);
+          f.x = Math.max(FIGHTER_RADIUS + 5, Math.min(CANVAS_W - FIGHTER_RADIUS - 5, f.x));
+          f.y = enemy.y;
+          if (f.y < GROUND_Y - FIGHTER_RADIUS) { f.onGround = false; f.vy = 0; f.vx = 0; }
+          f.moveDirection = f.x < enemy.x ? 1 : -1;
+          this.damageTexts.push({ x: f.x, y: f.y - 40, text: '🥷背刺!', alpha: 1, vy: -40, color: '#212121' });
+        }
+      }
+    }
+
+    if (f.wallSpeedTimer > 0) f.wallSpeedTimer -= dt;
+
+    if (enemy.buffs.includes('freeze_low_hp') && f.hp < f.maxHp * 0.5 && !f.hasBeenFrozen) {
+      f.hasBeenFrozen = true; f.freezeTimer = 1;
+      this.damageTexts.push({ x: f.x, y: f.y - 40, text: '❄️凍結!', alpha: 1, vy: -40, color: '#00bcd4' }); return; 
+    }
+
+    if (f.buffs.includes('auto_dmg')) {
+      f.autoDmgTimer += dt;
+      if (f.autoDmgTimer >= 1) {
+        f.autoDmgTimer -= 1;
+        const dmg = Math.floor(Math.random() * 9) + 2;
+        this.dealDamage(enemy, dmg);
+        this.damageTexts.push({ x: enemy.x, y: enemy.y - 50, text: '👻', alpha: 1, vy: -30, color: '#9c27b0' });
+      }
+    }
+
+    if (f.buffs.includes('regen_5')) {
+      f.regenTimer += dt;
+      if (f.regenTimer >= 2) {
+        f.regenTimer -= 2;
+        const heal = f.maxHp * 0.05;
+        f.hp = Math.min(f.maxHp, f.hp + heal);
+        this.damageTexts.push({ x: f.x, y: f.y - 30, text: '+' + Math.ceil(heal), alpha: 1, vy: -60, color: '#4ecdc4' });
+      }
+    }
+
+    if (enemy.buffs.includes('confuse_slow')) {
+      f.confuseTimer += dt;
+      if (f.confuseTimer >= 5) {
+        f.confuseTimer -= 5;
+        f.moveDirection *= -1;
+        this.damageTexts.push({ x: f.x, y: f.y - 40, text: '🌀轉向!', alpha: 1, vy: -40, color: '#9c27b0' });
+      }
+    }
+
+    const baseSpeedMod = f.slowTimer > 0 ? 0.5 : 1;
+    const confuseSlowMod = enemy.buffs.includes('confuse_slow') ? 1.5 : 1;
+    let speedUpMod = 1;
+    if (f.buffs.includes('speed_up_200')) speedUpMod += 1;
+    if (f.wallSpeedTimer > 0) speedUpMod += 3;
+    
+    let berserkTiers = f.buffs.includes('berserker_blood') ? Math.floor(Math.max(0, 1 - f.hp / f.maxHp) / 0.1) : 0;
+    speedUpMod += berserkTiers * 0.1;
+    f.effAttackSpeed = f.baseEffAttackSpeed * (1 + berserkTiers * 0.1);
+
+    const speedMod = baseSpeedMod * confuseSlowMod * speedUpMod;
+    const baseSpeed = 70 * speedMod;
+
+    const isPrepping = f.prepTimeLeft > 0;
+    if (isPrepping) {
+      f.prepTimeLeft -= dt;
+      if (f.prepTimeLeft <= 0) {
+        f.isCharged = true;
+        this.damageTexts.push({ x: f.x, y: f.y - 40, text: '力量湧現!', alpha: 1, vy: -40, color: '#ff9800' });
+      }
+    }
+
+    let attackDist = f.weapon.type === 'melee' ? (MELEE_ATTACK_RANGE + 20) : (f.weapon.range * GRID_SIZE + 20);
+    if (f.buffs.includes('range_up_1')) attackDist += GRID_SIZE;
+    
+    let distToEnemy = Math.abs(f.x - enemy.x);
+    let isEnemyInFront = (f.moveDirection === 1 && enemy.x >= f.x) || (f.moveDirection === -1 && enemy.x <= f.x);
+    let shouldStopMove = (distToEnemy <= attackDist) && isEnemyInFront;
+
+    const now = Date.now();
+    const padReady = !this.jumpPadCooldown || (now - this.jumpPadCooldownStart >= JUMP_COOLDOWN);
+    if (!isPrepping && padReady && f.onGround && f.rootTimer <= 0 && f.flyTimer <= 0) {
+      const footY = f.y + FIGHTER_RADIUS;
+      const inXRange = f.x >= JUMPPAD.cx - JUMPPAD.w / 2 - 10 && f.x <= JUMPPAD.cx + JUMPPAD.w / 2 + 10;
+      if (inXRange && Math.abs(footY - JUMPPAD.top) < 8) {
+        f.vy = JUMP_VELOCITY; f.vx = f.moveDirection * 180; 
+        f.onGround = false; f.jumping = true;
+        this.jumpPadCooldown = true; this.jumpPadCooldownStart = now;
+        this.dealDamage(f, f.maxHp * 0.05);
+        this.damageTexts.push({ x: f.x, y: f.y - 50, text: '💥踩踏!', alpha: 1, vy: -40, color: '#e91e63' });
+      }
+    }
+
+    let canMoveHorizontally = !isPrepping && !shouldStopMove && f.rootTimer <= 0;
+
+    if (f.flyTimer > 0) {
+        f.flyTimer -= dt;
+        const targetY = GROUND_Y - FIGHTER_RADIUS - 120;
+        f.y += (targetY - f.y) * 5 * dt; 
+        f.onGround = false;
+        f.vy = 0;
+        
+        if (canMoveHorizontally) f.x += f.moveDirection * baseSpeed * dt;
+
+        let hitWall = false;
+        if (f.x <= FIGHTER_RADIUS + 5) { f.x = FIGHTER_RADIUS + 5; f.vx = 0; if (f.moveDirection !== 1) { f.moveDirection = 1; hitWall = true; } }
+        else if (f.x >= CANVAS_W - FIGHTER_RADIUS - 5) { f.x = CANVAS_W - FIGHTER_RADIUS - 5; f.vx = 0; if (f.moveDirection !== -1) { f.moveDirection = -1; hitWall = true; } }
+        if (hitWall) { this.checkWallDamage(f, enemy); if (f.buffs.includes('wall_speed')) f.wallSpeedTimer = 3; }
+
+    } else if (!f.onGround) {
+        f.vy += 500 * dt; 
+        f.y += f.vy * dt; 
+        if (f.rootTimer <= 0) f.x += f.vx * dt;
+
+        let hitWall = false;
+        if (f.x <= FIGHTER_RADIUS + 5) { f.x = FIGHTER_RADIUS + 5; f.vx = 0; if (f.moveDirection !== 1) { f.moveDirection = 1; hitWall = true; } }
+        else if (f.x >= CANVAS_W - FIGHTER_RADIUS - 5) { f.x = CANVAS_W - FIGHTER_RADIUS - 5; f.vx = 0; if (f.moveDirection !== -1) { f.moveDirection = -1; hitWall = true; } }
+        if (hitWall) { this.checkWallDamage(f, enemy); if (f.buffs.includes('wall_speed')) f.wallSpeedTimer = 3; }
+        
+        if (f.y >= GROUND_Y - FIGHTER_RADIUS) { f.y = GROUND_Y - FIGHTER_RADIUS; f.vy = 0; f.vx = 0; f.onGround = true; f.jumping = false; }
+    } else {
+        if (canMoveHorizontally) f.x += f.moveDirection * baseSpeed * dt;
+        
+        let hitWall = false;
+        if (f.x <= FIGHTER_RADIUS + 5) { f.x = FIGHTER_RADIUS + 5; if (f.moveDirection !== 1) { f.moveDirection = 1; hitWall = true; } }
+        else if (f.x >= CANVAS_W - FIGHTER_RADIUS - 5) { f.x = CANVAS_W - FIGHTER_RADIUS - 5; if (f.moveDirection !== -1) { f.moveDirection = -1; hitWall = true; } }
+        if (hitWall) { this.checkWallDamage(f, enemy); if (f.buffs.includes('wall_speed')) f.wallSpeedTimer = 3; }
+    }
+
+    if (!isPrepping) {
+      f.attackTimer += dt;
+      if (f.attackTimer >= 1 / f.effAttackSpeed) { f.attackTimer = 0; this.doAttack(f, enemy); }
+    }
+  }
+
+  doAttack(f, enemy) {
+    const dx = Math.abs(f.x - enemy.x);
+    if (f.weapon.type === 'melee' && !enemy.onGround) return;
+    if (f.weapon.type === 'melee') {
+      let isEnemyInFront = (f.moveDirection === 1 && enemy.x >= f.x) || (f.moveDirection === -1 && enemy.x <= f.x);
+      if (!isEnemyInFront) return;
+    }
+
+    let baseDmg = f.baseDamage;
+    if (f.buffs.includes('damage_add_5')) baseDmg += 5;
+    
+    let dmgMult = 1;
+    if (f.buffs.includes('damage_mult_50')) dmgMult += 0.5;
+    if (f.buffs.includes('dmg_spd_30')) dmgMult += 0.3;
+    if (f.isCharged) dmgMult += 1.0;
+    if (f.buffs.includes('first_strike') && !f.hasAttacked) dmgMult += 2.0;
+
+    let berserkTiers = f.buffs.includes('berserker_blood') ? Math.floor(Math.max(0, 1 - f.hp / f.maxHp) / 0.1) : 0;
+    dmgMult += berserkTiers * 0.1;
+
+    let d = baseDmg * dmgMult;
+    let isCrit = f.weapon.id === 'berserk_sword' && Math.random() < 0.2;
+    d *= (isCrit ? 2 : 1);
+
+    let attackDist = f.weapon.type === 'melee' ? (MELEE_ATTACK_RANGE + 20) : (f.weapon.range * GRID_SIZE + 20);
+    if (f.buffs.includes('range_up_1')) attackDist += GRID_SIZE;
+
+    if (f.weapon.id === 'thermometer') {
+      this.dealDamage(enemy, d);
+      this.projectiles.push({ type: 'beam', x1: f.x, y1: f.y - 10, x2: enemy.x, y2: enemy.y - 10, life: 0.15, maxLife: 0.15 });
+      f.hasAttacked = true;
+    } else if (f.weapon.id === 'fries_trap') {
+      let trapX = Math.max(FIGHTER_RADIUS + 5, Math.min(CANVAS_W - FIGHTER_RADIUS - 5, f.x + (Math.random() - 0.5) * 120));
+      if (this.traps.length < 6) {
+        this.traps.push({ x: trapX, y: GROUND_Y - 5, damage: d, fromPlayer: f.isPlayer, life: 10, maxLife: 10 });
+        f.hasAttacked = true;
+      }
+    } else if (dx <= attackDist) {
+      if (f.weapon.type === 'melee') {
+        this.dealDamage(enemy, d);
+        let knockbackDir = f.x < enemy.x ? 1 : -1;
+        enemy.x += knockbackDir * GRID_SIZE;
+        enemy.x = Math.max(FIGHTER_RADIUS + 5, Math.min(CANVAS_W - FIGHTER_RADIUS - 5, enemy.x));
+
+        if (f.weapon.id === 'shock_claw') {
+           const heal = d * 0.1;
+           f.hp = Math.min(f.maxHp, f.hp + heal);
+           this.damageTexts.push({ x: f.x, y: f.y - 30, text: '+' + heal.toFixed(0), alpha: 1, vy: -60, color: '#4ecdc4' });
+        }
+        this.particles.push({ x: enemy.x, y: enemy.y, vx: f.moveDirection * 80, vy: -60, life: 0.3, maxLife: 0.3, color: isCrit ? '#ffd700' : '#ffeb3b', text: isCrit ? '💥' : f.weapon.icon });
+        f.hasAttacked = true;
+      } else {
+        this.projectiles.push({ type: 'bullet', x: f.x, y: f.y - 10, vx: f.moveDirection * 280, vy: 0, damage: d, fromPlayer: f.isPlayer, life: 2, icon: f.weapon.id === 'laser_rifle' ? '🔵' : '🟡', weaponId: f.weapon.id });
+        f.hasAttacked = true;
+      }
+    }
+  }
+
+  dealDamage(fighter, damage) {
+    if (fighter.hp <= 0) return;
+
+    if (fighter.hp < fighter.maxHp * 0.5 && fighter.immuneLowHpCount > 0) {
+        fighter.immuneLowHpCount--;
+        this.damageTexts.push({ x: fighter.x, y: fighter.y - 30, text: '🛡️免疫!', alpha: 1, vy: -40, color: '#2196f3' });
+        return;
+    }
+
+    let finalDamage = damage;
+    if (fighter.weapon.id === 'indomitable_knight') finalDamage *= 0.5;
+    
+    fighter.hp = Math.max(0, fighter.hp - finalDamage);
+    fighter.flashTimer = 0.12;
+    this.damageTexts.push({ x: fighter.x, y: fighter.y - 30, text: '-' + finalDamage.toFixed(0), alpha: 1, vy: -80, color: '#ffeb3b' });
+    for (let i = 0; i < 5; i++) this.particles.push({ x: fighter.x, y: fighter.y, vx: (Math.random() - 0.5) * 120, vy: (Math.random() - 0.5) * 120, life: 0.4, maxLife: 0.4, color: '#ff6b6b' });
+    
+    if (fighter.hp <= 0 && fighter.isMain && !this.ended) {
+      this.endBattle();
+    }
+  }
+
+  updateTraps(dt) {
+    this.traps = this.traps.filter(trap => {
+      trap.life -= dt;
+      let hit = false;
+      this.fighters.forEach(target => {
+          if (hit) return;
+          if (target.isPlayer !== trap.fromPlayer && target.hp > 0 && Math.abs(trap.x - target.x) < 30 && target.onGround) {
+              this.dealDamage(target, trap.damage);
+              for (let i = 0; i < 10; i++) this.particles.push({ x: trap.x, y: trap.y, vx: (Math.random() - 0.5) * 200, vy: -Math.random() * 150 - 50, life: 0.5, maxLife: 0.5, color: '#ff9800' });
+              hit = true;
+          }
+      });
+      if (hit) return false;
+      return trap.life > 0;
+    });
+  }
+
+  updateProjectiles(dt) {
+    this.projectiles = this.projectiles.filter(p => {
+      p.life -= dt;
+      if (p.life <= 0) return false;
+      if (p.type === 'bullet') {
+        p.x += p.vx * dt;
+        let hit = false;
+        this.fighters.forEach(target => {
+            if (hit) return;
+            if (target.isPlayer !== p.fromPlayer && target.hp > 0 && Math.hypot(p.x - target.x, p.y - target.y) < FIGHTER_RADIUS + 6) {
+                this.dealDamage(target, p.damage);
+                if (p.weaponId === 'laser_rifle') target.slowTimer = 3;
+                hit = true;
+            }
+        });
+        if (hit) return false;
+      }
+      return p.x >= -20 && p.x <= CANVAS_W + 20;
+    });
+  }
+
+  updateDamageTexts(dt) { this.damageTexts = this.damageTexts.filter(t => { t.y += t.vy * dt; t.alpha -= dt * 2; return t.alpha > 0; }); }
+  updateParticles(dt) { this.particles = this.particles.filter(p => { p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 200 * dt; p.life -= dt; return p.life > 0; }); }
+
+  endBattle() {
+    if (this.ended) return;
+    this.ended = true; this.running = false;
+    clearInterval(this.timerInterval);
+    
+    let pMain = this.fighters.find(f => f.isPlayer && f.isMain);
+    let aMain = this.fighters.find(f => !f.isPlayer && f.isMain);
+    const playerWon = pMain.hp > aMain.hp;
+    setTimeout(() => this.game.endRound(playerWon), 800);
+  }
+
+  draw() {
+    const ctx = this.ctx;
+    ctx.clearRect(0, 0, CANVAS_W, CANVAS_H);
+    this.drawArena(ctx);
+    this.drawJumpPad(ctx);
+    this.drawTraps(ctx);
+    this.drawProjectiles(ctx);
+    this.drawParticles(ctx);
+    this.fighters.forEach(f => { if(f.hp > 0) this.drawFighter(ctx, f); });
+    this.drawDamageTexts(ctx);
+    this.drawHUD(ctx);
+  }
+
+  drawArena(ctx) {
+    ctx.fillStyle = 'rgba(20, 20, 50, 0.85)'; ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+    const groundGrad = ctx.createLinearGradient(0, GROUND_Y, 0, CANVAS_H);
+    groundGrad.addColorStop(0, '#2d3561'); groundGrad.addColorStop(1, '#1a1a2e');
+    ctx.fillStyle = groundGrad; ctx.fillRect(0, GROUND_Y, CANVAS_W, CANVAS_H - GROUND_Y);
+    ctx.strokeStyle = '#5a67d8'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(0, GROUND_Y); ctx.lineTo(CANVAS_W, GROUND_Y); ctx.stroke();
+    ctx.fillStyle = 'rgba(90, 103, 216, 0.3)'; ctx.fillRect(0, 0, 6, CANVAS_H); ctx.fillRect(CANVAS_W - 6, 0, 6, CANVAS_H);
+  }
+
+  drawJumpPad(ctx) {
+    const now = Date.now();
+    const elapsed = now - this.jumpPadCooldownStart;
+    const ready = !this.jumpPadCooldown || elapsed >= JUMP_COOLDOWN;
+    const cooldownRatio = this.jumpPadCooldown ? Math.min(elapsed / JUMP_COOLDOWN, 1) : 1;
+    const px = JUMPPAD.cx - JUMPPAD.w / 2, py = JUMPPAD.top;
+    ctx.fillStyle = 'rgba(0,0,0,0.4)'; ctx.fillRect(px + 3, py + 4, JUMPPAD.w, JUMPPAD.h);
+    ctx.fillStyle = ready ? '#4ecdc4' : '#555';
+    ctx.beginPath(); ctx.roundRect(px, py, JUMPPAD.w, JUMPPAD.h, 6); ctx.fill();
+    if (!ready) {
+      ctx.fillStyle = '#4ecdc4'; ctx.fillRect(px, py, JUMPPAD.w * cooldownRatio, JUMPPAD.h);
+      ctx.fillStyle = '#fff'; ctx.font = 'bold 11px sans-serif'; ctx.textAlign = 'center';
+      ctx.fillText(Math.ceil((JUMP_COOLDOWN - elapsed) / 1000) + 's', JUMPPAD.cx, py + JUMPPAD.h - 2);
+    }
+    ctx.font = '16px sans-serif'; ctx.textAlign = 'center'; ctx.fillText('🚀', JUMPPAD.cx, py - 4);
+  }
+
+  drawTraps(ctx) {
+    this.traps.forEach(trap => {
+      ctx.globalAlpha = (Math.sin(Date.now() / 200) * 0.2 + 0.8) * (trap.life / trap.maxLife);
+      ctx.font = '20px sans-serif'; ctx.textAlign = 'center'; ctx.fillText(trap.life < 3 ? '⚠️' : '🍟', trap.x, trap.y);
+      ctx.globalAlpha = 1;
+    });
+  }
+
+  drawFighter(ctx, f) {
+    const x = f.x, y = f.y;
+    const shadowScale = Math.max(0.2, 1 - (GROUND_Y - y - FIGHTER_RADIUS) / 200);
+    ctx.fillStyle = `rgba(0,0,0,${0.3 * shadowScale})`;
+    ctx.beginPath(); ctx.ellipse(x, GROUND_Y - 2, FIGHTER_RADIUS * shadowScale, 5 * shadowScale, 0, 0, Math.PI * 2); ctx.fill();
+
+    const flash = f.flashTimer > 0;
+    const bodyColor = flash ? '#ffffff' : (f.isPlayer ? '#4ecdc4' : '#ff6b6b');
+    if (f.weapon.id === 'indomitable_knight') {
+      ctx.fillStyle = 'rgba(255, 215, 0, 0.3)';
+      ctx.beginPath(); ctx.arc(x, y, FIGHTER_RADIUS + 10, 0, Math.PI * 2); ctx.fill();
+    }
+    const bodyGrad = ctx.createRadialGradient(x - 6, y - 6, 2, x, y, FIGHTER_RADIUS);
+    bodyGrad.addColorStop(0, flash ? '#fff' : (f.isPlayer ? '#7efff5' : '#ff9a9a'));
+    bodyGrad.addColorStop(1, bodyColor);
+    
+    if (f.freezeTimer > 0) ctx.fillStyle = 'rgba(100, 200, 255, 0.8)';
+    else ctx.fillStyle = bodyGrad;
+    
+    ctx.globalAlpha = f.isMain ? 1 : 0.5;
+    ctx.beginPath(); ctx.arc(x, y, f.isMain ? FIGHTER_RADIUS : FIGHTER_RADIUS * 0.8, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = f.isPlayer ? '#00b3a7' : '#c0392b'; ctx.lineWidth = 2; ctx.stroke();
+
+    ctx.font = (f.isMain ? '20px' : '14px') + ' sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(f.weapon.icon, x, y + Math.sin(f.bobTimer * 3) * 2);
+    ctx.textBaseline = 'alphabetic';
+    ctx.globalAlpha = 1;
+
+    if (f.isMain) {
+        ctx.font = 'bold 13px sans-serif'; ctx.fillStyle = f.isPlayer ? '#4ecdc4' : '#ff6b6b';
+        ctx.fillText(f.isPlayer ? '玩家' : 'AI', x, y - FIGHTER_RADIUS - 8);
+    } else {
+        ctx.fillStyle = '#f00';
+        ctx.fillRect(x - 10, y - FIGHTER_RADIUS - 10, 20 * (f.hp / f.maxHp), 3);
+    }
+
+    if (f.prepTimeLeft > 0) {
+      ctx.font = 'bold 14px sans-serif'; ctx.fillStyle = '#ffeb3b';
+      ctx.fillText('⏳ ' + Math.ceil(f.prepTimeLeft) + 's', x, y - FIGHTER_RADIUS - (f.isMain ? 26 : 16));
+    }
+  }
+
+  drawProjectiles(ctx) {
+    this.projectiles.forEach(p => {
+      if (p.type === 'bullet') {
+        ctx.font = '14px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText(p.icon, p.x, p.y); ctx.textBaseline = 'alphabetic';
+      } else if (p.type === 'beam') {
+        ctx.strokeStyle = `rgba(255, 100, 0, ${p.life / p.maxLife})`; ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.moveTo(p.x1, p.y1); ctx.lineTo(p.x2, p.y2); ctx.stroke();
+      }
+    });
+  }
+
+  drawParticles(ctx) {
+    this.particles.forEach(p => {
+      ctx.globalAlpha = p.life / p.maxLife;
+      if (p.text) { ctx.font = '18px sans-serif'; ctx.textAlign = 'center'; ctx.fillText(p.text, p.x, p.y); }
+      else { ctx.fillStyle = p.color || '#ffeb3b'; ctx.beginPath(); ctx.arc(p.x, p.y, 4, 0, Math.PI * 2); ctx.fill(); }
+      ctx.globalAlpha = 1;
+    });
+  }
+
+  drawDamageTexts(ctx) {
+    this.damageTexts.forEach(t => {
+      ctx.save(); ctx.font = 'bold 22px sans-serif'; ctx.textAlign = 'center';
+      ctx.fillStyle = t.color; ctx.globalAlpha = t.alpha; ctx.fillText(t.text, t.x, t.y); ctx.restore();
+    });
+  }
+
+  drawHUD(ctx) {
+    let pMain = this.fighters.find(f => f.isPlayer && f.isMain);
+    let aMain = this.fighters.find(f => !f.isPlayer && f.isMain);
+    if (!pMain || !aMain) return;
+
+    const pBuffIcons = pMain.buffs.map(id => BUFFS.find(b=>b.id===id).icon);
+    const aBuffIcons = aMain.buffs.map(id => BUFFS.find(b=>b.id===id).icon);
+    
+    let maxRows = Math.max(Math.ceil(pBuffIcons.length / 5), Math.ceil(aBuffIcons.length / 5));
+    let hudHeight = 155 + (maxRows === 0 ? 1 : maxRows) * 20;
+    
+    ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(0, 0, CANVAS_W, hudHeight);
+    
+    ctx.font = 'bold 16px sans-serif'; ctx.fillStyle = '#fff'; ctx.textAlign = 'center';
+    let roundText = `回合 ${this.game.currentRound}`;
+    if (this.game.currentRound >= 5) roundText += ' (血量翻倍!)';
+    ctx.fillText(roundText, CANVAS_W / 2, 22);
+
+    ctx.textAlign = 'left'; ctx.fillText('玩家', 12, 22);
+    ctx.textAlign = 'right'; ctx.fillText('AI', CANVAS_W - 12, 22);
+    ctx.font = '20px sans-serif'; ctx.fillStyle = '#ff6b6b'; ctx.textAlign = 'left'; ctx.fillText('❤️×' + this.game.playerHP, 12, 46);
+    ctx.textAlign = 'right'; ctx.fillText('❤️×' + this.game.aiHP, CANVAS_W - 12, 46);
+    
+    this.drawFighterHPBar(ctx, pMain, 12, 58, 150);
+    this.drawFighterHPBar(ctx, aMain, CANVAS_W - 162, 58, 150);
+    
+    ctx.font = '14px sans-serif'; ctx.fillStyle = '#aaa'; 
+    
+    ctx.textAlign = 'left'; 
+    ctx.fillText(this.game.playerCharacter.icon + ' ' + this.game.playerCharacter.name, 12, 108);
+    ctx.fillText(pMain.weapon.icon + ' ' + pMain.weapon.name, 12, 128);
+    let py = 148;
+    for(let i = 0; i < pBuffIcons.length; i += 5) {
+      ctx.fillText(pBuffIcons.slice(i, i + 5).join(''), 12, py); py += 20;
+    }
+    
+    ctx.textAlign = 'right'; 
+    ctx.fillText(this.game.aiCharacter.icon + ' ' + this.game.aiCharacter.name, CANVAS_W - 12, 108);
+    ctx.fillText(aMain.weapon.icon + ' ' + aMain.weapon.name, CANVAS_W - 12, 128);
+    let ay = 148;
+    for(let i = 0; i < aBuffIcons.length; i += 5) {
+      ctx.fillText(aBuffIcons.slice(i, i + 5).join(''), CANVAS_W - 12, ay); ay += 20;
+    }
+
+    ctx.font = 'bold 48px sans-serif'; ctx.textAlign = 'center'; ctx.fillStyle = this.timeLeft <= 5 ? '#f44' : '#fff'; ctx.fillText(this.timeLeft.toString(), CANVAS_W / 2, 80);
+  }
+
+  drawFighterHPBar(ctx, f, x, y, w) {
+    const h = 18, pct = f.hp / f.maxHp;
+    ctx.fillStyle = '#1a1a1a'; ctx.fillRect(x, y, w, h);
+    ctx.fillStyle = pct > 0.5 ? '#27ae60' : (pct > 0.25 ? '#f39c12' : '#e74c3c');
+    ctx.fillRect(x, y, w * pct, h);
+    ctx.strokeStyle = 'rgba(255,255,255,0.3)'; ctx.lineWidth = 1; ctx.strokeRect(x, y, w, h);
+    ctx.font = 'bold 13px sans-serif'; ctx.textAlign = 'center'; ctx.fillStyle = '#fff'; ctx.fillText(`${Math.ceil(f.hp)}/${f.maxHp}`, x + w / 2, y + 13);
+  }
+}
+
+window.addEventListener('DOMContentLoaded', () => {
+  applyScale();
+  initStars();
+  document.getElementById('battleCanvas').style.display = 'none';
+  window.game = new Game();
+});
+</script>
+</body>
+</html>
