@@ -389,7 +389,7 @@ const CHARACTERS = [
     id: 'char_reroll',
     name: '重鑄大師',
     icon: '🎲',
-    desc: '每回合都能刷新1次加成'
+    desc: '每回合都能刷新2次加成'
   },
   {
     id: 'char_greedy',
@@ -418,12 +418,12 @@ const CHARACTERS = [
 ];
 
 const WEAPONS = [
-  { id: 'berserk_sword', name: '狂暴巨劍', icon: '🗡️', type: 'melee', typeName: '近戰', damage: 40, attackSpeed: 0.5, attackSpeedDisplay: '每2秒1下', range: 1, desc: '超高傷害，但出手緩慢', ability: '⚡ 暴擊率20%（傷害×2）' },
-  { id: 'shock_claw', name: '電擊爪', icon: '⚡', type: 'melee', typeName: '近戰', damage: 10, attackSpeed: 2, attackSpeedDisplay: '每1秒2下', range: 1, desc: '快速連擊，輸出穩定', ability: '🩸 吸血率10%（傷害10%回復）' },
-  { id: 'indomitable_knight', name: '不屈騎士', icon: '🛡️', type: 'melee', typeName: '近戰', damage: 30, attackSpeed: 1/3, attackSpeedDisplay: '每3秒1下', range: 2, desc: '堅韌防禦，反擊強力', ability: '🛡️ 減傷50%（受到傷害減半）' },
-  { id: 'laser_rifle', name: '雷射步槍', icon: '🔫', type: 'ranged', typeName: '遠攻', damage: 5, attackSpeed: 2, attackSpeedDisplay: '每1秒2下', range: 5, desc: '中距離穩定遠程輸出', ability: '❄️ 減速50%（移速×0.5）' },
-  { id: 'thermometer', name: '溫度計', icon: '🌡️', type: 'ranged', typeName: '遠攻', damage: 20, attackSpeed: 1, attackSpeedDisplay: '每1秒1下', range: 100, desc: '必定命中 無處可逃！', ability: '💚 每秒回復2%生命' },
-  { id: 'fries_trap', name: '薯條陷阱', icon: '🍟', type: 'ranged', typeName: '遠攻', damage: 30, attackSpeed: 1, attackSpeedDisplay: '每1秒1下', range: 3, desc: '設置陷阱爆炸傷害', ability: '💥 地面陷阱，接近爆炸' }
+  { id: 'berserk_sword', name: '狂暴巨劍', icon: '🗡️', type: 'melee', typeName: '近戰', damage: 40, attackSpeed: 0.5, attackSpeedDisplay: '每2秒1下', range: 1, desc: '超高傷害，但出手緩慢', ability: '⚡ 暴擊率20%（傷害×2）', evolvedDesc: '暴擊率提升至50%，但攻速降低20%' },
+  { id: 'shock_claw', name: '電擊爪', icon: '⚡', type: 'melee', typeName: '近戰', damage: 10, attackSpeed: 2, attackSpeedDisplay: '每1秒2下', range: 1, desc: '快速連擊，輸出穩定', ability: '🩸 吸血率10%（傷害10%回復）', evolvedDesc: '吸血率提升至50%，但基礎傷害降低10%' },
+  { id: 'indomitable_knight', name: '不屈騎士', icon: '🛡️', type: 'melee', typeName: '近戰', damage: 30, attackSpeed: 1/3, attackSpeedDisplay: '每3秒1下', range: 2, desc: '堅韌防禦，反擊強力', ability: '🛡️ 減傷50%（受到傷害減半）', evolvedDesc: '不再減傷，改為反彈50%受到的傷害，且最大生命降低20%' },
+  { id: 'laser_rifle', name: '雷射步槍', icon: '🔫', type: 'ranged', typeName: '遠攻', damage: 5, attackSpeed: 2, attackSpeedDisplay: '每1秒2下', range: 5, desc: '中距離穩定遠程輸出', ability: '❄️ 減速50%（移速×0.5）', evolvedDesc: '命中改為降低對方50%攻速，但射程減少1格' },
+  { id: 'thermometer', name: '溫度計', icon: '🌡️', type: 'ranged', typeName: '遠攻', damage: 20, attackSpeed: 1, attackSpeedDisplay: '每1秒1下', range: 100, desc: '必定命中 無處可逃！', ability: '💚 每秒回復2%生命', evolvedDesc: '每5秒大幅回復20%生命，但對方的攻擊、攻速及生命提升10%' },
+  { id: 'fries_trap', name: '薯條陷阱', icon: '🍟', type: 'ranged', typeName: '遠攻', damage: 30, attackSpeed: 1, attackSpeedDisplay: '每1秒1下', range: 3, desc: '設置陷阱爆炸傷害', ability: '💥 地面陷阱，接近爆炸', evolvedDesc: '開局隨機撒下3顆地雷，但自身移速歸零' }
 ];
 
 const BUFFS = [
@@ -504,7 +504,9 @@ class Game {
     
     // 角色特權狀態
     this.hasUsedGreedy = false;
-    this.hasRerolledThisRound = false;
+    this.aiHasUsedGreedy = false;
+    this.aiHasUsedGreedyThisRound = false;
+    this.rerollsLeftThisRound = 0;
     this.extraBuffPicks = 0;
     this.aiExtraBuffPicks = 0;
 
@@ -536,7 +538,8 @@ class Game {
         let statsHtml = isDescOnly 
           ? `<div class="codex-weapon-stats">效果：${w.desc}</div>`
           : `<div class="codex-weapon-stats">傷害：${w.damage} | 攻速：${w.attackSpeedDisplay} | 射程：${w.range >= 100 ? '∞' : w.range + '格'}</div>
-             <div class="codex-weapon-ability">${w.ability || ''}</div>`;
+             <div class="codex-weapon-ability">${w.ability || ''}</div>
+             ${w.evolvedDesc ? `<div class="codex-weapon-ability" style="color:#ffeb3b; background:rgba(255,235,59,0.15);">⭐ 第7回合後：${w.evolvedDesc}</div>` : ''}`;
         cat.innerHTML += `
           <div class="codex-weapon-card">
             <div class="codex-weapon-header">
@@ -624,6 +627,9 @@ class Game {
           if (this.aiHP < 1) this.aiHP = 1;
           if (this.playerHP < 1) this.playerHP = 1;
           
+          // 初始化重鑄大師次數
+          if (this.playerCharacter.id === 'char_reroll') this.rerollsLeftThisRound = 2;
+
           this.startBuffSelect();
       });
       grid.appendChild(card);
@@ -677,13 +683,13 @@ class Game {
     const actionContainer = document.getElementById('specialActionContainer');
     actionContainer.innerHTML = '';
     
-    if (this.playerCharacter.id === 'char_reroll' && !this.hasRerolledThisRound && this.extraBuffPicks === 0) {
+    if (this.playerCharacter.id === 'char_reroll' && this.rerollsLeftThisRound > 0 && this.extraBuffPicks === 0) {
         const btn = document.createElement('button');
         btn.className = 'btn';
         btn.style.minWidth = '120px'; btn.style.padding = '10px 20px';
-        btn.innerHTML = '🎲 刷新';
+        btn.innerHTML = `🎲 刷新 (${this.rerollsLeftThisRound})`;
         btn.onclick = () => {
-            this.hasRerolledThisRound = true;
+            this.rerollsLeftThisRound--;
             this.startBuffSelect();
         };
         actionContainer.appendChild(btn);
@@ -709,6 +715,17 @@ class Game {
   processAIBuffPicks(count = 1) {
     let picks = count + this.aiExtraBuffPicks;
     this.aiExtraBuffPicks = 0;
+    this.aiHasUsedGreedyThisRound = false;
+
+    // AI 貪婪暴君觸發邏輯 (每回合25%機率觸發，如果在第6回合還沒觸發就強制觸發)
+    if (this.aiCharacter.id === 'char_greedy' && !this.aiHasUsedGreedy) {
+        if (Math.random() < 0.25 || this.currentRound >= 6) {
+            this.aiHasUsedGreedy = true;
+            this.aiHasUsedGreedyThisRound = true;
+            picks = 3; // AI 觸發全要，直接拿 3 個加成
+        }
+    }
+
     for(let i=0; i<picks; i++) {
         const aiAvailable = BUFFS.filter(b => !this.aiBuffs.includes(b.id));
         if (aiAvailable.length > 0) {
@@ -729,7 +746,6 @@ class Game {
   }
 
   startBattle() {
-    this.hasRerolledThisRound = false;
     this.showScreen('battleScreen');
     if (this.battle) this.battle.destroy();
     
@@ -745,6 +761,10 @@ class Game {
         let removed = BUFFS.find(b => b.id === this.playerBuffs[idx]);
         this.playerBuffs.splice(idx, 1);
         destroyerText += ` 💥對方破壞了你的【${removed.name}】!`;
+    }
+    
+    if (this.aiHasUsedGreedyThisRound) {
+        destroyerText += ` 👑 AI全選了加成！`;
     }
 
     this.battle = new Battle(this, destroyerText);
@@ -762,6 +782,8 @@ class Game {
       if (this.aiCharacter.id === 'char_lucky' && Math.random() < 0.5) this.aiExtraBuffPicks++;
     }
     
+    if (this.playerCharacter.id === 'char_reroll') this.rerollsLeftThisRound = 2;
+
     const overlay = document.getElementById('roundOverlay');
     const rt = document.getElementById('roundResultText');
     const rs = document.getElementById('roundSubText');
@@ -801,7 +823,9 @@ class Game {
     this.playerBuffs = [];
     this.aiBuffs = [];
     this.hasUsedGreedy = false;
-    this.hasRerolledThisRound = false;
+    this.aiHasUsedGreedy = false;
+    this.aiHasUsedGreedyThisRound = false;
+    this.rerollsLeftThisRound = 0;
     this.extraBuffPicks = 0;
     this.aiExtraBuffPicks = 0;
     if (this.battle) this.battle.destroy();
@@ -829,8 +853,33 @@ class Battle {
 
     let pMain = this.createFighter(game.playerWeapon, game.playerBuffs, true, true);
     let aMain = this.createFighter(game.aiWeapon, game.aiBuffs, false, true);
+    
+    // 溫度計進化副作用：賦予對方10%能力加成
+    if (pMain.weapon.id === 'thermometer' && pMain.weaponEvolved) {
+        aMain.baseDamage *= 1.1;
+        aMain.baseEffAttackSpeed *= 1.1;
+        aMain.maxHp *= 1.1;
+        aMain.hp = aMain.maxHp;
+    }
+    if (aMain.weapon.id === 'thermometer' && aMain.weaponEvolved) {
+        pMain.baseDamage *= 1.1;
+        pMain.baseEffAttackSpeed *= 1.1;
+        pMain.maxHp *= 1.1;
+        pMain.hp = pMain.maxHp;
+    }
+
     pMain.x = 70; aMain.x = 290;
     this.fighters.push(pMain, aMain);
+
+    // 薯條陷阱進化：開局隨機撒下 3 顆地雷
+    this.fighters.forEach(f => {
+        if (f.weapon.id === 'fries_trap' && f.weaponEvolved) {
+            for(let i=0; i<3; i++) {
+                let trapX = Math.max(FIGHTER_RADIUS + 5, Math.min(CANVAS_W - FIGHTER_RADIUS - 5, FIGHTER_RADIUS + 5 + Math.random() * (CANVAS_W - 2 * (FIGHTER_RADIUS + 5))));
+                this.traps.push({ x: trapX, y: GROUND_Y - 5, damage: f.baseDamage, fromPlayer: f.isPlayer, life: 20, maxLife: 20 });
+            }
+        }
+    });
 
     if (startMsg) {
         this.damageTexts.push({ x: CANVAS_W/2, y: 200, text: startMsg, alpha: 2, vy: -15, color: '#ff9800' });
@@ -847,15 +896,31 @@ class Battle {
       onGround: true, jumping: false, hp: baseHp, maxHp: baseHp,
       weapon: weapon, buffs: buffs, attackTimer: 0, 
       isPlayer: isPlayer, isMain: isMain,
-      flashTimer: 0, bobTimer: 0, slowTimer: 0
+      flashTimer: 0, bobTimer: 0, slowTimer: 0, atkSlowTimer: 0,
+      weaponEvolved: false
     };
+    
+    // 判斷武器是否符合進化回合 (統一為第7回合)
+    let evolveRound = 7;
+    if (this.game.currentRound >= evolveRound) {
+        f.weaponEvolved = true;
+    }
+
     this.initFighterStats(f);
     return f;
   }
 
   initFighterStats(f) {
     f.baseDamage = f.weapon.damage;
+    if (f.weapon.id === 'shock_claw' && f.weaponEvolved) {
+        f.baseDamage *= 0.9; // 電擊爪進化副作用：攻擊-10%
+    }
+
     f.baseEffAttackSpeed = f.weapon.attackSpeed * (f.buffs.includes('attack_speed_50') ? 1.5 : 1);
+    if (f.weapon.id === 'berserk_sword' && f.weaponEvolved) {
+        f.baseEffAttackSpeed *= 0.8; // 狂暴巨劍進化副作用：攻速-20%
+    }
+    
     if (f.buffs.includes('dmg_spd_30')) f.baseEffAttackSpeed *= 1.3;
     f.effAttackSpeed = f.baseEffAttackSpeed;
     f.prepTimeLeft = f.buffs.includes('charge_attack') ? 5 : 0;
@@ -866,7 +931,7 @@ class Battle {
     f.hasBeenFrozen = false; f.randomTpTimer = 0; f.wallSpeedTimer = 0;
     f.knockbackTimer = 0; f.tpBehindTimer = 0;
 
-    // 新增低血量觸發相關屬性
+    // 低血量觸發相關屬性
     f.immuneLowHpCount = f.buffs.includes('immune_low_hp') ? 2 : 0;
     f.hasTriggeredDmgReflect = false;
     f.hasTriggeredRoot = false;
@@ -881,6 +946,10 @@ class Battle {
       let bonus = r < 0.2 ? 500 : (r < 0.7 ? 200 : 100);
       f.maxHp += bonus;
     }
+    
+    if (f.weapon.id === 'indomitable_knight' && f.weaponEvolved) {
+        f.maxHp *= 0.8; // 不屈騎士進化副作用：最大生命值-20%
+    }
     f.hp = f.maxHp;
   }
 
@@ -893,9 +962,14 @@ class Battle {
       if (this.timeLeft <= 0) { this.timeLeft = 0; this.endBattle(); }
     }, 1000);
     
+    let yOffset = 300;
     if (this.game.currentRound === 5) {
-        this.damageTexts.push({ x: CANVAS_W/2, y: 300, text: '血量翻倍!', alpha: 1.5, vy: -30, color: '#ff6b6b' });
+        this.damageTexts.push({ x: CANVAS_W/2, y: yOffset, text: '血量翻倍!', alpha: 1.5, vy: -30, color: '#ff6b6b' });
     }
+    if (this.game.currentRound === 7) {
+        this.damageTexts.push({ x: CANVAS_W/2, y: yOffset, text: '⭐ 武器全面進化!', alpha: 1.5, vy: -30, color: '#ffeb3b' });
+    }
+
     this.loop(performance.now());
   }
 
@@ -915,7 +989,6 @@ class Battle {
   }
 
   update(dt) {
-    // 各自找目標更新狀態
     this.fighters.forEach(f => {
         if (f.hp <= 0) return;
         let enemies = this.fighters.filter(e => e.isPlayer !== f.isPlayer && e.hp > 0);
@@ -930,7 +1003,6 @@ class Battle {
         this.updateFighter(f, enemy, dt);
     });
     
-    // 碰撞推擠
     for (let i = 0; i < this.fighters.length; i++) {
       for (let j = i + 1; j < this.fighters.length; j++) {
         let f1 = this.fighters[i], f2 = this.fighters[j];
@@ -956,7 +1028,7 @@ class Battle {
   checkWallDamage(fighter, enemy) {
     if (enemy.buffs.includes('wall_damage')) {
       const dmg = fighter.maxHp * 0.2;
-      this.dealDamage(fighter, dmg);
+      this.dealDamage(fighter, dmg, enemy);
       this.damageTexts.push({ x: fighter.x, y: fighter.y - 40, text: '🌵碰撞!', alpha: 1, vy: -40, color: '#4caf50' });
     }
   }
@@ -964,11 +1036,10 @@ class Battle {
   updateFighter(f, enemy, dt) {
     if (f.freezeTimer > 0) { f.freezeTimer -= dt; return; }
 
-    // 低血量狀態觸發判定
     if (f.hp > 0 && f.hp < f.maxHp * 0.5) {
         if (f.buffs.includes('dmg_reflect_low_hp') && !f.hasTriggeredDmgReflect) {
             f.hasTriggeredDmgReflect = true;
-            this.dealDamage(enemy, enemy.maxHp * 0.2);
+            this.dealDamage(enemy, enemy.maxHp * 0.2, f);
             this.damageTexts.push({ x: enemy.x, y: enemy.y - 60, text: '💀怨念!', alpha: 1, vy: -40, color: '#9c27b0' });
         }
         if (f.buffs.includes('root_low_hp') && !f.hasTriggeredRoot) {
@@ -990,9 +1061,9 @@ class Battle {
         }
     }
 
-    if (f.weapon.id === 'thermometer') f.hp = Math.min(f.maxHp, f.hp + f.maxHp * 0.02 * dt);
     if (f.flashTimer > 0) f.flashTimer -= dt;
     if (f.slowTimer > 0) f.slowTimer -= dt;
+    if (f.atkSlowTimer > 0) f.atkSlowTimer -= dt;
     if (f.rootTimer > 0) f.rootTimer -= dt;
     f.bobTimer += dt;
 
@@ -1050,7 +1121,7 @@ class Battle {
       if (f.autoDmgTimer >= 1) {
         f.autoDmgTimer -= 1;
         const dmg = Math.floor(Math.random() * 9) + 2;
-        this.dealDamage(enemy, dmg);
+        this.dealDamage(enemy, dmg, f);
         this.damageTexts.push({ x: enemy.x, y: enemy.y - 50, text: '👻', alpha: 1, vy: -30, color: '#9c27b0' });
       }
     }
@@ -1076,16 +1147,19 @@ class Battle {
 
     const baseSpeedMod = f.slowTimer > 0 ? 0.5 : 1;
     const confuseSlowMod = enemy.buffs.includes('confuse_slow') ? 1.5 : 1;
+    const atkSlowMod = f.atkSlowTimer > 0 ? 0.5 : 1; // 雷射步槍進化Debuff
+    
     let speedUpMod = 1;
     if (f.buffs.includes('speed_up_200')) speedUpMod += 1;
     if (f.wallSpeedTimer > 0) speedUpMod += 3;
     
     let berserkTiers = f.buffs.includes('berserker_blood') ? Math.floor(Math.max(0, 1 - f.hp / f.maxHp) / 0.1) : 0;
     speedUpMod += berserkTiers * 0.1;
-    f.effAttackSpeed = f.baseEffAttackSpeed * (1 + berserkTiers * 0.1);
+    
+    f.effAttackSpeed = f.baseEffAttackSpeed * (1 + berserkTiers * 0.1) * atkSlowMod;
 
-    const speedMod = baseSpeedMod * confuseSlowMod * speedUpMod;
-    const baseSpeed = 70 * speedMod;
+    let baseSpeed = 70 * baseSpeedMod * confuseSlowMod * speedUpMod;
+    if (f.weapon.id === 'fries_trap' && f.weaponEvolved) baseSpeed = 0; // 薯條陷阱進化：移速歸0
 
     const isPrepping = f.prepTimeLeft > 0;
     if (isPrepping) {
@@ -1096,12 +1170,30 @@ class Battle {
       }
     }
 
-    let attackDist = f.weapon.type === 'melee' ? (MELEE_ATTACK_RANGE + 20) : (f.weapon.range * GRID_SIZE + 20);
+    let effRange = f.weapon.range;
+    if (f.weapon.id === 'laser_rifle' && f.weaponEvolved) effRange = Math.max(1, effRange - 1); // 雷射步槍進化副作用：射程-1
+    let attackDist = f.weapon.type === 'melee' ? (MELEE_ATTACK_RANGE + 20) : (effRange * GRID_SIZE + 20);
     if (f.buffs.includes('range_up_1')) attackDist += GRID_SIZE;
     
     let distToEnemy = Math.abs(f.x - enemy.x);
     let isEnemyInFront = (f.moveDirection === 1 && enemy.x >= f.x) || (f.moveDirection === -1 && enemy.x <= f.x);
     let shouldStopMove = (distToEnemy <= attackDist) && isEnemyInFront;
+
+    // 溫度計自動回血邏輯
+    if (f.weapon.id === 'thermometer') {
+        if (f.weaponEvolved) {
+            if (!f.thermometerHealTimer) f.thermometerHealTimer = 0;
+            f.thermometerHealTimer += dt;
+            if (f.thermometerHealTimer >= 5) {
+                f.thermometerHealTimer -= 5;
+                const heal = f.maxHp * 0.20;
+                f.hp = Math.min(f.maxHp, f.hp + heal);
+                this.damageTexts.push({ x: f.x, y: f.y - 30, text: '+' + Math.ceil(heal), alpha: 1, vy: -60, color: '#4ecdc4' });
+            }
+        } else {
+            f.hp = Math.min(f.maxHp, f.hp + f.maxHp * 0.02 * dt);
+        }
+    }
 
     const now = Date.now();
     const padReady = !this.jumpPadCooldown || (now - this.jumpPadCooldownStart >= JUMP_COOLDOWN);
@@ -1112,7 +1204,7 @@ class Battle {
         f.vy = JUMP_VELOCITY; f.vx = f.moveDirection * 180; 
         f.onGround = false; f.jumping = true;
         this.jumpPadCooldown = true; this.jumpPadCooldownStart = now;
-        this.dealDamage(f, f.maxHp * 0.05);
+        this.dealDamage(f, f.maxHp * 0.05, f);
         this.damageTexts.push({ x: f.x, y: f.y - 50, text: '💥踩踏!', alpha: 1, vy: -40, color: '#e91e63' });
       }
     }
@@ -1180,44 +1272,51 @@ class Battle {
     dmgMult += berserkTiers * 0.1;
 
     let d = baseDmg * dmgMult;
-    let isCrit = f.weapon.id === 'berserk_sword' && Math.random() < 0.2;
+    
+    let isCrit = false;
+    if (f.weapon.id === 'berserk_sword') {
+        isCrit = Math.random() < (f.weaponEvolved ? 0.5 : 0.2); // 狂暴巨劍進化：50% 暴擊
+    }
     d *= (isCrit ? 2 : 1);
 
-    let attackDist = f.weapon.type === 'melee' ? (MELEE_ATTACK_RANGE + 20) : (f.weapon.range * GRID_SIZE + 20);
+    let effRange = f.weapon.range;
+    if (f.weapon.id === 'laser_rifle' && f.weaponEvolved) effRange = Math.max(1, effRange - 1);
+    let attackDist = f.weapon.type === 'melee' ? (MELEE_ATTACK_RANGE + 20) : (effRange * GRID_SIZE + 20);
     if (f.buffs.includes('range_up_1')) attackDist += GRID_SIZE;
 
     if (f.weapon.id === 'thermometer') {
-      this.dealDamage(enemy, d);
+      this.dealDamage(enemy, d, f);
       this.projectiles.push({ type: 'beam', x1: f.x, y1: f.y - 10, x2: enemy.x, y2: enemy.y - 10, life: 0.15, maxLife: 0.15 });
       f.hasAttacked = true;
     } else if (f.weapon.id === 'fries_trap') {
       let trapX = Math.max(FIGHTER_RADIUS + 5, Math.min(CANVAS_W - FIGHTER_RADIUS - 5, f.x + (Math.random() - 0.5) * 120));
-      if (this.traps.length < 6) {
+      if (this.traps.length < 15) { // 增加場上容納上限
         this.traps.push({ x: trapX, y: GROUND_Y - 5, damage: d, fromPlayer: f.isPlayer, life: 10, maxLife: 10 });
         f.hasAttacked = true;
       }
     } else if (dx <= attackDist) {
       if (f.weapon.type === 'melee') {
-        this.dealDamage(enemy, d);
+        this.dealDamage(enemy, d, f);
         let knockbackDir = f.x < enemy.x ? 1 : -1;
         enemy.x += knockbackDir * GRID_SIZE;
         enemy.x = Math.max(FIGHTER_RADIUS + 5, Math.min(CANVAS_W - FIGHTER_RADIUS - 5, enemy.x));
 
         if (f.weapon.id === 'shock_claw') {
-           const heal = d * 0.1;
+           const lifestealRate = f.weaponEvolved ? 0.5 : 0.1; // 電擊爪進化：50% 吸血
+           const heal = d * lifestealRate;
            f.hp = Math.min(f.maxHp, f.hp + heal);
            this.damageTexts.push({ x: f.x, y: f.y - 30, text: '+' + heal.toFixed(0), alpha: 1, vy: -60, color: '#4ecdc4' });
         }
         this.particles.push({ x: enemy.x, y: enemy.y, vx: f.moveDirection * 80, vy: -60, life: 0.3, maxLife: 0.3, color: isCrit ? '#ffd700' : '#ffeb3b', text: isCrit ? '💥' : f.weapon.icon });
         f.hasAttacked = true;
       } else {
-        this.projectiles.push({ type: 'bullet', x: f.x, y: f.y - 10, vx: f.moveDirection * 280, vy: 0, damage: d, fromPlayer: f.isPlayer, life: 2, icon: f.weapon.id === 'laser_rifle' ? '🔵' : '🟡', weaponId: f.weapon.id });
+        this.projectiles.push({ type: 'bullet', x: f.x, y: f.y - 10, vx: f.moveDirection * 280, vy: 0, damage: d, fromPlayer: f.isPlayer, life: 2, icon: f.weapon.id === 'laser_rifle' ? '🔵' : '🟡', weaponId: f.weapon.id, evolved: f.weaponEvolved });
         f.hasAttacked = true;
       }
     }
   }
 
-  dealDamage(fighter, damage) {
+  dealDamage(fighter, damage, attacker = null, isReflect = false) {
     if (fighter.hp <= 0) return;
 
     if (fighter.hp < fighter.maxHp * 0.5 && fighter.immuneLowHpCount > 0) {
@@ -1227,7 +1326,18 @@ class Battle {
     }
 
     let finalDamage = damage;
-    if (fighter.weapon.id === 'indomitable_knight') finalDamage *= 0.5;
+    if (fighter.weapon.id === 'indomitable_knight') {
+        if (fighter.weaponEvolved) {
+            // 不屈騎士進化：不減傷，但反彈 50% 傷害
+            if (attacker && attacker !== fighter && attacker.hp > 0 && !isReflect) {
+                let reflectDmg = finalDamage * 0.5;
+                this.dealDamage(attacker, reflectDmg, fighter, true);
+                this.damageTexts.push({ x: fighter.x, y: fighter.y - 50, text: '🛡️反傷!', alpha: 1, vy: -40, color: '#ff9800' });
+            }
+        } else {
+            finalDamage *= 0.5; // 未進化：減傷 50%
+        }
+    }
     
     fighter.hp = Math.max(0, fighter.hp - finalDamage);
     fighter.flashTimer = 0.12;
@@ -1246,7 +1356,8 @@ class Battle {
       this.fighters.forEach(target => {
           if (hit) return;
           if (target.isPlayer !== trap.fromPlayer && target.hp > 0 && Math.abs(trap.x - target.x) < 30 && target.onGround) {
-              this.dealDamage(target, trap.damage);
+              let attacker = this.fighters.find(fighter => fighter.isPlayer === trap.fromPlayer && fighter.isMain);
+              this.dealDamage(target, trap.damage, attacker);
               for (let i = 0; i < 10; i++) this.particles.push({ x: trap.x, y: trap.y, vx: (Math.random() - 0.5) * 200, vy: -Math.random() * 150 - 50, life: 0.5, maxLife: 0.5, color: '#ff9800' });
               hit = true;
           }
@@ -1266,8 +1377,13 @@ class Battle {
         this.fighters.forEach(target => {
             if (hit) return;
             if (target.isPlayer !== p.fromPlayer && target.hp > 0 && Math.hypot(p.x - target.x, p.y - target.y) < FIGHTER_RADIUS + 6) {
-                this.dealDamage(target, p.damage);
-                if (p.weaponId === 'laser_rifle') target.slowTimer = 3;
+                let attacker = this.fighters.find(fighter => fighter.isPlayer === p.fromPlayer && fighter.isMain);
+                this.dealDamage(target, p.damage, attacker);
+                
+                if (p.weaponId === 'laser_rifle') {
+                    if (p.evolved) target.atkSlowTimer = 3; // 雷射步槍進化：減攻速
+                    else target.slowTimer = 3; // 預設：減移速
+                }
                 hit = true;
             }
         });
@@ -1347,10 +1463,15 @@ class Battle {
 
     const flash = f.flashTimer > 0;
     const bodyColor = flash ? '#ffffff' : (f.isPlayer ? '#4ecdc4' : '#ff6b6b');
-    if (f.weapon.id === 'indomitable_knight') {
+    
+    if (f.weapon.id === 'indomitable_knight' && !f.weaponEvolved) {
       ctx.fillStyle = 'rgba(255, 215, 0, 0.3)';
       ctx.beginPath(); ctx.arc(x, y, FIGHTER_RADIUS + 10, 0, Math.PI * 2); ctx.fill();
+    } else if (f.weapon.id === 'indomitable_knight' && f.weaponEvolved) {
+      ctx.fillStyle = 'rgba(255, 0, 0, 0.4)'; // 反傷狀態發紅光
+      ctx.beginPath(); ctx.arc(x, y, FIGHTER_RADIUS + 10, 0, Math.PI * 2); ctx.fill();
     }
+
     const bodyGrad = ctx.createRadialGradient(x - 6, y - 6, 2, x, y, FIGHTER_RADIUS);
     bodyGrad.addColorStop(0, flash ? '#fff' : (f.isPlayer ? '#7efff5' : '#ff9a9a'));
     bodyGrad.addColorStop(1, bodyColor);
@@ -1363,7 +1484,8 @@ class Battle {
     ctx.strokeStyle = f.isPlayer ? '#00b3a7' : '#c0392b'; ctx.lineWidth = 2; ctx.stroke();
 
     ctx.font = (f.isMain ? '20px' : '14px') + ' sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillText(f.weapon.icon, x, y + Math.sin(f.bobTimer * 3) * 2);
+    let iconStr = f.weapon.icon + (f.weaponEvolved ? '⭐' : '');
+    ctx.fillText(iconStr, x, y + Math.sin(f.bobTimer * 3) * 2);
     ctx.textBaseline = 'alphabetic';
     ctx.globalAlpha = 1;
 
@@ -1439,7 +1561,8 @@ class Battle {
     
     ctx.textAlign = 'left'; 
     ctx.fillText(this.game.playerCharacter.icon + ' ' + this.game.playerCharacter.name, 12, 108);
-    ctx.fillText(pMain.weapon.icon + ' ' + pMain.weapon.name, 12, 128);
+    let pName = pMain.weapon.name + (pMain.weaponEvolved ? '⭐' : '');
+    ctx.fillText(pMain.weapon.icon + ' ' + pName, 12, 128);
     let py = 148;
     for(let i = 0; i < pBuffIcons.length; i += 5) {
       ctx.fillText(pBuffIcons.slice(i, i + 5).join(''), 12, py); py += 20;
@@ -1447,7 +1570,8 @@ class Battle {
     
     ctx.textAlign = 'right'; 
     ctx.fillText(this.game.aiCharacter.icon + ' ' + this.game.aiCharacter.name, CANVAS_W - 12, 108);
-    ctx.fillText(aMain.weapon.icon + ' ' + aMain.weapon.name, CANVAS_W - 12, 128);
+    let aName = aMain.weapon.name + (aMain.weaponEvolved ? '⭐' : '');
+    ctx.fillText(aMain.weapon.icon + ' ' + aName, CANVAS_W - 12, 128);
     let ay = 148;
     for(let i = 0; i < aBuffIcons.length; i += 5) {
       ctx.fillText(aBuffIcons.slice(i, i + 5).join(''), CANVAS_W - 12, ay); ay += 20;
