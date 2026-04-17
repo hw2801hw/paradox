@@ -22,6 +22,7 @@
     .player-panel .score{font-size:clamp(20px, 6vw, 28px);font-weight:800;color:#ffd700; line-height: 1.2;}
     .player-panel .darts-info{font-size:10px;opacity:.7;margin-top:2px}
     .player-panel .checkout-hint{font-size:10px;color:#2ecc71;margin-top:2px;font-weight:700;min-height:15px;white-space:pre-wrap; line-height: 1.1;}
+    .ability-tag{font-size:clamp(8px, 2.5vw, 10px);color:#e056fd;font-weight:700;margin-bottom:2px;text-shadow:0 1px 2px rgba(0,0,0,0.8);background:rgba(0,0,0,0.4);border-radius:4px;padding:1px 4px;display:inline-block;}
 
     .center-info-container{display:flex;flex-direction:column;align-items:center;gap:6px; flex: 1; margin: 0 4px;}
     .center-info{background:rgba(0,0,0,.7);border-radius:10px;padding:4px 8px;color:#fff;text-align:center}
@@ -35,59 +36,43 @@
     .wind-unit{font-size:12px; margin-top: 6px; opacity: 0.8;}
 
     #backBtn{
-        position:absolute;
-        bottom:20px;
-        right:20px;
-        top: auto;
-        left: auto;
-        transform: none;
-        background:rgba(231,76,60,.92);
-        border:2px solid rgba(255,255,255,0.2);
-        color:#fff;
-        padding:10px 20px;
-        font-size:14px;
-        font-weight: 700;
-        border-radius:25px;
-        cursor:pointer;
-        z-index:90;
-        pointer-events:auto;
-        display:none;
-        box-shadow:0 4px 15px rgba(0,0,0,.4);
-        transition: all 0.2s;
+        position:absolute; bottom:20px; right:20px; background:rgba(231,76,60,.92); border:2px solid rgba(255,255,255,0.2);
+        color:#fff; padding:10px 20px; font-size:14px; font-weight: 700; border-radius:25px; cursor:pointer;
+        z-index:90; pointer-events:auto; display:none; box-shadow:0 4px 15px rgba(0,0,0,.4); transition: all 0.2s;
     }
     #backBtn:hover,#backBtn:active{background:rgba(192,57,43,1); transform: scale(1.05);}
     #backBtn.show{display:block}
 
-    .screen{position:absolute;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.92);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:100;color:#fff;text-align:center;padding:20px}
+    .screen{position:absolute;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.92);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:100;color:#fff;text-align:center;padding:10px; overflow-y:auto;}
     .hidden{display:none !important}
-    .title{font-size:clamp(28px,7vw,42px);font-weight:900;margin-bottom:10px;background:linear-gradient(45deg,#ffd700,#ff6b6b);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
-    .subtitle{font-size:clamp(12px,3vw,16px);opacity:.84;margin-bottom:18px;line-height:1.5}
+    .title{font-size:clamp(28px,7vw,42px);font-weight:900;margin-bottom:5px;background:linear-gradient(45deg,#ffd700,#ff6b6b);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-top:20px;}
+    .subtitle{font-size:clamp(12px,3vw,16px);opacity:.84;margin-bottom:12px;line-height:1.5}
 
-    .mode-selection{margin-bottom:14px}
-    .mode-selection h3{font-size:16px;margin-bottom:10px;color:#ffd700}
-    .mode-buttons{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
-    .mode-btn{background:linear-gradient(45deg,#2c3e50,#34495e);border:2px solid #3498db;color:#fff;padding:12px 18px;font-size:18px;font-weight:800;border-radius:12px;cursor:pointer;transition:all .25s;min-width:105px}
+    .mode-selection{margin-bottom:12px}
+    .mode-selection h3{font-size:15px;margin-bottom:8px;color:#ffd700}
+    .mode-buttons{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
+    .mode-btn{background:linear-gradient(45deg,#2c3e50,#34495e);border:2px solid #3498db;color:#fff;padding:8px 14px;font-size:15px;font-weight:800;border-radius:12px;cursor:pointer;transition:all .25s;min-width:90px}
     .mode-btn:hover,.mode-btn.selected{background:linear-gradient(45deg,#3498db,#2980b9);border-color:#ffd700;transform:scale(1.05)}
-    .mode-btn.selected{box-shadow:0 0 20px rgba(52,152,219,.6)}
+    .mode-btn.selected{box-shadow:0 0 15px rgba(52,152,219,.6)}
 
-    .difficulty-selection{margin-bottom:16px}
-    .difficulty-selection h3{font-size:16px;margin-bottom:10px;color:#e74c3c}
+    .difficulty-selection{margin-bottom:12px}
+    .difficulty-selection h3{font-size:14px;margin-bottom:8px;color:#e74c3c}
     .difficulty-buttons{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
-    .diff-btn{background:rgba(255,255,255,.1);border:2px solid #666;color:#fff;padding:8px 16px;font-size:14px;border-radius:8px;cursor:pointer;transition:all .25s}
+    .diff-btn{background:rgba(255,255,255,.1);border:2px solid #666;color:#fff;padding:6px 14px;font-size:13px;border-radius:8px;cursor:pointer;transition:all .25s}
     .diff-btn:hover,.diff-btn.selected{border-color:#e74c3c;background:rgba(231,76,60,.3)}
     .diff-btn.selected{background:linear-gradient(45deg,#e74c3c,#c0392b)}
 
-    .btn{background:linear-gradient(45deg,#27ae60,#2ecc71);border:none;color:#fff;padding:15px 50px;font-size:20px;border-radius:30px;cursor:pointer;pointer-events:auto;transition:transform .2s,box-shadow .2s;box-shadow:0 4px 15px rgba(39,174,96,.4);margin-top:10px}
+    .btn{background:linear-gradient(45deg,#27ae60,#2ecc71);border:none;color:#fff;padding:12px 40px;font-size:18px;border-radius:30px;cursor:pointer;pointer-events:auto;transition:transform .2s,box-shadow .2s;box-shadow:0 4px 15px rgba(39,174,96,.4);margin-top:10px;font-weight:bold;}
     .btn:hover,.btn:active{transform:scale(1.05);box-shadow:0 6px 20px rgba(39,174,96,.6)}
     .btn:disabled{filter: grayscale(1); opacity: 0.6; cursor: not-allowed;}
 
     .btn.blue{background:linear-gradient(45deg,#3498db,#2980b9)}
     .btn.red{background:linear-gradient(45deg,#e74c3c,#c0392b)}
 
-    .instructions{margin-top:18px;font-size:clamp(11px,2.5vw,13px);opacity:.75;max-width:360px;line-height:1.6;text-align:left}
+    .instructions{margin-top:15px;margin-bottom:20px;font-size:clamp(11px,2.5vw,13px);opacity:.75;max-width:360px;line-height:1.6;text-align:left}
 
     #phaseIndicator{position:absolute;bottom:70px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.82);color:#ffd700;padding:10px 20px;border-radius:20px;font-size:15px;pointer-events:none;z-index:10;white-space:nowrap}
-    #hitScore{position:absolute;top:45%;left:50%;transform:translate(-50%,-50%);font-size:clamp(40px,12vw,70px);font-weight:900;color:#ffd700;text-shadow:0 0 20px rgba(255,215,0,.8);pointer-events:none;z-index:20;opacity:0;transition:opacity .3s}
+    #hitScore{position:absolute;top:45%;left:50%;transform:translate(-50%,-50%);font-size:clamp(40px,12vw,70px);font-weight:900;color:#ffd700;text-shadow:0 0 20px rgba(255,215,0,.8);pointer-events:none;z-index:20;opacity:0;transition:opacity .3s; white-space:pre-wrap; text-align:center; line-height:1.1;}
 
     .end-stats{margin:20px 0}
     .end-stats .winner{font-size:22px;margin-bottom:12px}
@@ -99,21 +84,20 @@
 
     #turnIndicator{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,.9);color:#fff;padding:20px 40px;border-radius:15px;font-size:20px;font-weight:900;z-index:50;opacity:0;pointer-events:none;transition:opacity .3s;text-align:center}
     #turnIndicator.show{opacity:1}
-    #turnIndicator .sub-text{font-size:14px;color:#4ecdc4;margin-top:5px;font-weight:400}
+    #turnIndicator .sub-text{font-size:14px;color:#4ecdc4;margin-top:5px;font-weight:400;white-space:pre-wrap;}
 
     #scoreHistory{position:absolute;bottom:120px;left:50%;transform:translateX(-50%);display:flex;gap:8px;z-index:10;pointer-events:none;flex-wrap:wrap;justify-content:center;max-width:92vw}
     .history-dart{background:rgba(0,0,0,.7);color:#4ecdc4;padding:4px 10px;border-radius:12px;font-size:14px;font-weight:900}
 
     .panel-card{width:min(420px,92vw);background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:16px;padding:14px;text-align:left}
     .field-label{font-size:12px;opacity:.8;margin:10px 0 6px}
-    .field{width:100%;padding:10px 12px;border-radius:12px;background:rgba(0,0,0,.35);border:1px solid rgba(255,255,255,.18);outline:none;color:#fff}
+    .field{width:100%;padding:8px 10px;border-radius:10px;background:rgba(0,0,0,.35);border:1px solid rgba(255,255,255,.18);outline:none;color:#fff}
     .field:focus{border-color:#ffd700;box-shadow:0 0 0 3px rgba(255,215,0,.15)}
+    .field option{background:#2c3e50; color:#fff;}
+    .field optgroup{background:#1a1a2e; color:#ffd700;}
     .status{margin-top:10px;font-size:12px;opacity:.85;min-height:18px}
     .status.error{color:#ff6b6b;opacity:1}
     .status.ok{color:#2ecc71;opacity:1}
-
-    details summary{cursor:pointer}
-    details{user-select:none}
   </style>
 </head>
 <body>
@@ -125,6 +109,7 @@
     <div id="ui">
       <div class="player-panel player" id="playerPanel">
         <div class="name" id="playerName">👤 你</div>
+        <div class="ability-tag" id="p1AbilityTag" style="display:none;"></div>
         <div class="score" id="playerScore">501</div>
         <div class="checkout-hint" id="checkoutHint"></div>
         <div class="darts-info" id="playerDarts">🎯🎯🎯</div>
@@ -149,6 +134,7 @@
           <span id="opponentName">🤖 AI</span>
           <span id="aiDiffWrap">(<span id="aiDiffLabel">業餘</span>)</span>
         </div>
+        <div class="ability-tag" id="p2AbilityTag" style="display:none; color:#ff6b6b;"></div>
         <div class="score" id="aiScore">501</div>
         <div class="darts-info" id="aiDarts">🎯🎯🎯</div>
       </div>
@@ -162,7 +148,15 @@
     <!-- Start Screen -->
     <div class="screen" id="startScreen">
       <div class="title">🎯 清目飛鏢隊</div>
-      <div class="subtitle">留意風向，挑戰 AI 或好友即時連線！</div>
+      <div class="subtitle">連線挑戰好友，或體驗特殊鏢具的頂尖交鋒！</div>
+
+      <div class="mode-selection">
+        <h3>遊戲大類別</h3>
+        <div class="mode-buttons" id="categoryButtons">
+          <button class="mode-btn selected" data-cat="normal">正常模式</button>
+          <button class="mode-btn" data-cat="apex" style="border-color:#e056fd;">頂尖模式✨</button>
+        </div>
+      </div>
 
       <div class="mode-selection">
         <h3>挑戰分數</h3>
@@ -177,44 +171,105 @@
         <h3>對戰模式</h3>
         <div class="mode-buttons" id="matchTypeButtons">
           <button class="mode-btn selected" data-match="ai">AI對決</button>
-          <button class="mode-btn" data-match="multi">雙人對決</button>
+          <button class="mode-btn" data-match="multi" id="btnOnline">線上雙人</button>
+          <button class="mode-btn hidden" data-match="local" id="btnLocal">本地雙人</button>
         </div>
       </div>
 
-      <div id="aiOptions">
-        <div class="difficulty-selection">
-          <h3>AI 難度</h3>
-          <div class="difficulty-buttons">
-            <button class="diff-btn selected" data-diff="amateur">業餘</button>
-            <button class="diff-btn" data-diff="pro">專業</button>
+      <!-- 頂尖模式鏢具選項 -->
+      <div id="apexOptions" class="hidden">
+        <div class="panel-card" style="margin-bottom:12px; background: rgba(142,68,173, 0.15); border-color: #9b59b6;">
+          <h3 style="color:#e056fd; margin-bottom: 8px; font-size:14px; font-weight:bold;">✨ 頂尖模式專屬：鏢具選擇</h3>
+          <div style="display:flex; gap: 10px; justify-content:space-between; flex-wrap:wrap;">
+            <div style="flex:1; min-width:130px;">
+              <div class="field-label" style="color:#ffd700; font-weight:bold;">👤 玩家 1 (你)</div>
+              <select id="p1AbilitySelect" class="field" style="font-size:12px;">
+                <option value="none">無裝備</option>
+                <optgroup label="消耗型 (2鏢)">
+                  <option value="consume_aim">【神槍·必中之魔眼】</option>
+                  <option value="consume_curse">【血契·厄運反轉】</option>
+                  <option value="consume_nobust">【混沌·法則崩壞】</option>
+                  <option value="consume_opp100">【災禍·百重厄夜】</option>
+                  <option value="consume_self100">【神恩·百里疾風】</option>
+                  <option value="consume_triple">【魔彈·極限三倍】</option>
+                  <option value="consume_fastaim">【幻影·神速領域】</option>
+                  <option value="consume_5darts">【狂暴·連環星隕】</option>
+                </optgroup>
+                <optgroup label="自動型 (3鏢)">
+                  <option value="auto_erosion">【虛空·時間侵蝕】</option>
+                  <option value="auto_gravity">【深淵·重力泥沼】</option>
+                  <option value="auto_immortal">【輪迴·不死鳥之炎】</option>
+                  <option value="auto_opp50">【惡意·半百枷鎖】</option>
+                  <option value="auto_self50">【聖痕·半百神印】</option>
+                  <option value="auto_double">【雙極·鏡像反射】</option>
+                  <option value="auto_nobull">【封印·紅心剝奪】</option>
+                  <option value="auto_reverse">【逆轉·因果悖論】</option>
+                </optgroup>
+              </select>
+            </div>
+            <div id="p2AbilityContainer" style="flex:1; min-width:130px;">
+              <div class="field-label" id="p2AbilityLabel" style="color:#ff6b6b; font-weight:bold;">🤖 對手 (AI)</div>
+              <select id="p2AbilitySelect" class="field" style="font-size:12px;">
+                <option value="none">無裝備</option>
+                <optgroup label="消耗型 (2鏢)">
+                  <option value="consume_aim">【神槍·必中之魔眼】</option>
+                  <option value="consume_curse">【血契·厄運反轉】</option>
+                  <option value="consume_nobust">【混沌·法則崩壞】</option>
+                  <option value="consume_opp100">【災禍·百重厄夜】</option>
+                  <option value="consume_self100">【神恩·百里疾風】</option>
+                  <option value="consume_triple">【魔彈·極限三倍】</option>
+                  <option value="consume_fastaim">【幻影·神速領域】</option>
+                  <option value="consume_5darts">【狂暴·連環星隕】</option>
+                </optgroup>
+                <optgroup label="自動型 (3鏢)">
+                  <option value="auto_erosion">【虛空·時間侵蝕】</option>
+                  <option value="auto_gravity">【深淵·重力泥沼】</option>
+                  <option value="auto_immortal">【輪迴·不死鳥之炎】</option>
+                  <option value="auto_opp50">【惡意·半百枷鎖】</option>
+                  <option value="auto_self50">【聖痕·半百神印】</option>
+                  <option value="auto_double">【雙極·鏡像反射】</option>
+                  <option value="auto_nobull">【封印·紅心剝奪】</option>
+                  <option value="auto_reverse">【逆轉·因果悖論】</option>
+                </optgroup>
+              </select>
+            </div>
           </div>
+          <div id="abilityDesc" style="margin-top:10px; font-size:11px; opacity:0.85; color:#fff; white-space:pre-wrap; text-align:left; background:rgba(0,0,0,0.3); padding:8px; border-radius:6px;">選擇鏢具以查看說明</div>
         </div>
-        <button class="btn" id="startAiBtn">開始對戰</button>
+      </div>
+
+      <div id="aiOptions" class="difficulty-selection">
+        <h3>AI 難度</h3>
+        <div class="difficulty-buttons">
+          <button class="diff-btn selected" data-diff="amateur">業餘</button>
+          <button class="diff-btn" data-diff="pro">專業</button>
+        </div>
+      </div>
+
+      <div id="offlineStartAction">
+        <button class="btn" id="startGameBtn">開始對戰</button>
       </div>
 
       <div id="multiOptions" class="hidden">
         <div class="panel-card">
-          <div class="text-sm font-bold text-amber-300">雙人對決</div>
+          <div class="text-sm font-bold text-amber-300">線上雙人對決 (僅限正常模式)</div>
           <div class="field-label">暱稱（必填）</div>
           <input id="nicknameInput" class="field" maxlength="16" placeholder="例如：阿彬" />
-
           <div class="field-label">房間號碼（4位數字）</div>
           <input id="roomCodeInput" class="field" inputmode="numeric" maxlength="4" placeholder="例如：1234" />
-
           <div class="mt-3 flex gap-2 flex-wrap">
-            <button class="btn blue" id="createRoomBtn" style="margin-top:0;padding:12px 18px;font-size:16px;border-radius:14px;">創建房間</button>
-            <button class="btn" id="joinRoomBtn" style="margin-top:0;padding:12px 18px;font-size:16px;border-radius:14px;">進入房間</button>
+            <button class="btn blue" id="createRoomBtn" style="margin-top:0;padding:10px 16px;font-size:15px;border-radius:14px;">創建房間</button>
+            <button class="btn" id="joinRoomBtn" style="margin-top:0;padding:10px 16px;font-size:15px;border-radius:14px;">進入房間</button>
           </div>
-
           <div id="multiStatus" class="status"></div>
         </div>
       </div>
 
       <div class="instructions">
         🎯 <b>玩法說明：</b><br>
-        1️⃣ 點擊鎖定垂直位置<br>
-        2️⃣ 再點擊鎖定水平位置並發射<br>
-        ⚡ 必須剛好歸零才算獲勝！
+        1️⃣ 點擊鎖定垂直位置，再點擊鎖定水平位置<br>
+        ⚡ 必須剛好將分數歸零才算獲勝！<br>
+        🌟 <b>頂尖模式</b>：無風向干擾，但可使用專屬「鏢具」影響戰局。
       </div>
     </div>
 
@@ -290,24 +345,54 @@
       GAME_END: 'gameEnd'
     };
 
+    const ABILITIES = {
+      none: { name: '無裝備', type: 'none', desc: '不使用任何鏢具' },
+      // 消耗型 (2鏢)
+      consume_aim: { name: '【神槍·必中之魔眼】', type: 'consume', desc: '消耗型(2鏢): 分數大於50時，首發必定命中50分，且有50%機率暴擊扣100分。' },
+      consume_curse: { name: '【血契·厄運反轉】', type: 'consume', desc: '消耗型(2鏢): 有效命中紅心(SB/DB)時，對手增加 25 分。' },
+      consume_nobust: { name: '【混沌·法則崩壞】', type: 'consume', desc: '消耗型(2鏢): 無視爆分(BUST)限制，分數小於等於0均可直接勝出。' },
+      consume_opp100: { name: '【災禍·百重厄夜】', type: 'consume', desc: '消耗型(2鏢): 遊戲開局時，直接給予對手增加 100 分。' },
+      consume_self100: { name: '【神恩·百里疾風】', type: 'consume', desc: '消耗型(2鏢): 遊戲開局時，直接將自身扣除 100 分。' },
+      consume_triple: { name: '【魔彈·極限三倍】', type: 'consume', desc: '消耗型(2鏢): 當分數大於60分時，必中3倍區域，但紅心維持50。' },
+      consume_fastaim: { name: '【幻影·神速領域】', type: 'consume', desc: '消耗型(2鏢): 對方瞄準線的移速加快1倍。' },
+      consume_5darts: { name: '【狂暴·連環星隕】', type: 'consume', desc: '消耗型(2鏢): 每回合有25%機率，可擲5鏢。' },
+      // 自動型 (3鏢)
+      auto_erosion: { name: '【虛空·時間侵蝕】', type: 'auto', desc: '自動型(3鏢): 當自身回合開始且分數>100時，自身自動扣 10 分。' },
+      auto_gravity: { name: '【深淵·重力泥沼】', type: 'auto', desc: '自動型(3鏢): 當對手回合開始時，強制對手增加 10 分。' },
+      auto_immortal: { name: '【輪迴·不死鳥之炎】', type: 'auto', desc: '自動型(3鏢): 單回合內即使爆分(BUST)亦不結束回合，可擲滿3鏢。' },
+      auto_opp50: { name: '【惡意·半百枷鎖】', type: 'auto', desc: '自動型(3鏢): 遊戲開局時，直接給予對手增加 50 分。' },
+      auto_self50: { name: '【聖痕·半百神印】', type: 'auto', desc: '自動型(3鏢): 遊戲開局時，直接將自身扣除 50 分。' },
+      auto_double: { name: '【雙極·鏡像反射】', type: 'auto', desc: '自動型(3鏢): 當分數大於120時，必中2倍區域，命中T區時不生效。' },
+      auto_nobull: { name: '【封印·紅心剝奪】', type: 'auto', desc: '自動型(3鏢): 每回合有50%機率令對方紅心區為0分。' },
+      auto_reverse: { name: '【逆轉·因果悖論】', type: 'auto', desc: '自動型(3鏢): 每回合有25%機率，使對手由扣分變加分。' }
+    };
+
     // ==================== Global State ====================
     let canvas, ctx;
     let gameWidth, gameHeight;
     let boardCenterX, boardCenterY, boardRadius;
 
+    let gameCategory = 'normal'; // 'normal' | 'apex'
     let selectedMode = 501;
     let selectedDifficulty = 'amateur';
-    let matchType = 'ai'; // 'ai' | 'multi'
+    let matchType = 'ai'; // 'ai' | 'multi' (online) | 'local'
+
+    let p1Ability = 'none';
+    let p2Ability = 'none';
+    
+    // Dynamic effects stored per round
+    let currentTurnEffects = { extraDarts: 0, zeroBull: false, reverseScore: false, fastAim: false };
 
     let currentState = GameState.START;
 
-    // local vs opponent (AI or human)
     let playerScore = 501;
     let playerDartsLeft = 3;
+    let playerMaxDarts = 3; // Dynamically track maximum darts based on ability buffers
     let playerRoundDarts = [];
 
     let aiScore = 501;
     let aiDartsLeft = 3;
+    let aiMaxDarts = 3;
     let aiRoundDarts = [];
 
     let isPlayerTurn = true;
@@ -340,7 +425,7 @@
     let firebaseApp = null;
     let firebaseDb = null;
     let roomCode = null;
-    let mySeat = null; // 'p1' | 'p2'
+    let mySeat = null; 
     let myNickname = '';
     let joinedAt = 0;
     let roomRef = null;
@@ -350,39 +435,22 @@
     let throwsListenerAttached = false;
     let roomCleanupScheduled = false;
     let lastSeenTurnIndex = null;
-    
-    // Prevent double submission / creation loops
     let isProcessingMulti = false;
-
-    // pending multiplayer hit display
-    let pendingThrowInfo = null; // { score, bust, bySeat, byIsMe }
-
-    // Ghost room cleanup tracking
+    let pendingThrowInfo = null; 
     let disconnectCheckTimeout = null;
-    const DISCONNECT_TIMEOUT_MS = 8000; // 8 seconds to confirm disconnection
+    const DISCONNECT_TIMEOUT_MS = 8000;
 
     // ==================== Utilities ====================
     const $ = (id) => document.getElementById(id);
-
     function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
-
     function safeText(s) { return (s ?? '').toString().slice(0, 32); }
-
     function pad4(n) { return n.toString().padStart(4, '0'); }
+    function once(ref) { return new Promise((res, rej) => { ref.once('value', snap => res(snap), err => rej(err)); }); }
 
-    function once(ref) {
-      return new Promise((resolve, reject) => {
-        ref.once('value', (snap) => resolve(snap), (err) => reject(err));
-      });
-    }
-
-    function delay(ms) { return new Promise(res => setTimeout(res, ms)); }
-
-    function randomWind() {
-      return {
-        directionIndex: Math.floor(Math.random() * 4),
-        speed: Math.floor(Math.random() * 6)
-      };
+    function getDartsPerRound(abilityKey) {
+        if (gameCategory === 'normal') return 3;
+        if (ABILITIES[abilityKey] && ABILITIES[abilityKey].type === 'consume') return 2;
+        return 3;
     }
 
     function setStatus(el, msg, type) {
@@ -403,7 +471,16 @@
       canvas.addEventListener('click', handleInput);
       canvas.addEventListener('touchstart', handleTouchInput, { passive: false });
 
-      // score mode select
+      // Game Category Select
+      document.querySelectorAll('#categoryButtons .mode-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          document.querySelectorAll('#categoryButtons .mode-btn').forEach(b => b.classList.remove('selected'));
+          e.currentTarget.classList.add('selected');
+          setGameCategory(e.currentTarget.dataset.cat);
+        });
+      });
+
+      // Score Mode Select
       document.querySelectorAll('#scoreModeButtons .mode-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
           document.querySelectorAll('#scoreModeButtons .mode-btn').forEach(b => b.classList.remove('selected'));
@@ -412,16 +489,14 @@
         });
       });
 
-      // match type select
+      // Match Type Select
       document.querySelectorAll('#matchTypeButtons .mode-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
-          document.querySelectorAll('#matchTypeButtons .mode-btn').forEach(b => b.classList.remove('selected'));
-          e.currentTarget.classList.add('selected');
           setMatchType(e.currentTarget.dataset.match);
         });
       });
 
-      // AI difficulty
+      // AI Difficulty
       document.querySelectorAll('.diff-btn[data-diff]').forEach(btn => {
         btn.addEventListener('click', (e) => {
           document.querySelectorAll('.diff-btn[data-diff]').forEach(b => b.classList.remove('selected'));
@@ -430,10 +505,14 @@
         });
       });
 
-      // buttons
-      $('startAiBtn').addEventListener('click', startAIGame);
+      // Ability Descriptions
+      $('p1AbilitySelect').addEventListener('change', updateAbilityDesc);
+      $('p2AbilitySelect').addEventListener('change', updateAbilityDesc);
+
+      // Buttons
+      $('startGameBtn').addEventListener('click', startLocalGame);
       $('restartBtn').addEventListener('click', () => {
-        if (matchType === 'ai') startAIGame();
+        if (matchType === 'ai' || matchType === 'local') startLocalGame();
         else goToHome();
       });
       $('homeBtn').addEventListener('click', goToHome);
@@ -446,22 +525,58 @@
         showStart();
       });
 
-      setMatchType('ai');
-
+      setGameCategory('normal');
+      updateAbilityDesc();
       gameLoop();
     }
 
+    function setGameCategory(cat) {
+        gameCategory = cat;
+        if (cat === 'normal') {
+            $('btnOnline').classList.remove('hidden');
+            $('btnLocal').classList.add('hidden');
+            $('apexOptions').classList.add('hidden');
+            if (matchType === 'local') setMatchType('ai');
+        } else {
+            $('btnOnline').classList.add('hidden');
+            $('btnLocal').classList.remove('hidden');
+            $('apexOptions').classList.remove('hidden');
+            if (matchType === 'multi') setMatchType('ai');
+            updateAbilityDesc();
+        }
+    }
+
     function setMatchType(type) {
-      matchType = type;
-      if (type === 'ai') {
-        $('aiOptions').classList.remove('hidden');
-        $('multiOptions').classList.add('hidden');
-      } else {
-        $('aiOptions').classList.add('hidden');
-        $('multiOptions').classList.remove('hidden');
-        // Run background cleanup of stale/ghost rooms when entering multi mode
-        cleanupStaleRooms();
-      }
+        matchType = type;
+        document.querySelectorAll('#matchTypeButtons .mode-btn').forEach(b => {
+            b.classList.toggle('selected', b.dataset.match === type);
+        });
+        
+        if (type === 'ai') {
+            $('aiOptions').classList.remove('hidden');
+            $('multiOptions').classList.add('hidden');
+            $('offlineStartAction').classList.remove('hidden');
+            $('p2AbilityLabel').textContent = '🤖 對手 (AI)';
+        } else if (type === 'local') {
+            $('aiOptions').classList.add('hidden');
+            $('multiOptions').classList.add('hidden');
+            $('offlineStartAction').classList.remove('hidden');
+            $('p2AbilityLabel').textContent = '🎮 對手 (P2)';
+        } else if (type === 'multi') {
+            $('aiOptions').classList.add('hidden');
+            $('multiOptions').classList.remove('hidden');
+            $('offlineStartAction').classList.add('hidden');
+            cleanupStaleRooms();
+        }
+    }
+
+    function updateAbilityDesc() {
+        if (gameCategory !== 'apex') return;
+        const p1 = $('p1AbilitySelect').value;
+        const p2 = $('p2AbilitySelect').value;
+        let desc = `[P1] ${ABILITIES[p1].name}\n    ${ABILITIES[p1].desc}\n\n`;
+        desc += `[P2] ${ABILITIES[p2].name}\n    ${ABILITIES[p2].desc}`;
+        $('abilityDesc').textContent = desc;
     }
 
     function showStart() {
@@ -474,11 +589,7 @@
     }
 
     function goToHome() {
-      // stop multiplayer
       if (matchType === 'multi') leaveRoom({ endIfPlaying: true, removeRoom: true });
-      else leaveRoom({ endIfPlaying: false });
-
-      // reset UI
       showStart();
     }
 
@@ -501,14 +612,12 @@
           o.frequency.exponentialRampToValueAtTime(100, audioCtx.currentTime + 0.1);
           g.gain.setValueAtTime(0.3, audioCtx.currentTime);
           g.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
-          o.start(audioCtx.currentTime); o.stop(audioCtx.currentTime + 0.1);
-          break;
+          o.start(audioCtx.currentTime); o.stop(audioCtx.currentTime + 0.1); break;
         case 'hit':
           o.frequency.setValueAtTime(400, audioCtx.currentTime);
           g.gain.setValueAtTime(0.2, audioCtx.currentTime);
           g.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.15);
-          o.start(audioCtx.currentTime); o.stop(audioCtx.currentTime + 0.15);
-          break;
+          o.start(audioCtx.currentTime); o.stop(audioCtx.currentTime + 0.15); break;
         case 'bullseye':
           o.type = 'sine';
           o.frequency.setValueAtTime(523, audioCtx.currentTime);
@@ -516,16 +625,14 @@
           o.frequency.setValueAtTime(784, audioCtx.currentTime + 0.2);
           g.gain.setValueAtTime(0.3, audioCtx.currentTime);
           g.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.4);
-          o.start(audioCtx.currentTime); o.stop(audioCtx.currentTime + 0.4);
-          break;
+          o.start(audioCtx.currentTime); o.stop(audioCtx.currentTime + 0.4); break;
         case 'bust':
           o.type = 'sawtooth';
           o.frequency.setValueAtTime(150, audioCtx.currentTime);
           o.frequency.exponentialRampToValueAtTime(50, audioCtx.currentTime + 0.3);
           g.gain.setValueAtTime(0.3, audioCtx.currentTime);
           g.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
-          o.start(audioCtx.currentTime); o.stop(audioCtx.currentTime + 0.3);
-          break;
+          o.start(audioCtx.currentTime); o.stop(audioCtx.currentTime + 0.3); break;
         case 'win': {
           const notes = [523, 659, 784, 1047];
           notes.forEach((freq, i) => {
@@ -535,8 +642,7 @@
             osc.frequency.setValueAtTime(freq, audioCtx.currentTime + i * 0.15);
             gain.gain.setValueAtTime(0.2, audioCtx.currentTime + i * 0.15);
             gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + i * 0.15 + 0.3);
-            osc.start(audioCtx.currentTime + i * 0.15);
-            osc.stop(audioCtx.currentTime + i * 0.15 + 0.3);
+            osc.start(audioCtx.currentTime + i * 0.15); osc.stop(audioCtx.currentTime + i * 0.15 + 0.3);
           });
           break;
         }
@@ -551,7 +657,6 @@
       gameHeight = window.innerHeight;
       canvas.width = gameWidth;
       canvas.height = gameHeight;
-
       const minDim = Math.min(gameWidth, gameHeight);
       boardRadius = minDim * 0.32;
       boardCenterX = gameWidth / 2;
@@ -560,7 +665,7 @@
     }
 
     // ==================== Input ====================
-    function handleTouchInput(e) { e.preventDefault(); handleInput(e); }
+    function handleTouchInput(e) { e.preventDefault(); handleInput(); }
 
     function handleInput() {
       if (matchType === 'multi' && currentState === GameState.WAITING_OPPONENT) return;
@@ -571,8 +676,8 @@
         vibrate(20);
       } else if (currentState === GameState.PLAYER_AIMING_HORIZONTAL) {
         lockedHorizontal = horizontalIndicator;
-        if (matchType === 'ai') {
-          throwDartLocal(true);
+        if (matchType === 'ai' || matchType === 'local') {
+          throwDartLocal(isPlayerTurn);
         } else {
           throwDartMultiplayer();
         }
@@ -581,6 +686,7 @@
     }
 
     // ==================== Wind ====================
+    function randomWind() { return { directionIndex: Math.floor(Math.random() * 4), speed: Math.floor(Math.random() * 6) }; }
     function updateWindLocalRandom() {
       const w = randomWind();
       currentWind.directionIndex = w.directionIndex;
@@ -588,7 +694,6 @@
       currentWind.index = (currentWind.index || 0) + 1;
       updateWindUI();
     }
-
     function updateWindFromRoom(w) {
       if (!w) return;
       currentWind.directionIndex = w.directionIndex ?? 0;
@@ -596,35 +701,30 @@
       currentWind.index = w.index ?? currentWind.index;
       updateWindUI();
     }
-
     function updateWindUI() {
+      if (gameCategory === 'apex') {
+          $('windInfo').style.display = 'none';
+          return;
+      }
+      $('windInfo').style.display = 'block';
       const arrowEl = $('windDirectionArrow');
       const speedEl = $('windSpeedValue');
       const unitEl = $('windUnit');
       speedEl.style.color = 'white';
       if (currentWind.speed === 0) {
-        arrowEl.style.display = 'none';
-        unitEl.style.display = 'none';
-        speedEl.textContent = '無風';
+        arrowEl.style.display = 'none'; unitEl.style.display = 'none'; speedEl.textContent = '無風';
       } else {
         const dir = WIND_DIRECTIONS[currentWind.directionIndex];
-        arrowEl.style.display = 'inline';
-        unitEl.style.display = 'inline';
-        arrowEl.textContent = dir.symbol;
-        speedEl.textContent = currentWind.speed;
+        arrowEl.style.display = 'inline'; unitEl.style.display = 'inline';
+        arrowEl.textContent = dir.symbol; speedEl.textContent = currentWind.speed;
       }
     }
-
     function applyWindEffectPx(x, y) {
       if (currentWind.speed === 0) return { x, y };
       const dir = WIND_DIRECTIONS[currentWind.directionIndex];
       const windFactor = boardRadius * 0.04;
-      return {
-        x: x + dir.x * currentWind.speed * windFactor,
-        y: y + dir.y * currentWind.speed * windFactor
-      };
+      return { x: x + dir.x * currentWind.speed * windFactor, y: y + dir.y * currentWind.speed * windFactor };
     }
-
     function applyWindEffectNormalized(nx, ny) {
       if (currentWind.speed === 0) return { nx, ny };
       const dir = WIND_DIRECTIONS[currentWind.directionIndex];
@@ -637,80 +737,106 @@
       currentHighlightTarget = null;
       if (score > 170 || score < 2) return '';
       const checkouts = {
-        170: 'T20 T20 BULL', 167: 'T20 T19 BULL', 164: 'T20 T18 BULL',
-        161: 'T20 T17 BULL', 160: 'T20 T20 D20', 158: 'T20 T20 D19',
-        156: 'T20 T20 D18', 150: 'T20 T18 D18', 140: 'T20 T20 D10',
-        130: 'T20 T18 D8', 121: 'T20 T11 D14', 120: 'T20 20 D20',
-        110: 'T20 10 D20', 100: 'T20 20 D10', 90: 'T18 D18',
-        80: 'T20 D10', 70: 'T18 D8', 60: '20 D20',
-        50: 'BULL', 40: 'D20', 32: 'D16', 20: 'D10', 10: 'D5', 4: 'D2', 2: 'D1'
+        170: 'T20 T20 BULL', 167: 'T20 T19 BULL', 164: 'T20 T18 BULL', 161: 'T20 T17 BULL', 160: 'T20 T20 D20',
+        158: 'T20 T20 D19', 156: 'T20 T20 D18', 150: 'T20 T18 D18', 140: 'T20 T20 D10', 130: 'T20 T18 D8',
+        121: 'T20 T11 D14', 120: 'T20 20 D20', 110: 'T20 10 D20', 100: 'T20 20 D10', 90: 'T18 D18',
+        80: 'T20 D10', 70: 'T18 D8', 60: '20 D20', 50: 'BULL', 40: 'D20', 32: 'D16', 20: 'D10', 10: 'D5', 4: 'D2', 2: 'D1'
       };
       let suggestion = '';
       if (checkouts[score]) suggestion = checkouts[score];
       else if (score <= 40 && score % 2 === 0) suggestion = 'D' + (score / 2);
       else if (score <= 40) suggestion = '1 D' + ((score - 1) / 2);
       if (suggestion) {
-        parseAndSetHighlight(suggestion);
-        return '推薦: ' + suggestion;
+        parseAndSetHighlight(suggestion); return '推薦: ' + suggestion;
       }
       return '';
     }
-
     function parseAndSetHighlight(suggestion) {
       const firstTarget = suggestion.split(' ')[0];
-      if (firstTarget === 'BULL') {
-        currentHighlightTarget = { type: 'bull' };
-        return;
-      }
-      let type = 'single';
-      let valueStr = firstTarget;
+      if (firstTarget === 'BULL') { currentHighlightTarget = { type: 'bull' }; return; }
+      let type = 'single'; let valueStr = firstTarget;
       if (firstTarget.startsWith('T')) { type = 'triple'; valueStr = firstTarget.substring(1); }
       else if (firstTarget.startsWith('D')) { type = 'double'; valueStr = firstTarget.substring(1); }
-      const val = parseInt(valueStr);
-      const idx = DART_SEGMENTS.indexOf(val);
+      const val = parseInt(valueStr); const idx = DART_SEGMENTS.indexOf(val);
       if (idx !== -1) currentHighlightTarget = { type, index: idx };
     }
 
     // ==================== Scoring ====================
-    function calculateScoreNormalized(nx, ny) {
+    function calculateScoreDetailsNormalized(nx, ny) {
       const distance = Math.sqrt(nx * nx + ny * ny);
+      const bullseyeRadius = 0.05; const outerBullRadius = 0.11;
+      const tripleOuter = 0.54; const tripleInner = 0.48;
+      const doubleOuter = 1.02; const doubleInner = 0.88;
 
-      const bullseyeRadius = 0.05;
-      const outerBullRadius = 0.11;
-
-      const tripleOuter = 0.54;
-      const tripleInner = 0.48;
-
-      const doubleOuter = 1.02;
-      const doubleInner = 0.88;
-
-      if (distance > doubleOuter) return 0;
-      if (distance <= bullseyeRadius) return 50;
-      if (distance <= outerBullRadius) return 25;
+      if (distance > doubleOuter) return { score: 0, type: 'miss', base: 0 };
+      if (distance <= bullseyeRadius) return { score: 50, type: 'bull', base: 50 };
+      if (distance <= outerBullRadius) return { score: 25, type: 'outerbull', base: 25 };
 
       let angle = Math.atan2(nx, -ny);
       if (angle < 0) angle += Math.PI * 2;
-
       const segmentAngle = Math.PI / 10;
       const adjustedAngle = angle + segmentAngle / 2;
       const segmentIndex = Math.floor(adjustedAngle / segmentAngle) % 20;
       const baseScore = DART_SEGMENTS[segmentIndex];
 
-      if (distance >= tripleInner && distance <= tripleOuter) return baseScore * 3;
-      if (distance >= doubleInner && distance <= doubleOuter) return baseScore * 2;
-      return baseScore;
+      if (distance >= tripleInner && distance <= tripleOuter) return { score: baseScore * 3, type: 'triple', base: baseScore };
+      if (distance >= doubleInner && distance <= doubleOuter) return { score: baseScore * 2, type: 'double', base: baseScore };
+      return { score: baseScore, type: 'single', base: baseScore };
+    }
+    function calculateScoreNormalized(nx, ny) {
+      return calculateScoreDetailsNormalized(nx, ny).score;
+    }
+    function calculateScoreDetailsPx(x, y) {
+      return calculateScoreDetailsNormalized((x - boardCenterX) / boardRadius, (y - boardCenterY) / boardRadius);
     }
 
-    function calculateScorePx(x, y) {
-      const nx = (x - boardCenterX) / boardRadius;
-      const ny = (y - boardCenterY) / boardRadius;
-      return calculateScoreNormalized(nx, ny);
+    // ==================== Abilities (Apex Mode) ====================
+    function applyTurnStartAbilities(isP1) {
+        currentTurnEffects = { extraDarts: 0, zeroBull: false, reverseScore: false, fastAim: false };
+        if (gameCategory !== 'apex') return '';
+        let msg = [];
+        const myAbility = isP1 ? p1Ability : p2Ability;
+        const oppAbility = isP1 ? p2Ability : p1Ability;
+
+        // --- Opponent's passive abilities affecting current player ---
+        if (oppAbility === 'consume_fastaim') {
+            currentTurnEffects.fastAim = true;
+        }
+        if (oppAbility === 'auto_nobull') {
+            if (Math.random() < 0.5) {
+                currentTurnEffects.zeroBull = true;
+                msg.push("封印：紅心失效");
+            }
+        }
+        if (oppAbility === 'auto_reverse') {
+            if (Math.random() < 0.25) {
+                currentTurnEffects.reverseScore = true;
+                msg.push("逆轉：得分反轉");
+            }
+        }
+        if (oppAbility === 'auto_gravity') {
+            if (isP1) { playerScore += 10; msg.push("重力泥沼：+10分"); }
+            if (!isP1) { aiScore += 10; msg.push("重力泥沼：+10分"); }
+        }
+
+        // --- Current player's passive abilities affecting self ---
+        if (myAbility === 'consume_5darts') {
+            if (Math.random() < 0.25) {
+                currentTurnEffects.extraDarts = 3; // 2 base + 3 = 5 darts
+                msg.push("爆發：獲得 5 鏢");
+            }
+        }
+        if (myAbility === 'auto_erosion') {
+            if (isP1 && playerScore > 100) { playerScore -= 10; msg.push("時間侵蝕：-10分"); }
+            if (!isP1 && aiScore > 100) { aiScore -= 10; msg.push("時間侵蝕：-10分"); }
+        }
+        
+        return msg.join(' | ');
     }
 
-    // ==================== Game Flow (AI) ====================
-    function startAIGame() {
+    // ==================== Game Flow (Local / AI) ====================
+    function startLocalGame() {
       leaveRoom({ endIfPlaying: false });
-      matchType = 'ai';
 
       $('startScreen').classList.add('hidden');
       $('lobbyScreen').classList.add('hidden');
@@ -718,67 +844,121 @@
       $('backBtn').classList.add('show');
       $('cleanupHint').textContent = '';
 
-      $('playerName').textContent = '👤 你';
-      $('opponentName').textContent = '🤖 AI';
-      $('aiDiffWrap').style.display = 'inline';
-      $('aiDiffLabel').textContent = AI_DIFFICULTY[selectedDifficulty].name;
-      $('playerFinalLabel').textContent = '你';
-      $('aiFinalLabel').textContent = 'AI';
+      const p2Name = matchType === 'local' ? '🎮 P2' : '🤖 AI';
+      $('playerName').textContent = matchType === 'local' ? '🎮 P1' : '👤 你';
+      $('opponentName').textContent = p2Name;
+      
+      if (matchType === 'ai') {
+          $('aiDiffWrap').style.display = 'inline';
+          $('aiDiffLabel').textContent = AI_DIFFICULTY[selectedDifficulty].name;
+      } else {
+          $('aiDiffWrap').style.display = 'none';
+      }
+
+      $('playerFinalLabel').textContent = matchType === 'local' ? 'P1' : '你';
+      $('aiFinalLabel').textContent = matchType === 'local' ? 'P2' : 'AI';
 
       playerScore = selectedMode;
       aiScore = selectedMode;
-      playerDartsLeft = 3;
-      aiDartsLeft = 3;
+      isPlayerTurn = true;
+      currentLeg = 1;
+      
+      // Setup Abilities & Start of game buffs
+      if (gameCategory === 'apex') {
+          p1Ability = $('p1AbilitySelect').value;
+          p2Ability = $('p2AbilitySelect').value;
+
+          // P1 Abilities (Start of game)
+          if (p1Ability === 'consume_opp100') aiScore += 100;
+          if (p1Ability === 'consume_self100') playerScore -= 100;
+          if (p1Ability === 'auto_opp50') aiScore += 50;
+          if (p1Ability === 'auto_self50') playerScore -= 50;
+
+          // P2 Abilities (Start of game)
+          if (p2Ability === 'consume_opp100') playerScore += 100;
+          if (p2Ability === 'consume_self100') aiScore -= 100;
+          if (p2Ability === 'auto_opp50') playerScore += 50;
+          if (p2Ability === 'auto_self50') aiScore -= 50;
+      } else {
+          p1Ability = 'none';
+          p2Ability = 'none';
+          updateWindLocalRandom();
+      }
+
+      updateWindUI(); // Hides/Shows based on category
+
+      playerMaxDarts = getDartsPerRound(p1Ability);
+      aiMaxDarts = getDartsPerRound(p2Ability);
+      playerDartsLeft = playerMaxDarts;
+      aiDartsLeft = aiMaxDarts;
       playerRoundDarts = [];
       aiRoundDarts = [];
       thrownDarts = [];
-      isPlayerTurn = true;
-      currentLeg = 1;
-
-      updateWindLocalRandom();
 
       updateUI();
       updateScoreHistory();
 
       if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
 
-      showTurnIndicator('你的回合', '風向已更新');
       startPlayerTurn();
     }
 
     function startPlayerTurn() {
       isPlayerTurn = true;
-      playerDartsLeft = 3;
+      const abilityMsg = applyTurnStartAbilities(true);
+
+      playerMaxDarts = getDartsPerRound(p1Ability) + currentTurnEffects.extraDarts;
+      playerDartsLeft = playerMaxDarts;
       playerRoundDarts = [];
       thrownDarts = [];
       currentDartColor = '#3498db';
+      
       updateUI();
+      
+      let subMsg = '';
+      if (gameCategory === 'normal') subMsg = '風向已更新';
+      if (abilityMsg) subMsg = (subMsg ? subMsg + '\n' : '') + abilityMsg;
+      
+      showTurnIndicator('你的回合', subMsg);
       startAiming();
     }
 
-    function startAITurn() {
+    function startOpponentTurn() {
       isPlayerTurn = false;
-      aiDartsLeft = 3;
+      const abilityMsg = applyTurnStartAbilities(false);
+
+      aiMaxDarts = getDartsPerRound(p2Ability) + currentTurnEffects.extraDarts;
+      aiDartsLeft = aiMaxDarts;
       aiRoundDarts = [];
       thrownDarts = [];
       currentDartColor = '#e74c3c';
       currentHighlightTarget = null;
+      
       updateUI();
-      showTurnIndicator('AI 回合', '');
-      currentState = GameState.AI_THINKING;
-      updatePhaseIndicator('AI 思考中...');
-      setTimeout(aiThink, 300);
+      
+      let subMsg = abilityMsg;
+      showTurnIndicator(matchType === 'local' ? 'P2 回合' : 'AI 回合', subMsg);
+      
+      if (matchType === 'ai') {
+          currentState = GameState.AI_THINKING;
+          updatePhaseIndicator('AI 思考中...');
+          setTimeout(aiThink, 300);
+      } else {
+          startAiming();
+      }
     }
 
     function startAiming() {
       currentState = GameState.PLAYER_AIMING_VERTICAL;
-      verticalIndicator = 0;
-      horizontalIndicator = 0;
-      verticalDirection = 1;
-      horizontalDirection = 1;
+      verticalIndicator = 0; horizontalIndicator = 0;
+      verticalDirection = 1; horizontalDirection = 1;
       updatePhaseIndicator('點擊鎖定垂直位置 ↕');
-      $('playerPanel').classList.add('active');
-      $('aiPanel').classList.remove('active');
+      
+      if (isPlayerTurn) {
+          $('playerPanel').classList.add('active'); $('aiPanel').classList.remove('active');
+      } else {
+          $('playerPanel').classList.remove('active'); $('aiPanel').classList.add('active');
+      }
     }
 
     function throwDartLocal(isPlayer) {
@@ -788,7 +968,25 @@
       let aimX = boardCenterX + lockedHorizontal * boardRadius;
       let aimY = boardCenterY + lockedVertical * boardRadius;
 
-      let finalPos = applyWindEffectPx(aimX, aimY);
+      if (gameCategory === 'apex') {
+          const ability = isPlayer ? p1Ability : p2Ability;
+          const dartsLeft = isPlayer ? playerDartsLeft : aiDartsLeft;
+          const maxD = isPlayer ? playerMaxDarts : aiMaxDarts;
+          const dartsThrown = maxD - dartsLeft;
+          const currentScore = isPlayer ? playerScore : aiScore;
+
+          // 【神槍·必中之魔眼】 Force dead center visuals
+          if (ability === 'consume_aim' && dartsThrown === 0 && currentScore > 50) {
+              aimX = boardCenterX;
+              aimY = boardCenterY;
+          }
+      }
+
+      let finalPos = {x: aimX, y: aimY};
+      if (gameCategory === 'normal') {
+          finalPos = applyWindEffectPx(aimX, aimY);
+      }
+      
       targetX = finalPos.x;
       targetY = finalPos.y;
 
@@ -797,21 +995,177 @@
 
       playSound('throw');
       updatePhaseIndicator('');
+      pendingThrowInfo = { score: null, bust: false, bySeat: isPlayer ? 'me' : 'opp', byIsMe: isPlayer };
+    }
 
-      pendingThrowInfo = { score: null, bust: false, bySeat: isPlayer ? 'me' : 'ai', byIsMe: isPlayer };
+    function processHitLocal(isP1, hitDetails) {
+        let currentScore = isP1 ? playerScore : aiScore;
+        let roundDarts = isP1 ? playerRoundDarts : aiRoundDarts;
+        const ability = isP1 ? p1Ability : p2Ability;
+        
+        const maxD = isP1 ? playerMaxDarts : aiMaxDarts;
+        const dartsLeft = isP1 ? playerDartsLeft : aiDartsLeft;
+        const dartsThrown = maxD - dartsLeft;
+
+        let score = hitDetails.score;
+        let type = hitDetails.type;
+        let base = hitDetails.base;
+        let extraMsg = '';
+
+        // 【神槍·必中之魔眼】 override score logic
+        if (gameCategory === 'apex' && ability === 'consume_aim' && dartsThrown === 0 && currentScore > 50) {
+            if (Math.random() < 0.5) {
+                score = 100;
+                extraMsg = '\n暴擊！扣除 100 分！';
+            } else {
+                score = 50;
+                extraMsg = '\n必中 50 分！';
+            }
+            type = 'bull';
+            base = 50;
+        }
+
+        // 1a. 【魔彈·極限三倍】
+        if (gameCategory === 'apex' && ability === 'consume_triple' && currentScore > 60) {
+            if (type === 'single' || type === 'double') {
+                score = base * 3;
+                extraMsg = '\n強制3倍！';
+            }
+        }
+
+        // 2a. 【雙極·鏡像反射】
+        if (gameCategory === 'apex' && ability === 'auto_double' && currentScore > 120) {
+            if (type === 'single') {
+                score = base * 2;
+                extraMsg = '\n強制2倍！';
+            }
+        }
+
+        // 2b. 【封印·紅心剝奪】 (From turn start RNG)
+        if (currentTurnEffects.zeroBull && (type === 'bull' || type === 'outerbull')) {
+            score = 0;
+            extraMsg = '\n紅心失效！';
+        }
+
+        let newScore;
+        let isBust = false;
+        let isWin = false;
+
+        // 2c. 【逆轉·因果悖論】 (From turn start RNG)
+        if (currentTurnEffects.reverseScore) {
+            newScore = currentScore + score;
+            if (score > 0) {
+                extraMsg += '\n得分反轉！';
+            }
+            isBust = false;
+            isWin = false;
+        } else {
+            newScore = currentScore - score;
+            isBust = (newScore < 0 || newScore === 1);
+            isWin = (newScore === 0);
+        }
+
+        // 【混沌·法則崩壞】 ignore bust constraint
+        if (gameCategory === 'apex' && ability === 'consume_nobust' && !currentTurnEffects.reverseScore) {
+            isBust = false;
+            if (newScore <= 0) isWin = true;
+        }
+
+        // Handle BUST scenarios
+        if (isBust) {
+            // 【輪迴·不死鳥之炎】 continuous throw on bust
+            if (gameCategory === 'apex' && ability === 'auto_immortal') {
+                playSound('bust');
+                vibrate([100, 50]);
+                showHitScore('爆分!\n<span style="font-size:0.5em;color:#e056fd;">(不死鳥之炎延續)</span>', '#e74c3c');
+                if (isP1) { playerDartsLeft--; playerRoundDarts.push('BUST'); }
+                else { aiDartsLeft--; aiRoundDarts.push('BUST'); }
+                updateUI();
+                updateScoreHistory();
+                
+                currentState = GameState.SHOWING_SCORE;
+                setTimeout(() => {
+                    hideHitScore();
+                    if ((isP1 ? playerDartsLeft : aiDartsLeft) > 0) {
+                        if (isP1 || matchType === 'local') startAiming();
+                        else aiThink();
+                    } else {
+                        if (isP1) endPlayerTurnLocal();
+                        else endOpponentTurnLocal();
+                    }
+                }, 1200);
+                return;
+            }
+
+            // Normal Bust
+            playSound('bust');
+            vibrate([100, 50, 100]);
+            showHitScore('爆分!', '#e74c3c');
+            currentState = GameState.SHOWING_SCORE;
+            setTimeout(() => { 
+                hideHitScore(); 
+                if(isP1) endPlayerTurnLocal(); else endOpponentTurnLocal(); 
+            }, 1200);
+            return;
+        }
+
+        // Apply hit
+        if (isP1) { playerScore = newScore; playerDartsLeft--; }
+        else { aiScore = newScore; aiDartsLeft--; }
+        
+        roundDarts.push(score);
+
+        // 【血契·厄運反轉】
+        if (gameCategory === 'apex' && ability === 'consume_curse' && (score === 25 || score === 50)) {
+            if (isP1) { aiScore += 25; extraMsg += '\n對手+25!'; }
+            else { playerScore += 25; extraMsg += '\n對手+25!'; }
+        }
+
+        // Formatting Hit String
+        let scoreDisplay = score;
+        if (currentTurnEffects.reverseScore && score !== 0) scoreDisplay = `-${score}`;
+        else if (!currentTurnEffects.reverseScore && score !== 0) scoreDisplay = `+${score}`;
+        else scoreDisplay = 'MISS!';
+
+        const hitStr = scoreDisplay + extraMsg;
+        showHitScore(hitStr, score >= 50 ? '#ff6b6b' : (isP1 ? '#ffd700' : '#4ecdc4'));
+        
+        if (score >= 50) { playSound('bullseye'); vibrate([100, 50, 100]); }
+        else { playSound('hit'); vibrate(30); }
+
+        updateUI();
+        updateScoreHistory();
+
+        if (isWin) {
+            currentState = GameState.SHOWING_SCORE;
+            setTimeout(() => { hideHitScore(); endGameCommon(isP1, matchType==='local'); }, 1100);
+            return;
+        }
+
+        currentState = GameState.SHOWING_SCORE;
+        setTimeout(() => {
+            hideHitScore();
+            if ((isP1 ? playerDartsLeft : aiDartsLeft) > 0) {
+                if (isP1 || matchType === 'local') startAiming();
+                else aiThink();
+            } else {
+                if (isP1) endPlayerTurnLocal();
+                else endOpponentTurnLocal();
+            }
+        }, 900);
     }
 
     function dartHit() {
       dartFlying = false;
       thrownDarts.push({ x: targetX, y: targetY, color: currentDartColor });
 
-      if (matchType === 'ai') {
-        const score = calculateScorePx(targetX, targetY);
-        if (isPlayerTurn) handlePlayerDartAI(score);
-        else handleAIDartAI(score);
+      if (matchType === 'ai' || matchType === 'local') {
+        const hitDetails = calculateScoreDetailsPx(targetX, targetY);
+        processHitLocal(isPlayerTurn, hitDetails);
         return;
       }
 
+      // Multiplayer Hit Logic (Normal mode only)
       const info = pendingThrowInfo;
       if (!info) return;
 
@@ -823,8 +1177,7 @@
         const txt = score === 0 ? 'MISS!' : `+${score}`;
         const color = score >= 50 ? '#ff6b6b' : (info.byIsMe ? '#ffd700' : '#4ecdc4');
         showHitScore(txt, color);
-        if (score >= 50) playSound('bullseye');
-        else playSound('hit');
+        if (score >= 50) playSound('bullseye'); else playSound('hit');
       }
 
       currentState = GameState.SHOWING_SCORE;
@@ -840,86 +1193,14 @@
       }, 900);
     }
 
-    function handlePlayerDartAI(score) {
-      const newScore = playerScore - score;
-      if (newScore < 0 || newScore === 1) {
-        playSound('bust');
-        vibrate([100, 50, 100]);
-        showHitScore('爆分!', '#e74c3c');
-        currentState = GameState.SHOWING_SCORE;
-        setTimeout(() => { hideHitScore(); endPlayerTurnAI(true); }, 1200);
-        return;
-      }
-
-      playerScore = newScore;
-      playerRoundDarts.push(score);
-      playerDartsLeft--;
-
-      showHitScore(score === 0 ? 'MISS!' : `+${score}`, score >= 50 ? '#ff6b6b' : '#ffd700');
-      if (score >= 50) { playSound('bullseye'); vibrate([100, 50, 100]); }
-      else { playSound('hit'); vibrate(30); }
-
+    function endPlayerTurnLocal() {
       updateUI();
-      updateScoreHistory();
-
-      if (playerScore === 0) {
-        currentState = GameState.SHOWING_SCORE;
-        setTimeout(() => { hideHitScore(); endGameAI(true); }, 1100);
-        return;
-      }
-
-      currentState = GameState.SHOWING_SCORE;
-      setTimeout(() => {
-        hideHitScore();
-        if (playerDartsLeft > 0) startAiming();
-        else endPlayerTurnAI(false);
-      }, 900);
+      startOpponentTurn();
     }
 
-    function handleAIDartAI(score) {
-      const newScore = aiScore - score;
-      if (newScore < 0 || newScore === 1) {
-        playSound('bust');
-        showHitScore('AI 爆分!', '#e74c3c');
-        currentState = GameState.SHOWING_SCORE;
-        setTimeout(() => { hideHitScore(); endAITurnAI(true); }, 1200);
-        return;
-      }
-
-      aiScore = newScore;
-      aiRoundDarts.push(score);
-      aiDartsLeft--;
-
-      showHitScore(score === 0 ? 'MISS!' : `+${score}`, score >= 50 ? '#ff6b6b' : '#4ecdc4');
-      if (score >= 50) playSound('bullseye');
-      else playSound('hit');
-
+    function endOpponentTurnLocal() {
       updateUI();
-      updateScoreHistory();
-
-      if (aiScore === 0) {
-        currentState = GameState.SHOWING_SCORE;
-        setTimeout(() => { hideHitScore(); endGameAI(false); }, 1100);
-        return;
-      }
-
-      currentState = GameState.SHOWING_SCORE;
-      setTimeout(() => {
-        hideHitScore();
-        if (aiDartsLeft > 0) aiThink();
-        else endAITurnAI(false);
-      }, 900);
-    }
-
-    function endPlayerTurnAI() {
-      updateUI();
-      startAITurn();
-    }
-
-    function endAITurnAI() {
-      updateUI();
-      updateWindLocalRandom();
-      showTurnIndicator('你的回合', '風向已更新');
+      if (gameCategory === 'normal') updateWindLocalRandom();
       setTimeout(startPlayerTurn, 700);
     }
 
@@ -936,12 +1217,17 @@
         if (selectedDifficulty === 'amateur') {
           idealTarget = { x: (Math.random() - 0.5) * 1.5, y: (Math.random() - 0.5) * 1.5 };
         } else {
-          if (aiScore > 60) idealTarget = { x: 0, y: 0 };
-          else idealTarget = aiFindCheckoutTarget(aiScore);
+          // 【混沌·法則崩壞】 aggressive target for AI Pro
+          if (gameCategory === 'apex' && p2Ability === 'consume_nobust' && aiScore <= 60) {
+            idealTarget = getSegmentCoordinates(20, 'triple');
+          } else {
+            if (aiScore > 60) idealTarget = { x: 0, y: 0 };
+            else idealTarget = aiFindCheckoutTarget(aiScore);
+          }
         }
 
         let windCompX = 0, windCompY = 0;
-        if (selectedDifficulty === 'pro') {
+        if (selectedDifficulty === 'pro' && gameCategory === 'normal') {
           const dir = WIND_DIRECTIONS[currentWind.directionIndex];
           const offset = 0.04 * currentWind.speed;
           windCompX = -(dir.x * offset);
@@ -983,6 +1269,101 @@
       return { x: Math.cos(angle) * r, y: Math.sin(angle) * r };
     }
 
+    // ==================== UI Update ====================
+    function showHitScore(text, color) {
+      const el = $('hitScore');
+      el.innerHTML = text.replace(/\n/g, '<br><span style="font-size:0.5em; color:#e056fd;">') + (text.includes('\n') ? '</span>' : '');
+      el.style.opacity = '1';
+      el.style.color = color || '#ffd700';
+    }
+    function hideHitScore() { $('hitScore').style.opacity = '0'; }
+
+    function updatePhaseIndicator(text) {
+      const el = $('phaseIndicator');
+      el.textContent = text;
+      el.style.display = text ? 'block' : 'none';
+    }
+
+    function showTurnIndicator(mainText, subText) {
+      const el = $('turnIndicator');
+      el.innerHTML = `${mainText}<div class="sub-text">${subText || ''}</div>`;
+      el.classList.add('show');
+      setTimeout(() => el.classList.remove('show'), 1500);
+    }
+
+    function updateUI() {
+      $('playerScore').textContent = playerScore;
+      $('aiScore').textContent = aiScore;
+      $('gameMode').textContent = selectedMode;
+
+      const hintEl = $('checkoutHint');
+      if (playerScore <= 170 && isPlayerTurn) hintEl.textContent = getCheckoutHint(playerScore);
+      else { hintEl.textContent = ''; currentHighlightTarget = null; }
+
+      // Ability Tags
+      if (gameCategory === 'apex') {
+          $('p1AbilityTag').textContent = ABILITIES[p1Ability].name;
+          $('p1AbilityTag').style.display = p1Ability === 'none' ? 'none' : 'inline-block';
+          $('p2AbilityTag').textContent = ABILITIES[p2Ability].name;
+          $('p2AbilityTag').style.display = p2Ability === 'none' ? 'none' : 'inline-block';
+      } else {
+          $('p1AbilityTag').style.display = 'none';
+          $('p2AbilityTag').style.display = 'none';
+      }
+
+      // Darts UI
+      let pDisp = '';
+      for (let i = 0; i < playerMaxDarts; i++) pDisp += i < playerDartsLeft ? '🎯' : '⚫';
+      $('playerDarts').textContent = pDisp;
+
+      let aDisp = '';
+      for (let i = 0; i < aiMaxDarts; i++) aDisp += i < aiDartsLeft ? '🎯' : '⚫';
+      $('aiDarts').textContent = aDisp;
+    }
+
+    function updateScoreHistory() {
+      const container = $('scoreHistory');
+      const darts = isPlayerTurn ? playerRoundDarts : aiRoundDarts;
+      container.innerHTML = (darts || []).map(s => {
+        const t = (typeof s === 'number') ? s : (s || '');
+        return `<div class="history-dart">${t}</div>`;
+      }).join('');
+    }
+
+    function endGameCommon(playerWon, isMultiplayer) {
+      currentState = GameState.GAME_END;
+      playSound('win');
+      vibrate([200, 100, 200, 100, 200]);
+
+      $('backBtn').classList.remove('show');
+
+      const oppText = matchType === 'local' ? 'P2' : (isMultiplayer ? '對手' : 'AI');
+      const winText = matchType === 'local' ? 'P1' : '你';
+
+      $('endTitle').textContent = playerWon ? '🎉 恭喜獲勝！' : `😢 ${oppText} 獲勝`;
+      $('winnerText').textContent = playerWon ? `${winText}成功勝出了！` : `${oppText}成功勝出了！`;
+      $('winnerText').style.color = playerWon ? '#2ecc71' : '#e74c3c';
+
+      $('playerFinalValue').textContent = playerScore;
+      $('aiFinalValue').textContent = aiScore;
+
+      $('playerFinal').classList.toggle('winner-score', playerWon);
+      $('aiFinal').classList.toggle('winner-score', !playerWon);
+
+      $('endScreen').classList.remove('hidden');
+      $('startScreen').classList.add('hidden');
+      $('lobbyScreen').classList.add('hidden');
+
+      if (isMultiplayer && matchType === 'multi') {
+        scheduleRoomCleanup();
+        $('roomCodeInput').value = '';
+        $('nicknameInput').value = '';
+      } else {
+        $('cleanupHint').textContent = '';
+      }
+    }
+
+
     // ==================== Multiplayer (Firebase RTDB) ====================
     const firebaseConfig = {
       apiKey: "AIzaSyACjxWEkXkPUBv6xiWtVWZdsFvxeKURJ1Q",
@@ -996,15 +1377,6 @@
 
     function ensureFirebase() {
       if (firebaseDb) return true;
-
-      const bad = !firebaseConfig || !firebaseConfig.apiKey || !firebaseConfig.databaseURL ||
-        firebaseConfig.apiKey.includes('你的_') || firebaseConfig.databaseURL.includes('你的_');
-
-      if (bad) {
-        setStatus($('multiStatus'), '請先在程式碼中填好 firebaseConfig（至少 apiKey + databaseURL），再使用雙人對決。', 'error');
-        return false;
-      }
-
       try {
         firebaseApp = firebase.initializeApp(firebaseConfig, 'dartApp_' + Math.random().toString(16).slice(2));
         firebaseDb = firebase.database(firebaseApp);
@@ -1021,1303 +1393,476 @@
       }
     }
 
-    function validateNickname(nick) {
-      const n = safeText(nick).trim();
-      if (!n) return null;
-      if (n.length < 1 || n.length > 16) return null;
-      return n;
-    }
-
-    function validateRoomCode(code) {
-      const c = (code || '').trim();
-      if (!/^\d{4}$/.test(c)) return null;
-      return c;
-    }
-
-    // FIX: Reset all multiplayer state properly before any new operation
     function resetMultiplayerState() {
       detachRoomListeners();
-      clearDisconnectCheck();
-      roomCode = null;
-      mySeat = null;
-      myNickname = '';
-      roomCleanupScheduled = false;
-      lastSeenTurnIndex = null;
-      processedThrowKeys = new Set();
-      pendingThrowInfo = null;
+      if(disconnectCheckTimeout) { clearTimeout(disconnectCheckTimeout); disconnectCheckTimeout = null; }
+      roomCode = null; mySeat = null; myNickname = '';
+      roomCleanupScheduled = false; lastSeenTurnIndex = null;
+      processedThrowKeys = new Set(); pendingThrowInfo = null;
     }
 
-    // ==================== Ghost Room Cleanup ====================
-    function clearDisconnectCheck() {
-      if (disconnectCheckTimeout) {
-        clearTimeout(disconnectCheckTimeout);
-        disconnectCheckTimeout = null;
-      }
-    }
-
-    // Check if opponent is disconnected and clean up ghost room
     function checkAndCleanupDisconnectedPlayer(data) {
       if (!data || !roomRef || !mySeat) return;
-      
       const oppSeat = (mySeat === 'p1') ? 'p2' : 'p1';
       const opponent = data.players?.[oppSeat];
-      const me = data.players?.[mySeat];
+      if (!opponent) return;
       
-      // If we don't have both players, skip
-      if (!me || !opponent) return;
-      
-      // Check if opponent is disconnected
-      const oppConnected = opponent.connected;
-      const oppLastSeen = opponent.lastSeen || 0;
-      const now = Date.now();
-      
-      // If opponent's connected is explicitly false
-      if (oppConnected === false) {
-        // Clear any existing timeout
-        clearDisconnectCheck();
-        
-        // Schedule cleanup after timeout to confirm disconnection
+      if (opponent.connected === false) {
+        if(disconnectCheckTimeout) clearTimeout(disconnectCheckTimeout);
         disconnectCheckTimeout = setTimeout(async () => {
           try {
-            // Re-check the room state
             const snap = await once(roomRef);
             const currentData = snap.val();
-            if (!currentData) return; // Room already deleted
-            
+            if (!currentData) return;
             const currentOpp = currentData.players?.[oppSeat];
             
-            // If opponent is still disconnected, clean up
             if (currentOpp && currentOpp.connected === false) {
-              console.log('Opponent disconnected, cleaning up ghost room...');
-              
               if (currentData.status === 'lobby') {
-                // In lobby: remove opponent's seat (p2) or delete room (if p1 left)
-                if (oppSeat === 'p2') {
-                  await roomRef.child('players/p2').remove();
-                  console.log('Removed disconnected p2 from lobby');
-                } else {
-                  // p1 left while in lobby - delete entire room
-                  await roomRef.remove();
-                  console.log('Deleted ghost room (p1 disconnected in lobby)');
-                }
+                if (oppSeat === 'p2') await roomRef.child('players/p2').remove();
+                else await roomRef.remove();
               } else if (currentData.status === 'playing') {
-                // In game: end the game with remaining player as winner
-                await roomRef.update({
-                  status: 'ended',
-                  winner: mySeat,
-                  endedAt: firebase.database.ServerValue.TIMESTAMP
-                });
-                console.log('Ended game due to opponent disconnect');
+                await roomRef.update({ status: 'ended', winner: mySeat, endedAt: firebase.database.ServerValue.TIMESTAMP });
                 scheduleRoomCleanup();
               }
             }
-          } catch (e) {
-            console.error('Error cleaning up disconnected player:', e);
-          }
+          } catch (e) {}
         }, DISCONNECT_TIMEOUT_MS);
-      } else if (oppConnected === true) {
-        // Opponent is connected, clear any pending cleanup
-        clearDisconnectCheck();
+      } else {
+        if(disconnectCheckTimeout) { clearTimeout(disconnectCheckTimeout); disconnectCheckTimeout = null; }
       }
     }
 
-    // Periodic cleanup of stale/ghost rooms (runs on app init and when entering multi mode)
     async function cleanupStaleRooms() {
       if (!ensureFirebase()) return;
-      
       try {
-        const roomsRef = firebaseDb.ref('rooms');
-        const snap = await once(roomsRef);
+        const snap = await once(firebaseDb.ref('rooms'));
         const rooms = snap.val();
-        
         if (!rooms) return;
-        
         const now = Date.now();
-        const STALE_THRESHOLD_MS = 30 * 60 * 1000; // 30 minutes
-        const DISCONNECT_STALE_MS = 60 * 1000; // 1 minute for disconnected players
         
         for (const [code, room] of Object.entries(rooms)) {
           if (!room) continue;
-          
           let shouldDelete = false;
-          let reason = '';
-          
-          // Check if room is too old
-          if (room.createdAt && (now - room.createdAt > STALE_THRESHOLD_MS)) {
-            shouldDelete = true;
-            reason = 'Room older than 30 minutes';
-          }
-          
-          // Check if room ended long ago
-          if (room.status === 'ended' && room.endedAt && (now - room.endedAt > 60000)) {
-            shouldDelete = true;
-            reason = 'Ended room not cleaned up';
-          }
-          
-          // Check for ghost rooms: p1 disconnected for too long
-          const p1 = room.players?.p1;
-          if (p1 && p1.connected === false && p1.lastSeen) {
-            if (now - p1.lastSeen > DISCONNECT_STALE_MS) {
-              shouldDelete = true;
-              reason = 'P1 disconnected for too long';
-            }
-          }
-          
-          // Check for ghost p2: p2 exists but p1 is missing or disconnected
-          const p2 = room.players?.p2;
-          if (p2 && p2.nickname && (!p1 || !p1.nickname)) {
-            shouldDelete = true;
-            reason = 'Ghost p2 without valid p1';
-          }
-          
-          // Check for rooms with no valid players
-          if (!p1?.nickname && !p2?.nickname) {
-            shouldDelete = true;
-            reason = 'No valid players in room';
-          }
-          
-          if (shouldDelete) {
-            try {
-              await firebaseDb.ref('rooms/' + code).remove();
-              console.log(`Cleaned up stale room ${code}: ${reason}`);
-            } catch (e) {
-              console.error(`Failed to clean up room ${code}:`, e);
-            }
-          }
+          if (room.createdAt && (now - room.createdAt > 30*60*1000)) shouldDelete = true;
+          if (room.status === 'ended' && room.endedAt && (now - room.endedAt > 60000)) shouldDelete = true;
+          const p1 = room.players?.p1; const p2 = room.players?.p2;
+          if (p1 && p1.connected === false && p1.lastSeen && (now - p1.lastSeen > 60000)) shouldDelete = true;
+          if (p2 && p2.nickname && (!p1 || !p1.nickname)) shouldDelete = true;
+          if (!p1?.nickname && !p2?.nickname) shouldDelete = true;
+          if (shouldDelete) firebaseDb.ref('rooms/' + code).remove().catch(()=>{});
         }
-      } catch (e) {
-        console.error('Error during stale room cleanup:', e);
-      }
+      } catch (e) {}
     }
 
     async function createRoomFlow() {
       if (isProcessingMulti) return;
       isProcessingMulti = true;
-      const btn = $('createRoomBtn');
-      btn.disabled = true;
-
+      const btn = $('createRoomBtn'); btn.disabled = true;
       setStatus($('multiStatus'), '', null);
-      
-      // Reset state before creating
       resetMultiplayerState();
-      
-      if (!ensureFirebase()) {
-        isProcessingMulti = false;
-        btn.disabled = false;
-        return;
-      }
+      if (!ensureFirebase()) { isProcessingMulti = false; btn.disabled = false; return; }
 
-      const nick = validateNickname($('nicknameInput').value);
-      if (!nick) {
-        setStatus($('multiStatus'), '請輸入暱稱（1~16字）', 'error');
-        isProcessingMulti = false;
-        btn.disabled = false;
-        return;
-      }
+      const nick = safeText($('nicknameInput').value).trim();
+      if (!nick) { setStatus($('multiStatus'), '請輸入暱稱', 'error'); isProcessingMulti = false; btn.disabled = false; return; }
 
-      myNickname = nick;
-      joinedAt = Date.now();
-
+      myNickname = nick; joinedAt = Date.now();
       setStatus($('multiStatus'), '正在創建房間...', null);
 
       let created = false;
       for (let i = 0; i < 8; i++) {
         const code = pad4(Math.floor(Math.random() * 10000));
-        const ok = await tryCreateRoom(code, nick);
-        if (ok) {
+        if (await tryCreateRoom(code, nick)) {
           $('roomCodeInput').value = code;
           setStatus($('multiStatus'), '房間已建立：' + code, 'ok');
-          created = true;
-          break;
+          created = true; break;
         }
       }
-      
-      if (!created) {
-        setStatus($('multiStatus'), '建立房間失敗（請重試）', 'error');
-        resetMultiplayerState();
-      }
-
-      isProcessingMulti = false;
-      btn.disabled = false;
+      if (!created) setStatus($('multiStatus'), '建立房間失敗', 'error');
+      isProcessingMulti = false; btn.disabled = false;
     }
 
     async function tryCreateRoom(code, nick) {
-      roomCode = code;
-      roomRef = firebaseDb.ref('rooms/' + roomCode);
-
+      roomCode = code; roomRef = firebaseDb.ref('rooms/' + roomCode);
       const wind = randomWind();
       const initData = {
-        createdAt: firebase.database.ServerValue.TIMESTAMP,
-        status: 'lobby',
-        mode: selectedMode,
-        turn: 'p1',
-        turnIndex: 1,
-        wind: { directionIndex: wind.directionIndex, speed: wind.speed, index: 1 },
-        endedAt: null,
-        winner: null,
-        players: {
-          p1: {
-            nickname: nick,
-            score: selectedMode,
-            dartsLeft: 3,
-            turnStartScore: selectedMode,
-            activeTurnIndex: 1,
-            turnDarts: []
-          },
-          p2: null
-        }
+        createdAt: firebase.database.ServerValue.TIMESTAMP, status: 'lobby', mode: selectedMode,
+        turn: 'p1', turnIndex: 1, wind: { directionIndex: wind.directionIndex, speed: wind.speed, index: 1 },
+        endedAt: null, winner: null,
+        players: { p1: { nickname: nick, score: selectedMode, dartsLeft: 3, turnStartScore: selectedMode, activeTurnIndex: 1, turnDarts: [] }, p2: null }
       };
 
-      const result = await new Promise((resolve) => {
-        roomRef.transaction((cur) => {
-          if (cur === null) return initData;
-          return; // abort
-        }, (err, committed) => {
-          if (err) resolve(false);
-          else resolve(!!committed);
-        });
+      const result = await new Promise(res => {
+        roomRef.transaction(cur => cur === null ? initData : undefined, (err, comm) => res(err ? false : comm));
       });
-
-      if (!result) {
-        // Clean up the failed refs
-        roomRef = null;
-        roomCode = null;
-        return false;
-      }
-
-      mySeat = 'p1';
-      attachRoomListeners();
-      showLobby();
-      setupPresence();
-      return true;
+      if (!result) { roomRef = null; roomCode = null; return false; }
+      mySeat = 'p1'; attachRoomListeners(); showLobby(); setupPresence(); return true;
     }
 
     async function joinRoomFlow() {
       if (isProcessingMulti) return;
       isProcessingMulti = true;
-      const btn = $('joinRoomBtn');
-      btn.disabled = true;
-
+      const btn = $('joinRoomBtn'); btn.disabled = true;
       setStatus($('multiStatus'), '', null);
-      
-      // Reset state before joining
       resetMultiplayerState();
       
-      if (!ensureFirebase()) {
-        isProcessingMulti = false;
-        btn.disabled = false;
-        return;
-      }
+      if (!ensureFirebase()) { isProcessingMulti = false; btn.disabled = false; return; }
+      const nick = safeText($('nicknameInput').value).trim();
+      if (!nick) { setStatus($('multiStatus'), '請輸入暱稱', 'error'); isProcessingMulti = false; btn.disabled = false; return; }
+      const code = ($('roomCodeInput').value || '').trim();
+      if (!/^\d{4}$/.test(code)) { setStatus($('multiStatus'), '請輸入4位數', 'error'); isProcessingMulti = false; btn.disabled = false; return; }
 
-      const nick = validateNickname($('nicknameInput').value);
-      if (!nick) {
-        setStatus($('multiStatus'), '請輸入暱稱（1~16字）', 'error');
-        isProcessingMulti = false;
-        btn.disabled = false;
-        return;
-      }
-      const code = validateRoomCode($('roomCodeInput').value);
-      if (!code) {
-        setStatus($('multiStatus'), '請輸入 4 位數房間號碼（例如 1234）', 'error');
-        isProcessingMulti = false;
-        btn.disabled = false;
-        return;
-      }
+      myNickname = nick; joinedAt = Date.now(); roomCode = code; roomRef = firebaseDb.ref('rooms/' + roomCode);
+      setStatus($('multiStatus'), '正在進入...', null);
 
-      myNickname = nick;
-      joinedAt = Date.now();
-      roomCode = code;
-      roomRef = firebaseDb.ref('rooms/' + roomCode);
-
-      setStatus($('multiStatus'), '正在進入房間...', null);
-
-      // First verify room exists
-      let snap;
       try {
-        snap = await once(roomRef);
-      } catch (e) {
-        setStatus($('multiStatus'), '網路錯誤，請重試', 'error');
-        resetMultiplayerState();
-        isProcessingMulti = false;
-        btn.disabled = false;
-        return;
-      }
-      
-      const data = snap.val();
-      if (!data) {
-        setStatus($('multiStatus'), '找不到此房間號碼', 'error');
-        resetMultiplayerState();
-        isProcessingMulti = false;
-        btn.disabled = false;
-        return;
-      }
-      if (data.status === 'ended') {
-        setStatus($('multiStatus'), '此房間已結束（請重新建立）', 'error');
-        resetMultiplayerState();
-        isProcessingMulti = false;
-        btn.disabled = false;
-        return;
-      }
+        const snap = await once(roomRef); const data = snap.val();
+        if (!data) throw new Error('找不到');
+        if (data.status === 'ended') throw new Error('已結束');
+        if (data.players?.p2?.nickname) throw new Error('房間滿了');
 
-      // Early check if p2 is occupied
-      const players = data.players || {};
-      if (players.p2 && players.p2.nickname) {
-        setStatus($('multiStatus'), '房間已滿（兩位玩家）', 'error');
-        resetMultiplayerState();
-        isProcessingMulti = false;
-        btn.disabled = false;
-        return;
-      }
-
-      // Store room mode for use in transaction
-      const roomMode = data.mode || 501;
-
-      // FIX: Use transaction on players/p2 instead of entire room
-      // This avoids the issue where room === null on first callback
-      const p2Data = {
-        nickname: nick,
-        score: roomMode,
-        dartsLeft: 3,
-        turnStartScore: roomMode,
-        activeTurnIndex: 0,
-        turnDarts: []
-      };
-
-      const joined = await new Promise((resolve) => {
-        roomRef.child('players/p2').transaction((currentP2) => {
-          // If p2 already has a nickname, someone else took the spot
-          if (currentP2 && currentP2.nickname) {
-            return undefined; // Abort
-          }
-          // Set p2 data
-          return p2Data;
-        }, (error, committed, snapshot) => {
-          resolve(!error && committed);
+        const joined = await new Promise(res => {
+          roomRef.child('players/p2').transaction(cur => (cur && cur.nickname) ? undefined : { nickname: nick, score: data.mode||501, dartsLeft: 3, turnStartScore: data.mode||501, activeTurnIndex: 0, turnDarts: [] }, 
+          (err, comm) => res(!err && comm));
         });
-      });
+        if (!joined) throw new Error('加入失敗');
 
-      if (!joined) {
-        setStatus($('multiStatus'), '進入房間失敗（可能被其他人搶先加入）', 'error');
-        resetMultiplayerState();
-        isProcessingMulti = false;
-        btn.disabled = false;
-        return;
-      }
+        const vSnap = await once(roomRef);
+        if (!vSnap.val() || !vSnap.val().players?.p1?.nickname || vSnap.val().status === 'ended') {
+          roomRef.child('players/p2').remove().catch(()=>{}); throw new Error('房間失效');
+        }
 
-      // FIX: Verify room still exists after our write (prevent ghost rooms)
-      try {
-        const verifySnap = await once(roomRef);
-        const verifyData = verifySnap.val();
-        
-        // Check if room was deleted or p1 is missing (ghost room scenario)
-        if (!verifyData || !verifyData.players?.p1?.nickname) {
-          // Clean up our ghost p2 entry
-          try {
-            await roomRef.child('players/p2').remove();
-          } catch (_) {}
-          setStatus($('multiStatus'), '房間已不存在，請重試', 'error');
-          resetMultiplayerState();
-          isProcessingMulti = false;
-          btn.disabled = false;
-          return;
-        }
-        
-        // Check if room status is invalid
-        if (verifyData.status === 'ended') {
-          try {
-            await roomRef.child('players/p2').remove();
-          } catch (_) {}
-          setStatus($('multiStatus'), '此房間已結束', 'error');
-          resetMultiplayerState();
-          isProcessingMulti = false;
-          btn.disabled = false;
-          return;
-        }
+        mySeat = 'p2'; attachRoomListeners(); showLobby(); setupPresence();
+        tryStartMultiplayerGame();
+        setStatus($('multiStatus'), '成功加入', 'ok');
       } catch (e) {
-        setStatus($('multiStatus'), '驗證房間失敗，請重試', 'error');
-        resetMultiplayerState();
-        isProcessingMulti = false;
-        btn.disabled = false;
-        return;
+        setStatus($('multiStatus'), e.message || '錯誤', 'error'); resetMultiplayerState();
       }
-
-      mySeat = 'p2';
-      attachRoomListeners();
-      showLobby();
-      setupPresence();
-
-      // attempt to start game if both present
-      tryStartMultiplayerGame();
-
-      setStatus($('multiStatus'), '已進入房間：' + roomCode, 'ok');
-      isProcessingMulti = false;
-      btn.disabled = false;
+      isProcessingMulti = false; btn.disabled = false;
     }
 
     function showLobby() {
-      $('startScreen').classList.add('hidden');
-      $('endScreen').classList.add('hidden');
-      $('lobbyScreen').classList.remove('hidden');
-      $('backBtn').classList.remove('show');
+      $('startScreen').classList.add('hidden'); $('endScreen').classList.add('hidden');
+      $('lobbyScreen').classList.remove('hidden'); $('backBtn').classList.remove('show');
       $('lobbyRoomCode').textContent = roomCode || '';
     }
 
     function attachRoomListeners() {
       if (!roomRef) return;
-      
-      // FIX: Always detach old listeners first and reset flags
-      if (roomListenerAttached) {
-        try { roomRef.off('value'); } catch (_) {}
-      }
-      if (throwsRef && throwsListenerAttached) {
-        try { throwsRef.off('child_added'); } catch (_) {}
-      }
-
+      detachRoomListeners();
       roomListenerAttached = true;
-      roomRef.on('value', (snap) => {
+      roomRef.on('value', snap => {
         const data = snap.val();
         if (!data) {
-          // room removed
-          detachRoomListeners();
-          clearDisconnectCheck();
-          roomCode = null;
-          mySeat = null;
-          myNickname = '';
-          roomCleanupScheduled = false;
-          try { $('roomCodeInput').value = ''; $('nicknameInput').value = ''; } catch (_) {}
-
-          if (currentState !== GameState.GAME_END) {
-            showStart();
-          }
+          detachRoomListeners(); resetMultiplayerState();
+          try{ $('roomCodeInput').value=''; $('nicknameInput').value=''; }catch(e){}
+          if (currentState !== GameState.GAME_END) showStart();
           return;
         }
-
-        // Check for disconnected opponent and cleanup ghost rooms
         checkAndCleanupDisconnectedPlayer(data);
-
-        // Update lobby
-        if (data.status === 'lobby') {
-          updateLobbyUI(data);
-          tryStartMultiplayerGame();
-          return;
-        }
-
-        // Playing
-        if (data.status === 'playing') {
-          startOrSyncMultiplayerFromRoom(data);
-          return;
-        }
-
-        // Ended
-        if (data.status === 'ended') {
-          const winner = data.winner;
-          startOrSyncMultiplayerFromRoom(data);
-          showEndMultiplayer(winner);
-          scheduleRoomCleanup();
-          return;
-        }
+        if (data.status === 'lobby') { updateLobbyUI(data); tryStartMultiplayerGame(); }
+        else if (data.status === 'playing') startOrSyncMultiplayerFromRoom(data);
+        else if (data.status === 'ended') { startOrSyncMultiplayerFromRoom(data); endGameCommon(data.winner === mySeat, true); scheduleRoomCleanup(); }
       });
 
-      // listen throws (for animation)
-      throwsListenerAttached = true;
-      throwsRef = roomRef.child('throws');
-      processedThrowKeys = new Set();
-      throwsRef.on('child_added', (snap) => {
-        const key = snap.key;
-        const ev = snap.val();
-        if (!ev) return;
-        if (ev.ts && ev.ts < joinedAt) return;
-        if (processedThrowKeys.has(key)) return;
-        processedThrowKeys.add(key);
-        handleThrowEvent(ev);
+      throwsListenerAttached = true; throwsRef = roomRef.child('throws'); processedThrowKeys = new Set();
+      throwsRef.on('child_added', snap => {
+        const key = snap.key; const ev = snap.val();
+        if (!ev || (ev.ts && ev.ts < joinedAt) || processedThrowKeys.has(key)) return;
+        processedThrowKeys.add(key); handleThrowEvent(ev);
       });
     }
 
-    // FIX: Always reset flags regardless of roomRef state
     function detachRoomListeners() {
-      if (roomRef) {
-        try { roomRef.off(); } catch (_) {}
-      }
-      if (throwsRef) {
-        try { throwsRef.off(); } catch (_) {}
-      }
-      
-      // Always reset these flags!
-      roomListenerAttached = false;
-      throwsListenerAttached = false;
-      roomRef = null;
-      throwsRef = null;
-      
-      // Clear disconnect check timer
-      clearDisconnectCheck();
+      if (roomRef) try { roomRef.off(); } catch (e) {}
+      if (throwsRef) try { throwsRef.off(); } catch (e) {}
+      roomListenerAttached = false; throwsListenerAttached = false; roomRef = null; throwsRef = null;
+      if(disconnectCheckTimeout) { clearTimeout(disconnectCheckTimeout); disconnectCheckTimeout = null; }
     }
 
     function updateLobbyUI(data) {
       $('lobbyRoomCode').textContent = roomCode;
-      const p1Data = data.players?.p1;
-      const p2Data = data.players?.p2;
-      const p1 = p1Data?.nickname;
-      const p2 = p2Data?.nickname;
-      
-      // Show connection status with colored indicators
-      const p1Status = p1 ? (p1Data.connected === false ? ' 🔴' : ' 🟢') : '';
-      const p2Status = p2 ? (p2Data.connected === false ? ' 🔴' : ' 🟢') : '';
-      
-      $('lobbyPlayers').innerHTML = [
-        `<div>1️⃣ ${p1 ? safeText(p1) + p1Status : '<span class="opacity-60">（空位）</span>'}</div>`,
-        `<div>2️⃣ ${p2 ? safeText(p2) + p2Status : '<span class="opacity-60">（等待加入）</span>'}</div>`
-      ].join('');
-
-      if (p1 && p2) {
-        // Check if any player is disconnected
-        if (p1Data.connected === false || p2Data.connected === false) {
-          setStatus($('lobbyStatus'), '偵測到玩家離線，等待重連或自動清理...', 'error');
-        } else {
-          setStatus($('lobbyStatus'), '兩位玩家已到齊，準備開始！', 'ok');
-        }
-      } else {
-        setStatus($('lobbyStatus'), '等待另一位玩家加入...', null);
-      }
+      const p1 = data.players?.p1; const p2 = data.players?.p2;
+      $('lobbyPlayers').innerHTML = `<div>1️⃣ ${p1?.nickname ? safeText(p1.nickname) + (p1.connected===false?'🔴':'🟢') : '（空位）'}</div><div>2️⃣ ${p2?.nickname ? safeText(p2.nickname) + (p2.connected===false?'🔴':'🟢') : '（等待加入）'}</div>`;
+      setStatus($('lobbyStatus'), (p1?.nickname && p2?.nickname) ? (p1.connected===false||p2.connected===false?'有玩家離線':'準備開始！') : '等待另一位...', (p1?.nickname && p2?.nickname)?(p1.connected===false||p2.connected===false?'error':'ok'):null);
     }
 
     async function tryStartMultiplayerGame() {
       if (!roomRef) return;
       try {
-        const snap = await once(roomRef);
-        const data = snap.val();
-        if (!data) return;
-        if (data.status !== 'lobby') return;
-        const p1 = data.players?.p1?.nickname;
-        const p2 = data.players?.p2?.nickname;
-        if (p1 && p2) {
-          await roomRef.update({ status: 'playing' });
-        }
-      } catch (e) {
-        console.error('tryStartMultiplayerGame error:', e);
-      }
+        const snap = await once(roomRef); const data = snap.val();
+        if (data && data.status === 'lobby' && data.players?.p1?.nickname && data.players?.p2?.nickname) await roomRef.update({ status: 'playing' });
+      } catch (e) {}
     }
 
     async function setupPresence() {
       if (!roomRef || !mySeat) return;
       const meRef = roomRef.child('players/' + mySeat);
-      try {
-        await meRef.update({ connected: true, lastSeen: firebase.database.ServerValue.TIMESTAMP });
-      } catch (_) {}
-
-      try {
-        meRef.onDisconnect().update({ connected: false, lastSeen: firebase.database.ServerValue.TIMESTAMP });
-      } catch (_) {}
-
-      if (mySeat === 'p2') {
-        try {
-          const statusSnap = await once(roomRef.child('status'));
-          if (statusSnap.val() === 'lobby') {
-            meRef.onDisconnect().remove();
-          }
-        } catch (_) {}
-      }
+      try { await meRef.update({ connected: true, lastSeen: firebase.database.ServerValue.TIMESTAMP }); meRef.onDisconnect().update({ connected: false, lastSeen: firebase.database.ServerValue.TIMESTAMP }); } catch (e) {}
+      if (mySeat === 'p2') { try { const st = await once(roomRef.child('status')); if(st.val()==='lobby') meRef.onDisconnect().remove(); } catch(e){} }
     }
 
     function startOrSyncMultiplayerFromRoom(data) {
-      matchType = 'multi';
+      matchType = 'multi'; selectedMode = data.mode || selectedMode; currentLeg = 1;
+      const oppSeat = mySeat === 'p1' ? 'p2' : 'p1';
+      const me = data.players?.[mySeat]; const opp = data.players?.[oppSeat];
+      if (!me || !opp) return;
 
-      selectedMode = data.mode || selectedMode;
-      currentLeg = 1;
-
-      const oppSeat = (mySeat === 'p1') ? 'p2' : 'p1';
-      const me = data.players?.[mySeat];
-      const opp = data.players?.[oppSeat];
-
-      if (!me || !opp) {
-        if (data.status === 'playing') {
-          roomRef.update({ status: 'ended', winner: mySeat, endedAt: firebase.database.ServerValue.TIMESTAMP });
-          scheduleRoomCleanup();
-        }
-        return;
-      }
-
-      // Check if opponent is disconnected and show warning
-      if (opp.connected === false && data.status === 'playing') {
-        updatePhaseIndicator('⚠️ 對手已離線，等待重連...');
-      }
-
-      $('playerName').textContent = '👤 ' + safeText(me.nickname || '你');
-      $('opponentName').textContent = '👤 ' + safeText(opp.nickname || '對手');
+      $('playerName').textContent = '👤 ' + safeText(me.nickname);
+      $('opponentName').textContent = '👤 ' + safeText(opp.nickname);
       $('aiDiffWrap').style.display = 'none';
-      $('playerFinalLabel').textContent = safeText(me.nickname || '你');
-      $('aiFinalLabel').textContent = safeText(opp.nickname || '對手');
+      $('playerFinalLabel').textContent = safeText(me.nickname);
+      $('aiFinalLabel').textContent = safeText(opp.nickname);
 
-      playerScore = me.score ?? playerScore;
-      aiScore = opp.score ?? aiScore;
-
-      playerDartsLeft = me.dartsLeft ?? 3;
-      aiDartsLeft = opp.dartsLeft ?? 3;
+      playerScore = me.score ?? playerScore; aiScore = opp.score ?? aiScore;
+      playerDartsLeft = me.dartsLeft ?? 3; aiDartsLeft = opp.dartsLeft ?? 3;
       playerRoundDarts = Array.isArray(me.turnDarts) ? me.turnDarts : [];
       aiRoundDarts = Array.isArray(opp.turnDarts) ? opp.turnDarts : [];
 
       updateWindFromRoom(data.wind);
-
-      const turnSeat = data.turn;
-      isPlayerTurn = (turnSeat === mySeat);
+      isPlayerTurn = (data.turn === mySeat);
 
       if (lastSeenTurnIndex !== data.turnIndex) {
-        lastSeenTurnIndex = data.turnIndex;
-        thrownDarts = [];
-        pendingThrowInfo = null;
-        updateScoreHistory();
+        lastSeenTurnIndex = data.turnIndex; thrownDarts = []; pendingThrowInfo = null; updateScoreHistory();
       }
 
-      if (data.status === 'playing' && isPlayerTurn) {
-        ensureMyTurnInitialized(data);
-      }
+      if (data.status === 'playing' && isPlayerTurn) ensureMyTurnInitialized(data);
 
-      $('startScreen').classList.add('hidden');
-      $('lobbyScreen').classList.add('hidden');
-      $('endScreen').classList.add('hidden');
-      $('backBtn').classList.add('show');
+      $('startScreen').classList.add('hidden'); $('lobbyScreen').classList.add('hidden');
+      $('endScreen').classList.add('hidden'); $('backBtn').classList.add('show');
+      
+      updateUI(); updateScoreHistory();
 
-      updateUI();
-      updateScoreHistory();
-
-      if (data.status === 'ended') {
-        currentState = GameState.GAME_END;
-        return;
-      }
-
+      if (data.status === 'ended') { currentState = GameState.GAME_END; return; }
       if (dartFlying || currentState === GameState.THROWING) return;
+
       if (isPlayerTurn) {
-        $('playerPanel').classList.add('active');
-        $('aiPanel').classList.remove('active');
-        if (playerDartsLeft > 0) {
-          if (currentState === GameState.WAITING_OPPONENT || currentState === GameState.START) {
-            showTurnIndicator('你的回合', '');
-            startAiming();
-          }
-        } else {
-          currentState = GameState.WAITING_OPPONENT;
-          updatePhaseIndicator('等待對手...');
-        }
+        $('playerPanel').classList.add('active'); $('aiPanel').classList.remove('active');
+        if (playerDartsLeft > 0 && (currentState === GameState.WAITING_OPPONENT || currentState === GameState.START)) { showTurnIndicator('你的回合', ''); startAiming(); }
+        else if (playerDartsLeft === 0) { currentState = GameState.WAITING_OPPONENT; updatePhaseIndicator('等待對手...'); }
       } else {
-        $('playerPanel').classList.remove('active');
-        $('aiPanel').classList.add('active');
-        currentState = GameState.WAITING_OPPONENT;
-        updatePhaseIndicator('等待對手...');
+        $('playerPanel').classList.remove('active'); $('aiPanel').classList.add('active');
+        currentState = GameState.WAITING_OPPONENT; updatePhaseIndicator('等待對手...');
       }
     }
 
     async function ensureMyTurnInitialized(room) {
       if (!roomRef) return;
-      const me = room.players?.[mySeat];
-      const turnIndex = room.turnIndex || 0;
-      if (!me) return;
-      if (me.activeTurnIndex === turnIndex) return;
-
-      const updates = {};
-      updates['players/' + mySeat + '/dartsLeft'] = 3;
-      updates['players/' + mySeat + '/turnDarts'] = [];
-      updates['players/' + mySeat + '/turnStartScore'] = me.score;
-      updates['players/' + mySeat + '/activeTurnIndex'] = turnIndex;
+      const me = room.players?.[mySeat]; const turnIndex = room.turnIndex || 0;
+      if (!me || me.activeTurnIndex === turnIndex) return;
+      const updates = { ['players/'+mySeat+'/dartsLeft']:3, ['players/'+mySeat+'/turnDarts']:[], ['players/'+mySeat+'/turnStartScore']:me.score, ['players/'+mySeat+'/activeTurnIndex']:turnIndex };
       await roomRef.update(updates);
-
-      playerDartsLeft = 3;
-      playerRoundDarts = [];
-      thrownDarts = [];
-      updateScoreHistory();
-
-      if (mySeat === 'p1') {
-        showTurnIndicator('你的回合', '');
-      } else {
-        showTurnIndicator('你的回合', '');
-      }
+      playerDartsLeft = 3; playerRoundDarts = []; thrownDarts = []; updateScoreHistory(); showTurnIndicator('你的回合', '');
     }
 
     async function throwDartMultiplayer() {
       if (!roomRef || !mySeat) return;
-      const statusEl = $('multiStatus');
       try {
-        const snap = await once(roomRef);
-        const room = snap.val();
-        if (!room || room.status !== 'playing') return;
-        if (room.turn !== mySeat) return;
+        const snap = await once(roomRef); const room = snap.val();
+        if (!room || room.status !== 'playing' || room.turn !== mySeat) return;
+        const me = room.players?.[mySeat]; const opp = room.players?.[mySeat==='p1'?'p2':'p1'];
+        if (!me || !opp) return;
 
-        const me = room.players?.[mySeat];
-        const oppSeat = (mySeat === 'p1') ? 'p2' : 'p1';
-        if (!me || !room.players?.[oppSeat]) return;
-
-        let aimNx = lockedHorizontal;
-        let aimNy = lockedVertical;
-
-        const final = applyWindEffectNormalized(aimNx, aimNy);
-        const nx = clamp(final.nx, -1.6, 1.6);
-        const ny = clamp(final.ny, -1.6, 1.6);
-
+        const final = applyWindEffectNormalized(lockedHorizontal, lockedVertical);
+        const nx = clamp(final.nx, -1.6, 1.6); const ny = clamp(final.ny, -1.6, 1.6);
         const score = calculateScoreNormalized(nx, ny);
         const newScoreCandidate = (me.score ?? selectedMode) - score;
         const bust = (newScoreCandidate < 0 || newScoreCandidate === 1);
         const win = (!bust && newScoreCandidate === 0);
+        const nextDartsLeft = Math.max(0, (me.dartsLeft ?? 3) - 1);
+        const newTurnDarts = (Array.isArray(me.turnDarts)?me.turnDarts:[]).concat([bust ? 'BUST' : score]);
 
-        const currentDartsLeft = me.dartsLeft ?? 3;
-        const nextDartsLeft = Math.max(0, currentDartsLeft - 1);
-
-        const prevTurnDarts = Array.isArray(me.turnDarts) ? me.turnDarts : [];
-        const newTurnDarts = prevTurnDarts.concat([bust ? 'BUST' : score]);
-
-        const updates = {};
-        updates['players/' + mySeat + '/turnDarts'] = newTurnDarts;
-        updates['players/' + mySeat + '/dartsLeft'] = bust ? 0 : nextDartsLeft;
-        updates['players/' + mySeat + '/score'] = bust ? (me.turnStartScore ?? me.score) : newScoreCandidate;
-
-        let endTurn = false;
-        if (win) {
-          updates['status'] = 'ended';
-          updates['winner'] = mySeat;
-          updates['endedAt'] = firebase.database.ServerValue.TIMESTAMP;
-        } else {
-          if (bust) endTurn = true;
-          else if (nextDartsLeft === 0) endTurn = true;
-
-          if (endTurn) {
-            const nextTurn = (mySeat === 'p1') ? 'p2' : 'p1';
-            updates['turn'] = nextTurn;
-            updates['turnIndex'] = (room.turnIndex || 1) + 1;
-
-            if (mySeat === 'p2') {
-              const w = randomWind();
-              const curWindIndex = room.wind?.index || 1;
-              updates['wind'] = { directionIndex: w.directionIndex, speed: w.speed, index: curWindIndex + 1 };
-            }
-          }
+        const updates = { ['players/'+mySeat+'/turnDarts']:newTurnDarts, ['players/'+mySeat+'/dartsLeft']:bust?0:nextDartsLeft, ['players/'+mySeat+'/score']:bust?(me.turnStartScore??me.score):newScoreCandidate };
+        if (win) { updates.status='ended'; updates.winner=mySeat; updates.endedAt=firebase.database.ServerValue.TIMESTAMP; }
+        else if (bust || nextDartsLeft === 0) {
+          updates.turn = mySeat==='p1'?'p2':'p1'; updates.turnIndex = (room.turnIndex||1)+1;
+          if (mySeat==='p2') { const w=randomWind(); updates.wind={directionIndex:w.directionIndex, speed:w.speed, index:(room.wind?.index||1)+1}; }
         }
 
-        const ev = {
-          ts: firebase.database.ServerValue.TIMESTAMP,
-          by: mySeat,
-          nx, ny,
-          score,
-          bust,
-          roomTurnIndex: room.turnIndex || 1,
-          wind: room.wind || { directionIndex: currentWind.directionIndex, speed: currentWind.speed, index: currentWind.index }
-        };
-
+        const ev = { ts: firebase.database.ServerValue.TIMESTAMP, by: mySeat, nx, ny, score, bust, roomTurnIndex: room.turnIndex||1, wind: room.wind||currentWind };
         pendingThrowInfo = { score, bust, bySeat: mySeat, byIsMe: true };
         animateThrowNormalized(nx, ny, true);
-
-        await roomRef.update(updates);
-        await roomRef.child('throws').push(ev);
-
-        setStatus(statusEl, '', null);
-      } catch (e) {
-        setStatus($('multiStatus'), '投擲失敗：' + (e?.message || e), 'error');
-      }
+        await roomRef.update(updates); await roomRef.child('throws').push(ev);
+      } catch (e) {}
     }
 
     function handleThrowEvent(ev) {
-      if (!ev) return;
-      if (!roomRef || !mySeat) return;
-      const by = ev.by;
-      if (by === mySeat) {
-        return;
-      }
-
-      pendingThrowInfo = { score: ev.score, bust: !!ev.bust, bySeat: by, byIsMe: false };
+      if (!ev || !roomRef || !mySeat || ev.by === mySeat) return;
+      pendingThrowInfo = { score: ev.score, bust: !!ev.bust, bySeat: ev.by, byIsMe: false };
       animateThrowNormalized(ev.nx, ev.ny, false);
     }
 
     function animateThrowNormalized(nx, ny, byIsMe) {
-      currentState = GameState.THROWING;
-      dartFlying = true;
-      currentDartColor = byIsMe ? '#3498db' : '#e74c3c';
-
-      targetX = boardCenterX + nx * boardRadius;
-      targetY = boardCenterY + ny * boardRadius;
-      dartX = gameWidth / 2;
-      dartY = gameHeight + 50;
-
-      playSound('throw');
-      updatePhaseIndicator('');
+      currentState = GameState.THROWING; dartFlying = true; currentDartColor = byIsMe ? '#3498db' : '#e74c3c';
+      targetX = boardCenterX + nx * boardRadius; targetY = boardCenterY + ny * boardRadius;
+      dartX = gameWidth / 2; dartY = gameHeight + 50;
+      playSound('throw'); updatePhaseIndicator('');
     }
 
     async function leaveRoom({ endIfPlaying = false, removeRoom = false } = {}) {
-      if (!firebaseDb || !roomRef || !mySeat) {
-        detachRoomListeners();
-        roomCode = null;
-        mySeat = null;
-        myNickname = '';
-        roomCleanupScheduled = false;
-        try { $('roomCodeInput').value = ''; $('nicknameInput').value = ''; } catch (_) {}
-        return;
-      }
-
-      const localRoomRef = roomRef;
-      const seat = mySeat;
-
+      if (!firebaseDb || !roomRef || !mySeat) { resetMultiplayerState(); try{ $('roomCodeInput').value=''; $('nicknameInput').value=''; }catch(e){} return; }
+      const lRef = roomRef; const s = mySeat;
       try {
-        const snap = await once(localRoomRef);
-        const room = snap.val();
-        if (room) {
-          if (removeRoom) {
-            await localRoomRef.remove();
-          } else if (endIfPlaying && room.status === 'playing') {
-            const winner = (seat === 'p1') ? 'p2' : 'p1';
-            await localRoomRef.update({ status: 'ended', winner, endedAt: firebase.database.ServerValue.TIMESTAMP });
-            scheduleRoomCleanup();
-          } else {
-            if (room.status === 'lobby' && seat === 'p1') {
-              await localRoomRef.remove();
-            } else if (room.status === 'lobby') {
-              await localRoomRef.child('players/' + seat).remove();
-            } else {
-              await localRoomRef.child('players/' + seat).update({ connected: false, lastSeen: firebase.database.ServerValue.TIMESTAMP });
-            }
-          }
+        const snap = await once(lRef); const r = snap.val();
+        if (r) {
+          if (removeRoom) await lRef.remove();
+          else if (endIfPlaying && r.status==='playing') { await lRef.update({status:'ended', winner:s==='p1'?'p2':'p1', endedAt:firebase.database.ServerValue.TIMESTAMP}); scheduleRoomCleanup(); }
+          else if (r.status==='lobby' && s==='p1') await lRef.remove();
+          else if (r.status==='lobby') await lRef.child('players/'+s).remove();
+          else await lRef.child('players/'+s).update({connected:false, lastSeen:firebase.database.ServerValue.TIMESTAMP});
         }
-      } catch (_) {}
-
-      detachRoomListeners();
-
-      roomCode = null;
-      mySeat = null;
-      myNickname = '';
-      roomCleanupScheduled = false;
-
-      $('roomCodeInput').value = '';
-      $('nicknameInput').value = '';
+      } catch (e) {}
+      resetMultiplayerState(); $('roomCodeInput').value=''; $('nicknameInput').value='';
     }
 
     function scheduleRoomCleanup() {
-      if (roomCleanupScheduled) return;
-      roomCleanupScheduled = true;
+      if (roomCleanupScheduled) return; roomCleanupScheduled = true;
       $('cleanupHint').textContent = '（雙人對決）房間資料將自動清除...';
-      setTimeout(async () => {
-        try {
-          if (roomRef) await roomRef.remove();
-        } catch (_) {}
-      }, 5000);
-    }
-
-    function showEndMultiplayer(winnerSeat) {
-      const iWon = (winnerSeat === mySeat);
-      endGameCommon(iWon, true);
-    }
-
-    // ==================== End Game (Common) ====================
-    function endGameAI(playerWon) { endGameCommon(playerWon, false); }
-
-    function endGameCommon(playerWon, isMultiplayer) {
-      currentState = GameState.GAME_END;
-      playSound('win');
-      vibrate([200, 100, 200, 100, 200]);
-
-      $('backBtn').classList.remove('show');
-
-      $('endTitle').textContent = playerWon ? '🎉 恭喜獲勝！' : (isMultiplayer ? '😢 對手獲勝' : '😢 AI 獲勝');
-      $('winnerText').textContent = playerWon ? '你成功將分數歸零！' : (isMultiplayer ? '對手先將分數歸零了' : 'AI 先將分數歸零了');
-      $('winnerText').style.color = playerWon ? '#2ecc71' : '#e74c3c';
-
-      $('playerFinalValue').textContent = playerScore;
-      $('aiFinalValue').textContent = aiScore;
-
-      $('playerFinal').classList.toggle('winner-score', playerWon);
-      $('aiFinal').classList.toggle('winner-score', !playerWon);
-
-      $('endScreen').classList.remove('hidden');
-      $('startScreen').classList.add('hidden');
-      $('lobbyScreen').classList.add('hidden');
-
-      if (isMultiplayer) {
-        scheduleRoomCleanup();
-        $('roomCodeInput').value = '';
-        $('nicknameInput').value = '';
-      } else {
-        $('cleanupHint').textContent = '';
-      }
-    }
-
-    // ==================== UI Update ====================
-    function showHitScore(text, color) {
-      const el = $('hitScore');
-      el.textContent = text;
-      el.style.opacity = '1';
-      el.style.color = color || '#ffd700';
-    }
-
-    function hideHitScore() { $('hitScore').style.opacity = '0'; }
-
-    function updatePhaseIndicator(text) {
-      const el = $('phaseIndicator');
-      el.textContent = text;
-      el.style.display = text ? 'block' : 'none';
-    }
-
-    function showTurnIndicator(mainText, subText) {
-      const el = $('turnIndicator');
-      el.innerHTML = `${mainText}<div class="sub-text">${subText || ''}</div>`;
-      el.classList.add('show');
-      setTimeout(() => el.classList.remove('show'), 1000);
-    }
-
-    function updateUI() {
-      $('playerScore').textContent = playerScore;
-      $('aiScore').textContent = aiScore;
-      $('gameMode').textContent = selectedMode;
-
-      const hintEl = $('checkoutHint');
-      if (matchType === 'ai') {
-        if (playerScore <= 170 && isPlayerTurn) hintEl.textContent = getCheckoutHint(playerScore);
-        else { hintEl.textContent = ''; currentHighlightTarget = null; }
-      } else {
-        if (playerScore <= 170 && isPlayerTurn) hintEl.textContent = getCheckoutHint(playerScore);
-        else { hintEl.textContent = ''; currentHighlightTarget = null; }
-      }
-
-      let pDisp = '';
-      for (let i = 0; i < 3; i++) pDisp += i < playerDartsLeft ? '🎯' : '⚫';
-      $('playerDarts').textContent = pDisp;
-
-      let aDisp = '';
-      for (let i = 0; i < 3; i++) aDisp += i < aiDartsLeft ? '🎯' : '⚫';
-      $('aiDarts').textContent = aDisp;
-    }
-
-    function updateScoreHistory() {
-      const container = $('scoreHistory');
-      const darts = isPlayerTurn ? playerRoundDarts : aiRoundDarts;
-      container.innerHTML = (darts || []).map(s => {
-        const t = (typeof s === 'number') ? s : (s || '');
-        const cls = (t === 'BUST') ? 'history-dart' : 'history-dart';
-        return `<div class="${cls}">${t}</div>`;
-      }).join('');
+      setTimeout(async () => { try { if (roomRef) await roomRef.remove(); } catch(e){} }, 5000);
     }
 
     // ==================== Game Loop ====================
-    function gameLoop() {
-      update();
-      render();
-      requestAnimationFrame(gameLoop);
-    }
+    function gameLoop() { update(); render(); requestAnimationFrame(gameLoop); }
 
     function update() {
+      // 1b. 【幻影·神速領域】 動態加快游標移速
+      let speedMultiplier = 1;
+      if (currentTurnEffects.fastAim) {
+          speedMultiplier = 2;
+      }
+
       if (currentState === GameState.PLAYER_AIMING_VERTICAL) {
-        verticalIndicator += INDICATOR_SPEED * 0.01 * verticalDirection;
-        if (verticalIndicator >= 1 || verticalIndicator <= -1) {
-          verticalDirection *= -1;
-          verticalIndicator = clamp(verticalIndicator, -1, 1);
-        }
+        verticalIndicator += INDICATOR_SPEED * speedMultiplier * 0.01 * verticalDirection;
+        if (verticalIndicator >= 1 || verticalIndicator <= -1) { verticalDirection *= -1; verticalIndicator = clamp(verticalIndicator, -1, 1); }
       }
-
       if (currentState === GameState.PLAYER_AIMING_HORIZONTAL) {
-        horizontalIndicator += INDICATOR_SPEED * 0.01 * horizontalDirection;
-        if (horizontalIndicator >= 1 || horizontalIndicator <= -1) {
-          horizontalDirection *= -1;
-          horizontalIndicator = clamp(horizontalIndicator, -1, 1);
-        }
+        horizontalIndicator += INDICATOR_SPEED * speedMultiplier * 0.01 * horizontalDirection;
+        if (horizontalIndicator >= 1 || horizontalIndicator <= -1) { horizontalDirection *= -1; horizontalIndicator = clamp(horizontalIndicator, -1, 1); }
       }
-
       if (dartFlying) {
-        const dx = targetX - dartX;
-        const dy = targetY - dartY;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-        if (dist < DART_FLIGHT_SPEED) {
-          dartX = targetX;
-          dartY = targetY;
-          dartHit();
-        } else {
-          dartX += (dx / dist) * DART_FLIGHT_SPEED;
-          dartY += (dy / dist) * DART_FLIGHT_SPEED;
-        }
+        const dx = targetX - dartX; const dy = targetY - dartY; const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < DART_FLIGHT_SPEED) { dartX = targetX; dartY = targetY; dartHit(); }
+        else { dartX += (dx / dist) * DART_FLIGHT_SPEED; dartY += (dy / dist) * DART_FLIGHT_SPEED; }
       }
-
-      if (matchType === 'multi' && currentState === GameState.WAITING_OPPONENT) {
-        updateUI();
-        updateScoreHistory();
-      }
+      if (matchType === 'multi' && currentState === GameState.WAITING_OPPONENT) { updateUI(); updateScoreHistory(); }
     }
 
     // ==================== Render ====================
     function render() {
-      ctx.fillStyle = '#1a1a2e';
-      ctx.fillRect(0, 0, gameWidth, gameHeight);
-
-      drawBackground();
-      drawDartboard();
-
+      ctx.fillStyle = '#1a1a2e'; ctx.fillRect(0, 0, gameWidth, gameHeight);
+      drawBackground(); drawDartboard();
       thrownDarts.forEach(d => drawDartOnBoard(d.x, d.y, d.color));
-
-      if (currentState === GameState.PLAYER_AIMING_VERTICAL || currentState === GameState.PLAYER_AIMING_HORIZONTAL) {
-        drawAimingIndicators();
-      }
-
-      if (dartFlying) {
-        drawFlyingDart(dartX, dartY);
-      }
+      if (currentState === GameState.PLAYER_AIMING_VERTICAL || currentState === GameState.PLAYER_AIMING_HORIZONTAL) drawAimingIndicators();
+      if (dartFlying) drawFlyingDart(dartX, dartY);
     }
 
     function drawBackground() {
-      ctx.strokeStyle = 'rgba(255,255,255,0.03)';
-      ctx.lineWidth = 1;
-      for (let i = 0; i < 5; i++) {
-        ctx.beginPath();
-        ctx.arc(boardCenterX, boardCenterY, boardRadius * (1.2 + i * 0.1), 0, Math.PI * 2);
-        ctx.stroke();
-      }
+      ctx.strokeStyle = 'rgba(255,255,255,0.03)'; ctx.lineWidth = 1;
+      for (let i = 0; i < 5; i++) { ctx.beginPath(); ctx.arc(boardCenterX, boardCenterY, boardRadius * (1.2 + i * 0.1), 0, Math.PI * 2); ctx.stroke(); }
     }
 
     function drawDartboard() {
-      const segments = 20;
-      const segmentAngle = (Math.PI * 2) / segments;
-
-      const doubleOuter = boardRadius * 1.02;
-      const doubleInner = boardRadius * 0.88;
-      const outerSingleOuter = doubleInner;
-      const tripleOuter = boardRadius * 0.54;
-      const tripleInner = boardRadius * 0.48;
-      const innerSingleOuter = tripleInner;
-      const innerSingleInner = boardRadius * 0.11;
-      const outerBullRadius = boardRadius * 0.11;
+      const segments = 20; const segmentAngle = (Math.PI * 2) / segments;
+      const doubleOuter = boardRadius * 1.02; const doubleInner = boardRadius * 0.88;
+      const outerSingleOuter = doubleInner; const tripleOuter = boardRadius * 0.54;
+      const tripleInner = boardRadius * 0.48; const innerSingleOuter = tripleInner;
+      const innerSingleInner = boardRadius * 0.11; const outerBullRadius = boardRadius * 0.11;
       const bullseyeRadius = boardRadius * 0.05;
-
       const isFlashOn = Math.floor(Date.now() / 600) % 2 === 0;
 
-      ctx.save();
-      ctx.shadowColor = 'rgba(0,0,0,0.5)';
-      ctx.shadowBlur = 30;
-      ctx.shadowOffsetY = 10;
-      ctx.beginPath();
-      ctx.arc(boardCenterX, boardCenterY, doubleOuter, 0, Math.PI * 2);
-      ctx.fillStyle = '#000';
-      ctx.fill();
-      ctx.restore();
+      ctx.save(); ctx.shadowColor = 'rgba(0,0,0,0.5)'; ctx.shadowBlur = 30; ctx.shadowOffsetY = 10;
+      ctx.beginPath(); ctx.arc(boardCenterX, boardCenterY, doubleOuter, 0, Math.PI * 2); ctx.fillStyle = '#000'; ctx.fill(); ctx.restore();
 
-      ctx.beginPath();
-      ctx.arc(boardCenterX, boardCenterY, doubleOuter + 5, 0, Math.PI * 2);
-      ctx.strokeStyle = '#555';
-      ctx.lineWidth = 10;
-      ctx.stroke();
+      ctx.beginPath(); ctx.arc(boardCenterX, boardCenterY, doubleOuter + 5, 0, Math.PI * 2); ctx.strokeStyle = '#555'; ctx.lineWidth = 10; ctx.stroke();
 
       for (let i = 0; i < segments; i++) {
-        const startAngle = segmentAngle * i - Math.PI / 2 - segmentAngle / 2;
-        const endAngle = startAngle + segmentAngle;
-
+        const startAngle = segmentAngle * i - Math.PI / 2 - segmentAngle / 2; const endAngle = startAngle + segmentAngle;
         const isEven = i % 2 === 0;
-        let darkColor = isEven ? '#1a1a1a' : '#f5f5dc';
-        let dtColor = isEven ? '#e74c3c' : '#27ae60';
-
-        let doubleColor = dtColor;
-        let tripleColor = dtColor;
-        let singleColor = darkColor;
+        let singleColor = isEven ? '#1a1a1a' : '#f5f5dc'; let dtColor = isEven ? '#e74c3c' : '#27ae60';
+        let doubleColor = dtColor; let tripleColor = dtColor;
 
         if (currentHighlightTarget && currentHighlightTarget.index === i && isFlashOn) {
           if (currentHighlightTarget.type === 'double') doubleColor = '#ffd700';
           if (currentHighlightTarget.type === 'triple') tripleColor = '#ffd700';
           if (currentHighlightTarget.type === 'single') singleColor = '#ffd700';
         }
-
         drawSegment(doubleOuter, doubleInner, startAngle, endAngle, doubleColor);
         drawSegment(outerSingleOuter, tripleOuter, startAngle, endAngle, singleColor);
         drawSegment(tripleOuter, tripleInner, startAngle, endAngle, tripleColor);
         drawSegment(innerSingleOuter, innerSingleInner, startAngle, endAngle, singleColor);
       }
 
-      ctx.beginPath();
-      ctx.arc(boardCenterX, boardCenterY, outerBullRadius, 0, Math.PI * 2);
-      ctx.fillStyle = '#27ae60';
-      ctx.fill();
-      ctx.strokeStyle = '#1a1a1a';
-      ctx.lineWidth = 2;
-      ctx.stroke();
+      ctx.beginPath(); ctx.arc(boardCenterX, boardCenterY, outerBullRadius, 0, Math.PI * 2); ctx.fillStyle = '#27ae60'; ctx.fill(); ctx.strokeStyle = '#1a1a1a'; ctx.lineWidth = 2; ctx.stroke();
+      let bullColor = '#e74c3c'; if (currentHighlightTarget && currentHighlightTarget.type === 'bull' && isFlashOn) bullColor = '#ffd700';
+      ctx.beginPath(); ctx.arc(boardCenterX, boardCenterY, bullseyeRadius, 0, Math.PI * 2); ctx.fillStyle = bullColor; ctx.fill(); ctx.strokeStyle = '#1a1a1a'; ctx.lineWidth = 1; ctx.stroke();
 
-      let bullColor = '#e74c3c';
-      if (currentHighlightTarget && currentHighlightTarget.type === 'bull' && isFlashOn) bullColor = '#ffd700';
-      ctx.beginPath();
-      ctx.arc(boardCenterX, boardCenterY, bullseyeRadius, 0, Math.PI * 2);
-      ctx.fillStyle = bullColor;
-      ctx.fill();
-      ctx.strokeStyle = '#1a1a1a';
-      ctx.lineWidth = 1;
-      ctx.stroke();
-
-      ctx.strokeStyle = '#666';
-      ctx.lineWidth = 1;
+      ctx.strokeStyle = '#666'; ctx.lineWidth = 1;
       for (let i = 0; i < segments; i++) {
         const angle = segmentAngle * i - Math.PI / 2 - segmentAngle / 2;
-        ctx.beginPath();
-        ctx.moveTo(boardCenterX + Math.cos(angle) * innerSingleInner, boardCenterY + Math.sin(angle) * innerSingleInner);
-        ctx.lineTo(boardCenterX + Math.cos(angle) * doubleOuter, boardCenterY + Math.sin(angle) * doubleOuter);
-        ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(boardCenterX + Math.cos(angle) * innerSingleInner, boardCenterY + Math.sin(angle) * innerSingleInner);
+        ctx.lineTo(boardCenterX + Math.cos(angle) * doubleOuter, boardCenterY + Math.sin(angle) * doubleOuter); ctx.stroke();
       }
 
-      ctx.font = `bold ${boardRadius * 0.07}px Arial`;
-      ctx.fillStyle = '#fff';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
+      ctx.font = `bold ${boardRadius * 0.07}px Arial`; ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       for (let i = 0; i < segments; i++) {
-        const angle = segmentAngle * i - Math.PI / 2;
-        const numberRadius = boardRadius * 1.15;
-        const x = boardCenterX + Math.cos(angle) * numberRadius;
-        const y = boardCenterY + Math.sin(angle) * numberRadius;
-        ctx.save();
-        ctx.shadowColor = 'rgba(0,0,0,0.8)';
-        ctx.shadowBlur = 3;
-        ctx.fillText(DART_SEGMENTS[i].toString(), x, y);
-        ctx.restore();
+        const angle = segmentAngle * i - Math.PI / 2; const numberRadius = boardRadius * 1.15;
+        const x = boardCenterX + Math.cos(angle) * numberRadius; const y = boardCenterY + Math.sin(angle) * numberRadius;
+        ctx.save(); ctx.shadowColor = 'rgba(0,0,0,0.8)'; ctx.shadowBlur = 3; ctx.fillText(DART_SEGMENTS[i].toString(), x, y); ctx.restore();
       }
     }
 
     function drawSegment(outerRadius, innerRadius, startAngle, endAngle, color) {
-      ctx.beginPath();
-      ctx.arc(boardCenterX, boardCenterY, outerRadius, startAngle, endAngle);
+      ctx.beginPath(); ctx.arc(boardCenterX, boardCenterY, outerRadius, startAngle, endAngle);
       ctx.arc(boardCenterX, boardCenterY, innerRadius, endAngle, startAngle, true);
-      ctx.closePath();
-      ctx.fillStyle = color;
-      ctx.fill();
-      ctx.strokeStyle = '#333';
-      ctx.lineWidth = 0.5;
-      ctx.stroke();
+      ctx.closePath(); ctx.fillStyle = color; ctx.fill(); ctx.strokeStyle = '#333'; ctx.lineWidth = 0.5; ctx.stroke();
     }
 
     function drawIndicatorDot(x, y, color) {
-      ctx.beginPath();
-      ctx.arc(x, y, INDICATOR_DOT_RADIUS, 0, Math.PI * 2);
-      ctx.fillStyle = color;
-      ctx.fill();
-      ctx.strokeStyle = '#fff';
-      ctx.lineWidth = 2;
-      ctx.stroke();
-
-      ctx.beginPath();
-      ctx.arc(x - 3, y - 3, INDICATOR_DOT_RADIUS * 0.3, 0, Math.PI * 2);
-      ctx.fillStyle = 'rgba(255,255,255,0.5)';
-      ctx.fill();
+      ctx.beginPath(); ctx.arc(x, y, INDICATOR_DOT_RADIUS, 0, Math.PI * 2); ctx.fillStyle = color; ctx.fill(); ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
+      ctx.beginPath(); ctx.arc(x - 3, y - 3, INDICATOR_DOT_RADIUS * 0.3, 0, Math.PI * 2); ctx.fillStyle = 'rgba(255,255,255,0.5)'; ctx.fill();
     }
 
     function drawAimingIndicators() {
       const lineExtend = 30;
-
       if (currentState === GameState.PLAYER_AIMING_VERTICAL) {
         const verticalY = boardCenterY + verticalIndicator * boardRadius;
-        ctx.strokeStyle = 'rgba(255,80,80,0.9)';
-        ctx.lineWidth = INDICATOR_LINE_WIDTH;
-        ctx.setLineDash([10, 6]);
-        ctx.beginPath();
-        ctx.moveTo(boardCenterX - boardRadius - lineExtend, verticalY);
-        ctx.lineTo(boardCenterX + boardRadius + lineExtend, verticalY);
-        ctx.stroke();
-        ctx.setLineDash([]);
-
+        ctx.strokeStyle = 'rgba(255,80,80,0.9)'; ctx.lineWidth = INDICATOR_LINE_WIDTH; ctx.setLineDash([10, 6]);
+        ctx.beginPath(); ctx.moveTo(boardCenterX - boardRadius - lineExtend, verticalY); ctx.lineTo(boardCenterX + boardRadius + lineExtend, verticalY); ctx.stroke(); ctx.setLineDash([]);
         drawIndicatorDot(boardCenterX - boardRadius - lineExtend - INDICATOR_DOT_RADIUS - 5, verticalY, '#ff5050');
         drawIndicatorDot(boardCenterX + boardRadius + lineExtend + INDICATOR_DOT_RADIUS + 5, verticalY, '#ff5050');
       }
-
       if (currentState === GameState.PLAYER_AIMING_HORIZONTAL) {
-        const lockedY = boardCenterY + lockedVertical * boardRadius;
-        const horizontalX = boardCenterX + horizontalIndicator * boardRadius;
-
-        ctx.strokeStyle = 'rgba(255,200,50,0.9)';
-        ctx.lineWidth = INDICATOR_LINE_WIDTH;
-        ctx.beginPath();
-        ctx.moveTo(boardCenterX - boardRadius - lineExtend, lockedY);
-        ctx.lineTo(boardCenterX + boardRadius + lineExtend, lockedY);
-        ctx.stroke();
-
+        const lockedY = boardCenterY + lockedVertical * boardRadius; const horizontalX = boardCenterX + horizontalIndicator * boardRadius;
+        ctx.strokeStyle = 'rgba(255,200,50,0.9)'; ctx.lineWidth = INDICATOR_LINE_WIDTH;
+        ctx.beginPath(); ctx.moveTo(boardCenterX - boardRadius - lineExtend, lockedY); ctx.lineTo(boardCenterX + boardRadius + lineExtend, lockedY); ctx.stroke();
         drawIndicatorDot(boardCenterX - boardRadius - lineExtend - INDICATOR_DOT_RADIUS - 5, lockedY, '#ffc832');
         drawIndicatorDot(boardCenterX + boardRadius + lineExtend + INDICATOR_DOT_RADIUS + 5, lockedY, '#ffc832');
 
-        ctx.strokeStyle = 'rgba(80,255,120,0.9)';
-        ctx.lineWidth = INDICATOR_LINE_WIDTH;
-        ctx.setLineDash([10, 6]);
-        ctx.beginPath();
-        ctx.moveTo(horizontalX, boardCenterY - boardRadius - lineExtend);
-        ctx.lineTo(horizontalX, boardCenterY + boardRadius + lineExtend);
-        ctx.stroke();
-        ctx.setLineDash([]);
-
+        ctx.strokeStyle = 'rgba(80,255,120,0.9)'; ctx.lineWidth = INDICATOR_LINE_WIDTH; ctx.setLineDash([10, 6]);
+        ctx.beginPath(); ctx.moveTo(horizontalX, boardCenterY - boardRadius - lineExtend); ctx.lineTo(horizontalX, boardCenterY + boardRadius + lineExtend); ctx.stroke(); ctx.setLineDash([]);
         drawIndicatorDot(horizontalX, boardCenterY - boardRadius - lineExtend - INDICATOR_DOT_RADIUS - 5, '#50ff78');
         drawIndicatorDot(horizontalX, boardCenterY + boardRadius + lineExtend + INDICATOR_DOT_RADIUS + 5, '#50ff78');
 
-        ctx.beginPath();
-        ctx.arc(horizontalX, lockedY, 18, 0, Math.PI * 2);
-        ctx.fillStyle = 'rgba(255,255,255,0.2)';
-        ctx.fill();
-        ctx.strokeStyle = '#fff';
-        ctx.lineWidth = 3;
-        ctx.stroke();
-
-        ctx.beginPath();
-        ctx.moveTo(horizontalX - 10, lockedY);
-        ctx.lineTo(horizontalX + 10, lockedY);
-        ctx.moveTo(horizontalX, lockedY - 10);
-        ctx.lineTo(horizontalX, lockedY + 10);
-        ctx.strokeStyle = '#fff';
-        ctx.lineWidth = 2;
-        ctx.stroke();
+        ctx.beginPath(); ctx.arc(horizontalX, lockedY, 18, 0, Math.PI * 2); ctx.fillStyle = 'rgba(255,255,255,0.2)'; ctx.fill(); ctx.strokeStyle = '#fff'; ctx.lineWidth = 3; ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(horizontalX - 10, lockedY); ctx.lineTo(horizontalX + 10, lockedY); ctx.moveTo(horizontalX, lockedY - 10); ctx.lineTo(horizontalX, lockedY + 10); ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
       }
     }
 
     function drawFlyingDart(x, y) {
-      ctx.save();
-      const angle = Math.atan2(targetY - y, targetX - x);
-      ctx.translate(x, y);
-      ctx.rotate(angle + Math.PI / 2);
-
-      ctx.fillStyle = currentDartColor;
-      ctx.beginPath();
-      ctx.moveTo(0, 15);
-      ctx.lineTo(-10, 35);
-      ctx.lineTo(0, 28);
-      ctx.lineTo(10, 35);
-      ctx.closePath();
-      ctx.fill();
-
-      ctx.fillStyle = '#555';
-      ctx.beginPath();
-      ctx.rect(-4, -5, 8, 28);
-      ctx.fill();
-
-      ctx.fillStyle = '#bbb';
-      ctx.beginPath();
-      ctx.moveTo(-4, -5);
-      ctx.lineTo(0, -22);
-      ctx.lineTo(4, -5);
-      ctx.closePath();
-      ctx.fill();
-
-      ctx.restore();
+      ctx.save(); const angle = Math.atan2(targetY - y, targetX - x); ctx.translate(x, y); ctx.rotate(angle + Math.PI / 2);
+      ctx.fillStyle = currentDartColor; ctx.beginPath(); ctx.moveTo(0, 15); ctx.lineTo(-10, 35); ctx.lineTo(0, 28); ctx.lineTo(10, 35); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#555'; ctx.beginPath(); ctx.rect(-4, -5, 8, 28); ctx.fill();
+      ctx.fillStyle = '#bbb'; ctx.beginPath(); ctx.moveTo(-4, -5); ctx.lineTo(0, -22); ctx.lineTo(4, -5); ctx.closePath(); ctx.fill(); ctx.restore();
     }
 
     function drawDartOnBoard(x, y, color) {
-      ctx.save();
-      ctx.shadowColor = 'rgba(0,0,0,0.5)';
-      ctx.shadowBlur = 5;
-      ctx.shadowOffsetX = 3;
-      ctx.shadowOffsetY = 3;
-
-      const tailLength = 28;
-      const tailAngle = -Math.PI / 6;
-
-      ctx.fillStyle = color || '#ff6b6b';
-      ctx.beginPath();
-      ctx.moveTo(x, y);
-      ctx.lineTo(x + Math.cos(tailAngle - 0.25) * tailLength, y + Math.sin(tailAngle - 0.25) * tailLength);
-      ctx.lineTo(x + Math.cos(tailAngle) * (tailLength - 6), y + Math.sin(tailAngle) * (tailLength - 6));
-      ctx.lineTo(x + Math.cos(tailAngle + 0.25) * tailLength, y + Math.sin(tailAngle + 0.25) * tailLength);
-      ctx.closePath();
-      ctx.fill();
-
-      ctx.fillStyle = '#444';
-      ctx.beginPath();
-      ctx.ellipse(x + 6, y + 4, 4, 10, tailAngle, 0, Math.PI * 2);
-      ctx.fill();
-
-      ctx.beginPath();
-      ctx.arc(x, y, 5, 0, Math.PI * 2);
-      ctx.fillStyle = '#222';
-      ctx.fill();
-
-      ctx.restore();
+      ctx.save(); ctx.shadowColor = 'rgba(0,0,0,0.5)'; ctx.shadowBlur = 5; ctx.shadowOffsetX = 3; ctx.shadowOffsetY = 3;
+      const tailLength = 28; const tailAngle = -Math.PI / 6;
+      ctx.fillStyle = color || '#ff6b6b'; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + Math.cos(tailAngle - 0.25) * tailLength, y + Math.sin(tailAngle - 0.25) * tailLength); ctx.lineTo(x + Math.cos(tailAngle) * (tailLength - 6), y + Math.sin(tailAngle) * (tailLength - 6)); ctx.lineTo(x + Math.cos(tailAngle + 0.25) * tailLength, y + Math.sin(tailAngle + 0.25) * tailLength); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#444'; ctx.beginPath(); ctx.ellipse(x + 6, y + 4, 4, 10, tailAngle, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(x, y, 5, 0, Math.PI * 2); ctx.fillStyle = '#222'; ctx.fill(); ctx.restore();
     }
 
     window.onload = init;
   </script>
 </body>
 </html>
-
