@@ -1,1 +1,1625 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>RunTrack - Running Record App</title>
+    <!-- Firebase SDK (compat) -->
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+    <style>
+        /* ===== CSS Reset & Base ===== */
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
 
+        :root {
+            --bg-primary: #0d0d0d;
+            --bg-secondary: #1a1a2e;
+            --bg-card: #16213e;
+            --bg-card-hover: #1a2744;
+            --bg-input: #0f3460;
+            --accent-primary: #e94560;
+            --accent-secondary: #00d2ff;
+            --accent-green: #00e676;
+            --accent-orange: #ff9100;
+            --accent-purple: #b388ff;
+            --text-primary: #ffffff;
+            --text-secondary: #a0aec0;
+            --text-muted: #636e82;
+            --border-color: #2a3a5c;
+            --shadow-color: rgba(233, 69, 96, 0.15);
+            --nav-height: 64px;
+            --header-height: 56px;
+        }
+
+        html, body {
+            height: 100%;
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            font-size: 16px;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            overflow: hidden;
+        }
+
+        /* ===== App Container (9:16 mobile ratio) ===== */
+        #app {
+            max-width: 480px;
+            margin: 0 auto;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            background: var(--bg-primary);
+            overflow: hidden;
+        }
+
+        /* ===== Header ===== */
+        .app-header {
+            height: var(--header-height);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 16px;
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border-color);
+            flex-shrink: 0;
+            z-index: 10;
+        }
+
+        .app-header h1 {
+            font-size: 20px;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .header-back-btn {
+            background: none;
+            border: none;
+            color: var(--accent-secondary);
+            font-size: 16px;
+            cursor: pointer;
+            padding: 8px;
+            display: none;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .header-back-btn.visible {
+            display: flex;
+        }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        /* ===== Main Content Area ===== */
+        .app-content {
+            flex: 1;
+            overflow-y: auto;
+            overflow-x: hidden;
+            padding: 16px;
+            padding-bottom: calc(var(--nav-height) + 16px);
+            scroll-behavior: smooth;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .app-content::-webkit-scrollbar {
+            width: 4px;
+        }
+        .app-content::-webkit-scrollbar-thumb {
+            background: var(--border-color);
+            border-radius: 2px;
+        }
+
+        /* ===== Bottom Navigation ===== */
+        .bottom-nav {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: var(--nav-height);
+            background: var(--bg-secondary);
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: space-around;
+            z-index: 100;
+            padding-bottom: env(safe-area-inset-bottom, 0);
+        }
+
+        .nav-item {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+            padding: 8px 0;
+            cursor: pointer;
+            border: none;
+            background: none;
+            color: var(--text-muted);
+            transition: color 0.2s, transform 0.15s;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .nav-item.active {
+            color: var(--accent-primary);
+        }
+
+        .nav-item:active {
+            transform: scale(0.92);
+        }
+
+        .nav-item svg {
+            width: 24px;
+            height: 24px;
+            fill: currentColor;
+        }
+
+        .nav-item span {
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        /* ===== Section Title ===== */
+        .section-title {
+            font-size: 18px;
+            font-weight: 700;
+            margin-bottom: 16px;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .section-title .icon {
+            font-size: 20px;
+        }
+
+        /* ===== User Cards ===== */
+        .user-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .user-card:hover, .user-card:active {
+            background: var(--bg-card-hover);
+            border-color: var(--accent-primary);
+            box-shadow: 0 4px 20px var(--shadow-color);
+            transform: translateY(-1px);
+        }
+
+        .user-card .user-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .user-avatar {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            font-weight: 700;
+            color: #fff;
+            flex-shrink: 0;
+        }
+
+        .user-card .user-name {
+            font-size: 17px;
+            font-weight: 600;
+        }
+
+        .user-card .user-stats {
+            font-size: 14px;
+            color: var(--text-secondary);
+            margin-top: 2px;
+        }
+
+        .user-card .arrow {
+            color: var(--text-muted);
+            font-size: 18px;
+        }
+
+        /* ===== Record Cards ===== */
+        .record-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 12px;
+            position: relative;
+        }
+
+        .record-card .record-date {
+            font-size: 14px;
+            color: var(--accent-secondary);
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .record-card .record-stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 8px;
+        }
+
+        .record-card .stat {
+            text-align: center;
+        }
+
+        .record-card .stat-value {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .record-card .stat-label {
+            font-size: 13px;
+            color: var(--text-secondary);
+            margin-top: 2px;
+        }
+
+        .record-card .delete-btn {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            background: rgba(233, 69, 96, 0.15);
+            border: none;
+            color: var(--accent-primary);
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            transition: all 0.2s;
+        }
+
+        .record-card .delete-btn:hover {
+            background: var(--accent-primary);
+            color: #fff;
+        }
+
+        /* ===== Buttons ===== */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 14px 24px;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s;
+            -webkit-tap-highlight-color: transparent;
+            width: 100%;
+        }
+
+        .btn:active {
+            transform: scale(0.97);
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--accent-primary), #c0392b);
+            color: #fff;
+            box-shadow: 0 4px 15px rgba(233, 69, 96, 0.3);
+        }
+
+        .btn-primary:hover {
+            box-shadow: 0 6px 25px rgba(233, 69, 96, 0.4);
+        }
+
+        .btn-secondary {
+            background: var(--bg-input);
+            color: var(--accent-secondary);
+            border: 1px solid var(--border-color);
+        }
+
+        .btn-secondary:hover {
+            border-color: var(--accent-secondary);
+        }
+
+        .btn-green {
+            background: linear-gradient(135deg, var(--accent-green), #00c853);
+            color: #0d0d0d;
+            box-shadow: 0 4px 15px rgba(0, 230, 118, 0.3);
+        }
+
+        .btn-small {
+            padding: 10px 16px;
+            font-size: 14px;
+            border-radius: 8px;
+            width: auto;
+        }
+
+        .btn-danger {
+            background: rgba(233, 69, 96, 0.15);
+            color: var(--accent-primary);
+            border: 1px solid rgba(233, 69, 96, 0.3);
+        }
+
+        /* ===== Forms ===== */
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 6px;
+            color: var(--text-secondary);
+        }
+
+        .form-group input, .form-group select {
+            width: 100%;
+            padding: 14px 16px;
+            border-radius: 10px;
+            border: 1px solid var(--border-color);
+            background: var(--bg-input);
+            color: var(--text-primary);
+            font-size: 16px;
+            outline: none;
+            transition: border-color 0.2s;
+            -webkit-appearance: none;
+        }
+
+        .form-group input:focus, .form-group select:focus {
+            border-color: var(--accent-secondary);
+            box-shadow: 0 0 0 3px rgba(0, 210, 255, 0.1);
+        }
+
+        .form-group input::placeholder {
+            color: var(--text-muted);
+        }
+
+        /* ===== Modal ===== */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(4px);
+            z-index: 1000;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 16px;
+        }
+
+        .modal-overlay.show {
+            display: flex;
+        }
+
+        .modal {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 24px;
+            width: 100%;
+            max-width: 400px;
+            max-height: 90vh;
+            overflow-y: auto;
+            animation: modalIn 0.25s ease;
+        }
+
+        @keyframes modalIn {
+            from { opacity: 0; transform: scale(0.9) translateY(20px); }
+            to { opacity: 1; transform: scale(1) translateY(0); }
+        }
+
+        .modal h2 {
+            font-size: 20px;
+            margin-bottom: 20px;
+            text-align: center;
+            background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .modal .btn {
+            margin-top: 8px;
+        }
+
+        .modal .btn-cancel {
+            background: transparent;
+            color: var(--text-secondary);
+            border: 1px solid var(--border-color);
+        }
+
+        .modal-error {
+            color: var(--accent-primary);
+            font-size: 14px;
+            text-align: center;
+            margin-top: 8px;
+            min-height: 20px;
+        }
+
+        /* ===== Profile Header ===== */
+        .profile-header {
+            text-align: center;
+            padding: 20px 0;
+            margin-bottom: 16px;
+        }
+
+        .profile-header .avatar-large {
+            width: 72px;
+            height: 72px;
+            border-radius: 50%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 28px;
+            font-weight: 700;
+            color: #fff;
+            margin-bottom: 12px;
+            box-shadow: 0 4px 20px rgba(0, 210, 255, 0.3);
+        }
+
+        .profile-header .profile-name {
+            font-size: 22px;
+            font-weight: 700;
+        }
+
+        .profile-header .profile-summary {
+            display: flex;
+            justify-content: center;
+            gap: 24px;
+            margin-top: 12px;
+        }
+
+        .profile-header .summary-stat {
+            text-align: center;
+        }
+
+        .profile-header .summary-stat .val {
+            font-size: 20px;
+            font-weight: 700;
+            color: var(--accent-secondary);
+        }
+
+        .profile-header .summary-stat .lbl {
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+
+        /* ===== Rankings ===== */
+        .ranking-tabs {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+
+        .ranking-tab {
+            flex: 1;
+            padding: 12px;
+            text-align: center;
+            font-size: 16px;
+            font-weight: 600;
+            border-radius: 10px;
+            border: 1px solid var(--border-color);
+            background: var(--bg-card);
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .ranking-tab.active {
+            background: var(--accent-primary);
+            color: #fff;
+            border-color: var(--accent-primary);
+        }
+
+        .ranking-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 14px 16px;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .ranking-card .rank-num {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            font-weight: 700;
+            flex-shrink: 0;
+        }
+
+        .rank-1 { background: linear-gradient(135deg, #FFD700, #FFA000); color: #000; }
+        .rank-2 { background: linear-gradient(135deg, #C0C0C0, #9E9E9E); color: #000; }
+        .rank-3 { background: linear-gradient(135deg, #CD7F32, #A0522D); color: #fff; }
+        .rank-other { background: var(--bg-input); color: var(--text-secondary); }
+
+        .ranking-card .rank-info {
+            flex: 1;
+        }
+
+        .ranking-card .rank-name {
+            font-size: 16px;
+            font-weight: 600;
+        }
+
+        .ranking-card .rank-detail {
+            font-size: 14px;
+            color: var(--text-secondary);
+        }
+
+        .ranking-card .rank-value {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--accent-green);
+        }
+
+        .date-picker-row {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 16px;
+            align-items: center;
+        }
+
+        .date-picker-row input[type="date"] {
+            flex: 1;
+            padding: 12px 16px;
+            border-radius: 10px;
+            border: 1px solid var(--border-color);
+            background: var(--bg-input);
+            color: var(--text-primary);
+            font-size: 16px;
+            outline: none;
+        }
+
+        .date-picker-row input[type="date"]:focus {
+            border-color: var(--accent-secondary);
+        }
+
+        /* ===== Empty State ===== */
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: var(--text-muted);
+        }
+
+        .empty-state .empty-icon {
+            font-size: 48px;
+            margin-bottom: 12px;
+        }
+
+        .empty-state p {
+            font-size: 16px;
+        }
+
+        /* ===== Loading Spinner ===== */
+        .spinner {
+            display: inline-block;
+            width: 24px;
+            height: 24px;
+            border: 3px solid var(--border-color);
+            border-top-color: var(--accent-primary);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .loading-container {
+            display: flex;
+            justify-content: center;
+            padding: 40px;
+        }
+
+        /* ===== Toast ===== */
+        .toast {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%) translateY(-100px);
+            padding: 14px 24px;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            z-index: 2000;
+            transition: transform 0.3s ease;
+            max-width: 90%;
+            text-align: center;
+        }
+
+        .toast.show {
+            transform: translateX(-50%) translateY(0);
+        }
+
+        .toast-success {
+            background: var(--accent-green);
+            color: #0d0d0d;
+        }
+
+        .toast-error {
+            background: var(--accent-primary);
+            color: #fff;
+        }
+
+        /* ===== Add Record Floating Button ===== */
+        .fab {
+            position: fixed;
+            bottom: calc(var(--nav-height) + 20px + env(safe-area-inset-bottom, 0));
+            right: calc(50% - 240px + 20px);
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--accent-green), #00c853);
+            color: #0d0d0d;
+            border: none;
+            font-size: 28px;
+            cursor: pointer;
+            box-shadow: 0 4px 20px rgba(0, 230, 118, 0.4);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 50;
+            transition: transform 0.2s;
+        }
+
+        .fab:active {
+            transform: scale(0.9);
+        }
+
+        .fab.visible {
+            display: flex;
+        }
+
+        /* For screens smaller than 480px, position FAB relative to viewport */
+        @media (max-width: 480px) {
+            .fab {
+                right: 20px;
+            }
+        }
+
+        /* ===== User delete button in user list ===== */
+        .user-delete-btn {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            font-size: 18px;
+            cursor: pointer;
+            padding: 4px 8px;
+            border-radius: 6px;
+            transition: all 0.2s;
+        }
+        .user-delete-btn:hover {
+            color: var(--accent-primary);
+            background: rgba(233, 69, 96, 0.1);
+        }
+
+        /* ===== Add record form section ===== */
+        .add-record-section {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 16px;
+        }
+
+        .add-record-section h3 {
+            font-size: 17px;
+            font-weight: 600;
+            margin-bottom: 12px;
+            color: var(--accent-secondary);
+        }
+
+        /* ===== Hide pages ===== */
+        .page { display: none; }
+        .page.active { display: block; }
+
+        /* ===== User card inner flex ===== */
+        .user-card-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex: 1;
+            min-width: 0;
+        }
+
+        .user-card-right {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            flex-shrink: 0;
+        }
+
+        /* ===== Animations ===== */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .animate-in {
+            animation: fadeIn 0.3s ease forwards;
+        }
+
+        /* Sort dropdown for rankings */
+        .sort-row {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+
+        .sort-row select {
+            flex: 1;
+            padding: 12px 16px;
+            border-radius: 10px;
+            border: 1px solid var(--border-color);
+            background: var(--bg-input);
+            color: var(--text-primary);
+            font-size: 16px;
+            outline: none;
+        }
+    </style>
+</head>
+<body>
+
+<div id="app">
+    <!-- ===== Header ===== -->
+    <header class="app-header">
+        <button class="header-back-btn" id="backBtn" onclick="goBack()">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg>
+            <span>Back</span>
+        </button>
+        <h1>🏃 RunTrack</h1>
+        <div class="header-right">
+            <button class="btn btn-small btn-secondary" id="addUserBtn" onclick="showAddUserModal()">+ User</button>
+        </div>
+    </header>
+
+    <!-- ===== Main Content ===== -->
+    <div class="app-content" id="appContent">
+
+        <!-- Home Page -->
+        <div class="page active" id="homePage">
+            <div class="section-title">👟 Runners</div>
+            <div id="userList">
+                <div class="loading-container"><div class="spinner"></div></div>
+            </div>
+        </div>
+
+        <!-- User Profile Page -->
+        <div class="page" id="profilePage">
+            <div class="profile-header" id="profileHeader"></div>
+            <div class="add-record-section">
+                <h3>📝 Add Record</h3>
+                <div class="form-group">
+                    <label>Date</label>
+                    <input type="date" id="recordDate">
+                </div>
+                <div class="form-group">
+                    <label>Duration (minutes)</label>
+                    <input type="number" id="recordDuration" placeholder="e.g. 30" min="1" step="1">
+                </div>
+                <div class="form-group">
+                    <label>Distance (km)</label>
+                    <input type="number" id="recordDistance" placeholder="e.g. 5.0" min="0.01" step="0.01">
+                </div>
+                <button class="btn btn-green" onclick="addRecord()">Add Record</button>
+            </div>
+            <div class="section-title">📋 Records</div>
+            <div id="recordList"></div>
+        </div>
+
+        <!-- Rankings Page -->
+        <div class="page" id="rankingsPage">
+            <div class="section-title">🏆 Rankings</div>
+            <div class="ranking-tabs">
+                <button class="ranking-tab active" onclick="switchRankingTab('total')">Total</button>
+                <button class="ranking-tab" onclick="switchRankingTab('daily')">Daily</button>
+            </div>
+            <div id="totalRankings">
+                <div class="sort-row">
+                    <select id="sortSelect" onchange="renderTotalRankings()">
+                        <option value="distance">Sort by Total Distance</option>
+                        <option value="pace">Sort by Best Pace</option>
+                    </select>
+                </div>
+                <div id="totalRankingList"></div>
+            </div>
+            <div id="dailyRankings" style="display:none;">
+                <div class="date-picker-row">
+                    <input type="date" id="rankDate" onchange="renderDailyRankings()">
+                </div>
+                <div id="dailyRankingList"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- FAB for adding record (visible only on profile page) -->
+    <button class="fab" id="fabAddRecord" onclick="document.querySelector('.add-record-section').scrollIntoView({behavior:'smooth'})">+</button>
+
+    <!-- ===== Bottom Navigation ===== -->
+    <nav class="bottom-nav">
+        <button class="nav-item active" id="navHome" onclick="navigateTo('home')">
+            <svg viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
+            <span>Home</span>
+        </button>
+        <button class="nav-item" id="navRankings" onclick="navigateTo('rankings')">
+            <svg viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87L18.18 22 12 18.56 5.82 22 7 14.14l-5-4.87 6.91-1.01z"/></svg>
+            <span>Rankings</span>
+        </button>
+    </nav>
+</div>
+
+<!-- ===== Add User Modal ===== -->
+<div class="modal-overlay" id="addUserModal">
+    <div class="modal">
+        <h2>👤 Add New Runner</h2>
+        <div class="form-group">
+            <label>Name</label>
+            <input type="text" id="newUserName" placeholder="Enter runner's name">
+        </div>
+        <div class="form-group">
+            <label>Admin Password</label>
+            <input type="password" id="addUserPassword" placeholder="Enter admin password">
+        </div>
+        <button class="btn btn-primary" onclick="addUser()">Add Runner</button>
+        <button class="btn btn-cancel" onclick="closeModal('addUserModal')">Cancel</button>
+        <div class="modal-error" id="addUserError"></div>
+    </div>
+</div>
+
+<!-- ===== Password Confirm Modal ===== -->
+<div class="modal-overlay" id="passwordModal">
+    <div class="modal">
+        <h2>🔒 Admin Verification</h2>
+        <div class="form-group">
+            <label>Password</label>
+            <input type="password" id="confirmPassword" placeholder="Enter admin password">
+        </div>
+        <button class="btn btn-primary" id="passwordConfirmBtn">Confirm</button>
+        <button class="btn btn-cancel" onclick="closeModal('passwordModal')">Cancel</button>
+        <div class="modal-error" id="passwordError"></div>
+    </div>
+</div>
+
+<!-- ===== Delete User Confirm Modal ===== -->
+<div class="modal-overlay" id="deleteUserModal">
+    <div class="modal">
+        <h2>⚠️ Delete Runner</h2>
+        <p style="text-align:center;font-size:16px;color:var(--text-secondary);margin-bottom:16px;" id="deleteUserMsg">Are you sure?</p>
+        <div class="form-group">
+            <label>Admin Password</label>
+            <input type="password" id="deleteUserPassword" placeholder="Enter admin password">
+        </div>
+        <button class="btn btn-primary" id="confirmDeleteUserBtn">Delete</button>
+        <button class="btn btn-cancel" onclick="closeModal('deleteUserModal')">Cancel</button>
+        <div class="modal-error" id="deleteUserError"></div>
+    </div>
+</div>
+
+<!-- ===== Delete Record Confirm Modal ===== -->
+<div class="modal-overlay" id="deleteRecordModal">
+    <div class="modal">
+        <h2>⚠️ Delete Record</h2>
+        <p style="text-align:center;font-size:16px;color:var(--text-secondary);margin-bottom:16px;">Are you sure you want to delete this record?</p>
+        <div class="form-group">
+            <label>Admin Password</label>
+            <input type="password" id="deleteRecordPassword" placeholder="Enter admin password">
+        </div>
+        <button class="btn btn-primary" id="confirmDeleteRecordBtn">Delete</button>
+        <button class="btn btn-cancel" onclick="closeModal('deleteRecordModal')">Cancel</button>
+        <div class="modal-error" id="deleteRecordError"></div>
+    </div>
+</div>
+
+<!-- ===== Toast ===== -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ==========================================
+// Firebase Initialization
+// ==========================================
+const firebaseConfig = {
+    apiKey: "AIzaSyACjxWEkXkPUBv6xiWtVWZdsFvxeKURJ1Q",
+    authDomain: "time-f681a.firebaseapp.com",
+    databaseURL: "https://time-f681a-default-rtdb.firebaseio.com",
+    projectId: "time-f681a",
+    storageBucket: "time-f681a.firebasestorage.app",
+    messagingSenderId: "486171948384",
+    appId: "1:486171948384:web:715043928d3a0a0cd39a05"
+};
+
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
+// ==========================================
+// Constants
+// ==========================================
+const ADMIN_PASSWORD = 'iLoverun';
+// Avatar color map - regenerated randomly each session
+let avatarColorMap = {};
+
+// ==========================================
+// App State
+// ==========================================
+let currentPage = 'home';
+let currentUserId = null;
+let currentUserData = null;
+let allUsers = {};
+let allRecords = {};
+let pendingAction = null; // For password-confirmed actions
+let pendingDeleteUserId = null;
+let pendingDeleteRecordId = null;
+
+// ==========================================
+// Navigation
+// ==========================================
+function navigateTo(page) {
+    currentPage = page;
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+
+    if (page === 'home') {
+        document.getElementById('homePage').classList.add('active');
+        document.getElementById('navHome').classList.add('active');
+        document.getElementById('backBtn').classList.remove('visible');
+        document.getElementById('addUserBtn').style.display = '';
+        document.getElementById('fabAddRecord').classList.remove('visible');
+    } else if (page === 'rankings') {
+        document.getElementById('rankingsPage').classList.add('active');
+        document.getElementById('navRankings').classList.add('active');
+        document.getElementById('backBtn').classList.remove('visible');
+        document.getElementById('addUserBtn').style.display = 'none';
+        document.getElementById('fabAddRecord').classList.remove('visible');
+        renderTotalRankings();
+    } else if (page === 'profile') {
+        document.getElementById('profilePage').classList.add('active');
+        document.getElementById('backBtn').classList.add('visible');
+        document.getElementById('addUserBtn').style.display = 'none';
+        document.getElementById('fabAddRecord').classList.add('visible');
+    }
+}
+
+function goBack() {
+    if (currentPage === 'profile') {
+        navigateTo('home');
+        currentUserId = null;
+        currentUserData = null;
+    }
+}
+
+// ==========================================
+// Toast Notification
+// ==========================================
+function showToast(message, type = 'success') {
+    const toast = document.getElementById('toast');
+    toast.textContent = message;
+    toast.className = 'toast toast-' + type + ' show';
+    setTimeout(() => {
+        toast.classList.remove('show');
+    }, 2500);
+}
+
+// ==========================================
+// Modal Helpers
+// ==========================================
+function showModal(id) {
+    document.getElementById(id).classList.add('show');
+}
+
+function closeModal(id) {
+    document.getElementById(id).classList.remove('show');
+    // Clear error messages
+    const errorEl = document.getElementById(id.replace('Modal', 'Error'));
+    if (errorEl) errorEl.textContent = '';
+}
+
+// ==========================================
+// Avatar Color Generator (Random Unique Colors)
+// ==========================================
+
+// Generate a vibrant random color using HSL
+// Hue is spread evenly, saturation and lightness ensure bright, visible colors
+function generateVibrantColor(hue) {
+    const saturation = 70 + Math.random() * 20;   // 70-90%
+    const lightness = 50 + Math.random() * 10;     // 50-60%
+    return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
+}
+
+// Shuffle array (Fisher-Yates)
+function shuffleArray(arr) {
+    for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+}
+
+// Assign unique random colors to all users
+function assignRandomAvatarColors() {
+    const userIds = Object.keys(allUsers);
+    const count = userIds.length;
+    if (count === 0) { avatarColorMap = {}; return; }
+
+    // Spread hues evenly across the color wheel, then shuffle for randomness
+    const hues = [];
+    for (let i = 0; i < count; i++) {
+        hues.push(Math.round((360 / count) * i));
+    }
+    shuffleArray(hues);
+
+    avatarColorMap = {};
+    userIds.forEach((uid, idx) => {
+        avatarColorMap[uid] = generateVibrantColor(hues[idx]);
+    });
+}
+
+// Get avatar color for a user by their userId
+function getAvatarColor(uid) {
+    return avatarColorMap[uid] || '#e94560';
+}
+
+function getInitial(name) {
+    return name.charAt(0).toUpperCase();
+}
+
+// ==========================================
+// Utility: Format Pace
+// ==========================================
+function formatPace(durationMin, distanceKm) {
+    if (!distanceKm || distanceKm <= 0) return '--:--';
+    const paceMin = durationMin / distanceKm;
+    const mins = Math.floor(paceMin);
+    const secs = Math.round((paceMin - mins) * 60);
+    return mins + "'" + (secs < 10 ? '0' : '') + secs + '" /km';
+}
+
+function formatDuration(totalMin) {
+    if (totalMin < 60) return totalMin + ' min';
+    const h = Math.floor(totalMin / 60);
+    const m = totalMin % 60;
+    return h + 'h ' + (m > 0 ? m + 'm' : '');
+}
+
+function formatDate(dateStr) {
+    const d = new Date(dateStr);
+    const options = { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' };
+    return d.toLocaleDateString('en-US', options);
+}
+
+// ==========================================
+// Firebase: Load Users
+// ==========================================
+function loadUsers() {
+    db.ref('users').on('value', (snapshot) => {
+        allUsers = snapshot.val() || {};
+        assignRandomAvatarColors();
+        renderUserList();
+
+        // Also reload records for rankings
+        loadAllRecords();
+    });
+}
+
+function renderUserList() {
+    const container = document.getElementById('userList');
+    const userIds = Object.keys(allUsers);
+
+    if (userIds.length === 0) {
+        container.innerHTML = `
+            <div class="empty-state">
+                <div class="empty-icon">🏃</div>
+                <p>No runners yet.<br>Tap "+ User" to add one!</p>
+            </div>`;
+        return;
+    }
+
+    let html = '';
+    userIds.forEach(uid => {
+        const user = allUsers[uid];
+        const records = allRecords[uid] || {};
+        const recordCount = Object.keys(records).length;
+        const color = getAvatarColor(uid);
+
+        // Calculate total distance
+        let totalDist = 0;
+        Object.values(records).forEach(r => { totalDist += (r.distance || 0); });
+
+        html += `
+        <div class="user-card animate-in" onclick="openProfile('${uid}')">
+            <div class="user-card-left">
+                <div class="user-avatar" style="background:${color}">${getInitial(user.name)}</div>
+                <div>
+                    <div class="user-name">${escapeHtml(user.name)}</div>
+                    <div class="user-stats">${recordCount} run${recordCount !== 1 ? 's' : ''} · ${totalDist.toFixed(1)} km</div>
+                </div>
+            </div>
+            <div class="user-card-right">
+                <button class="user-delete-btn" onclick="event.stopPropagation();confirmDeleteUser('${uid}','${escapeHtml(user.name)}')" title="Delete user">✕</button>
+                <span class="arrow">›</span>
+            </div>
+        </div>`;
+    });
+
+    container.innerHTML = html;
+}
+
+// ==========================================
+// Firebase: Load All Records (for rankings)
+// ==========================================
+function loadAllRecords() {
+    db.ref('records').on('value', (snapshot) => {
+        allRecords = snapshot.val() || {};
+        renderUserList(); // Re-render user list with updated stats
+        if (currentPage === 'rankings') {
+            if (document.getElementById('totalRankings').style.display !== 'none') {
+                renderTotalRankings();
+            } else {
+                renderDailyRankings();
+            }
+        }
+        if (currentPage === 'profile' && currentUserId) {
+            renderRecords();
+        }
+    });
+}
+
+// ==========================================
+// Firebase: Add User
+// ==========================================
+function showAddUserModal() {
+    document.getElementById('newUserName').value = '';
+    document.getElementById('addUserPassword').value = '';
+    document.getElementById('addUserError').textContent = '';
+    showModal('addUserModal');
+}
+
+function addUser() {
+    const name = document.getElementById('newUserName').value.trim();
+    const password = document.getElementById('addUserPassword').value;
+    const errorEl = document.getElementById('addUserError');
+
+    if (!name) {
+        errorEl.textContent = 'Please enter a name.';
+        return;
+    }
+
+    if (password !== ADMIN_PASSWORD) {
+        errorEl.textContent = 'Incorrect admin password.';
+        return;
+    }
+
+    const newUserRef = db.ref('users').push();
+    newUserRef.set({
+        name: name,
+        createdAt: new Date().toISOString()
+    }).then(() => {
+        closeModal('addUserModal');
+        showToast(name + ' has been added!');
+    }).catch(err => {
+        errorEl.textContent = 'Error: ' + err.message;
+    });
+}
+
+// ==========================================
+// Delete User
+// ==========================================
+function confirmDeleteUser(uid, name) {
+    pendingDeleteUserId = uid;
+    document.getElementById('deleteUserMsg').textContent = `Delete "${name}" and all their records?`;
+    document.getElementById('deleteUserPassword').value = '';
+    document.getElementById('deleteUserError').textContent = '';
+    showModal('deleteUserModal');
+}
+
+document.getElementById('confirmDeleteUserBtn').addEventListener('click', () => {
+    const password = document.getElementById('deleteUserPassword').value;
+    const errorEl = document.getElementById('deleteUserError');
+
+    if (password !== ADMIN_PASSWORD) {
+        errorEl.textContent = 'Incorrect admin password.';
+        return;
+    }
+
+    const uid = pendingDeleteUserId;
+    // Remove user and their records
+    const updates = {};
+    updates['/users/' + uid] = null;
+    updates['/records/' + uid] = null;
+
+    db.ref().update(updates).then(() => {
+        closeModal('deleteUserModal');
+        showToast('Runner deleted.');
+        pendingDeleteUserId = null;
+    }).catch(err => {
+        errorEl.textContent = 'Error: ' + err.message;
+    });
+});
+
+// ==========================================
+// Open Profile
+// ==========================================
+function openProfile(uid) {
+    currentUserId = uid;
+    currentUserData = allUsers[uid];
+    navigateTo('profile');
+    renderProfileHeader();
+    renderRecords();
+
+    // Set default date to today
+    const today = new Date().toISOString().split('T')[0];
+    document.getElementById('recordDate').value = today;
+}
+
+function renderProfileHeader() {
+    const container = document.getElementById('profileHeader');
+    const user = currentUserData;
+    if (!user) return;
+
+    const color = getAvatarColor(currentUserId);
+    const records = allRecords[currentUserId] || {};
+    const recordArr = Object.values(records);
+
+    let totalDist = 0, totalTime = 0;
+    recordArr.forEach(r => {
+        totalDist += (r.distance || 0);
+        totalTime += (r.duration || 0);
+    });
+
+    container.innerHTML = `
+        <div class="avatar-large" style="background:${color}">${getInitial(user.name)}</div>
+        <div class="profile-name">${escapeHtml(user.name)}</div>
+        <div class="profile-summary">
+            <div class="summary-stat">
+                <div class="val">${recordArr.length}</div>
+                <div class="lbl">Runs</div>
+            </div>
+            <div class="summary-stat">
+                <div class="val">${totalDist.toFixed(1)}</div>
+                <div class="lbl">km</div>
+            </div>
+            <div class="summary-stat">
+                <div class="val">${formatDuration(totalTime)}</div>
+                <div class="lbl">Time</div>
+            </div>
+        </div>`;
+}
+
+function renderRecords() {
+    const container = document.getElementById('recordList');
+    const records = allRecords[currentUserId] || {};
+    const recordEntries = Object.entries(records);
+
+    if (recordEntries.length === 0) {
+        container.innerHTML = `
+            <div class="empty-state">
+                <div class="empty-icon">📋</div>
+                <p>No records yet.<br>Add your first run above!</p>
+            </div>`;
+        return;
+    }
+
+    // Sort by date descending
+    recordEntries.sort((a, b) => {
+        if (b[1].date > a[1].date) return 1;
+        if (b[1].date < a[1].date) return -1;
+        return 0;
+    });
+
+    let html = '';
+    recordEntries.forEach(([rid, rec]) => {
+        const pace = formatPace(rec.duration, rec.distance);
+        html += `
+        <div class="record-card animate-in">
+            <div class="record-date">${formatDate(rec.date)}</div>
+            <div class="record-stats">
+                <div class="stat">
+                    <div class="stat-value">${rec.duration}</div>
+                    <div class="stat-label">min</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-value">${rec.distance.toFixed(2)}</div>
+                    <div class="stat-label">km</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-value" style="font-size:15px">${pace}</div>
+                    <div class="stat-label">pace</div>
+                </div>
+            </div>
+            <button class="delete-btn" onclick="confirmDeleteRecord('${rid}')" title="Delete">🗑</button>
+        </div>`;
+    });
+
+    container.innerHTML = html;
+    renderProfileHeader();
+}
+
+// ==========================================
+// Add Record (no password required)
+// ==========================================
+function addRecord() {
+    const date = document.getElementById('recordDate').value;
+    const duration = parseFloat(document.getElementById('recordDuration').value);
+    const distance = parseFloat(document.getElementById('recordDistance').value);
+
+    if (!date) { showToast('Please select a date.', 'error'); return; }
+    if (!duration || duration <= 0) { showToast('Please enter a valid duration.', 'error'); return; }
+    if (!distance || distance <= 0) { showToast('Please enter a valid distance.', 'error'); return; }
+
+    const newRecordRef = db.ref('records/' + currentUserId).push();
+    newRecordRef.set({
+        date: date,
+        duration: duration,
+        distance: distance,
+        createdAt: new Date().toISOString()
+    }).then(() => {
+        showToast('Record added!');
+        document.getElementById('recordDuration').value = '';
+        document.getElementById('recordDistance').value = '';
+    }).catch(err => {
+        showToast('Error: ' + err.message, 'error');
+    });
+}
+
+// ==========================================
+// Delete Record (password required)
+// ==========================================
+function confirmDeleteRecord(recordId) {
+    pendingDeleteRecordId = recordId;
+    document.getElementById('deleteRecordPassword').value = '';
+    document.getElementById('deleteRecordError').textContent = '';
+    showModal('deleteRecordModal');
+}
+
+document.getElementById('confirmDeleteRecordBtn').addEventListener('click', () => {
+    const password = document.getElementById('deleteRecordPassword').value;
+    const errorEl = document.getElementById('deleteRecordError');
+
+    if (password !== ADMIN_PASSWORD) {
+        errorEl.textContent = 'Incorrect admin password.';
+        return;
+    }
+
+    db.ref('records/' + currentUserId + '/' + pendingDeleteRecordId).remove().then(() => {
+        closeModal('deleteRecordModal');
+        showToast('Record deleted.');
+        pendingDeleteRecordId = null;
+    }).catch(err => {
+        errorEl.textContent = 'Error: ' + err.message;
+    });
+});
+
+// ==========================================
+// Rankings
+// ==========================================
+function switchRankingTab(tab) {
+    document.querySelectorAll('.ranking-tab').forEach(t => t.classList.remove('active'));
+    if (tab === 'total') {
+        document.querySelector('.ranking-tab:first-child').classList.add('active');
+        document.getElementById('totalRankings').style.display = '';
+        document.getElementById('dailyRankings').style.display = 'none';
+        renderTotalRankings();
+    } else {
+        document.querySelector('.ranking-tab:last-child').classList.add('active');
+        document.getElementById('totalRankings').style.display = 'none';
+        document.getElementById('dailyRankings').style.display = '';
+        // Set default date to today
+        if (!document.getElementById('rankDate').value) {
+            document.getElementById('rankDate').value = new Date().toISOString().split('T')[0];
+        }
+        renderDailyRankings();
+    }
+}
+
+function renderTotalRankings() {
+    const container = document.getElementById('totalRankingList');
+    const sortBy = document.getElementById('sortSelect').value;
+
+    // Build ranking data
+    const rankingData = [];
+    Object.keys(allUsers).forEach(uid => {
+        const user = allUsers[uid];
+        const records = allRecords[uid] || {};
+        let totalDist = 0, totalTime = 0;
+        let bestPace = Infinity;   // lower is better
+        let bestPaceDate = '';
+        let latestDate = '';       // most recent record date
+
+        Object.values(records).forEach(r => {
+            const dist = r.distance || 0;
+            const dur = r.duration || 0;
+            totalDist += dist;
+            totalTime += dur;
+
+            // Calculate pace for this record
+            if (dist > 0 && dur > 0) {
+                const pace = dur / dist;
+                if (pace < bestPace) {
+                    bestPace = pace;
+                    bestPaceDate = r.date || '';
+                }
+            }
+
+            // Track latest record date
+            if (r.date && (!latestDate || r.date > latestDate)) {
+                latestDate = r.date;
+            }
+        });
+
+        // Skip users with no records for pace ranking
+        if (sortBy === 'pace' && bestPace === Infinity) return;
+
+        rankingData.push({
+            uid: uid,
+            name: user.name,
+            totalDist: totalDist,
+            totalTime: totalTime,
+            bestPace: bestPace === Infinity ? null : bestPace,
+            bestPaceDate: bestPaceDate,
+            latestDate: latestDate
+        });
+    });
+
+    // Sort
+    if (sortBy === 'distance') {
+        rankingData.sort((a, b) => b.totalDist - a.totalDist);
+    } else {
+        // Best pace: ascending (lower pace = faster = better)
+        rankingData.sort((a, b) => (a.bestPace || Infinity) - (b.bestPace || Infinity));
+    }
+
+    if (rankingData.length === 0) {
+        container.innerHTML = `<div class="empty-state"><p>No data yet.</p></div>`;
+        return;
+    }
+
+    let html = '';
+    rankingData.forEach((item, index) => {
+        const rank = index + 1;
+        const rankClass = rank <= 3 ? 'rank-' + rank : 'rank-other';
+        const color = getAvatarColor(item.uid);
+
+        let value, detail;
+        if (sortBy === 'distance') {
+            value = item.totalDist.toFixed(1) + ' km';
+            detail = item.latestDate ? formatDate(item.latestDate) : 'No records';
+        } else {
+            value = formatPace(item.bestPace, 1); // pass pace as duration, 1km to reuse helper
+            // Actually formatPace expects (durationMin, distanceKm), so bestPace IS durationMin/distanceKm for 1km
+            detail = item.bestPaceDate ? formatDate(item.bestPaceDate) : '';
+        }
+
+        html += `
+        <div class="ranking-card animate-in">
+            <div class="rank-num ${rankClass}">${rank}</div>
+            <div class="user-avatar" style="background:${color};width:40px;height:40px;font-size:16px;">${getInitial(item.name)}</div>
+            <div class="rank-info">
+                <div class="rank-name">${escapeHtml(item.name)}</div>
+                <div class="rank-detail">${detail}</div>
+            </div>
+            <div class="rank-value">${value}</div>
+        </div>`;
+    });
+
+    container.innerHTML = html;
+}
+
+function renderDailyRankings() {
+    const container = document.getElementById('dailyRankingList');
+    const selectedDate = document.getElementById('rankDate').value;
+
+    if (!selectedDate) {
+        container.innerHTML = `<div class="empty-state"><p>Select a date.</p></div>`;
+        return;
+    }
+
+    const rankingData = [];
+    Object.keys(allUsers).forEach(uid => {
+        const user = allUsers[uid];
+        const records = allRecords[uid] || {};
+        let totalDist = 0, totalTime = 0;
+        let count = 0;
+        Object.values(records).forEach(r => {
+            if (r.date === selectedDate) {
+                totalDist += (r.distance || 0);
+                totalTime += (r.duration || 0);
+                count++;
+            }
+        });
+        if (count > 0) {
+            rankingData.push({
+                uid: uid,
+                name: user.name,
+                totalDist: totalDist,
+                totalTime: totalTime,
+                count: count
+            });
+        }
+    });
+
+    // Sort by distance descending
+    rankingData.sort((a, b) => b.totalDist - a.totalDist);
+
+    if (rankingData.length === 0) {
+        container.innerHTML = `
+            <div class="empty-state">
+                <div class="empty-icon">📅</div>
+                <p>No runs on ${formatDate(selectedDate)}.</p>
+            </div>`;
+        return;
+    }
+
+    let html = '';
+    rankingData.forEach((item, index) => {
+        const rank = index + 1;
+        const rankClass = rank <= 3 ? 'rank-' + rank : 'rank-other';
+        const color = getAvatarColor(item.uid);
+        const pace = formatPace(item.totalTime, item.totalDist);
+
+        html += `
+        <div class="ranking-card animate-in">
+            <div class="rank-num ${rankClass}">${rank}</div>
+            <div class="user-avatar" style="background:${color};width:40px;height:40px;font-size:16px;">${getInitial(item.name)}</div>
+            <div class="rank-info">
+                <div class="rank-name">${escapeHtml(item.name)}</div>
+                <div class="rank-detail">${item.totalDist.toFixed(2)} km · ${formatDuration(item.totalTime)} · ${pace}</div>
+            </div>
+            <div class="rank-value">${item.totalDist.toFixed(2)} km</div>
+        </div>`;
+    });
+
+    container.innerHTML = html;
+}
+
+// ==========================================
+// Utility: Escape HTML
+// ==========================================
+function escapeHtml(str) {
+    const div = document.createElement('div');
+    div.appendChild(document.createTextNode(str));
+    return div.innerHTML;
+}
+
+// ==========================================
+// Initialize App
+// ==========================================
+document.addEventListener('DOMContentLoaded', () => {
+    loadUsers();
+});
+</script>
+
+</body>
+</html>
