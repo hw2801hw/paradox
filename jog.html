@@ -1,0 +1,1479 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>RunTrack — Running Record</title>
+<!-- Firebase SDKs -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+<style>
+  :root {
+    --bg-primary: #0f0f13;
+    --bg-secondary: #1a1a24;
+    --bg-card: #22222e;
+    --bg-card-hover: #2a2a38;
+    --bg-input: #18182a;
+    --accent: #6c5ce7;
+    --accent-light: #a29bfe;
+    --accent-glow: rgba(108, 92, 231, 0.3);
+    --green: #00e676;
+    --green-dim: #00c853;
+    --orange: #ff9100;
+    --red: #ff5252;
+    --text-primary: #eeeef0;
+    --text-secondary: #9999aa;
+    --text-muted: #666678;
+    --border: #2e2e3e;
+    --radius: 14px;
+    --radius-sm: 10px;
+    --nav-height: 68px;
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+  html, body {
+    height: 100%;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    font-size: 16px;
+    overflow: hidden;
+  }
+
+  #app {
+    max-width: 500px;
+    margin: 0 auto;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    overflow: hidden;
+    background: var(--bg-primary);
+  }
+
+  .status-bar {
+    height: env(safe-area-inset-top, 0px);
+    flex-shrink: 0;
+    background: var(--bg-secondary);
+  }
+
+  .header {
+    flex-shrink: 0;
+    background: var(--bg-secondary);
+    padding: 16px 20px 14px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-height: 58px;
+  }
+  .header-left { display: flex; align-items: center; gap: 12px; }
+  .header-back {
+    background: none; border: none; color: var(--accent-light);
+    cursor: pointer; padding: 4px; display: flex; align-items: center;
+    border-radius: 8px; transition: background 0.2s;
+  }
+  .header-back:hover { background: var(--bg-card); }
+  .header h1 { font-size: 20px; font-weight: 700; letter-spacing: -0.3px; }
+  .header h1 span { color: var(--accent-light); }
+  .header-action {
+    background: none; border: none; color: var(--text-secondary);
+    cursor: pointer; padding: 6px; border-radius: 8px;
+    display: flex; align-items: center; transition: all 0.2s;
+  }
+  .header-action:hover { color: var(--accent-light); background: var(--bg-card); }
+
+  .view-container {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: calc(var(--nav-height) + var(--safe-bottom) + 12px);
+  }
+  .view { display: none; height: 100%; }
+  .view.active { display: flex; flex-direction: column; }
+
+  /* ── Bottom Navigation ── */
+  .bottom-nav {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: calc(var(--nav-height) + var(--safe-bottom));
+    padding-bottom: var(--safe-bottom);
+    background: var(--bg-secondary);
+    border-top: 1px solid var(--border);
+    display: flex;
+    align-items: stretch;
+    z-index: 100;
+  }
+  .nav-item {
+    flex: 1;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 4px;
+    background: none; border: none;
+    color: var(--text-muted);
+    font-size: 11px; font-weight: 600;
+    cursor: pointer;
+    transition: color 0.2s;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    position: relative;
+  }
+  .nav-item.active { color: var(--accent-light); }
+  .nav-item.active::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 50%; transform: translateX(-50%);
+    width: 32px; height: 3px;
+    background: var(--accent);
+    border-radius: 0 0 3px 3px;
+  }
+  .nav-item svg { width: 24px; height: 24px; }
+
+  /* ── Loading ── */
+  .loading-overlay {
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    flex: 1; gap: 12px; padding: 48px;
+  }
+  .spinner {
+    width: 36px; height: 36px;
+    border: 3px solid var(--border);
+    border-top-color: var(--accent-light);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .loading-text { color: var(--text-muted); font-size: 14px; }
+
+  /* ── Profile Cards ── */
+  .profile-grid {
+    padding: 16px;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+  }
+  .profile-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px 14px;
+    display: flex; flex-direction: column;
+    align-items: center; gap: 10px;
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+    overflow: hidden;
+  }
+  .profile-card:hover { border-color: var(--accent); transform: translateY(-1px); }
+  .profile-card:active { transform: scale(0.97); }
+  .profile-card::after {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, var(--accent), var(--accent-light));
+    opacity: 0; transition: opacity 0.2s;
+  }
+  .profile-card:hover::after { opacity: 1; }
+  .profile-avatar {
+    width: 52px; height: 52px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px; font-weight: 700;
+    color: #fff;
+    flex-shrink: 0;
+  }
+  .profile-card .name {
+    font-size: 15px; font-weight: 600;
+    text-align: center;
+    white-space: nowrap; overflow: hidden;
+    text-overflow: ellipsis; width: 100%;
+  }
+  .profile-card .stats {
+    font-size: 12px; color: var(--text-secondary);
+    text-align: center;
+  }
+
+  .profile-card.add-card {
+    border-style: dashed;
+    border-color: var(--text-muted);
+    justify-content: center;
+    min-height: 140px;
+    color: var(--text-muted);
+  }
+  .profile-card.add-card:hover {
+    border-color: var(--accent-light);
+    color: var(--accent-light);
+  }
+  .profile-card.add-card svg { width: 32px; height: 32px; }
+
+  .profile-delete {
+    position: absolute; top: 8px; right: 8px;
+    background: var(--red); border: none;
+    width: 24px; height: 24px;
+    border-radius: 50%; display: flex;
+    align-items: center; justify-content: center;
+    cursor: pointer; opacity: 0;
+    transition: opacity 0.2s;
+    z-index: 2;
+  }
+  .profile-card:hover .profile-delete { opacity: 0.7; }
+  .profile-delete:hover { opacity: 1 !important; }
+  .profile-delete svg { width: 14px; height: 14px; color: #fff; }
+
+  .empty-state {
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    padding: 48px 32px;
+    text-align: center;
+    gap: 12px;
+    flex: 1;
+  }
+  .empty-state svg { width: 56px; height: 56px; color: var(--text-muted); }
+  .empty-state h3 { font-size: 18px; font-weight: 600; color: var(--text-secondary); }
+  .empty-state p { font-size: 14px; color: var(--text-muted); line-height: 1.5; }
+
+  .records-header-bar {
+    padding: 16px 20px 8px;
+    display: flex; align-items: center;
+    justify-content: space-between;
+  }
+  .records-header-bar .runner-name {
+    font-size: 14px; color: var(--text-secondary); font-weight: 500;
+  }
+  .add-record-btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: var(--accent); color: #fff;
+    border: none; border-radius: 20px;
+    padding: 8px 16px; font-size: 14px; font-weight: 600;
+    cursor: pointer; transition: all 0.2s;
+  }
+  .add-record-btn:hover { background: var(--accent-light); }
+  .add-record-btn svg { width: 16px; height: 16px; }
+
+  .records-list { padding: 8px 16px 16px; display: flex; flex-direction: column; gap: 10px; }
+
+  .record-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 14px 16px;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    grid-template-rows: auto auto;
+    gap: 6px 12px;
+    transition: all 0.2s;
+    position: relative;
+  }
+  .record-card:hover { border-color: var(--accent); }
+  .record-date {
+    font-size: 13px; color: var(--text-muted); font-weight: 500;
+    grid-column: 1 / -1;
+  }
+  .record-metrics {
+    display: flex; gap: 16px; flex-wrap: wrap;
+  }
+  .metric { display: flex; flex-direction: column; gap: 2px; }
+  .metric-label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+  .metric-value { font-size: 16px; font-weight: 700; }
+  .metric-value.pace-val { color: var(--green); }
+  .metric-value.dist-val { color: var(--accent-light); }
+  .metric-value.dur-val { color: var(--orange); }
+
+  .record-actions {
+    display: flex; align-items: center; gap: 4px;
+    grid-row: 1 / -1; grid-column: 2;
+  }
+  .record-actions button {
+    background: none; border: none;
+    color: var(--text-muted); cursor: pointer;
+    padding: 6px; border-radius: 6px;
+    display: flex; align-items: center;
+    transition: all 0.2s;
+  }
+  .record-actions button:hover { color: var(--red); background: rgba(255,82,82,0.1); }
+  .record-actions button svg { width: 16px; height: 16px; }
+
+  /* ── Leaderboard ── */
+  .lb-tab-row {
+    padding: 16px 20px 0;
+    display: flex; gap: 8px;
+  }
+  .lb-tab {
+    flex: 1; padding: 10px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text-secondary);
+    font-size: 14px; font-weight: 600;
+    cursor: pointer; transition: all 0.2s;
+    text-align: center;
+  }
+  .lb-tab.active {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+  }
+
+  .leaderboard-controls {
+    padding: 10px 20px 6px;
+    display: flex; gap: 8px;
+  }
+  .sort-btn {
+    flex: 1; padding: 10px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text-secondary);
+    font-size: 14px; font-weight: 600;
+    cursor: pointer; transition: all 0.2s;
+    text-align: center;
+  }
+  .sort-btn.active {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+  }
+
+  .leaderboard-list { padding: 0 16px 16px; display: flex; flex-direction: column; gap: 10px; }
+
+  .lb-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 16px;
+    display: flex; align-items: center; gap: 14px;
+    position: relative; overflow: hidden;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .lb-card:hover { border-color: var(--accent); }
+  .lb-card.rank-1 { border-color: #ffd700; }
+  .lb-card.rank-1::before {
+    content: ''; position: absolute;
+    top: 0; left: 0; right: 0; height: 3px;
+    background: linear-gradient(90deg, #ffd700, #ffaa00);
+  }
+  .lb-card.rank-2 { border-color: #c0c0c0; }
+  .lb-card.rank-2::before {
+    content: ''; position: absolute;
+    top: 0; left: 0; right: 0; height: 3px;
+    background: linear-gradient(90deg, #c0c0c0, #a0a0a0);
+  }
+  .lb-card.rank-3 { border-color: #cd7f32; }
+  .lb-card.rank-3::before {
+    content: ''; position: absolute;
+    top: 0; left: 0; right: 0; height: 3px;
+    background: linear-gradient(90deg, #cd7f32, #a06020);
+  }
+
+  .lb-rank {
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px; font-weight: 800;
+    background: var(--bg-input);
+    color: var(--text-secondary);
+    flex-shrink: 0;
+  }
+  .rank-1 .lb-rank { background: #ffd700; color: #000; }
+  .rank-2 .lb-rank { background: #c0c0c0; color: #000; }
+  .rank-3 .lb-rank { background: #cd7f32; color: #fff; }
+
+  .lb-info { flex: 1; min-width: 0; }
+  .lb-name { font-size: 16px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .lb-detail { font-size: 13px; color: var(--text-secondary); margin-top: 2px; }
+  .lb-value {
+    text-align: right; flex-shrink: 0;
+  }
+  .lb-value .val { font-size: 18px; font-weight: 800; color: var(--green); }
+  .lb-value .unit { font-size: 12px; color: var(--text-muted); display: block; }
+
+  /* ── Modal / Overlay ── */
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.6);
+    backdrop-filter: blur(4px);
+    z-index: 200;
+    display: none;
+    align-items: flex-end;
+    justify-content: center;
+  }
+  .modal-overlay.active { display: flex; }
+
+  .modal-sheet {
+    background: var(--bg-secondary);
+    border-radius: 20px 20px 0 0;
+    width: 100%;
+    max-width: 500px;
+    max-height: 90vh;
+    overflow-y: auto;
+    padding: 20px 20px calc(20px + var(--safe-bottom));
+    animation: slideUp 0.3s ease;
+  }
+  @keyframes slideUp {
+    from { transform: translateY(100%); }
+    to { transform: translateY(0); }
+  }
+  .modal-handle {
+    width: 40px; height: 4px;
+    background: var(--text-muted);
+    border-radius: 2px;
+    margin: 0 auto 16px;
+  }
+  .modal-title {
+    font-size: 20px; font-weight: 700;
+    margin-bottom: 20px;
+    text-align: center;
+  }
+
+  .form-group { margin-bottom: 16px; }
+  .form-label {
+    display: block;
+    font-size: 13px; font-weight: 600;
+    color: var(--text-secondary);
+    margin-bottom: 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .form-input {
+    width: 100%;
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 14px 16px;
+    font-size: 16px;
+    color: var(--text-primary);
+    outline: none;
+    transition: border-color 0.2s;
+    font-family: inherit;
+  }
+  .form-input:focus { border-color: var(--accent); }
+  .form-input::placeholder { color: var(--text-muted); }
+  .form-input:disabled { opacity: 0.5; }
+
+  .form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+  .form-row-3 {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 10px;
+  }
+
+  .pace-display {
+    background: var(--bg-card);
+    border-radius: var(--radius-sm);
+    padding: 14px 16px;
+    text-align: center;
+    border: 1px solid var(--border);
+  }
+  .pace-display .pace-label {
+    font-size: 12px; color: var(--text-muted);
+    text-transform: uppercase; letter-spacing: 0.5px;
+  }
+  .pace-display .pace-value {
+    font-size: 24px; font-weight: 800;
+    color: var(--green);
+    margin-top: 4px;
+  }
+
+  .form-submit {
+    width: 100%;
+    padding: 16px;
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: var(--radius-sm);
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-top: 8px;
+  }
+  .form-submit:hover { background: var(--accent-light); }
+  .form-submit:active { transform: scale(0.98); }
+  .form-submit:disabled { opacity: 0.5; cursor: not-allowed; }
+  .form-submit.danger { background: var(--red); }
+
+  .avatar-0 { background: linear-gradient(135deg, #6c5ce7, #a29bfe); }
+  .avatar-1 { background: linear-gradient(135deg, #00b894, #55efc4); }
+  .avatar-2 { background: linear-gradient(135deg, #e17055, #fab1a0); }
+  .avatar-3 { background: linear-gradient(135deg, #0984e3, #74b9ff); }
+  .avatar-4 { background: linear-gradient(135deg, #fdcb6e, #ffeaa7); }
+  .avatar-5 { background: linear-gradient(135deg, #e84393, #fd79a8); }
+  .avatar-6 { background: linear-gradient(135deg, #00cec9, #81ecec); }
+  .avatar-7 { background: linear-gradient(135deg, #ff7675, #d63031); }
+
+  .confirm-dialog {
+    background: var(--bg-secondary);
+    border-radius: var(--radius);
+    padding: 28px 24px;
+    width: calc(100% - 48px);
+    max-width: 340px;
+    text-align: center;
+    animation: scaleIn 0.2s ease;
+  }
+  @keyframes scaleIn {
+    from { transform: scale(0.9); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
+  }
+  .confirm-dialog h3 { font-size: 18px; margin-bottom: 8px; }
+  .confirm-dialog p { font-size: 14px; color: var(--text-secondary); margin-bottom: 20px; line-height: 1.5; }
+  .confirm-btns { display: flex; gap: 10px; }
+  .confirm-btns button {
+    flex: 1; padding: 12px; border: none; border-radius: var(--radius-sm);
+    font-size: 16px; font-weight: 600; cursor: pointer; transition: all 0.2s;
+  }
+  .btn-cancel { background: var(--bg-card); color: var(--text-primary); }
+  .btn-confirm-del { background: var(--red); color: #fff; }
+
+  .summary-banner {
+    margin: 12px 16px 4px;
+    background: linear-gradient(135deg, var(--accent), #8b5cf6);
+    border-radius: var(--radius);
+    padding: 16px;
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 8px;
+    text-align: center;
+  }
+  .summary-banner .stat-val { font-size: 18px; font-weight: 800; color: #fff; }
+  .summary-banner .stat-label { font-size: 11px; color: rgba(255,255,255,0.7); text-transform: uppercase; letter-spacing: 0.5px; margin-top: 2px; }
+
+  .view-container::-webkit-scrollbar { width: 4px; }
+  .view-container::-webkit-scrollbar-track { background: transparent; }
+  .view-container::-webkit-scrollbar-thumb { background: var(--text-muted); border-radius: 2px; }
+
+  button, .nav-item, .profile-card { user-select: none; -webkit-user-select: none; }
+
+  input[type="date"], input[type="time"] { color-scheme: dark; }
+
+  /* ── Sync indicator ── */
+  .sync-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--green);
+    flex-shrink: 0;
+    transition: background 0.3s;
+  }
+  .sync-dot.offline { background: var(--red); }
+  .sync-dot.syncing { background: var(--orange); animation: pulse 1s ease infinite; }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+
+  /* ── Leaderboard Date Picker ── */
+  .lb-date-row {
+    padding: 12px 20px 4px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .lb-date-row label {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    white-space: nowrap;
+  }
+  .lb-date-input {
+    flex: 1;
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 10px 14px;
+    font-size: 16px;
+    color: var(--text-primary);
+    outline: none;
+    font-family: inherit;
+    transition: border-color 0.2s;
+    color-scheme: dark;
+  }
+  .lb-date-input:focus { border-color: var(--accent); }
+  .lb-date-nav {
+    display: flex;
+    gap: 6px;
+  }
+  .lb-date-nav button {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: var(--text-secondary);
+    transition: all 0.2s;
+  }
+  .lb-date-nav button:hover { border-color: var(--accent); color: var(--accent-light); }
+  .lb-date-nav button svg { width: 18px; height: 18px; }
+  .lb-date-hidden { display: none; }
+</style>
+</head>
+<body>
+
+<div id="app">
+  <div class="status-bar"></div>
+
+  <header class="header" id="mainHeader">
+    <div class="header-left">
+      <button class="header-back" id="backBtn" style="display:none" onclick="goBack()">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+      </button>
+      <h1 id="headerTitle">Run<span>Track</span></h1>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;">
+      <div class="sync-dot" id="syncDot"></div>
+    </div>
+  </header>
+
+  <div class="view-container">
+
+    <!-- PROFILES VIEW -->
+    <div class="view" id="profilesView">
+      <div id="profilesLoading" class="loading-overlay">
+        <div class="spinner"></div>
+        <div class="loading-text">Loading runners…</div>
+      </div>
+      <div class="profile-grid" id="profileGrid" style="display:none"></div>
+    </div>
+
+    <!-- RECORDS VIEW -->
+    <div class="view" id="recordsView">
+      <div class="records-header-bar">
+        <span class="runner-name" id="recordsRunnerName">0 runs</span>
+        <button class="add-record-btn" onclick="openAddRecord()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Add Run
+        </button>
+      </div>
+      <div class="summary-banner">
+        <div class="stat-item">
+          <div class="stat-val" id="sumRuns">0</div>
+          <div class="stat-label">Runs</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-val" id="sumDist">0 km</div>
+          <div class="stat-label">Distance</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-val" id="sumPace">--:--</div>
+          <div class="stat-label">Avg Pace</div>
+        </div>
+      </div>
+      <div class="records-list" id="recordsList"></div>
+    </div>
+
+    <!-- LEADERBOARD VIEW -->
+    <div class="view" id="leaderboardView">
+      <!-- Period tabs: One Day / Total -->
+      <div class="lb-tab-row">
+        <button class="lb-tab active" id="tabOneDay" onclick="setPeriodMode('oneDay')">One Day</button>
+        <button class="lb-tab" id="tabTotal" onclick="setPeriodMode('total')">Total</button>
+      </div>
+      <!-- Date picker (only visible in One Day mode) -->
+      <div class="lb-date-row" id="lbDateRow">
+        <label>Date</label>
+        <div class="lb-date-nav">
+          <button onclick="changeLbDate(-1)" title="Previous day">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg>
+          </button>
+        </div>
+        <input class="lb-date-input" type="date" id="lbDatePicker" onchange="onLbDateChange()">
+        <div class="lb-date-nav">
+          <button onclick="changeLbDate(1)" title="Next day">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="9 18 15 12 9 6"/></svg>
+          </button>
+        </div>
+      </div>
+      <!-- Sort controls -->
+      <div class="leaderboard-controls">
+        <button class="sort-btn active" id="sortPace" onclick="setSortMode('pace')">Best Pace</button>
+        <button class="sort-btn" id="sortDistance" onclick="setSortMode('distance')">Total Distance</button>
+      </div>
+      <div class="leaderboard-list" id="leaderboardList"></div>
+    </div>
+  </div>
+
+  <!-- Bottom Navigation -->
+  <nav class="bottom-nav">
+    <button class="nav-item active" id="navProfiles" onclick="switchView('profiles')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+      Profiles
+    </button>
+    <button class="nav-item" id="navRecords" onclick="switchView('records')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+      Records
+    </button>
+    <button class="nav-item" id="navLeaderboard" onclick="switchView('leaderboard')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15l-2 5-3-1 1-4"/><path d="M12 15l2 5 3-1-1-4"/><path d="M6 20h12"/><path d="M12 4v11"/><path d="M8 8l4-4 4 4"/></svg>
+      Ranking
+    </button>
+  </nav>
+
+  <!-- Modal (Add Profile / Add Record) -->
+  <div class="modal-overlay" id="modalOverlay" onclick="handleOverlayClick(event)">
+    <div class="modal-sheet" onclick="event.stopPropagation()">
+      <div class="modal-handle"></div>
+      <div id="modalContent"></div>
+    </div>
+  </div>
+
+  <!-- Confirm Dialog -->
+  <div class="modal-overlay" id="confirmOverlay" onclick="handleConfirmOverlayClick(event)">
+    <div class="confirm-dialog" onclick="event.stopPropagation()">
+      <h3 id="confirmTitle"></h3>
+      <p id="confirmMsg"></p>
+      <div class="confirm-btns">
+        <button class="btn-cancel" onclick="closeConfirm()">Cancel</button>
+        <button class="btn-confirm-del" id="confirmAction">Delete</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ──────────────────────────────────────
+// FIREBASE INIT
+// ──────────────────────────────────────
+const firebaseConfig = {
+  apiKey: "AIzaSyACjxWEkXkPUBv6xiWtVWZdsFvxeKURJ1Q",
+  authDomain: "time-f681a.firebaseapp.com",
+  databaseURL: "https://time-f681a-default-rtdb.firebaseio.com",
+  projectId: "time-f681a",
+  storageBucket: "time-f681a.firebasestorage.app",
+  messagingSenderId: "486171948384",
+  appId: "1:486171948384:web:715043928d3a0a0cd39a05"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
+// ──────────────────────────────────────
+// STATE
+// ──────────────────────────────────────
+const STATE = {
+  currentView: 'profiles',
+  selectedProfileId: null,
+  profiles: [],       // Array of { id, name, records: [...] }
+  sortMode: 'pace',
+  periodMode: 'oneDay', // 'oneDay' or 'total'
+  selectedDate: new Date().toISOString().split('T')[0], // default: today
+  dataLoaded: false
+};
+
+// ──────────────────────────────────────
+// HELPERS
+// ──────────────────────────────────────
+function uid() {
+  return Date.now().toString(36) + Math.random().toString(36).substr(2, 9);
+}
+
+function getInitials(name) {
+  return name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
+}
+
+function formatPace(secondsPerKm) {
+  if (!secondsPerKm || secondsPerKm === Infinity || secondsPerKm <= 0) return '--:--';
+  const mins = Math.floor(secondsPerKm / 60);
+  const secs = Math.round(secondsPerKm % 60);
+  return mins + ':' + secs.toString().padStart(2, '0');
+}
+
+function formatDate(dateStr) {
+  const d = new Date(dateStr + 'T00:00:00');
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function escHtml(str) {
+  const d = document.createElement('div');
+  d.textContent = str;
+  return d.innerHTML;
+}
+
+// ──────────────────────────────────────
+// STATS HELPERS
+// ──────────────────────────────────────
+function getTotalDistance(profile) {
+  if (!profile.records) return 0;
+  return profile.records.reduce((sum, r) => sum + (r.distance || 0), 0);
+}
+
+function getBestPace(profile) {
+  if (!profile.records || !profile.records.length) return Infinity;
+  let best = Infinity;
+  profile.records.forEach(r => {
+    if (r.paceSeconds && r.paceSeconds < best) best = r.paceSeconds;
+  });
+  return best;
+}
+
+function getAvgPace(profile) {
+  if (!profile.records || !profile.records.length) return null;
+  let totalPaceSec = 0, count = 0;
+  profile.records.forEach(r => {
+    if (r.paceSeconds) { totalPaceSec += r.paceSeconds; count++; }
+  });
+  return count ? totalPaceSec / count : null;
+}
+
+/**
+ * Get the date of the runner's best pace run.
+ */
+function getBestPaceDate(profile) {
+  if (!profile.records || !profile.records.length) return null;
+  let bestDate = null, bestPace = Infinity;
+  profile.records.forEach(r => {
+    if (r.paceSeconds && r.paceSeconds < bestPace) {
+      bestPace = r.paceSeconds;
+      bestDate = r.date;
+    }
+  });
+  return bestDate;
+}
+
+/**
+ * Get total distance for a runner on a specific date.
+ */
+function getDistanceOnDate(profile, date) {
+  if (!profile.records) return 0;
+  return profile.records
+    .filter(r => r.date === date)
+    .reduce((sum, r) => sum + (r.distance || 0), 0);
+}
+
+/**
+ * Get best pace for a runner on a specific date.
+ * Returns Infinity if no runs on that date.
+ */
+function getBestPaceOnDate(profile, date) {
+  if (!profile.records) return Infinity;
+  let best = Infinity;
+  profile.records.forEach(r => {
+    if (r.date === date && r.paceSeconds && r.paceSeconds < best) {
+      best = r.paceSeconds;
+    }
+  });
+  return best;
+}
+
+/**
+ * Get number of runs for a runner on a specific date.
+ */
+function getRunCountOnDate(profile, date) {
+  if (!profile.records) return 0;
+  return profile.records.filter(r => r.date === date).length;
+}
+
+// ──────────────────────────────────────
+// FIREBASE DATA
+// ──────────────────────────────────────
+function setSyncStatus(status) {
+  const dot = document.getElementById('syncDot');
+  if (!dot) return;
+  dot.className = 'sync-dot';
+  if (status === 'offline') dot.classList.add('offline');
+  else if (status === 'syncing') dot.classList.add('syncing');
+  // default = online (green)
+}
+
+function listenToFirebase() {
+  setSyncStatus('syncing');
+  db.ref('profiles').on('value', (snapshot) => {
+    const data = snapshot.val();
+    STATE.profiles = [];
+    if (data) {
+      Object.entries(data).forEach(([id, p]) => {
+        const records = [];
+        if (p.records) {
+          Object.entries(p.records).forEach(([rid, r]) => {
+            records.push({ ...r, id: rid });
+          });
+        }
+        STATE.profiles.push({ id, name: p.name || 'Unknown', records });
+      });
+    }
+    STATE.dataLoaded = true;
+    setSyncStatus('online');
+
+    // Re-render current view
+    if (STATE.currentView === 'profiles') renderProfiles();
+    else if (STATE.currentView === 'records') renderRecords();
+    else if (STATE.currentView === 'leaderboard') renderLeaderboard();
+  }, (error) => {
+    console.error('Firebase read error:', error);
+    setSyncStatus('offline');
+  });
+
+  // Track connectivity
+  db.ref('.info/connected').on('value', (snap) => {
+    if (snap.val() === true) {
+      setSyncStatus('online');
+    } else {
+      setSyncStatus('offline');
+    }
+  });
+}
+
+// ──────────────────────────────────────
+// VIEW SWITCHING
+// ──────────────────────────────────────
+function switchView(viewName) {
+  if (viewName === 'records' && !STATE.selectedProfileId) {
+    viewName = 'profiles';
+  }
+
+  STATE.currentView = viewName;
+
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  const navEl = document.getElementById('nav' + viewName.charAt(0).toUpperCase() + viewName.slice(1));
+  if (navEl) navEl.classList.add('active');
+
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.getElementById(viewName + 'View').classList.add('active');
+
+  updateHeader();
+
+  if (viewName === 'profiles') renderProfiles();
+  else if (viewName === 'records') renderRecords();
+  else if (viewName === 'leaderboard') renderLeaderboard();
+}
+
+function updateHeader() {
+  const backBtn = document.getElementById('backBtn');
+  const headerTitle = document.getElementById('headerTitle');
+
+  if (STATE.currentView === 'profiles') {
+    backBtn.style.display = 'none';
+    headerTitle.innerHTML = 'Run<span>Track</span>';
+  } else if (STATE.currentView === 'records') {
+    backBtn.style.display = 'flex';
+    const profile = STATE.profiles.find(p => p.id === STATE.selectedProfileId);
+    headerTitle.innerHTML = (profile ? escHtml(profile.name) : 'Records') + '<span>\'s Log</span>';
+  } else if (STATE.currentView === 'leaderboard') {
+    backBtn.style.display = 'none';
+    headerTitle.innerHTML = 'Leader<span>board</span>';
+  }
+}
+
+function goBack() {
+  switchView('profiles');
+}
+
+// ──────────────────────────────────────
+// PROFILES VIEW
+// ──────────────────────────────────────
+function renderProfiles() {
+  const loading = document.getElementById('profilesLoading');
+  const grid = document.getElementById('profileGrid');
+
+  if (!STATE.dataLoaded) {
+    loading.style.display = 'flex';
+    grid.style.display = 'none';
+    return;
+  }
+  loading.style.display = 'none';
+  grid.style.display = 'grid';
+
+  let html = '';
+
+  STATE.profiles.forEach((p, idx) => {
+    const totalDist = getTotalDistance(p).toFixed(1);
+    const runCount = p.records ? p.records.length : 0;
+    html += `
+      <div class="profile-card" onclick="selectProfile('${p.id}')">
+        <button class="profile-delete" onclick="event.stopPropagation(); confirmDeleteProfile('${p.id}')" title="Delete">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+        <div class="profile-avatar avatar-${idx % 8}">${getInitials(p.name)}</div>
+        <div class="name">${escHtml(p.name)}</div>
+        <div class="stats">${runCount} run${runCount!==1?'s':''} · ${totalDist} km</div>
+      </div>
+    `;
+  });
+
+  html += `
+    <div class="profile-card add-card" onclick="openAddProfile()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      <div class="name">Add Runner</div>
+    </div>
+  `;
+
+  grid.innerHTML = html;
+}
+
+function selectProfile(id) {
+  STATE.selectedProfileId = id;
+  switchView('records');
+}
+
+function openAddProfile() {
+  const content = document.getElementById('modalContent');
+  content.innerHTML = `
+    <div class="modal-title">New Runner Profile</div>
+    <div class="form-group">
+      <label class="form-label">Runner Name</label>
+      <input class="form-input" id="profileNameInput" type="text" placeholder="e.g. Me, Runner A" maxlength="20" autocomplete="off">
+    </div>
+    <button class="form-submit" id="saveProfileBtn" onclick="saveNewProfile()">Create Profile</button>
+  `;
+  openModal();
+  setTimeout(() => document.getElementById('profileNameInput').focus(), 300);
+}
+
+async function saveNewProfile() {
+  const name = document.getElementById('profileNameInput').value.trim();
+  if (!name) {
+    document.getElementById('profileNameInput').style.borderColor = 'var(--red)';
+    return;
+  }
+  const btn = document.getElementById('saveProfileBtn');
+  btn.disabled = true;
+  btn.textContent = 'Saving…';
+  setSyncStatus('syncing');
+
+  const id = uid();
+  try {
+    await db.ref('profiles/' + id).set({ name, records: {} });
+    closeModal();
+  } catch (e) {
+    console.error('Error saving profile:', e);
+    alert('Failed to save. Check your connection.');
+    btn.disabled = false;
+    btn.textContent = 'Create Profile';
+  }
+}
+
+function confirmDeleteProfile(id) {
+  const profile = STATE.profiles.find(p => p.id === id);
+  if (!profile) return;
+  const runCount = profile.records ? profile.records.length : 0;
+  showConfirm(
+    'Delete Profile?',
+    `This will permanently delete "${profile.name}" and all ${runCount} run record(s).`,
+    async () => {
+      setSyncStatus('syncing');
+      try {
+        await db.ref('profiles/' + id).remove();
+        if (STATE.selectedProfileId === id) STATE.selectedProfileId = null;
+      } catch (e) {
+        console.error('Error deleting profile:', e);
+        alert('Failed to delete. Check your connection.');
+      }
+    }
+  );
+}
+
+// ──────────────────────────────────────
+// RECORDS VIEW
+// ──────────────────────────────────────
+function renderRecords() {
+  const profile = STATE.profiles.find(p => p.id === STATE.selectedProfileId);
+  if (!profile) { switchView('profiles'); return; }
+
+  const records = profile.records || [];
+  document.getElementById('recordsRunnerName').textContent = records.length + ' run' + (records.length !== 1 ? 's' : '');
+
+  const totalDist = getTotalDistance(profile);
+  const avgPace = getAvgPace(profile);
+  document.getElementById('sumRuns').textContent = records.length;
+  document.getElementById('sumDist').textContent = totalDist.toFixed(1) + ' km';
+  document.getElementById('sumPace').textContent = avgPace ? formatPace(avgPace) : '--:--';
+
+  const sorted = [...records].sort((a, b) => b.date.localeCompare(a.date));
+  const list = document.getElementById('recordsList');
+
+  if (sorted.length === 0) {
+    list.innerHTML = `
+      <div class="empty-state">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/>
+        </svg>
+        <h3>No Runs Yet</h3>
+        <p>Tap "Add Run" to log your first running record.</p>
+      </div>
+    `;
+    return;
+  }
+
+  let html = '';
+  sorted.forEach(r => {
+    html += `
+      <div class="record-card">
+        <div class="record-date">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="vertical-align:-2px;margin-right:4px;color:var(--text-muted)"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          ${formatDate(r.date)}
+        </div>
+        <div class="record-metrics">
+          <div class="metric">
+            <span class="metric-label">Distance</span>
+            <span class="metric-value dist-val">${(r.distance||0).toFixed(2)} km</span>
+          </div>
+          <div class="metric">
+            <span class="metric-label">Duration</span>
+            <span class="metric-value dur-val">${r.duration}</span>
+          </div>
+          <div class="metric">
+            <span class="metric-label">Pace</span>
+            <span class="metric-value pace-val">${formatPace(r.paceSeconds)}</span>
+          </div>
+        </div>
+        <div class="record-actions">
+          <button onclick="confirmDeleteRecord('${r.id}')" title="Delete">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+          </button>
+        </div>
+      </div>
+    `;
+  });
+
+  list.innerHTML = html;
+}
+
+function openAddRecord() {
+  const today = new Date().toISOString().split('T')[0];
+  const content = document.getElementById('modalContent');
+  content.innerHTML = `
+    <div class="modal-title">Log a Run</div>
+    <div class="form-group">
+      <label class="form-label">Date</label>
+      <input class="form-input" id="recDate" type="date" value="${today}">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Distance (km)</label>
+      <input class="form-input" id="recDist" type="number" step="0.01" min="0.01" placeholder="e.g. 5.00" inputmode="decimal">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Duration</label>
+      <div class="form-row-3">
+        <input class="form-input" id="recHH" type="number" min="0" max="23" placeholder="HH" inputmode="numeric">
+        <input class="form-input" id="recMM" type="number" min="0" max="59" placeholder="MM" inputmode="numeric">
+        <input class="form-input" id="recSS" type="number" min="0" max="59" placeholder="SS" inputmode="numeric">
+      </div>
+    </div>
+    <div class="form-group">
+      <div class="pace-display">
+        <div class="pace-label">Calculated Pace</div>
+        <div class="pace-value" id="livePace">--:-- /km</div>
+      </div>
+    </div>
+    <button class="form-submit" id="saveRecordBtn" onclick="saveRecord()">Save Run</button>
+  `;
+  openModal();
+
+  const calcLive = () => {
+    const dist = parseFloat(document.getElementById('recDist').value);
+    const hh = parseInt(document.getElementById('recHH').value) || 0;
+    const mm = parseInt(document.getElementById('recMM').value) || 0;
+    const ss = parseInt(document.getElementById('recSS').value) || 0;
+    if (dist > 0 && (hh > 0 || mm > 0 || ss > 0)) {
+      const totalSec = hh*3600 + mm*60 + ss;
+      const pace = totalSec / dist;
+      document.getElementById('livePace').textContent = formatPace(pace) + ' /km';
+    } else {
+      document.getElementById('livePace').textContent = '--:-- /km';
+    }
+  };
+  setTimeout(() => {
+    ['recDist','recHH','recMM','recSS'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.addEventListener('input', calcLive);
+    });
+    document.getElementById('recDist').focus();
+  }, 300);
+}
+
+async function saveRecord() {
+  const date = document.getElementById('recDate').value;
+  const dist = parseFloat(document.getElementById('recDist').value);
+  const hh = parseInt(document.getElementById('recHH').value) || 0;
+  const mm = parseInt(document.getElementById('recMM').value) || 0;
+  const ss = parseInt(document.getElementById('recSS').value) || 0;
+
+  if (!date) { alert('Please select a date.'); return; }
+  if (!dist || dist <= 0) { alert('Please enter a valid distance.'); return; }
+  if (hh === 0 && mm === 0 && ss === 0) { alert('Please enter a valid duration.'); return; }
+
+  const duration = `${hh.toString().padStart(2,'0')}:${mm.toString().padStart(2,'0')}:${ss.toString().padStart(2,'0')}`;
+  const totalSec = hh*3600 + mm*60 + ss;
+  const paceSeconds = totalSec / dist;
+
+  const btn = document.getElementById('saveRecordBtn');
+  btn.disabled = true;
+  btn.textContent = 'Saving…';
+  setSyncStatus('syncing');
+
+  const recordId = uid();
+  try {
+    await db.ref('profiles/' + STATE.selectedProfileId + '/records/' + recordId).set({
+      date, distance: dist, duration, paceSeconds
+    });
+    closeModal();
+  } catch (e) {
+    console.error('Error saving record:', e);
+    alert('Failed to save. Check your connection.');
+    btn.disabled = false;
+    btn.textContent = 'Save Run';
+  }
+}
+
+function confirmDeleteRecord(recordId) {
+  const profile = STATE.profiles.find(p => p.id === STATE.selectedProfileId);
+  if (!profile) return;
+  const record = (profile.records || []).find(r => r.id === recordId);
+  if (!record) return;
+  showConfirm(
+    'Delete Run?',
+    `Delete the run on ${formatDate(record.date)} (${(record.distance||0).toFixed(2)} km)?`,
+    async () => {
+      setSyncStatus('syncing');
+      try {
+        await db.ref('profiles/' + STATE.selectedProfileId + '/records/' + recordId).remove();
+      } catch (e) {
+        console.error('Error deleting record:', e);
+        alert('Failed to delete. Check your connection.');
+      }
+    }
+  );
+}
+
+// ──────────────────────────────────────
+// LEADERBOARD VIEW
+// ──────────────────────────────────────
+function setPeriodMode(mode) {
+  STATE.periodMode = mode;
+  document.getElementById('tabOneDay').classList.toggle('active', mode === 'oneDay');
+  document.getElementById('tabTotal').classList.toggle('active', mode === 'total');
+
+  // Show/hide date picker row
+  const dateRow = document.getElementById('lbDateRow');
+  dateRow.style.display = mode === 'oneDay' ? 'flex' : 'none';
+
+  renderLeaderboard();
+}
+
+function onLbDateChange() {
+  STATE.selectedDate = document.getElementById('lbDatePicker').value;
+  renderLeaderboard();
+}
+
+function changeLbDate(delta) {
+  const picker = document.getElementById('lbDatePicker');
+  const current = new Date(picker.value + 'T00:00:00');
+  current.setDate(current.getDate() + delta);
+  const newYyyy = current.getFullYear();
+  const newMm = String(current.getMonth() + 1).padStart(2, '0');
+  const newDd = String(current.getDate()).padStart(2, '0');
+  STATE.selectedDate = `${newYyyy}-${newMm}-${newDd}`;
+  picker.value = STATE.selectedDate;
+  renderLeaderboard();
+}
+
+function setSortMode(mode) {
+  STATE.sortMode = mode;
+  document.getElementById('sortPace').classList.toggle('active', mode === 'pace');
+  document.getElementById('sortDistance').classList.toggle('active', mode === 'distance');
+  renderLeaderboard();
+}
+
+function renderLeaderboard() {
+  const list = document.getElementById('leaderboardList');
+
+  // Ensure date picker is in sync & visibility is correct
+  const picker = document.getElementById('lbDatePicker');
+  const dateRow = document.getElementById('lbDateRow');
+  if (picker) picker.value = STATE.selectedDate;
+  if (dateRow) dateRow.style.display = STATE.periodMode === 'oneDay' ? 'flex' : 'none';
+
+  if (STATE.profiles.length === 0) {
+    list.innerHTML = `
+      <div class="empty-state">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 15l-2 5-3-1 1-4"/><path d="M12 15l2 5 3-1-1-4"/><path d="M6 20h12"/>
+        </svg>
+        <h3>No Runners Yet</h3>
+        <p>Create profiles and log runs to see the leaderboard.</p>
+      </div>
+    `;
+    return;
+  }
+
+  const isOneDay = STATE.periodMode === 'oneDay';
+  const sortBy = STATE.sortMode; // 'pace' or 'distance'
+  const selectedDate = STATE.selectedDate;
+
+  // Build leaderboard data
+  const data = STATE.profiles.map((p, idx) => {
+    const totalRunCount = p.records ? p.records.length : 0;
+
+    let mainVal, detailDate, dayRunCount;
+    if (isOneDay) {
+      // Filter to only runs on the selected date
+      dayRunCount = getRunCountOnDate(p, selectedDate);
+      if (sortBy === 'pace') {
+        mainVal = getBestPaceOnDate(p, selectedDate);
+      } else {
+        mainVal = getDistanceOnDate(p, selectedDate);
+      }
+      detailDate = dayRunCount > 0 ? selectedDate : null;
+    } else {
+      // Total mode — all-time stats
+      if (sortBy === 'pace') {
+        mainVal = getBestPace(p);
+        detailDate = getBestPaceDate(p);
+      } else {
+        mainVal = getTotalDistance(p);
+        detailDate = null;
+      }
+      dayRunCount = totalRunCount;
+    }
+
+    return {
+      ...p,
+      mainVal,
+      detailDate,
+      totalRunCount,
+      dayRunCount: isOneDay ? dayRunCount : totalRunCount,
+      avatarIdx: idx % 8
+    };
+  }).filter(p => {
+    // Only include runners who qualify
+    if (isOneDay) {
+      return p.dayRunCount > 0 && p.mainVal && p.mainVal !== Infinity && p.mainVal > 0;
+    } else {
+      return p.totalRunCount > 0 && p.mainVal && p.mainVal !== Infinity && p.mainVal > 0;
+    }
+  });
+
+  // Sort
+  if (sortBy === 'pace') {
+    data.sort((a, b) => a.mainVal - b.mainVal); // lower pace = better
+  } else {
+    data.sort((a, b) => b.mainVal - a.mainVal); // higher distance = better
+  }
+
+  if (data.length === 0) {
+    const emptyMsg = isOneDay
+      ? `No runs logged on ${formatDate(selectedDate)}. Pick a different date or log a run.`
+      : 'Log some runs to populate the leaderboard.';
+    list.innerHTML = `
+      <div class="empty-state">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 15l-2 5-3-1 1-4"/><path d="M12 15l2 5 3-1-1-4"/><path d="M6 20h12"/>
+        </svg>
+        <h3>${isOneDay ? 'No Runs on This Date' : 'No Runs Logged'}</h3>
+        <p>${emptyMsg}</p>
+      </div>
+    `;
+    return;
+  }
+
+  let html = '';
+  data.forEach((p, rank) => {
+    const rankClass = rank < 3 ? ` rank-${rank+1}` : '';
+
+    // Format main value — only show the relevant metric
+    let mainDisplay, mainUnit;
+    if (sortBy === 'pace') {
+      mainDisplay = formatPace(p.mainVal);
+      mainUnit = 'min/km';
+    } else {
+      mainDisplay = p.mainVal.toFixed(2);
+      mainUnit = 'km';
+    }
+
+    // Detail line
+    let detail = '';
+    if (isOneDay) {
+      detail = p.dayRunCount + ' run' + (p.dayRunCount !== 1 ? 's' : '') + ' on this day';
+    } else {
+      if (p.detailDate) {
+        detail = formatDate(p.detailDate) + ' · ' + p.totalRunCount + ' run' + (p.totalRunCount !== 1 ? 's' : '');
+      } else {
+        detail = p.totalRunCount + ' run' + (p.totalRunCount !== 1 ? 's' : '');
+      }
+    }
+
+    html += `
+      <div class="lb-card${rankClass}" onclick="selectProfileFromLB('${p.id}')">
+        <div class="lb-rank">${rank+1}</div>
+        <div class="profile-avatar avatar-${p.avatarIdx}" style="width:40px;height:40px;font-size:16px">${getInitials(p.name)}</div>
+        <div class="lb-info">
+          <div class="lb-name">${escHtml(p.name)}</div>
+          <div class="lb-detail">${detail}</div>
+        </div>
+        <div class="lb-value">
+          <span class="val">${mainDisplay}</span>
+          <span class="unit">${mainUnit}</span>
+        </div>
+      </div>
+    `;
+  });
+
+  list.innerHTML = html;
+}
+
+function selectProfileFromLB(id) {
+  STATE.selectedProfileId = id;
+  switchView('records');
+}
+
+// ──────────────────────────────────────
+// MODAL
+// ──────────────────────────────────────
+function openModal() {
+  document.getElementById('modalOverlay').classList.add('active');
+}
+
+function closeModal() {
+  document.getElementById('modalOverlay').classList.remove('active');
+}
+
+function handleOverlayClick(e) {
+  if (e.target === document.getElementById('modalOverlay')) {
+    closeModal();
+  }
+}
+
+// ──────────────────────────────────────
+// CONFIRM DIALOG
+// ──────────────────────────────────────
+let confirmCallback = null;
+
+function showConfirm(title, msg, onConfirm) {
+  document.getElementById('confirmTitle').textContent = title;
+  document.getElementById('confirmMsg').textContent = msg;
+  confirmCallback = onConfirm;
+  document.getElementById('confirmAction').onclick = () => {
+    closeConfirm();
+    if (confirmCallback) confirmCallback();
+    confirmCallback = null;
+  };
+  document.getElementById('confirmOverlay').classList.add('active');
+}
+
+function closeConfirm() {
+  document.getElementById('confirmOverlay').classList.remove('active');
+}
+
+function handleConfirmOverlayClick(e) {
+  if (e.target === document.getElementById('confirmOverlay')) {
+    closeConfirm();
+  }
+}
+
+// ──────────────────────────────────────
+// INIT
+// ──────────────────────────────────────
+listenToFirebase();
+</script>
+</body>
+</html>
