@@ -181,10 +181,6 @@
             gap: 8px;
         }
 
-        .section-title .icon {
-            font-size: 20px;
-        }
-
         /* ===== User Cards ===== */
         .user-card {
             background: var(--bg-card);
@@ -205,12 +201,6 @@
             border-color: var(--accent-primary);
             box-shadow: 0 4px 20px var(--shadow-color);
             transform: translateY(-1px);
-        }
-
-        .user-card .user-info {
-            display: flex;
-            align-items: center;
-            gap: 12px;
         }
 
         .user-avatar {
@@ -256,17 +246,19 @@
             font-size: 14px;
             color: var(--accent-secondary);
             font-weight: 600;
-            margin-bottom: 8px;
+            margin-bottom: 10px;
         }
 
         .record-card .record-stats {
-            display: grid;
-            grid-template-columns: 1fr 1fr 1fr;
+            display: flex;
+            justify-content: space-between;
             gap: 8px;
         }
 
         .record-card .stat {
+            flex: 1;
             text-align: center;
+            min-width: 0;
         }
 
         .record-card .stat-value {
@@ -331,18 +323,10 @@
             box-shadow: 0 4px 15px rgba(233, 69, 96, 0.3);
         }
 
-        .btn-primary:hover {
-            box-shadow: 0 6px 25px rgba(233, 69, 96, 0.4);
-        }
-
         .btn-secondary {
             background: var(--bg-input);
             color: var(--accent-secondary);
             border: 1px solid var(--border-color);
-        }
-
-        .btn-secondary:hover {
-            border-color: var(--accent-secondary);
         }
 
         .btn-green {
@@ -358,12 +342,6 @@
             width: auto;
         }
 
-        .btn-danger {
-            background: rgba(233, 69, 96, 0.15);
-            color: var(--accent-primary);
-            border: 1px solid rgba(233, 69, 96, 0.3);
-        }
-
         /* ===== Forms ===== */
         .form-group {
             margin-bottom: 16px;
@@ -377,7 +355,7 @@
             color: var(--text-secondary);
         }
 
-        .form-group input, .form-group select {
+        .form-group input, .form-group select, .form-group textarea {
             width: 100%;
             padding: 14px 16px;
             border-radius: 10px;
@@ -387,16 +365,21 @@
             font-size: 16px;
             outline: none;
             transition: border-color 0.2s;
+            font-family: inherit;
             -webkit-appearance: none;
         }
 
-        .form-group input:focus, .form-group select:focus {
+        .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
             border-color: var(--accent-secondary);
             box-shadow: 0 0 0 3px rgba(0, 210, 255, 0.1);
         }
 
-        .form-group input::placeholder {
+        .form-group input::placeholder, .form-group textarea::placeholder {
             color: var(--text-muted);
+        }
+        
+        .form-group textarea {
+            resize: vertical;
         }
 
         /* ===== Modal ===== */
@@ -494,7 +477,7 @@
             display: flex;
             justify-content: center;
             gap: 24px;
-            margin-top: 12px;
+            margin-top: 16px;
         }
 
         .profile-header .summary-stat {
@@ -605,10 +588,6 @@
             outline: none;
         }
 
-        .date-picker-row input[type="date"]:focus {
-            border-color: var(--accent-secondary);
-        }
-
         /* ===== Empty State ===== */
         .empty-state {
             text-align: center;
@@ -634,10 +613,6 @@
             border-top-color: var(--accent-primary);
             border-radius: 50%;
             animation: spin 0.8s linear infinite;
-        }
-
-        @keyframes spin {
-            to { transform: rotate(360deg); }
         }
 
         .loading-container {
@@ -705,14 +680,13 @@
             display: flex;
         }
 
-        /* For screens smaller than 480px, position FAB relative to viewport */
         @media (max-width: 480px) {
             .fab {
                 right: 20px;
             }
         }
 
-        /* ===== User delete button in user list ===== */
+        /* ===== User delete button ===== */
         .user-delete-btn {
             background: none;
             border: none;
@@ -744,53 +718,20 @@
             color: var(--accent-secondary);
         }
 
-        /* ===== Hide pages ===== */
+        /* ===== Layout Classes ===== */
         .page { display: none; }
         .page.active { display: block; }
+        .user-card-left { display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0; }
+        .user-card-right { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
+        .sort-row { display: flex; gap: 8px; margin-bottom: 16px; }
+        .sort-row select { flex: 1; padding: 12px 16px; border-radius: 10px; border: 1px solid var(--border-color); background: var(--bg-input); color: var(--text-primary); font-size: 16px; outline: none; }
 
-        /* ===== User card inner flex ===== */
-        .user-card-left {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            flex: 1;
-            min-width: 0;
-        }
-
-        .user-card-right {
-            display: flex;
-            align-items: center;
-            gap: 4px;
-            flex-shrink: 0;
-        }
-
-        /* ===== Animations ===== */
         @keyframes fadeIn {
             from { opacity: 0; transform: translateY(10px); }
             to { opacity: 1; transform: translateY(0); }
         }
+        .animate-in { animation: fadeIn 0.3s ease forwards; }
 
-        .animate-in {
-            animation: fadeIn 0.3s ease forwards;
-        }
-
-        /* Sort dropdown for rankings */
-        .sort-row {
-            display: flex;
-            gap: 8px;
-            margin-bottom: 16px;
-        }
-
-        .sort-row select {
-            flex: 1;
-            padding: 12px 16px;
-            border-radius: 10px;
-            border: 1px solid var(--border-color);
-            background: var(--bg-input);
-            color: var(--text-primary);
-            font-size: 16px;
-            outline: none;
-        }
     </style>
 </head>
 <body>
@@ -813,7 +754,7 @@
 
         <!-- Home Page -->
         <div class="page active" id="homePage">
-            <div class="section-title">👟 Runners</div>
+            <div class="section-title">青牧 Runners</div>
             <div id="userList">
                 <div class="loading-container"><div class="spinner"></div></div>
             </div>
@@ -822,6 +763,7 @@
         <!-- User Profile Page -->
         <div class="page" id="profilePage">
             <div class="profile-header" id="profileHeader"></div>
+            
             <div class="add-record-section">
                 <h3>📝 Add Record</h3>
                 <div class="form-group">
@@ -829,15 +771,32 @@
                     <input type="date" id="recordDate">
                 </div>
                 <div class="form-group">
-                    <label>Duration (minutes)</label>
-                    <input type="number" id="recordDuration" placeholder="e.g. 30" min="1" step="1">
+                    <label>Time</label>
+                    <input type="time" id="recordTime">
+                </div>
+                <div style="display:flex;gap:8px;">
+                    <!-- Duration fields use inputmode and pattern to restrict mobile keyboard, and oninput to remove non-numeric instantly -->
+                    <div class="form-group" style="flex:1;">
+                        <label>Duration (min)</label>
+                        <input type="text" inputmode="numeric" pattern="\d*" id="recordDurationMin" placeholder="e.g. 30" oninput="this.value = this.value.replace(/[^0-9]/g, '')">
+                    </div>
+                    <div class="form-group" style="flex:1;">
+                        <label>Duration (sec)</label>
+                        <input type="text" inputmode="numeric" pattern="\d*" id="recordDurationSec" placeholder="e.g. 30" oninput="this.value = this.value.replace(/[^0-9]/g, '')">
+                    </div>
                 </div>
                 <div class="form-group">
                     <label>Distance (km)</label>
+                    <!-- Distance still allows decimal values -->
                     <input type="number" id="recordDistance" placeholder="e.g. 5.0" min="0.01" step="0.01">
+                </div>
+                <div class="form-group">
+                    <label>Steps (optional)</label>
+                    <input type="text" inputmode="numeric" pattern="\d*" id="recordSteps" placeholder="e.g. 5000" oninput="this.value = this.value.replace(/[^0-9]/g, '')">
                 </div>
                 <button class="btn btn-green" onclick="addRecord()">Add Record</button>
             </div>
+            
             <div class="section-title">📋 Records</div>
             <div id="recordList"></div>
         </div>
@@ -854,6 +813,7 @@
                     <select id="sortSelect" onchange="renderTotalRankings()">
                         <option value="distance">Sort by Total Distance</option>
                         <option value="pace">Sort by Best Pace</option>
+                        <option value="steps">Sort by Total Steps</option>
                     </select>
                 </div>
                 <div id="totalRankingList"></div>
@@ -891,6 +851,7 @@
             <label>Name</label>
             <input type="text" id="newUserName" placeholder="Enter runner's name">
         </div>
+        <!-- Bio removed from here -->
         <div class="form-group">
             <label>Admin Password</label>
             <input type="password" id="addUserPassword" placeholder="Enter admin password">
@@ -898,6 +859,18 @@
         <button class="btn btn-primary" onclick="addUser()">Add Runner</button>
         <button class="btn btn-cancel" onclick="closeModal('addUserModal')">Cancel</button>
         <div class="modal-error" id="addUserError"></div>
+    </div>
+</div>
+
+<!-- ===== Edit Bio Modal ===== -->
+<div class="modal-overlay" id="editBioModal">
+    <div class="modal">
+        <h2>✏️ Edit Bio</h2>
+        <div class="form-group">
+            <textarea id="editBioInput" rows="3" placeholder="Tell us about yourself..."></textarea>
+        </div>
+        <button class="btn btn-primary" onclick="saveBio()">Save</button>
+        <button class="btn btn-cancel" onclick="closeModal('editBioModal')">Cancel</button>
     </div>
 </div>
 
@@ -969,7 +942,6 @@ const db = firebase.database();
 // Constants
 // ==========================================
 const ADMIN_PASSWORD = 'iLoverun';
-// Avatar color map - regenerated randomly each session
 let avatarColorMap = {};
 
 // ==========================================
@@ -980,7 +952,7 @@ let currentUserId = null;
 let currentUserData = null;
 let allUsers = {};
 let allRecords = {};
-let pendingAction = null; // For password-confirmed actions
+let pendingAction = null;
 let pendingDeleteUserId = null;
 let pendingDeleteRecordId = null;
 
@@ -1042,24 +1014,19 @@ function showModal(id) {
 
 function closeModal(id) {
     document.getElementById(id).classList.remove('show');
-    // Clear error messages
     const errorEl = document.getElementById(id.replace('Modal', 'Error'));
     if (errorEl) errorEl.textContent = '';
 }
 
 // ==========================================
-// Avatar Color Generator (Random Unique Colors)
+// Avatar Color Generator
 // ==========================================
-
-// Generate a vibrant random color using HSL
-// Hue is spread evenly, saturation and lightness ensure bright, visible colors
 function generateVibrantColor(hue) {
-    const saturation = 70 + Math.random() * 20;   // 70-90%
-    const lightness = 50 + Math.random() * 10;     // 50-60%
+    const saturation = 70 + Math.random() * 20;
+    const lightness = 50 + Math.random() * 10;
     return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
 }
 
-// Shuffle array (Fisher-Yates)
 function shuffleArray(arr) {
     for (let i = arr.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
@@ -1068,13 +1035,11 @@ function shuffleArray(arr) {
     return arr;
 }
 
-// Assign unique random colors to all users
 function assignRandomAvatarColors() {
     const userIds = Object.keys(allUsers);
     const count = userIds.length;
     if (count === 0) { avatarColorMap = {}; return; }
 
-    // Spread hues evenly across the color wheel, then shuffle for randomness
     const hues = [];
     for (let i = 0; i < count; i++) {
         hues.push(Math.round((360 / count) * i));
@@ -1087,7 +1052,6 @@ function assignRandomAvatarColors() {
     });
 }
 
-// Get avatar color for a user by their userId
 function getAvatarColor(uid) {
     return avatarColorMap[uid] || '#e94560';
 }
@@ -1097,7 +1061,7 @@ function getInitial(name) {
 }
 
 // ==========================================
-// Utility: Format Pace
+// Utility Formatters
 // ==========================================
 function formatPace(durationMin, distanceKm) {
     if (!distanceKm || distanceKm <= 0) return '--:--';
@@ -1108,9 +1072,9 @@ function formatPace(durationMin, distanceKm) {
 }
 
 function formatDuration(totalMin) {
-    if (totalMin < 60) return totalMin + ' min';
+    if (totalMin < 60) return Math.floor(totalMin) + ' min';
     const h = Math.floor(totalMin / 60);
-    const m = totalMin % 60;
+    const m = Math.floor(totalMin % 60);
     return h + 'h ' + (m > 0 ? m + 'm' : '');
 }
 
@@ -1121,15 +1085,20 @@ function formatDate(dateStr) {
 }
 
 // ==========================================
-// Firebase: Load Users
+// Firebase: Load Data
 // ==========================================
 function loadUsers() {
     db.ref('users').on('value', (snapshot) => {
         allUsers = snapshot.val() || {};
+        
+        // Update currentUserData in real time if profile is open
+        if (currentUserId && allUsers[currentUserId]) {
+            currentUserData = allUsers[currentUserId];
+            if (currentPage === 'profile') renderProfileHeader();
+        }
+
         assignRandomAvatarColors();
         renderUserList();
-
-        // Also reload records for rankings
         loadAllRecords();
     });
 }
@@ -1154,7 +1123,6 @@ function renderUserList() {
         const recordCount = Object.keys(records).length;
         const color = getAvatarColor(uid);
 
-        // Calculate total distance
         let totalDist = 0;
         Object.values(records).forEach(r => { totalDist += (r.distance || 0); });
 
@@ -1177,13 +1145,10 @@ function renderUserList() {
     container.innerHTML = html;
 }
 
-// ==========================================
-// Firebase: Load All Records (for rankings)
-// ==========================================
 function loadAllRecords() {
     db.ref('records').on('value', (snapshot) => {
         allRecords = snapshot.val() || {};
-        renderUserList(); // Re-render user list with updated stats
+        renderUserList();
         if (currentPage === 'rankings') {
             if (document.getElementById('totalRankings').style.display !== 'none') {
                 renderTotalRankings();
@@ -1193,6 +1158,7 @@ function loadAllRecords() {
         }
         if (currentPage === 'profile' && currentUserId) {
             renderRecords();
+            renderProfileHeader(); // Re-render stats
         }
     });
 }
@@ -1225,6 +1191,7 @@ function addUser() {
     const newUserRef = db.ref('users').push();
     newUserRef.set({
         name: name,
+        bio: '', // Empty by default, editable in profile
         createdAt: new Date().toISOString()
     }).then(() => {
         closeModal('addUserModal');
@@ -1255,7 +1222,6 @@ document.getElementById('confirmDeleteUserBtn').addEventListener('click', () => 
     }
 
     const uid = pendingDeleteUserId;
-    // Remove user and their records
     const updates = {};
     updates['/users/' + uid] = null;
     updates['/records/' + uid] = null;
@@ -1270,7 +1236,7 @@ document.getElementById('confirmDeleteUserBtn').addEventListener('click', () => 
 });
 
 // ==========================================
-// Open Profile
+// Profile & Bio
 // ==========================================
 function openProfile(uid) {
     currentUserId = uid;
@@ -1279,9 +1245,13 @@ function openProfile(uid) {
     renderProfileHeader();
     renderRecords();
 
-    // Set default date to today
     const today = new Date().toISOString().split('T')[0];
     document.getElementById('recordDate').value = today;
+
+    const now = new Date();
+    const hours = String(now.getHours()).padStart(2, '0');
+    const mins = String(now.getMinutes()).padStart(2, '0');
+    document.getElementById('recordTime').value = hours + ':' + mins;
 }
 
 function renderProfileHeader() {
@@ -1299,9 +1269,19 @@ function renderProfileHeader() {
         totalTime += (r.duration || 0);
     });
 
+    const bioText = user.bio ? escapeHtml(user.bio) : 'Add a short bio...';
+
     container.innerHTML = `
         <div class="avatar-large" style="background:${color}">${getInitial(user.name)}</div>
         <div class="profile-name">${escapeHtml(user.name)}</div>
+        
+        <div class="profile-bio" style="margin-top: 8px; font-size: 14px; color: var(--text-secondary); display: flex; align-items: center; justify-content: center; gap: 8px; cursor:pointer;" onclick="showEditBioModal()">
+            <span>${bioText}</span>
+            <button style="background:none; border:none; color:var(--accent-secondary); display:flex; align-items:center;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+            </button>
+        </div>
+
         <div class="profile-summary">
             <div class="summary-stat">
                 <div class="val">${recordArr.length}</div>
@@ -1318,6 +1298,21 @@ function renderProfileHeader() {
         </div>`;
 }
 
+function showEditBioModal() {
+    document.getElementById('editBioInput').value = currentUserData.bio || '';
+    showModal('editBioModal');
+}
+
+function saveBio() {
+    const newBio = document.getElementById('editBioInput').value.trim();
+    db.ref('users/' + currentUserId).update({ bio: newBio }).then(() => {
+        closeModal('editBioModal');
+        showToast('Bio updated!');
+    }).catch(err => {
+        showToast('Error: ' + err.message, 'error');
+    });
+}
+
 function renderRecords() {
     const container = document.getElementById('recordList');
     const records = allRecords[currentUserId] || {};
@@ -1332,70 +1327,107 @@ function renderRecords() {
         return;
     }
 
-    // Sort by date descending
     recordEntries.sort((a, b) => {
         if (b[1].date > a[1].date) return 1;
         if (b[1].date < a[1].date) return -1;
+        
+        // Secondary sort by time if date is the same
+        const timeA = a[1].time || '';
+        const timeB = b[1].time || '';
+        if (timeB > timeA) return 1;
+        if (timeB < timeA) return -1;
         return 0;
     });
 
     let html = '';
     recordEntries.forEach(([rid, rec]) => {
         const pace = formatPace(rec.duration, rec.distance);
+        
+        // Time Display formatting
+        const timeStr = rec.time ? ` at ${rec.time}` : '';
+        
+        // Steps Display Html
+        const stepsHtml = rec.steps ? `
+            <div class="stat">
+                <div class="stat-value" style="font-size: 16px;">${rec.steps}</div>
+                <div class="stat-label">steps</div>
+            </div>` : '';
+
+        // Safe fallback for old records which only had rec.duration
+        const minDisp = rec.durationMin !== undefined ? rec.durationMin : Math.floor(rec.duration);
+        const secDisp = rec.durationSec !== undefined ? String(rec.durationSec).padStart(2, '0') : '00';
+
         html += `
         <div class="record-card animate-in">
-            <div class="record-date">${formatDate(rec.date)}</div>
+            <div class="record-date">${formatDate(rec.date)}${timeStr}</div>
             <div class="record-stats">
                 <div class="stat">
-                    <div class="stat-value">${rec.duration}</div>
-                    <div class="stat-label">min</div>
+                    <div class="stat-value" style="font-size: 16px;">${minDisp}'${secDisp}"</div>
+                    <div class="stat-label">time</div>
                 </div>
                 <div class="stat">
-                    <div class="stat-value">${rec.distance.toFixed(2)}</div>
+                    <div class="stat-value" style="font-size: 16px;">${rec.distance.toFixed(2)}</div>
                     <div class="stat-label">km</div>
                 </div>
                 <div class="stat">
-                    <div class="stat-value" style="font-size:15px">${pace}</div>
+                    <div class="stat-value" style="font-size: 15px">${pace}</div>
                     <div class="stat-label">pace</div>
                 </div>
+                ${stepsHtml}
             </div>
             <button class="delete-btn" onclick="confirmDeleteRecord('${rid}')" title="Delete">🗑</button>
         </div>`;
     });
 
     container.innerHTML = html;
-    renderProfileHeader();
 }
 
 // ==========================================
-// Add Record (no password required)
+// Add Record
 // ==========================================
 function addRecord() {
     const date = document.getElementById('recordDate').value;
-    const duration = parseFloat(document.getElementById('recordDuration').value);
+    const time = document.getElementById('recordTime').value || '';
+    
+    // Parse strictly as integers for Duration and Steps
+    const durationMin = parseInt(document.getElementById('recordDurationMin').value || '0', 10);
+    const durationSec = parseInt(document.getElementById('recordDurationSec').value || '0', 10);
+    const steps = parseInt(document.getElementById('recordSteps').value || '0', 10);
+    
     const distance = parseFloat(document.getElementById('recordDistance').value);
 
     if (!date) { showToast('Please select a date.', 'error'); return; }
-    if (!duration || duration <= 0) { showToast('Please enter a valid duration.', 'error'); return; }
+    
+    const totalDurationSec = durationMin * 60 + durationSec;
+    if (totalDurationSec <= 0) { showToast('Please enter a valid duration.', 'error'); return; }
     if (!distance || distance <= 0) { showToast('Please enter a valid distance.', 'error'); return; }
+    if (durationSec < 0 || durationSec > 59) { showToast('Seconds must be 0-59.', 'error'); return; }
+
+    const durationMinutes = totalDurationSec / 60;
 
     const newRecordRef = db.ref('records/' + currentUserId).push();
     newRecordRef.set({
         date: date,
-        duration: duration,
+        time: time,
+        duration: durationMinutes,
+        durationMin: durationMin,
+        durationSec: durationSec,
         distance: distance,
+        steps: steps > 0 ? steps : null,
         createdAt: new Date().toISOString()
     }).then(() => {
         showToast('Record added!');
-        document.getElementById('recordDuration').value = '';
+        document.getElementById('recordDurationMin').value = '';
+        document.getElementById('recordDurationSec').value = '';
         document.getElementById('recordDistance').value = '';
+        document.getElementById('recordSteps').value = '';
     }).catch(err => {
         showToast('Error: ' + err.message, 'error');
     });
 }
 
 // ==========================================
-// Delete Record (password required)
+// Delete Record
 // ==========================================
 function confirmDeleteRecord(recordId) {
     pendingDeleteRecordId = recordId;
@@ -1436,7 +1468,6 @@ function switchRankingTab(tab) {
         document.querySelector('.ranking-tab:last-child').classList.add('active');
         document.getElementById('totalRankings').style.display = 'none';
         document.getElementById('dailyRankings').style.display = '';
-        // Set default date to today
         if (!document.getElementById('rankDate').value) {
             document.getElementById('rankDate').value = new Date().toISOString().split('T')[0];
         }
@@ -1448,23 +1479,23 @@ function renderTotalRankings() {
     const container = document.getElementById('totalRankingList');
     const sortBy = document.getElementById('sortSelect').value;
 
-    // Build ranking data
     const rankingData = [];
     Object.keys(allUsers).forEach(uid => {
         const user = allUsers[uid];
         const records = allRecords[uid] || {};
-        let totalDist = 0, totalTime = 0;
-        let bestPace = Infinity;   // lower is better
+        
+        let totalDist = 0, totalTime = 0, totalSteps = 0;
+        let bestPace = Infinity;
         let bestPaceDate = '';
-        let latestDate = '';       // most recent record date
+        let latestDate = '';
 
         Object.values(records).forEach(r => {
             const dist = r.distance || 0;
             const dur = r.duration || 0;
             totalDist += dist;
             totalTime += dur;
+            totalSteps += (r.steps || 0);
 
-            // Calculate pace for this record
             if (dist > 0 && dur > 0) {
                 const pace = dur / dist;
                 if (pace < bestPace) {
@@ -1473,31 +1504,31 @@ function renderTotalRankings() {
                 }
             }
 
-            // Track latest record date
             if (r.date && (!latestDate || r.date > latestDate)) {
                 latestDate = r.date;
             }
         });
 
-        // Skip users with no records for pace ranking
         if (sortBy === 'pace' && bestPace === Infinity) return;
+        if (sortBy === 'steps' && totalSteps === 0) return;
 
         rankingData.push({
             uid: uid,
             name: user.name,
             totalDist: totalDist,
             totalTime: totalTime,
+            totalSteps: totalSteps,
             bestPace: bestPace === Infinity ? null : bestPace,
             bestPaceDate: bestPaceDate,
             latestDate: latestDate
         });
     });
 
-    // Sort
     if (sortBy === 'distance') {
         rankingData.sort((a, b) => b.totalDist - a.totalDist);
+    } else if (sortBy === 'steps') {
+        rankingData.sort((a, b) => b.totalSteps - a.totalSteps);
     } else {
-        // Best pace: ascending (lower pace = faster = better)
         rankingData.sort((a, b) => (a.bestPace || Infinity) - (b.bestPace || Infinity));
     }
 
@@ -1516,9 +1547,11 @@ function renderTotalRankings() {
         if (sortBy === 'distance') {
             value = item.totalDist.toFixed(1) + ' km';
             detail = item.latestDate ? formatDate(item.latestDate) : 'No records';
+        } else if (sortBy === 'steps') {
+            value = item.totalSteps.toLocaleString() + ' steps';
+            detail = item.latestDate ? formatDate(item.latestDate) : 'No records';
         } else {
-            value = formatPace(item.bestPace, 1); // pass pace as duration, 1km to reuse helper
-            // Actually formatPace expects (durationMin, distanceKm), so bestPace IS durationMin/distanceKm for 1km
+            value = formatPace(item.bestPace, 1);
             detail = item.bestPaceDate ? formatDate(item.bestPaceDate) : '';
         }
 
@@ -1530,7 +1563,7 @@ function renderTotalRankings() {
                 <div class="rank-name">${escapeHtml(item.name)}</div>
                 <div class="rank-detail">${detail}</div>
             </div>
-            <div class="rank-value">${value}</div>
+            <div class="rank-value" style="${sortBy==='steps' ? 'font-size:16px;' : ''}">${value}</div>
         </div>`;
     });
 
@@ -1552,6 +1585,7 @@ function renderDailyRankings() {
         const records = allRecords[uid] || {};
         let totalDist = 0, totalTime = 0;
         let count = 0;
+        
         Object.values(records).forEach(r => {
             if (r.date === selectedDate) {
                 totalDist += (r.distance || 0);
@@ -1559,6 +1593,7 @@ function renderDailyRankings() {
                 count++;
             }
         });
+        
         if (count > 0) {
             rankingData.push({
                 uid: uid,
@@ -1570,7 +1605,6 @@ function renderDailyRankings() {
         }
     });
 
-    // Sort by distance descending
     rankingData.sort((a, b) => b.totalDist - a.totalDist);
 
     if (rankingData.length === 0) {
