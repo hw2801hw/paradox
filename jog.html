@@ -252,13 +252,14 @@
         .record-card .record-stats {
             display: flex;
             justify-content: space-between;
-            gap: 8px;
+            gap: 12px 8px; /* Added vertical gap for wrapping */
+            flex-wrap: wrap; /* Allow stats to wrap if there are too many */
         }
 
         .record-card .stat {
             flex: 1;
             text-align: center;
-            min-width: 0;
+            min-width: 60px; /* Ensure elements don't get too squished */
         }
 
         .record-card .stat-value {
@@ -790,9 +791,15 @@
                     <!-- Distance still allows decimal values -->
                     <input type="number" id="recordDistance" placeholder="e.g. 5.0" min="0.01" step="0.01">
                 </div>
-                <div class="form-group">
-                    <label>Steps (optional)</label>
-                    <input type="text" inputmode="numeric" pattern="\d*" id="recordSteps" placeholder="e.g. 5000" oninput="this.value = this.value.replace(/[^0-9]/g, '')">
+                <div style="display:flex;gap:8px;">
+                    <div class="form-group" style="flex:1;">
+                        <label>Steps (optional)</label>
+                        <input type="text" inputmode="numeric" pattern="\d*" id="recordSteps" placeholder="e.g. 5000" oninput="this.value = this.value.replace(/[^0-9]/g, '')">
+                    </div>
+                    <div class="form-group" style="flex:1;">
+                        <label>Active Kcal (optional)</label>
+                        <input type="text" inputmode="numeric" pattern="\d*" id="recordKcal" placeholder="e.g. 300" oninput="this.value = this.value.replace(/[^0-9]/g, '')">
+                    </div>
                 </div>
                 <button class="btn btn-green" onclick="addRecord()">Add Record</button>
             </div>
@@ -821,6 +828,13 @@
             <div id="dailyRankings" style="display:none;">
                 <div class="date-picker-row">
                     <input type="date" id="rankDate" onchange="renderDailyRankings()">
+                </div>
+                <div class="sort-row">
+                    <select id="dailySortSelect" onchange="renderDailyRankings()">
+                        <option value="distance">Sort by Total Distance</option>
+                        <option value="pace">Sort by Best Pace</option>
+                        <option value="steps">Sort by Total Steps</option>
+                    </select>
                 </div>
                 <div id="dailyRankingList"></div>
             </div>
@@ -1327,15 +1341,16 @@ function renderRecords() {
         return;
     }
 
+    // Sort by date ascending (Oldest to Newest)
     recordEntries.sort((a, b) => {
-        if (b[1].date > a[1].date) return 1;
-        if (b[1].date < a[1].date) return -1;
+        if (a[1].date > b[1].date) return 1;
+        if (a[1].date < b[1].date) return -1;
         
-        // Secondary sort by time if date is the same
+        // Secondary sort by time ascending if date is the same
         const timeA = a[1].time || '';
         const timeB = b[1].time || '';
-        if (timeB > timeA) return 1;
-        if (timeB < timeA) return -1;
+        if (timeA > timeB) return 1;
+        if (timeA < timeB) return -1;
         return 0;
     });
 
@@ -1351,6 +1366,13 @@ function renderRecords() {
             <div class="stat">
                 <div class="stat-value" style="font-size: 16px;">${rec.steps}</div>
                 <div class="stat-label">steps</div>
+            </div>` : '';
+            
+        // Kcal Display Html
+        const kcalHtml = rec.kcal ? `
+            <div class="stat">
+                <div class="stat-value" style="font-size: 16px;">${rec.kcal}</div>
+                <div class="stat-label">kcal</div>
             </div>` : '';
 
         // Safe fallback for old records which only had rec.duration
@@ -1374,6 +1396,7 @@ function renderRecords() {
                     <div class="stat-label">pace</div>
                 </div>
                 ${stepsHtml}
+                ${kcalHtml}
             </div>
             <button class="delete-btn" onclick="confirmDeleteRecord('${rid}')" title="Delete">🗑</button>
         </div>`;
@@ -1389,10 +1412,11 @@ function addRecord() {
     const date = document.getElementById('recordDate').value;
     const time = document.getElementById('recordTime').value || '';
     
-    // Parse strictly as integers for Duration and Steps
+    // Parse strictly as integers for Duration, Steps and Kcal
     const durationMin = parseInt(document.getElementById('recordDurationMin').value || '0', 10);
     const durationSec = parseInt(document.getElementById('recordDurationSec').value || '0', 10);
     const steps = parseInt(document.getElementById('recordSteps').value || '0', 10);
+    const kcal = parseInt(document.getElementById('recordKcal').value || '0', 10);
     
     const distance = parseFloat(document.getElementById('recordDistance').value);
 
@@ -1414,6 +1438,7 @@ function addRecord() {
         durationSec: durationSec,
         distance: distance,
         steps: steps > 0 ? steps : null,
+        kcal: kcal > 0 ? kcal : null,
         createdAt: new Date().toISOString()
     }).then(() => {
         showToast('Record added!');
@@ -1421,6 +1446,7 @@ function addRecord() {
         document.getElementById('recordDurationSec').value = '';
         document.getElementById('recordDistance').value = '';
         document.getElementById('recordSteps').value = '';
+        document.getElementById('recordKcal').value = '';
     }).catch(err => {
         showToast('Error: ' + err.message, 'error');
     });
@@ -1479,7 +1505,7 @@ function renderTotalRankings() {
     const container = document.getElementById('totalRankingList');
     const sortBy = document.getElementById('sortSelect').value;
 
-    const rankingData = [];
+    let rankingData = [];
     Object.keys(allUsers).forEach(uid => {
         const user = allUsers[uid];
         const records = allRecords[uid] || {};
@@ -1573,45 +1599,59 @@ function renderTotalRankings() {
 function renderDailyRankings() {
     const container = document.getElementById('dailyRankingList');
     const selectedDate = document.getElementById('rankDate').value;
+    const sortBy = document.getElementById('dailySortSelect').value;
 
     if (!selectedDate) {
         container.innerHTML = `<div class="empty-state"><p>Select a date.</p></div>`;
         return;
     }
 
-    const rankingData = [];
+    let rankingData = [];
     Object.keys(allUsers).forEach(uid => {
         const user = allUsers[uid];
         const records = allRecords[uid] || {};
-        let totalDist = 0, totalTime = 0;
+        let totalDist = 0, totalTime = 0, totalSteps = 0;
         let count = 0;
         
         Object.values(records).forEach(r => {
             if (r.date === selectedDate) {
                 totalDist += (r.distance || 0);
                 totalTime += (r.duration || 0);
+                totalSteps += (r.steps || 0);
                 count++;
             }
         });
         
         if (count > 0) {
+            // Aggregate daily pace = total daily time / total daily distance
+            const dailyPace = totalDist > 0 ? (totalTime / totalDist) : Infinity;
             rankingData.push({
                 uid: uid,
                 name: user.name,
                 totalDist: totalDist,
                 totalTime: totalTime,
+                totalSteps: totalSteps,
+                dailyPace: dailyPace,
                 count: count
             });
         }
     });
 
-    rankingData.sort((a, b) => b.totalDist - a.totalDist);
+    if (sortBy === 'distance') {
+        rankingData.sort((a, b) => b.totalDist - a.totalDist);
+    } else if (sortBy === 'steps') {
+        rankingData = rankingData.filter(item => item.totalSteps > 0);
+        rankingData.sort((a, b) => b.totalSteps - a.totalSteps);
+    } else if (sortBy === 'pace') {
+        rankingData = rankingData.filter(item => item.dailyPace !== Infinity);
+        rankingData.sort((a, b) => a.dailyPace - b.dailyPace);
+    }
 
     if (rankingData.length === 0) {
         container.innerHTML = `
             <div class="empty-state">
                 <div class="empty-icon">📅</div>
-                <p>No runs on ${formatDate(selectedDate)}.</p>
+                <p>No valid runs found on ${formatDate(selectedDate)}.</p>
             </div>`;
         return;
     }
@@ -1621,7 +1661,20 @@ function renderDailyRankings() {
         const rank = index + 1;
         const rankClass = rank <= 3 ? 'rank-' + rank : 'rank-other';
         const color = getAvatarColor(item.uid);
-        const pace = formatPace(item.totalTime, item.totalDist);
+        
+        let value, detail;
+        const paceStr = formatPace(item.totalTime, item.totalDist);
+        
+        if (sortBy === 'distance') {
+            value = item.totalDist.toFixed(2) + ' km';
+            detail = `${formatDuration(item.totalTime)} · ${paceStr}`;
+        } else if (sortBy === 'steps') {
+            value = item.totalSteps.toLocaleString() + ' steps';
+            detail = `${item.totalDist.toFixed(2)} km · ${formatDuration(item.totalTime)}`;
+        } else {
+            value = paceStr;
+            detail = `${item.totalDist.toFixed(2)} km · ${formatDuration(item.totalTime)}`;
+        }
 
         html += `
         <div class="ranking-card animate-in">
@@ -1629,9 +1682,9 @@ function renderDailyRankings() {
             <div class="user-avatar" style="background:${color};width:40px;height:40px;font-size:16px;">${getInitial(item.name)}</div>
             <div class="rank-info">
                 <div class="rank-name">${escapeHtml(item.name)}</div>
-                <div class="rank-detail">${item.totalDist.toFixed(2)} km · ${formatDuration(item.totalTime)} · ${pace}</div>
+                <div class="rank-detail">${detail}</div>
             </div>
-            <div class="rank-value">${item.totalDist.toFixed(2)} km</div>
+            <div class="rank-value" style="${sortBy==='steps' ? 'font-size:16px;' : ''}">${value}</div>
         </div>`;
     });
 
