@@ -652,41 +652,6 @@
             color: #fff;
         }
 
-        /* ===== Add Record Floating Button ===== */
-        .fab {
-            position: fixed;
-            bottom: calc(var(--nav-height) + 20px + env(safe-area-inset-bottom, 0));
-            right: calc(50% - 240px + 20px);
-            width: 56px;
-            height: 56px;
-            border-radius: 50%;
-            background: linear-gradient(135deg, var(--accent-green), #00c853);
-            color: #0d0d0d;
-            border: none;
-            font-size: 28px;
-            cursor: pointer;
-            box-shadow: 0 4px 20px rgba(0, 230, 118, 0.4);
-            display: none;
-            align-items: center;
-            justify-content: center;
-            z-index: 50;
-            transition: transform 0.2s;
-        }
-
-        .fab:active {
-            transform: scale(0.9);
-        }
-
-        .fab.visible {
-            display: flex;
-        }
-
-        @media (max-width: 480px) {
-            .fab {
-                right: 20px;
-            }
-        }
-
         /* ===== User delete button ===== */
         .user-delete-btn {
             background: none;
@@ -841,9 +806,6 @@
         </div>
     </div>
 
-    <!-- FAB for adding record (visible only on profile page) -->
-    <button class="fab" id="fabAddRecord" onclick="document.querySelector('.add-record-section').scrollIntoView({behavior:'smooth'})">+</button>
-
     <!-- ===== Bottom Navigation ===== -->
     <nav class="bottom-nav">
         <button class="nav-item active" id="navHome" onclick="navigateTo('home')">
@@ -983,19 +945,16 @@ function navigateTo(page) {
         document.getElementById('navHome').classList.add('active');
         document.getElementById('backBtn').classList.remove('visible');
         document.getElementById('addUserBtn').style.display = '';
-        document.getElementById('fabAddRecord').classList.remove('visible');
     } else if (page === 'rankings') {
         document.getElementById('rankingsPage').classList.add('active');
         document.getElementById('navRankings').classList.add('active');
         document.getElementById('backBtn').classList.remove('visible');
         document.getElementById('addUserBtn').style.display = 'none';
-        document.getElementById('fabAddRecord').classList.remove('visible');
         renderTotalRankings();
     } else if (page === 'profile') {
         document.getElementById('profilePage').classList.add('active');
         document.getElementById('backBtn').classList.add('visible');
         document.getElementById('addUserBtn').style.display = 'none';
-        document.getElementById('fabAddRecord').classList.add('visible');
     }
 }
 
