@@ -252,14 +252,14 @@
         .record-card .record-stats {
             display: flex;
             justify-content: space-between;
-            gap: 12px 8px; /* Added vertical gap for wrapping */
-            flex-wrap: wrap; /* Allow stats to wrap if there are too many */
+            gap: 12px 8px;
+            flex-wrap: wrap;
         }
 
         .record-card .stat {
             flex: 1;
             text-align: center;
-            min-width: 60px; /* Ensure elements don't get too squished */
+            min-width: 60px;
         }
 
         .record-card .stat-value {
@@ -295,6 +295,37 @@
         .record-card .delete-btn:hover {
             background: var(--accent-primary);
             color: #fff;
+        }
+
+        /* ===== Badges Section ===== */
+        .badges-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 24px;
+            padding-bottom: 24px;
+        }
+
+        .badge-item {
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            -webkit-tap-highlight-color: transparent;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .badge-item:hover, .badge-item:active {
+            transform: scale(1.05);
+        }
+
+        .badge-icon {
+            width: 100%;
+            max-width: 160px;
+            height: auto;
+            aspect-ratio: 1/1;
+            object-fit: contain;
+            transition: filter 0.3s, opacity 0.3s;
         }
 
         /* ===== Buttons ===== */
@@ -411,7 +442,9 @@
             width: 100%;
             max-width: 400px;
             max-height: 90vh;
-            overflow-y: auto;
+            overflow-y: hidden;
+            display: flex;
+            flex-direction: column;
             animation: modalIn 0.25s ease;
         }
 
@@ -428,10 +461,26 @@
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             background-clip: text;
+            flex-shrink: 0;
+        }
+
+        .modal-scroll-content {
+            overflow-y: auto;
+            flex: 1;
+            margin-bottom: 16px;
+        }
+
+        .modal-scroll-content::-webkit-scrollbar {
+            width: 4px;
+        }
+        .modal-scroll-content::-webkit-scrollbar-thumb {
+            background: var(--border-color);
+            border-radius: 2px;
         }
 
         .modal .btn {
             margin-top: 8px;
+            flex-shrink: 0;
         }
 
         .modal .btn-cancel {
@@ -718,6 +767,14 @@
     <!-- ===== Main Content ===== -->
     <div class="app-content" id="appContent">
 
+        <!-- Badges Page -->
+        <div class="page" id="badgesPage">
+            <div class="section-title">🎖️ Badges</div>
+            <div class="badges-grid" id="badgesGrid">
+                <!-- Badges dynamically rendered here -->
+            </div>
+        </div>
+
         <!-- Home Page -->
         <div class="page active" id="homePage">
             <div class="section-title">青牧 Runners</div>
@@ -808,15 +865,37 @@
 
     <!-- ===== Bottom Navigation ===== -->
     <nav class="bottom-nav">
+        <!-- New Badges Tab on the Left -->
+        <button class="nav-item" id="navBadges" onclick="navigateTo('badges')">
+            <svg viewBox="0 0 24 24">
+                <path d="M12 2a5 5 0 0 0-5 5c0 2.27 1.5 4.2 3.58 4.82L9 22l3-1.5 3 1.5-1.58-10.18A5.001 5.001 0 0 0 12 2z"/>
+            </svg>
+            <span>Badges</span>
+        </button>
+        <!-- Home in the Center -->
         <button class="nav-item active" id="navHome" onclick="navigateTo('home')">
             <svg viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
             <span>Home</span>
         </button>
+        <!-- Rankings on the Right -->
         <button class="nav-item" id="navRankings" onclick="navigateTo('rankings')">
             <svg viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87L18.18 22 12 18.56 5.82 22 7 14.14l-5-4.87 6.91-1.01z"/></svg>
             <span>Rankings</span>
         </button>
     </nav>
+</div>
+
+<!-- ===== Badge Detail Modal ===== -->
+<div class="modal-overlay" id="badgeDetailModal">
+    <div class="modal" style="max-height: 80vh;">
+        <img id="badgeDetailImg" src="" alt="Badge" style="width: 100px; height: 100px; margin: 0 auto 12px auto; display: block; object-fit: contain;">
+        <h2 id="badgeDetailTitle" style="margin-bottom: 8px;">Badge Achievers</h2>
+        <div id="badgeDetailCount" style="text-align: center; color: var(--text-secondary); margin-bottom: 16px; font-size: 14px; font-weight: 600;"></div>
+        <div class="modal-scroll-content" id="badgeDetailList">
+            <!-- Achievers dynamic list -->
+        </div>
+        <button class="btn btn-cancel" onclick="closeModal('badgeDetailModal')">Close</button>
+    </div>
 </div>
 
 <!-- ===== Add User Modal ===== -->
@@ -827,7 +906,6 @@
             <label>Name</label>
             <input type="text" id="newUserName" placeholder="Enter runner's name">
         </div>
-        <!-- Bio removed from here -->
         <div class="form-group">
             <label>Admin Password</label>
             <input type="password" id="addUserPassword" placeholder="Enter admin password">
@@ -920,6 +998,70 @@ const db = firebase.database();
 const ADMIN_PASSWORD = 'iLoverun';
 let avatarColorMap = {};
 
+// Badges Configuration
+const BADGES = [
+    {
+        id: 'first_run',
+        name: 'First Run',
+        image: 'https://i.ibb.co/Fk1CWT9P/first-run.png',
+        description: 'Completed the very first run.'
+    },
+    {
+        id: '10_runs',
+        name: '10 Runs',
+        image: 'https://i.ibb.co/RTHLCngh/10-Runs.png',
+        description: 'Completed 10 runs in total.'
+    },
+    {
+        id: '10_km',
+        name: '10 Km',
+        image: 'https://i.ibb.co/dZV2mhw/10km.png',
+        description: 'Reached a total distance of 10 km.'
+    },
+    {
+        id: '10_hours',
+        name: '10 Hours',
+        image: 'https://i.ibb.co/QvWjdV66/10-Hours.png',
+        description: 'Accumulated 10 hours of running time.'
+    },
+    {
+        id: '50_runs',
+        name: '50 Runs',
+        image: 'https://i.ibb.co/m5fgFhCb/50-Runs.png',
+        description: 'Completed 50 runs in total.'
+    },
+    {
+        id: '50_km',
+        name: '50 Km',
+        image: 'https://i.ibb.co/b5vmc2Dy/50KM.png',
+        description: 'Reached a total distance of 50 km.'
+    },
+    {
+        id: '50_hours',
+        name: '50 Hours',
+        image: 'https://i.ibb.co/S4PsJPch/50-Hours.png',
+        description: 'Accumulated 50 hours of running time.'
+    },
+    {
+        id: '100_runs',
+        name: '100 Runs',
+        image: 'https://i.ibb.co/fVBpSfLT/100-Runs.png',
+        description: 'Completed 100 runs in total.'
+    },
+    {
+        id: '100_km',
+        name: '100 Km',
+        image: 'https://i.ibb.co/fd6LW76Z/100KM.png',
+        description: 'Reached a total distance of 100 km.'
+    },
+    {
+        id: '100_hours',
+        name: '100 Hours',
+        image: 'https://i.ibb.co/Xx6ncR21/100-Hours.png',
+        description: 'Accumulated 100 hours of running time.'
+    }
+];
+
 // ==========================================
 // App State
 // ==========================================
@@ -951,6 +1093,12 @@ function navigateTo(page) {
         document.getElementById('backBtn').classList.remove('visible');
         document.getElementById('addUserBtn').style.display = 'none';
         renderTotalRankings();
+    } else if (page === 'badges') {
+        document.getElementById('badgesPage').classList.add('active');
+        document.getElementById('navBadges').classList.add('active');
+        document.getElementById('backBtn').classList.remove('visible');
+        document.getElementById('addUserBtn').style.display = 'none';
+        renderBadges();
     } else if (page === 'profile') {
         document.getElementById('profilePage').classList.add('active');
         document.getElementById('backBtn').classList.add('visible');
@@ -1128,6 +1276,9 @@ function loadAllRecords() {
             } else {
                 renderDailyRankings();
             }
+        }
+        if (currentPage === 'badges') {
+            renderBadges();
         }
         if (currentPage === 'profile' && currentUserId) {
             renderRecords();
@@ -1438,6 +1589,143 @@ document.getElementById('confirmDeleteRecordBtn').addEventListener('click', () =
         errorEl.textContent = 'Error: ' + err.message;
     });
 });
+
+// ==========================================
+// Badges Functionality
+// ==========================================
+function getBadgeAchievers(badgeId) {
+    const achievers = [];
+    Object.keys(allUsers).forEach(uid => {
+        const user = allUsers[uid];
+        const records = allRecords[uid] || {};
+        const recordEntries = Object.values(records);
+
+        if (recordEntries.length > 0) {
+            // Sort records from oldest to newest to find the exact date the threshold was met
+            recordEntries.sort((a, b) => {
+                if (a.date !== b.date) return a.date > b.date ? 1 : -1;
+                const timeA = a.time || '';
+                const timeB = b.time || '';
+                return timeA > timeB ? 1 : -1;
+            });
+
+            let achievedDate = null;
+            let runCount = 0;
+            let totalDist = 0;
+            let totalDur = 0;
+
+            for (const r of recordEntries) {
+                runCount++;
+                totalDist += (r.distance || 0);
+                totalDur += (r.duration || 0);
+
+                if (badgeId === 'first_run' && runCount >= 1) {
+                    achievedDate = r.date;
+                    break;
+                }
+                if (badgeId === '10_runs' && runCount >= 10) {
+                    achievedDate = r.date;
+                    break;
+                }
+                if (badgeId === '10_km' && totalDist >= 10) {
+                    achievedDate = r.date;
+                    break;
+                }
+                if (badgeId === '10_hours' && totalDur >= 600) { // 600 minutes = 10 hours
+                    achievedDate = r.date;
+                    break;
+                }
+                if (badgeId === '50_runs' && runCount >= 50) {
+                    achievedDate = r.date;
+                    break;
+                }
+                if (badgeId === '50_km' && totalDist >= 50) {
+                    achievedDate = r.date;
+                    break;
+                }
+                if (badgeId === '50_hours' && totalDur >= 3000) { // 3000 minutes = 50 hours
+                    achievedDate = r.date;
+                    break;
+                }
+                if (badgeId === '100_runs' && runCount >= 100) {
+                    achievedDate = r.date;
+                    break;
+                }
+                if (badgeId === '100_km' && totalDist >= 100) {
+                    achievedDate = r.date;
+                    break;
+                }
+                if (badgeId === '100_hours' && totalDur >= 6000) { // 6000 minutes = 100 hours
+                    achievedDate = r.date;
+                    break;
+                }
+            }
+
+            if (achievedDate) {
+                achievers.push({
+                    uid: uid,
+                    name: user.name,
+                    dateAchieved: achievedDate
+                });
+            }
+        }
+    });
+
+    // Sort achievers by date achieved (oldest first)
+    achievers.sort((a, b) => (a.dateAchieved > b.dateAchieved ? 1 : -1));
+    return achievers;
+}
+
+function renderBadges() {
+    const container = document.getElementById('badgesGrid');
+    if (!container) return;
+
+    let html = '';
+    BADGES.forEach(badge => {
+        const achievers = getBadgeAchievers(badge.id);
+        const hasAchievers = achievers.length > 0;
+        
+        // Dim the badge if no one has achieved it yet
+        const filterStyle = hasAchievers ? '' : 'filter: grayscale(100%); opacity: 0.5;';
+
+        html += `
+        <div class="badge-item animate-in" onclick="openBadgeDetail('${badge.id}')">
+            <img src="${badge.image}" alt="${badge.name}" class="badge-icon" style="${filterStyle}">
+        </div>`;
+    });
+    container.innerHTML = html;
+}
+
+function openBadgeDetail(badgeId) {
+    const badge = BADGES.find(b => b.id === badgeId);
+    const achievers = getBadgeAchievers(badgeId);
+
+    document.getElementById('badgeDetailImg').src = badge.image;
+    document.getElementById('badgeDetailTitle').textContent = badge.name;
+    document.getElementById('badgeDetailCount').textContent = `${achievers.length} Achiever${achievers.length !== 1 ? 's' : ''}`;
+    
+    const listContainer = document.getElementById('badgeDetailList');
+
+    if (achievers.length === 0) {
+        listContainer.innerHTML = `<div class="empty-state" style="padding: 20px;"><p>No one has achieved this badge yet.</p></div>`;
+    } else {
+        let html = '';
+        achievers.forEach((achiever, index) => {
+            const color = getAvatarColor(achiever.uid);
+            html += `
+            <div class="ranking-card" style="margin-bottom: 8px;">
+                <div class="user-avatar" style="background:${color};width:40px;height:40px;font-size:16px;">${getInitial(achiever.name)}</div>
+                <div class="rank-info">
+                    <div class="rank-name">${escapeHtml(achiever.name)}</div>
+                    <div class="rank-detail">Achieved on ${formatDate(achiever.dateAchieved)}</div>
+                </div>
+            </div>`;
+        });
+        listContainer.innerHTML = html;
+    }
+
+    showModal('badgeDetailModal');
+}
 
 // ==========================================
 // Rankings
