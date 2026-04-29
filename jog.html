@@ -14,7 +14,6 @@
             margin: 0;
             padding: 0;
         }
-
         :root {
             --bg-primary: #0d0d0d;
             --bg-secondary: #1a1a2e;
@@ -34,7 +33,6 @@
             --nav-height: 64px;
             --header-height: 56px;
         }
-
         html, body {
             height: 100%;
             font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
@@ -43,7 +41,6 @@
             color: var(--text-primary);
             overflow: hidden;
         }
-
         /* ===== App Container (9:16 mobile ratio) ===== */
         #app {
             max-width: 480px;
@@ -55,7 +52,6 @@
             background: var(--bg-primary);
             overflow: hidden;
         }
-
         /* ===== Header ===== */
         .app-header {
             height: var(--header-height);
@@ -68,7 +64,6 @@
             flex-shrink: 0;
             z-index: 10;
         }
-
         .app-header h1 {
             font-size: 20px;
             font-weight: 700;
@@ -77,7 +72,6 @@
             -webkit-text-fill-color: transparent;
             background-clip: text;
         }
-
         .header-back-btn {
             background: none;
             border: none;
@@ -89,17 +83,14 @@
             align-items: center;
             gap: 4px;
         }
-
         .header-back-btn.visible {
             display: flex;
         }
-
         .header-right {
             display: flex;
             align-items: center;
             gap: 8px;
         }
-
         /* ===== Main Content Area ===== */
         .app-content {
             flex: 1;
@@ -110,7 +101,6 @@
             scroll-behavior: smooth;
             -webkit-overflow-scrolling: touch;
         }
-
         .app-content::-webkit-scrollbar {
             width: 4px;
         }
@@ -118,7 +108,6 @@
             background: var(--border-color);
             border-radius: 2px;
         }
-
         /* ===== Bottom Navigation ===== */
         .bottom-nav {
             position: absolute;
@@ -134,7 +123,6 @@
             z-index: 100;
             padding-bottom: env(safe-area-inset-bottom, 0);
         }
-
         .nav-item {
             flex: 1;
             display: flex;
@@ -150,26 +138,21 @@
             transition: color 0.2s, transform 0.15s;
             -webkit-tap-highlight-color: transparent;
         }
-
         .nav-item.active {
             color: var(--accent-primary);
         }
-
         .nav-item:active {
             transform: scale(0.92);
         }
-
         .nav-item svg {
             width: 24px;
             height: 24px;
             fill: currentColor;
         }
-
         .nav-item span {
             font-size: 12px;
             font-weight: 600;
         }
-
         /* ===== Section Title ===== */
         .section-title {
             font-size: 18px;
@@ -180,7 +163,6 @@
             align-items: center;
             gap: 8px;
         }
-
         /* ===== User Cards ===== */
         .user-card {
             background: var(--bg-card);
@@ -195,14 +177,12 @@
             justify-content: space-between;
             -webkit-tap-highlight-color: transparent;
         }
-
         .user-card:hover, .user-card:active {
             background: var(--bg-card-hover);
             border-color: var(--accent-primary);
             box-shadow: 0 4px 20px var(--shadow-color);
             transform: translateY(-1px);
         }
-
         .user-avatar {
             width: 48px;
             height: 48px;
@@ -215,23 +195,19 @@
             color: #fff;
             flex-shrink: 0;
         }
-
         .user-card .user-name {
             font-size: 17px;
             font-weight: 600;
         }
-
         .user-card .user-stats {
             font-size: 14px;
             color: var(--text-secondary);
             margin-top: 2px;
         }
-
         .user-card .arrow {
             color: var(--text-muted);
             font-size: 18px;
         }
-
         /* ===== Record Cards ===== */
         .record-card {
             background: var(--bg-card);
@@ -241,39 +217,33 @@
             margin-bottom: 12px;
             position: relative;
         }
-
         .record-card .record-date {
             font-size: 14px;
             color: var(--accent-secondary);
             font-weight: 600;
             margin-bottom: 10px;
         }
-
         .record-card .record-stats {
             display: flex;
             justify-content: space-between;
             gap: 12px 8px;
             flex-wrap: wrap;
         }
-
         .record-card .stat {
             flex: 1;
             text-align: center;
             min-width: 60px;
         }
-
         .record-card .stat-value {
             font-size: 18px;
             font-weight: 700;
             color: var(--text-primary);
         }
-
         .record-card .stat-label {
             font-size: 13px;
             color: var(--text-secondary);
             margin-top: 2px;
         }
-
         .record-card .delete-btn {
             position: absolute;
             top: 12px;
@@ -291,20 +261,17 @@
             font-size: 16px;
             transition: all 0.2s;
         }
-
         .record-card .delete-btn:hover {
             background: var(--accent-primary);
             color: #fff;
         }
-
-        /* ===== Badges Section ===== */
+        /* ===== Achievement / Badges / Titles Section ===== */
         .badges-grid {
             display: grid;
             grid-template-columns: repeat(2, 1fr);
             gap: 24px;
             padding-bottom: 24px;
         }
-
         .badge-item {
             text-align: center;
             cursor: pointer;
@@ -314,11 +281,9 @@
             justify-content: center;
             align-items: center;
         }
-
         .badge-item:hover, .badge-item:active {
             transform: scale(1.05);
         }
-
         .badge-icon {
             width: 100%;
             max-width: 160px;
@@ -327,7 +292,29 @@
             object-fit: contain;
             transition: filter 0.3s, opacity 0.3s;
         }
-
+        .achievement-tabs {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 20px;
+        }
+        .achievement-tab {
+            flex: 1;
+            padding: 12px;
+            text-align: center;
+            font-size: 16px;
+            font-weight: 600;
+            border-radius: 10px;
+            border: 1px solid var(--border-color);
+            background: var(--bg-card);
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .achievement-tab.active {
+            background: var(--accent-primary);
+            color: #fff;
+            border-color: var(--accent-primary);
+        }
         /* ===== Buttons ===== */
         .btn {
             display: inline-flex;
@@ -344,41 +331,34 @@
             -webkit-tap-highlight-color: transparent;
             width: 100%;
         }
-
         .btn:active {
             transform: scale(0.97);
         }
-
         .btn-primary {
             background: linear-gradient(135deg, var(--accent-primary), #c0392b);
             color: #fff;
             box-shadow: 0 4px 15px rgba(233, 69, 96, 0.3);
         }
-
         .btn-secondary {
             background: var(--bg-input);
             color: var(--accent-secondary);
             border: 1px solid var(--border-color);
         }
-
         .btn-green {
             background: linear-gradient(135deg, var(--accent-green), #00c853);
             color: #0d0d0d;
             box-shadow: 0 4px 15px rgba(0, 230, 118, 0.3);
         }
-
         .btn-small {
             padding: 10px 16px;
             font-size: 14px;
             border-radius: 8px;
             width: auto;
         }
-
         /* ===== Forms ===== */
         .form-group {
             margin-bottom: 16px;
         }
-
         .form-group label {
             display: block;
             font-size: 16px;
@@ -386,7 +366,6 @@
             margin-bottom: 6px;
             color: var(--text-secondary);
         }
-
         .form-group input, .form-group select, .form-group textarea {
             width: 100%;
             padding: 14px 16px;
@@ -400,20 +379,16 @@
             font-family: inherit;
             -webkit-appearance: none;
         }
-
         .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
             border-color: var(--accent-secondary);
             box-shadow: 0 0 0 3px rgba(0, 210, 255, 0.1);
         }
-
         .form-group input::placeholder, .form-group textarea::placeholder {
             color: var(--text-muted);
         }
-        
         .form-group textarea {
             resize: vertical;
         }
-
         /* ===== Modal ===== */
         .modal-overlay {
             position: fixed;
@@ -429,11 +404,9 @@
             justify-content: center;
             padding: 16px;
         }
-
         .modal-overlay.show {
             display: flex;
         }
-
         .modal {
             background: var(--bg-secondary);
             border: 1px solid var(--border-color);
@@ -447,12 +420,10 @@
             flex-direction: column;
             animation: modalIn 0.25s ease;
         }
-
         @keyframes modalIn {
             from { opacity: 0; transform: scale(0.9) translateY(20px); }
             to { opacity: 1; transform: scale(1) translateY(0); }
         }
-
         .modal h2 {
             font-size: 20px;
             margin-bottom: 20px;
@@ -463,13 +434,11 @@
             background-clip: text;
             flex-shrink: 0;
         }
-
         .modal-scroll-content {
             overflow-y: auto;
             flex: 1;
             margin-bottom: 16px;
         }
-
         .modal-scroll-content::-webkit-scrollbar {
             width: 4px;
         }
@@ -477,18 +446,15 @@
             background: var(--border-color);
             border-radius: 2px;
         }
-
         .modal .btn {
             margin-top: 8px;
             flex-shrink: 0;
         }
-
         .modal .btn-cancel {
             background: transparent;
             color: var(--text-secondary);
             border: 1px solid var(--border-color);
         }
-
         .modal-error {
             color: var(--accent-primary);
             font-size: 14px;
@@ -496,14 +462,12 @@
             margin-top: 8px;
             min-height: 20px;
         }
-
         /* ===== Profile Header ===== */
         .profile-header {
             text-align: center;
             padding: 20px 0;
             margin-bottom: 16px;
         }
-
         .profile-header .avatar-large {
             width: 72px;
             height: 72px;
@@ -517,41 +481,34 @@
             margin-bottom: 12px;
             box-shadow: 0 4px 20px rgba(0, 210, 255, 0.3);
         }
-
         .profile-header .profile-name {
             font-size: 22px;
             font-weight: 700;
         }
-
         .profile-header .profile-summary {
             display: flex;
             justify-content: center;
             gap: 24px;
             margin-top: 16px;
         }
-
         .profile-header .summary-stat {
             text-align: center;
         }
-
         .profile-header .summary-stat .val {
             font-size: 20px;
             font-weight: 700;
             color: var(--accent-secondary);
         }
-
         .profile-header .summary-stat .lbl {
             font-size: 13px;
             color: var(--text-secondary);
         }
-
         /* ===== Rankings ===== */
         .ranking-tabs {
             display: flex;
             gap: 8px;
             margin-bottom: 16px;
         }
-
         .ranking-tab {
             flex: 1;
             padding: 12px;
@@ -565,13 +522,11 @@
             cursor: pointer;
             transition: all 0.2s;
         }
-
         .ranking-tab.active {
             background: var(--accent-primary);
             color: #fff;
             border-color: var(--accent-primary);
         }
-
         .ranking-card {
             background: var(--bg-card);
             border: 1px solid var(--border-color);
@@ -582,7 +537,6 @@
             align-items: center;
             gap: 12px;
         }
-
         .ranking-card .rank-num {
             width: 36px;
             height: 36px;
@@ -594,39 +548,32 @@
             font-weight: 700;
             flex-shrink: 0;
         }
-
         .rank-1 { background: linear-gradient(135deg, #FFD700, #FFA000); color: #000; }
         .rank-2 { background: linear-gradient(135deg, #C0C0C0, #9E9E9E); color: #000; }
         .rank-3 { background: linear-gradient(135deg, #CD7F32, #A0522D); color: #fff; }
         .rank-other { background: var(--bg-input); color: var(--text-secondary); }
-
         .ranking-card .rank-info {
             flex: 1;
         }
-
         .ranking-card .rank-name {
             font-size: 16px;
             font-weight: 600;
         }
-
         .ranking-card .rank-detail {
             font-size: 14px;
             color: var(--text-secondary);
         }
-
         .ranking-card .rank-value {
             font-size: 18px;
             font-weight: 700;
             color: var(--accent-green);
         }
-
         .date-picker-row {
             display: flex;
             gap: 8px;
             margin-bottom: 16px;
             align-items: center;
         }
-
         .date-picker-row input[type="date"] {
             flex: 1;
             padding: 12px 16px;
@@ -637,23 +584,19 @@
             font-size: 16px;
             outline: none;
         }
-
         /* ===== Empty State ===== */
         .empty-state {
             text-align: center;
             padding: 40px 20px;
             color: var(--text-muted);
         }
-
         .empty-state .empty-icon {
             font-size: 48px;
             margin-bottom: 12px;
         }
-
         .empty-state p {
             font-size: 16px;
         }
-
         /* ===== Loading Spinner ===== */
         .spinner {
             display: inline-block;
@@ -664,13 +607,11 @@
             border-radius: 50%;
             animation: spin 0.8s linear infinite;
         }
-
         .loading-container {
             display: flex;
             justify-content: center;
             padding: 40px;
         }
-
         /* ===== Toast ===== */
         .toast {
             position: fixed;
@@ -686,21 +627,17 @@
             max-width: 90%;
             text-align: center;
         }
-
         .toast.show {
             transform: translateX(-50%) translateY(0);
         }
-
         .toast-success {
             background: var(--accent-green);
             color: #0d0d0d;
         }
-
         .toast-error {
             background: var(--accent-primary);
             color: #fff;
         }
-
         /* ===== User delete button ===== */
         .user-delete-btn {
             background: none;
@@ -716,7 +653,6 @@
             color: var(--accent-primary);
             background: rgba(233, 69, 96, 0.1);
         }
-
         /* ===== Add record form section ===== */
         .add-record-section {
             background: var(--bg-card);
@@ -725,14 +661,12 @@
             padding: 16px;
             margin-bottom: 16px;
         }
-
         .add-record-section h3 {
             font-size: 17px;
             font-weight: 600;
             margin-bottom: 12px;
             color: var(--accent-secondary);
         }
-
         /* ===== Layout Classes ===== */
         .page { display: none; }
         .page.active { display: block; }
@@ -740,13 +674,11 @@
         .user-card-right { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
         .sort-row { display: flex; gap: 8px; margin-bottom: 16px; }
         .sort-row select { flex: 1; padding: 12px 16px; border-radius: 10px; border: 1px solid var(--border-color); background: var(--bg-input); color: var(--text-primary); font-size: 16px; outline: none; }
-
         @keyframes fadeIn {
             from { opacity: 0; transform: translateY(10px); }
             to { opacity: 1; transform: translateY(0); }
         }
         .animate-in { animation: fadeIn 0.3s ease forwards; }
-
     </style>
 </head>
 <body>
@@ -766,12 +698,24 @@
 
     <!-- ===== Main Content ===== -->
     <div class="app-content" id="appContent">
-
-        <!-- Badges Page -->
-        <div class="page" id="badgesPage">
-            <div class="section-title">🎖️ Badges</div>
-            <div class="badges-grid" id="badgesGrid">
-                <!-- Badges dynamically rendered here -->
+        <!-- Achievement Page -->
+        <div class="page" id="achievementPage">
+            <div class="section-title">🎖️ Achievement</div>
+            <div class="achievement-tabs">
+                <button class="achievement-tab active" onclick="switchAchievementTab('badges')">Badges</button>
+                <button class="achievement-tab" onclick="switchAchievementTab('titles')">Titles</button>
+            </div>
+            
+            <div id="badgesSection">
+                <div class="badges-grid" id="badgesGrid">
+                    <!-- Badges dynamically rendered here -->
+                </div>
+            </div>
+            
+            <div id="titlesSection" style="display:none;">
+                <div class="badges-grid" id="titlesGrid">
+                    <!-- Titles dynamically rendered here -->
+                </div>
             </div>
         </div>
 
@@ -786,7 +730,6 @@
         <!-- User Profile Page -->
         <div class="page" id="profilePage">
             <div class="profile-header" id="profileHeader"></div>
-            
             <div class="add-record-section">
                 <h3>📝 Add Record</h3>
                 <div class="form-group">
@@ -798,7 +741,6 @@
                     <input type="time" id="recordTime">
                 </div>
                 <div style="display:flex;gap:8px;">
-                    <!-- Duration fields use inputmode and pattern to restrict mobile keyboard, and oninput to remove non-numeric instantly -->
                     <div class="form-group" style="flex:1;">
                         <label>Duration (min)</label>
                         <input type="text" inputmode="numeric" pattern="\d*" id="recordDurationMin" placeholder="e.g. 30" oninput="this.value = this.value.replace(/[^0-9]/g, '')">
@@ -810,7 +752,6 @@
                 </div>
                 <div class="form-group">
                     <label>Distance (km)</label>
-                    <!-- Distance still allows decimal values -->
                     <input type="number" id="recordDistance" placeholder="e.g. 5.0" min="0.01" step="0.01">
                 </div>
                 <div style="display:flex;gap:8px;">
@@ -825,7 +766,6 @@
                 </div>
                 <button class="btn btn-green" onclick="addRecord()">Add Record</button>
             </div>
-            
             <div class="section-title">📋 Records</div>
             <div id="recordList"></div>
         </div>
@@ -865,19 +805,16 @@
 
     <!-- ===== Bottom Navigation ===== -->
     <nav class="bottom-nav">
-        <!-- New Badges Tab on the Left -->
-        <button class="nav-item" id="navBadges" onclick="navigateTo('badges')">
+        <button class="nav-item" id="navAchievement" onclick="navigateTo('achievement')">
             <svg viewBox="0 0 24 24">
                 <path d="M12 2a5 5 0 0 0-5 5c0 2.27 1.5 4.2 3.58 4.82L9 22l3-1.5 3 1.5-1.58-10.18A5.001 5.001 0 0 0 12 2z"/>
             </svg>
-            <span>Badges</span>
+            <span>Achievement</span>
         </button>
-        <!-- Home in the Center -->
         <button class="nav-item active" id="navHome" onclick="navigateTo('home')">
             <svg viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
             <span>Home</span>
         </button>
-        <!-- Rankings on the Right -->
         <button class="nav-item" id="navRankings" onclick="navigateTo('rankings')">
             <svg viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87L18.18 22 12 18.56 5.82 22 7 14.14l-5-4.87 6.91-1.01z"/></svg>
             <span>Rankings</span>
@@ -885,20 +822,31 @@
     </nav>
 </div>
 
-<!-- ===== Badge Detail Modal ===== -->
-<div class="modal-overlay" id="badgeDetailModal">
+<!-- ===== Modals ===== -->
+<div class="modal-overlay" id="achievementDetailModal">
     <div class="modal" style="max-height: 80vh;">
-        <img id="badgeDetailImg" src="" alt="Badge" style="width: 100px; height: 100px; margin: 0 auto 12px auto; display: block; object-fit: contain;">
-        <h2 id="badgeDetailTitle" style="margin-bottom: 8px;">Badge Achievers</h2>
-        <div id="badgeDetailCount" style="text-align: center; color: var(--text-secondary); margin-bottom: 16px; font-size: 14px; font-weight: 600;"></div>
-        <div class="modal-scroll-content" id="badgeDetailList">
-            <!-- Achievers dynamic list -->
-        </div>
-        <button class="btn btn-cancel" onclick="closeModal('badgeDetailModal')">Close</button>
+        <img id="achievementDetailImg" src="" alt="Badge" style="width: 100px; height: 100px; margin: 0 auto 12px auto; display: block; object-fit: contain;">
+        <h2 id="achievementDetailTitle" style="margin-bottom: 8px;">Achievers</h2>
+        <div id="achievementDetailCount" style="text-align: center; color: var(--text-secondary); margin-bottom: 16px; font-size: 14px; font-weight: 600;"></div>
+        <div class="modal-scroll-content" id="achievementDetailList"></div>
+        <button class="btn btn-cancel" onclick="closeModal('achievementDetailModal')">Close</button>
     </div>
 </div>
 
-<!-- ===== Add User Modal ===== -->
+<div class="modal-overlay" id="toggleTitleModal">
+    <div class="modal">
+        <h2 id="toggleTitleModalTitle">Display Title</h2>
+        <p style="text-align:center;font-size:14px;color:var(--text-secondary);margin-bottom:16px;" id="toggleTitleMsg">Enter admin password to display this title on the Home screen.</p>
+        <div class="form-group">
+            <label>Admin Password</label>
+            <input type="password" id="toggleTitlePassword" placeholder="Enter admin password">
+        </div>
+        <button class="btn btn-primary" id="confirmToggleTitleBtn">Confirm</button>
+        <button class="btn btn-cancel" onclick="closeModal('toggleTitleModal')">Cancel</button>
+        <div class="modal-error" id="toggleTitleError"></div>
+    </div>
+</div>
+
 <div class="modal-overlay" id="addUserModal">
     <div class="modal">
         <h2>👤 Add New Runner</h2>
@@ -916,7 +864,6 @@
     </div>
 </div>
 
-<!-- ===== Edit Bio Modal ===== -->
 <div class="modal-overlay" id="editBioModal">
     <div class="modal">
         <h2>✏️ Edit Bio</h2>
@@ -928,7 +875,6 @@
     </div>
 </div>
 
-<!-- ===== Password Confirm Modal ===== -->
 <div class="modal-overlay" id="passwordModal">
     <div class="modal">
         <h2>🔒 Admin Verification</h2>
@@ -942,7 +888,6 @@
     </div>
 </div>
 
-<!-- ===== Delete User Confirm Modal ===== -->
 <div class="modal-overlay" id="deleteUserModal">
     <div class="modal">
         <h2>⚠️ Delete Runner</h2>
@@ -957,7 +902,6 @@
     </div>
 </div>
 
-<!-- ===== Delete Record Confirm Modal ===== -->
 <div class="modal-overlay" id="deleteRecordModal">
     <div class="modal">
         <h2>⚠️ Delete Record</h2>
@@ -972,7 +916,6 @@
     </div>
 </div>
 
-<!-- ===== Toast ===== -->
 <div class="toast" id="toast"></div>
 
 <script>
@@ -988,78 +931,42 @@ const firebaseConfig = {
     messagingSenderId: "486171948384",
     appId: "1:486171948384:web:715043928d3a0a0cd39a05"
 };
-
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 
 // ==========================================
-// Constants
+// Constants & Configuration
 // ==========================================
 const ADMIN_PASSWORD = 'iLoverun';
 let avatarColorMap = {};
 
-// Badges Configuration
 const BADGES = [
-    {
-        id: 'first_run',
-        name: 'First Run',
-        image: 'https://i.ibb.co/Fk1CWT9P/first-run.png',
-        description: 'Completed the very first run.'
-    },
-    {
-        id: '10_runs',
-        name: '10 Runs',
-        image: 'https://i.ibb.co/RTHLCngh/10-Runs.png',
-        description: 'Completed 10 runs in total.'
-    },
-    {
-        id: '10_km',
-        name: '10 Km',
-        image: 'https://i.ibb.co/dZV2mhw/10km.png',
-        description: 'Reached a total distance of 10 km.'
-    },
-    {
-        id: '10_hours',
-        name: '10 Hours',
-        image: 'https://i.ibb.co/QvWjdV66/10-Hours.png',
-        description: 'Accumulated 10 hours of running time.'
-    },
-    {
-        id: '50_runs',
-        name: '50 Runs',
-        image: 'https://i.ibb.co/m5fgFhCb/50-Runs.png',
-        description: 'Completed 50 runs in total.'
-    },
-    {
-        id: '50_km',
-        name: '50 Km',
-        image: 'https://i.ibb.co/b5vmc2Dy/50KM.png',
-        description: 'Reached a total distance of 50 km.'
-    },
-    {
-        id: '50_hours',
-        name: '50 Hours',
-        image: 'https://i.ibb.co/S4PsJPch/50-Hours.png',
-        description: 'Accumulated 50 hours of running time.'
-    },
-    {
-        id: '100_runs',
-        name: '100 Runs',
-        image: 'https://i.ibb.co/fVBpSfLT/100-Runs.png',
-        description: 'Completed 100 runs in total.'
-    },
-    {
-        id: '100_km',
-        name: '100 Km',
-        image: 'https://i.ibb.co/fd6LW76Z/100KM.png',
-        description: 'Reached a total distance of 100 km.'
-    },
-    {
-        id: '100_hours',
-        name: '100 Hours',
-        image: 'https://i.ibb.co/Xx6ncR21/100-Hours.png',
-        description: 'Accumulated 100 hours of running time.'
-    }
+    { id: 'first_run', name: 'First Run', image: 'https://i.ibb.co/Fk1CWT9P/first-run.png' },
+    { id: '10_runs', name: '10 Runs', image: 'https://i.ibb.co/RTHLCngh/10-Runs.png' },
+    { id: '10_km', name: '10 Km', image: 'https://i.ibb.co/dZV2mhw/10km.png' },
+    { id: '10_hours', name: '10 Hours', image: 'https://i.ibb.co/QvWjdV66/10-Hours.png' },
+    { id: '50_runs', name: '50 Runs', image: 'https://i.ibb.co/m5fgFhCb/50-Runs.png' },
+    { id: '50_km', name: '50 Km', image: 'https://i.ibb.co/b5vmc2Dy/50KM.png' },
+    { id: '50_hours', name: '50 Hours', image: 'https://i.ibb.co/S4PsJPch/50-Hours.png' },
+    { id: '100_runs', name: '100 Runs', image: 'https://i.ibb.co/fVBpSfLT/100-Runs.png' },
+    { id: '100_km', name: '100 Km', image: 'https://i.ibb.co/fd6LW76Z/100KM.png' },
+    { id: '100_hours', name: '100 Hours', image: 'https://i.ibb.co/Xx6ncR21/100-Hours.png' },
+    { id: '200_runs', name: '200 Runs', image: 'https://i.ibb.co/NnkZSVrk/200-Runs.png' },
+    { id: '200_km', name: '200 Km', image: 'https://i.ibb.co/Dfn8P6dW/200Km.png' },
+    { id: '200_hours', name: '200 Hours', image: 'https://i.ibb.co/YB8SdK9M/200-Hours.png' },
+    { id: '300_runs', name: '300 Runs', image: 'https://i.ibb.co/QjCLqGM6/300-Runs.png' },
+    { id: '300_km', name: '300 Km', image: 'https://i.ibb.co/gZrYT7Vk/300Km.png' },
+    { id: '300_hours', name: '300 Hours', image: 'https://i.ibb.co/q3hm21bJ/300-Hours.png' },
+    { id: '400_runs', name: '400 Runs', image: 'https://i.ibb.co/yc57s8Pw/400-Runs.png' },
+    { id: '400_km', name: '400 Km', image: 'https://i.ibb.co/Pv5fHVNr/400Km.png' },
+    { id: '400_hours', name: '400 Hours', image: 'https://i.ibb.co/MkFYm1ND/400-Hours.png' },
+    { id: '500_runs', name: '500 Runs', image: 'https://i.ibb.co/YTbwVHg2/500-Runs.png' },
+    { id: '500_km', name: '500 Km', image: 'https://i.ibb.co/G4DCrmj1/500Km.png' },
+    { id: '500_hours', name: '500 Hours', image: 'https://i.ibb.co/cc7XwJTG/500-Hours.png' }
+];
+
+const TITLES = [
+    { id: 'half_marathon', name: 'Half Marathon', image: 'https://i.ibb.co/jkdg772p/21-1km.png' }
 ];
 
 // ==========================================
@@ -1073,15 +980,17 @@ let allRecords = {};
 let pendingAction = null;
 let pendingDeleteUserId = null;
 let pendingDeleteRecordId = null;
+let pendingToggleTitleUserId = null;
+let pendingToggleTitleId = null;
+let pendingToggleTitleAction = null; // 'equip' or 'unequip'
 
 // ==========================================
-// Navigation
+// Navigation & Core Functions
 // ==========================================
 function navigateTo(page) {
     currentPage = page;
     document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
     document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-
     if (page === 'home') {
         document.getElementById('homePage').classList.add('active');
         document.getElementById('navHome').classList.add('active');
@@ -1093,12 +1002,13 @@ function navigateTo(page) {
         document.getElementById('backBtn').classList.remove('visible');
         document.getElementById('addUserBtn').style.display = 'none';
         renderTotalRankings();
-    } else if (page === 'badges') {
-        document.getElementById('badgesPage').classList.add('active');
-        document.getElementById('navBadges').classList.add('active');
+    } else if (page === 'achievement') {
+        document.getElementById('achievementPage').classList.add('active');
+        document.getElementById('navAchievement').classList.add('active');
         document.getElementById('backBtn').classList.remove('visible');
         document.getElementById('addUserBtn').style.display = 'none';
         renderBadges();
+        renderTitles();
     } else if (page === 'profile') {
         document.getElementById('profilePage').classList.add('active');
         document.getElementById('backBtn').classList.add('visible');
@@ -1114,25 +1024,14 @@ function goBack() {
     }
 }
 
-// ==========================================
-// Toast Notification
-// ==========================================
 function showToast(message, type = 'success') {
     const toast = document.getElementById('toast');
     toast.textContent = message;
     toast.className = 'toast toast-' + type + ' show';
-    setTimeout(() => {
-        toast.classList.remove('show');
-    }, 2500);
+    setTimeout(() => { toast.classList.remove('show'); }, 2500);
 }
 
-// ==========================================
-// Modal Helpers
-// ==========================================
-function showModal(id) {
-    document.getElementById(id).classList.add('show');
-}
-
+function showModal(id) { document.getElementById(id).classList.add('show'); }
 function closeModal(id) {
     document.getElementById(id).classList.remove('show');
     const errorEl = document.getElementById(id.replace('Modal', 'Error'));
@@ -1140,7 +1039,7 @@ function closeModal(id) {
 }
 
 // ==========================================
-// Avatar Color Generator
+// Utilities
 // ==========================================
 function generateVibrantColor(hue) {
     const saturation = 70 + Math.random() * 20;
@@ -1160,30 +1059,16 @@ function assignRandomAvatarColors() {
     const userIds = Object.keys(allUsers);
     const count = userIds.length;
     if (count === 0) { avatarColorMap = {}; return; }
-
     const hues = [];
-    for (let i = 0; i < count; i++) {
-        hues.push(Math.round((360 / count) * i));
-    }
+    for (let i = 0; i < count; i++) hues.push(Math.round((360 / count) * i));
     shuffleArray(hues);
-
     avatarColorMap = {};
-    userIds.forEach((uid, idx) => {
-        avatarColorMap[uid] = generateVibrantColor(hues[idx]);
-    });
+    userIds.forEach((uid, idx) => { avatarColorMap[uid] = generateVibrantColor(hues[idx]); });
 }
 
-function getAvatarColor(uid) {
-    return avatarColorMap[uid] || '#e94560';
-}
+function getAvatarColor(uid) { return avatarColorMap[uid] || '#e94560'; }
+function getInitial(name) { return name.charAt(0).toUpperCase(); }
 
-function getInitial(name) {
-    return name.charAt(0).toUpperCase();
-}
-
-// ==========================================
-// Utility Formatters
-// ==========================================
 function formatPace(durationMin, distanceKm) {
     if (!distanceKm || distanceKm <= 0) return '--:--';
     const paceMin = durationMin / distanceKm;
@@ -1201,52 +1086,104 @@ function formatDuration(totalMin) {
 
 function formatDate(dateStr) {
     const d = new Date(dateStr);
-    const options = { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' };
-    return d.toLocaleDateString('en-US', options);
+    return d.toLocaleDateString('en-US', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' });
+}
+
+function escapeHtml(str) {
+    const div = document.createElement('div');
+    div.appendChild(document.createTextNode(str));
+    return div.innerHTML;
 }
 
 // ==========================================
-// Firebase: Load Data
+// Firebase Data Loading
 // ==========================================
 function loadUsers() {
     db.ref('users').on('value', (snapshot) => {
         allUsers = snapshot.val() || {};
-        
-        // Update currentUserData in real time if profile is open
         if (currentUserId && allUsers[currentUserId]) {
             currentUserData = allUsers[currentUserId];
             if (currentPage === 'profile') renderProfileHeader();
         }
-
         assignRandomAvatarColors();
         renderUserList();
         loadAllRecords();
     });
 }
 
+function loadAllRecords() {
+    db.ref('records').on('value', (snapshot) => {
+        allRecords = snapshot.val() || {};
+        renderUserList();
+        if (currentPage === 'rankings') {
+            if (document.getElementById('totalRankings').style.display !== 'none') renderTotalRankings();
+            else renderDailyRankings();
+        }
+        if (currentPage === 'achievement') {
+            renderBadges();
+            renderTitles();
+        }
+        if (currentPage === 'profile' && currentUserId) {
+            renderRecords();
+            renderProfileHeader();
+        }
+    });
+}
+
+// ==========================================
+// User Management
+// ==========================================
+function hasTitle(uid, titleId) {
+    const records = allRecords[uid] || {};
+    const recordEntries = Object.values(records);
+    if (titleId === 'half_marathon') {
+        return recordEntries.some(r => (r.distance || 0) >= 21.1);
+    }
+    return false;
+}
+
 function renderUserList() {
     const container = document.getElementById('userList');
     const userIds = Object.keys(allUsers);
-
     if (userIds.length === 0) {
-        container.innerHTML = `
-            <div class="empty-state">
-                <div class="empty-icon">🏃</div>
-                <p>No runners yet.<br>Tap "+ User" to add one!</p>
-            </div>`;
+        container.innerHTML = `<div class="empty-state"><div class="empty-icon">🏃</div><p>No runners yet.<br>Tap "+ User" to add one!</p></div>`;
         return;
     }
-
     let html = '';
     userIds.forEach(uid => {
         const user = allUsers[uid];
         const records = allRecords[uid] || {};
         const recordCount = Object.keys(records).length;
         const color = getAvatarColor(uid);
-
         let totalDist = 0;
         Object.values(records).forEach(r => { totalDist += (r.distance || 0); });
+        
+        // Check if user has an active title and it's a valid title
+        if (user.activeTitle && hasTitle(uid, user.activeTitle)) {
+            const titleObj = TITLES.find(t => t.id === user.activeTitle);
+            if (titleObj) {
+                // Background Image mode - custom size and position (75% center), displaying text on the left
+                const bgStyle = `background-image: url('${titleObj.image}'); background-size: auto 250%; background-position: 75% center; background-repeat: no-repeat; background-color: var(--bg-card); border: 1px solid var(--accent-primary);`;
+                
+                html += `
+                <div class="user-card animate-in" style="${bgStyle}" onclick="openProfile('${uid}')" title="${escapeHtml(user.name)}">
+                    <div class="user-card-left">
+                        <div class="user-avatar" style="background:${color}; box-shadow: 0 2px 8px rgba(0,0,0,0.6); border: 2px solid #fff;">${getInitial(user.name)}</div>
+                        <div style="text-shadow: 0 2px 4px rgba(0,0,0,0.8);">
+                            <div class="user-name" style="color: #ffffff;">${escapeHtml(user.name)}</div>
+                            <div class="user-stats" style="color: #e2e8f0;">${recordCount} run${recordCount !== 1 ? 's' : ''} · ${totalDist.toFixed(1)} km</div>
+                        </div>
+                    </div>
+                    <div class="user-card-right">
+                        <button class="user-delete-btn" style="background: rgba(0,0,0,0.5); color: #fff;" onclick="event.stopPropagation();confirmDeleteUser('${uid}','${escapeHtml(user.name)}')" title="Delete user">✕</button>
+                        <span class="arrow" style="color: #fff; text-shadow: 0 2px 4px rgba(0,0,0,0.8); font-weight: bold;">›</span>
+                    </div>
+                </div>`;
+                return; // Skip normal rendering for this user
+            }
+        }
 
+        // Standard user card rendering (no title equipped)
         html += `
         <div class="user-card animate-in" onclick="openProfile('${uid}')">
             <div class="user-card-left">
@@ -1262,34 +1199,9 @@ function renderUserList() {
             </div>
         </div>`;
     });
-
     container.innerHTML = html;
 }
 
-function loadAllRecords() {
-    db.ref('records').on('value', (snapshot) => {
-        allRecords = snapshot.val() || {};
-        renderUserList();
-        if (currentPage === 'rankings') {
-            if (document.getElementById('totalRankings').style.display !== 'none') {
-                renderTotalRankings();
-            } else {
-                renderDailyRankings();
-            }
-        }
-        if (currentPage === 'badges') {
-            renderBadges();
-        }
-        if (currentPage === 'profile' && currentUserId) {
-            renderRecords();
-            renderProfileHeader(); // Re-render stats
-        }
-    });
-}
-
-// ==========================================
-// Firebase: Add User
-// ==========================================
 function showAddUserModal() {
     document.getElementById('newUserName').value = '';
     document.getElementById('addUserPassword').value = '';
@@ -1301,33 +1213,20 @@ function addUser() {
     const name = document.getElementById('newUserName').value.trim();
     const password = document.getElementById('addUserPassword').value;
     const errorEl = document.getElementById('addUserError');
-
-    if (!name) {
-        errorEl.textContent = 'Please enter a name.';
-        return;
-    }
-
-    if (password !== ADMIN_PASSWORD) {
-        errorEl.textContent = 'Incorrect admin password.';
-        return;
-    }
-
-    const newUserRef = db.ref('users').push();
-    newUserRef.set({
+    if (!name) { errorEl.textContent = 'Please enter a name.'; return; }
+    if (password !== ADMIN_PASSWORD) { errorEl.textContent = 'Incorrect admin password.'; return; }
+    
+    db.ref('users').push().set({
         name: name,
-        bio: '', // Empty by default, editable in profile
+        bio: '',
+        activeTitle: null,
         createdAt: new Date().toISOString()
     }).then(() => {
         closeModal('addUserModal');
         showToast(name + ' has been added!');
-    }).catch(err => {
-        errorEl.textContent = 'Error: ' + err.message;
-    });
+    }).catch(err => { errorEl.textContent = 'Error: ' + err.message; });
 }
 
-// ==========================================
-// Delete User
-// ==========================================
 function confirmDeleteUser(uid, name) {
     pendingDeleteUserId = uid;
     document.getElementById('deleteUserMsg').textContent = `Delete "${name}" and all their records?`;
@@ -1339,28 +1238,20 @@ function confirmDeleteUser(uid, name) {
 document.getElementById('confirmDeleteUserBtn').addEventListener('click', () => {
     const password = document.getElementById('deleteUserPassword').value;
     const errorEl = document.getElementById('deleteUserError');
-
-    if (password !== ADMIN_PASSWORD) {
-        errorEl.textContent = 'Incorrect admin password.';
-        return;
-    }
-
-    const uid = pendingDeleteUserId;
+    if (password !== ADMIN_PASSWORD) { errorEl.textContent = 'Incorrect admin password.'; return; }
+    
     const updates = {};
-    updates['/users/' + uid] = null;
-    updates['/records/' + uid] = null;
-
+    updates['/users/' + pendingDeleteUserId] = null;
+    updates['/records/' + pendingDeleteUserId] = null;
     db.ref().update(updates).then(() => {
         closeModal('deleteUserModal');
         showToast('Runner deleted.');
         pendingDeleteUserId = null;
-    }).catch(err => {
-        errorEl.textContent = 'Error: ' + err.message;
-    });
+    }).catch(err => { errorEl.textContent = 'Error: ' + err.message; });
 });
 
 // ==========================================
-// Profile & Bio
+// Profile & Records
 // ==========================================
 function openProfile(uid) {
     currentUserId = uid;
@@ -1368,57 +1259,39 @@ function openProfile(uid) {
     navigateTo('profile');
     renderProfileHeader();
     renderRecords();
-
-    const today = new Date().toISOString().split('T')[0];
-    document.getElementById('recordDate').value = today;
-
+    document.getElementById('recordDate').value = new Date().toISOString().split('T')[0];
     const now = new Date();
-    const hours = String(now.getHours()).padStart(2, '0');
-    const mins = String(now.getMinutes()).padStart(2, '0');
-    document.getElementById('recordTime').value = hours + ':' + mins;
+    document.getElementById('recordTime').value = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
 }
 
 function renderProfileHeader() {
     const container = document.getElementById('profileHeader');
     const user = currentUserData;
     if (!user) return;
-
     const color = getAvatarColor(currentUserId);
     const records = allRecords[currentUserId] || {};
     const recordArr = Object.values(records);
-
     let totalDist = 0, totalTime = 0;
+    
     recordArr.forEach(r => {
         totalDist += (r.distance || 0);
         totalTime += (r.duration || 0);
     });
-
+    
     const bioText = user.bio ? escapeHtml(user.bio) : 'Add a short bio...';
-
     container.innerHTML = `
         <div class="avatar-large" style="background:${color}">${getInitial(user.name)}</div>
         <div class="profile-name">${escapeHtml(user.name)}</div>
-        
         <div class="profile-bio" style="margin-top: 8px; font-size: 14px; color: var(--text-secondary); display: flex; align-items: center; justify-content: center; gap: 8px; cursor:pointer;" onclick="showEditBioModal()">
             <span>${bioText}</span>
             <button style="background:none; border:none; color:var(--accent-secondary); display:flex; align-items:center;">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
             </button>
         </div>
-
         <div class="profile-summary">
-            <div class="summary-stat">
-                <div class="val">${recordArr.length}</div>
-                <div class="lbl">Runs</div>
-            </div>
-            <div class="summary-stat">
-                <div class="val">${totalDist.toFixed(1)}</div>
-                <div class="lbl">km</div>
-            </div>
-            <div class="summary-stat">
-                <div class="val">${formatDuration(totalTime)}</div>
-                <div class="lbl">Time</div>
-            </div>
+            <div class="summary-stat"><div class="val">${recordArr.length}</div><div class="lbl">Runs</div></div>
+            <div class="summary-stat"><div class="val">${totalDist.toFixed(1)}</div><div class="lbl">km</div></div>
+            <div class="summary-stat"><div class="val">${formatDuration(totalTime)}</div><div class="lbl">Time</div></div>
         </div>`;
 }
 
@@ -1432,124 +1305,72 @@ function saveBio() {
     db.ref('users/' + currentUserId).update({ bio: newBio }).then(() => {
         closeModal('editBioModal');
         showToast('Bio updated!');
-    }).catch(err => {
-        showToast('Error: ' + err.message, 'error');
-    });
+    }).catch(err => { showToast('Error: ' + err.message, 'error'); });
 }
 
 function renderRecords() {
     const container = document.getElementById('recordList');
     const records = allRecords[currentUserId] || {};
     const recordEntries = Object.entries(records);
-
     if (recordEntries.length === 0) {
-        container.innerHTML = `
-            <div class="empty-state">
-                <div class="empty-icon">📋</div>
-                <p>No records yet.<br>Add your first run above!</p>
-            </div>`;
+        container.innerHTML = `<div class="empty-state"><div class="empty-icon">📋</div><p>No records yet.<br>Add your first run above!</p></div>`;
         return;
     }
-
-    // Sort by date ascending (Oldest to Newest)
+    
     recordEntries.sort((a, b) => {
         if (a[1].date > b[1].date) return 1;
         if (a[1].date < b[1].date) return -1;
-        
-        // Secondary sort by time ascending if date is the same
         const timeA = a[1].time || '';
         const timeB = b[1].time || '';
         if (timeA > timeB) return 1;
         if (timeA < timeB) return -1;
         return 0;
     });
-
+    
     let html = '';
     recordEntries.forEach(([rid, rec]) => {
         const pace = formatPace(rec.duration, rec.distance);
-        
-        // Time Display formatting
         const timeStr = rec.time ? ` at ${rec.time}` : '';
-        
-        // Steps Display Html
-        const stepsHtml = rec.steps ? `
-            <div class="stat">
-                <div class="stat-value" style="font-size: 16px;">${rec.steps}</div>
-                <div class="stat-label">steps</div>
-            </div>` : '';
-            
-        // Kcal Display Html
-        const kcalHtml = rec.kcal ? `
-            <div class="stat">
-                <div class="stat-value" style="font-size: 16px;">${rec.kcal}</div>
-                <div class="stat-label">kcal</div>
-            </div>` : '';
-
-        // Safe fallback for old records which only had rec.duration
+        const stepsHtml = rec.steps ? `<div class="stat"><div class="stat-value" style="font-size: 16px;">${rec.steps}</div><div class="stat-label">steps</div></div>` : '';
+        const kcalHtml = rec.kcal ? `<div class="stat"><div class="stat-value" style="font-size: 16px;">${rec.kcal}</div><div class="stat-label">kcal</div></div>` : '';
         const minDisp = rec.durationMin !== undefined ? rec.durationMin : Math.floor(rec.duration);
         const secDisp = rec.durationSec !== undefined ? String(rec.durationSec).padStart(2, '0') : '00';
-
+        
         html += `
         <div class="record-card animate-in">
             <div class="record-date">${formatDate(rec.date)}${timeStr}</div>
             <div class="record-stats">
-                <div class="stat">
-                    <div class="stat-value" style="font-size: 16px;">${minDisp}'${secDisp}"</div>
-                    <div class="stat-label">time</div>
-                </div>
-                <div class="stat">
-                    <div class="stat-value" style="font-size: 16px;">${rec.distance.toFixed(2)}</div>
-                    <div class="stat-label">km</div>
-                </div>
-                <div class="stat">
-                    <div class="stat-value" style="font-size: 15px">${pace}</div>
-                    <div class="stat-label">pace</div>
-                </div>
-                ${stepsHtml}
-                ${kcalHtml}
+                <div class="stat"><div class="stat-value" style="font-size: 16px;">${minDisp}'${secDisp}"</div><div class="stat-label">time</div></div>
+                <div class="stat"><div class="stat-value" style="font-size: 16px;">${rec.distance.toFixed(2)}</div><div class="stat-label">km</div></div>
+                <div class="stat"><div class="stat-value" style="font-size: 15px">${pace}</div><div class="stat-label">pace</div></div>
+                ${stepsHtml}${kcalHtml}
             </div>
             <button class="delete-btn" onclick="confirmDeleteRecord('${rid}')" title="Delete">🗑</button>
         </div>`;
     });
-
     container.innerHTML = html;
 }
 
-// ==========================================
-// Add Record
-// ==========================================
 function addRecord() {
     const date = document.getElementById('recordDate').value;
     const time = document.getElementById('recordTime').value || '';
-    
-    // Parse strictly as integers for Duration, Steps and Kcal
     const durationMin = parseInt(document.getElementById('recordDurationMin').value || '0', 10);
     const durationSec = parseInt(document.getElementById('recordDurationSec').value || '0', 10);
     const steps = parseInt(document.getElementById('recordSteps').value || '0', 10);
     const kcal = parseInt(document.getElementById('recordKcal').value || '0', 10);
-    
     const distance = parseFloat(document.getElementById('recordDistance').value);
 
     if (!date) { showToast('Please select a date.', 'error'); return; }
-    
     const totalDurationSec = durationMin * 60 + durationSec;
     if (totalDurationSec <= 0) { showToast('Please enter a valid duration.', 'error'); return; }
     if (!distance || distance <= 0) { showToast('Please enter a valid distance.', 'error'); return; }
     if (durationSec < 0 || durationSec > 59) { showToast('Seconds must be 0-59.', 'error'); return; }
 
     const durationMinutes = totalDurationSec / 60;
-
-    const newRecordRef = db.ref('records/' + currentUserId).push();
-    newRecordRef.set({
-        date: date,
-        time: time,
-        duration: durationMinutes,
-        durationMin: durationMin,
-        durationSec: durationSec,
-        distance: distance,
-        steps: steps > 0 ? steps : null,
-        kcal: kcal > 0 ? kcal : null,
-        createdAt: new Date().toISOString()
+    db.ref('records/' + currentUserId).push().set({
+        date: date, time: time, duration: durationMinutes, durationMin: durationMin,
+        durationSec: durationSec, distance: distance, steps: steps > 0 ? steps : null,
+        kcal: kcal > 0 ? kcal : null, createdAt: new Date().toISOString()
     }).then(() => {
         showToast('Record added!');
         document.getElementById('recordDurationMin').value = '';
@@ -1557,14 +1378,9 @@ function addRecord() {
         document.getElementById('recordDistance').value = '';
         document.getElementById('recordSteps').value = '';
         document.getElementById('recordKcal').value = '';
-    }).catch(err => {
-        showToast('Error: ' + err.message, 'error');
-    });
+    }).catch(err => { showToast('Error: ' + err.message, 'error'); });
 }
 
-// ==========================================
-// Delete Record
-// ==========================================
 function confirmDeleteRecord(recordId) {
     pendingDeleteRecordId = recordId;
     document.getElementById('deleteRecordPassword').value = '';
@@ -1575,103 +1391,112 @@ function confirmDeleteRecord(recordId) {
 document.getElementById('confirmDeleteRecordBtn').addEventListener('click', () => {
     const password = document.getElementById('deleteRecordPassword').value;
     const errorEl = document.getElementById('deleteRecordError');
-
-    if (password !== ADMIN_PASSWORD) {
-        errorEl.textContent = 'Incorrect admin password.';
-        return;
-    }
-
+    if (password !== ADMIN_PASSWORD) { errorEl.textContent = 'Incorrect admin password.'; return; }
+    
     db.ref('records/' + currentUserId + '/' + pendingDeleteRecordId).remove().then(() => {
         closeModal('deleteRecordModal');
         showToast('Record deleted.');
         pendingDeleteRecordId = null;
-    }).catch(err => {
-        errorEl.textContent = 'Error: ' + err.message;
-    });
+    }).catch(err => { errorEl.textContent = 'Error: ' + err.message; });
 });
 
 // ==========================================
-// Badges Functionality
+// Achievement (Badges & Titles)
 // ==========================================
+function switchAchievementTab(tab) {
+    document.querySelectorAll('.achievement-tab').forEach(t => t.classList.remove('active'));
+    if (tab === 'badges') {
+        document.querySelector('.achievement-tab:first-child').classList.add('active');
+        document.getElementById('badgesSection').style.display = '';
+        document.getElementById('titlesSection').style.display = 'none';
+    } else {
+        document.querySelector('.achievement-tab:last-child').classList.add('active');
+        document.getElementById('badgesSection').style.display = 'none';
+        document.getElementById('titlesSection').style.display = '';
+    }
+}
+
 function getBadgeAchievers(badgeId) {
     const achievers = [];
     Object.keys(allUsers).forEach(uid => {
         const user = allUsers[uid];
         const records = allRecords[uid] || {};
         const recordEntries = Object.values(records);
-
+        
         if (recordEntries.length > 0) {
-            // Sort records from oldest to newest to find the exact date the threshold was met
             recordEntries.sort((a, b) => {
                 if (a.date !== b.date) return a.date > b.date ? 1 : -1;
-                const timeA = a.time || '';
-                const timeB = b.time || '';
-                return timeA > timeB ? 1 : -1;
+                return (a.time || '') > (b.time || '') ? 1 : -1;
             });
 
             let achievedDate = null;
-            let runCount = 0;
-            let totalDist = 0;
-            let totalDur = 0;
+            let runCount = 0, totalDist = 0, totalDur = 0;
 
             for (const r of recordEntries) {
                 runCount++;
                 totalDist += (r.distance || 0);
                 totalDur += (r.duration || 0);
 
-                if (badgeId === 'first_run' && runCount >= 1) {
-                    achievedDate = r.date;
-                    break;
-                }
-                if (badgeId === '10_runs' && runCount >= 10) {
-                    achievedDate = r.date;
-                    break;
-                }
-                if (badgeId === '10_km' && totalDist >= 10) {
-                    achievedDate = r.date;
-                    break;
-                }
-                if (badgeId === '10_hours' && totalDur >= 600) { // 600 minutes = 10 hours
-                    achievedDate = r.date;
-                    break;
-                }
-                if (badgeId === '50_runs' && runCount >= 50) {
-                    achievedDate = r.date;
-                    break;
-                }
-                if (badgeId === '50_km' && totalDist >= 50) {
-                    achievedDate = r.date;
-                    break;
-                }
-                if (badgeId === '50_hours' && totalDur >= 3000) { // 3000 minutes = 50 hours
-                    achievedDate = r.date;
-                    break;
-                }
-                if (badgeId === '100_runs' && runCount >= 100) {
-                    achievedDate = r.date;
-                    break;
-                }
-                if (badgeId === '100_km' && totalDist >= 100) {
-                    achievedDate = r.date;
-                    break;
-                }
-                if (badgeId === '100_hours' && totalDur >= 6000) { // 6000 minutes = 100 hours
-                    achievedDate = r.date;
-                    break;
+                if (badgeId === 'first_run' && runCount >= 1) { achievedDate = r.date; break; }
+                if (badgeId === '10_runs' && runCount >= 10) { achievedDate = r.date; break; }
+                if (badgeId === '10_km' && totalDist >= 10) { achievedDate = r.date; break; }
+                if (badgeId === '10_hours' && totalDur >= 600) { achievedDate = r.date; break; }
+                if (badgeId === '50_runs' && runCount >= 50) { achievedDate = r.date; break; }
+                if (badgeId === '50_km' && totalDist >= 50) { achievedDate = r.date; break; }
+                if (badgeId === '50_hours' && totalDur >= 3000) { achievedDate = r.date; break; }
+                if (badgeId === '100_runs' && runCount >= 100) { achievedDate = r.date; break; }
+                if (badgeId === '100_km' && totalDist >= 100) { achievedDate = r.date; break; }
+                if (badgeId === '100_hours' && totalDur >= 6000) { achievedDate = r.date; break; }
+                if (badgeId === '200_runs' && runCount >= 200) { achievedDate = r.date; break; }
+                if (badgeId === '200_km' && totalDist >= 200) { achievedDate = r.date; break; }
+                if (badgeId === '200_hours' && totalDur >= 12000) { achievedDate = r.date; break; }
+                if (badgeId === '300_runs' && runCount >= 300) { achievedDate = r.date; break; }
+                if (badgeId === '300_km' && totalDist >= 300) { achievedDate = r.date; break; }
+                if (badgeId === '300_hours' && totalDur >= 18000) { achievedDate = r.date; break; }
+                if (badgeId === '400_runs' && runCount >= 400) { achievedDate = r.date; break; }
+                if (badgeId === '400_km' && totalDist >= 400) { achievedDate = r.date; break; }
+                if (badgeId === '400_hours' && totalDur >= 24000) { achievedDate = r.date; break; }
+                if (badgeId === '500_runs' && runCount >= 500) { achievedDate = r.date; break; }
+                if (badgeId === '500_km' && totalDist >= 500) { achievedDate = r.date; break; }
+                if (badgeId === '500_hours' && totalDur >= 30000) { achievedDate = r.date; break; }
+            }
+            if (achievedDate) achievers.push({ uid: uid, name: user.name, dateAchieved: achievedDate });
+        }
+    });
+    achievers.sort((a, b) => (a.dateAchieved > b.dateAchieved ? 1 : -1));
+    return achievers;
+}
+
+function getTitleAchievers(titleId) {
+    const achievers = [];
+    Object.keys(allUsers).forEach(uid => {
+        const user = allUsers[uid];
+        const records = allRecords[uid] || {};
+        const recordEntries = Object.values(records);
+        
+        if (recordEntries.length > 0) {
+            recordEntries.sort((a, b) => {
+                if (a.date !== b.date) return a.date > b.date ? 1 : -1;
+                return (a.time || '') > (b.time || '') ? 1 : -1;
+            });
+
+            let achievedDate = null;
+            for (const r of recordEntries) {
+                if (titleId === 'half_marathon' && (r.distance || 0) >= 21.1) { 
+                    achievedDate = r.date; 
+                    break; 
                 }
             }
-
             if (achievedDate) {
-                achievers.push({
-                    uid: uid,
-                    name: user.name,
-                    dateAchieved: achievedDate
+                achievers.push({ 
+                    uid: uid, 
+                    name: user.name, 
+                    dateAchieved: achievedDate,
+                    activeTitle: user.activeTitle
                 });
             }
         }
     });
-
-    // Sort achievers by date achieved (oldest first)
     achievers.sort((a, b) => (a.dateAchieved > b.dateAchieved ? 1 : -1));
     return achievers;
 }
@@ -1679,39 +1504,50 @@ function getBadgeAchievers(badgeId) {
 function renderBadges() {
     const container = document.getElementById('badgesGrid');
     if (!container) return;
-
     let html = '';
     BADGES.forEach(badge => {
         const achievers = getBadgeAchievers(badge.id);
-        const hasAchievers = achievers.length > 0;
-        
-        // Dim the badge if no one has achieved it yet
-        const filterStyle = hasAchievers ? '' : 'filter: grayscale(100%); opacity: 0.5;';
-
-        html += `
-        <div class="badge-item animate-in" onclick="openBadgeDetail('${badge.id}')">
-            <img src="${badge.image}" alt="${badge.name}" class="badge-icon" style="${filterStyle}">
-        </div>`;
+        const filterStyle = achievers.length > 0 ? '' : 'filter: grayscale(100%); opacity: 0.5;';
+        html += `<div class="badge-item animate-in" onclick="openAchievementDetail('${badge.id}', 'badge')"><img src="${badge.image}" alt="${badge.name}" class="badge-icon" style="${filterStyle}"></div>`;
     });
     container.innerHTML = html;
 }
 
-function openBadgeDetail(badgeId) {
-    const badge = BADGES.find(b => b.id === badgeId);
-    const achievers = getBadgeAchievers(badgeId);
+function renderTitles() {
+    const container = document.getElementById('titlesGrid');
+    if (!container) return;
+    let html = '';
+    TITLES.forEach(title => {
+        const achievers = getTitleAchievers(title.id);
+        const filterStyle = achievers.length > 0 ? '' : 'filter: grayscale(100%); opacity: 0.5;';
+        html += `<div class="badge-item animate-in" onclick="openAchievementDetail('${title.id}', 'title')"><img src="${title.image}" alt="${title.name}" class="badge-icon" style="${filterStyle}"></div>`;
+    });
+    container.innerHTML = html;
+}
 
-    document.getElementById('badgeDetailImg').src = badge.image;
-    document.getElementById('badgeDetailTitle').textContent = badge.name;
-    document.getElementById('badgeDetailCount').textContent = `${achievers.length} Achiever${achievers.length !== 1 ? 's' : ''}`;
+function openAchievementDetail(itemId, type) {
+    const item = type === 'badge' ? BADGES.find(b => b.id === itemId) : TITLES.find(t => t.id === itemId);
+    const achievers = type === 'badge' ? getBadgeAchievers(itemId) : getTitleAchievers(itemId);
     
-    const listContainer = document.getElementById('badgeDetailList');
-
+    document.getElementById('achievementDetailImg').src = item.image;
+    document.getElementById('achievementDetailTitle').textContent = item.name;
+    document.getElementById('achievementDetailCount').textContent = `${achievers.length} Achiever${achievers.length !== 1 ? 's' : ''}`;
+    
+    const listContainer = document.getElementById('achievementDetailList');
+    
     if (achievers.length === 0) {
-        listContainer.innerHTML = `<div class="empty-state" style="padding: 20px;"><p>No one has achieved this badge yet.</p></div>`;
+        listContainer.innerHTML = `<div class="empty-state" style="padding: 20px;"><p>No one has achieved this yet.</p></div>`;
     } else {
         let html = '';
-        achievers.forEach((achiever, index) => {
+        achievers.forEach((achiever) => {
             const color = getAvatarColor(achiever.uid);
+            let actionBtn = '';
+            
+            if (type === 'title') {
+                const isEquipped = (achiever.activeTitle === itemId);
+                actionBtn = `<button class="btn btn-small btn-secondary" style="padding: 6px 12px; font-size: 13px; height: auto;" onclick="promptToggleTitle('${achiever.uid}', '${itemId}', ${isEquipped})">${isEquipped ? 'Hide' : 'Show'}</button>`;
+            }
+            
             html += `
             <div class="ranking-card" style="margin-bottom: 8px;">
                 <div class="user-avatar" style="background:${color};width:40px;height:40px;font-size:16px;">${getInitial(achiever.name)}</div>
@@ -1719,13 +1555,43 @@ function openBadgeDetail(badgeId) {
                     <div class="rank-name">${escapeHtml(achiever.name)}</div>
                     <div class="rank-detail">Achieved on ${formatDate(achiever.dateAchieved)}</div>
                 </div>
+                ${actionBtn}
             </div>`;
         });
         listContainer.innerHTML = html;
     }
-
-    showModal('badgeDetailModal');
+    showModal('achievementDetailModal');
 }
+
+function promptToggleTitle(uid, titleId, isEquipped) {
+    pendingToggleTitleUserId = uid;
+    pendingToggleTitleId = titleId;
+    pendingToggleTitleAction = isEquipped ? 'unequip' : 'equip';
+    
+    const titleObj = TITLES.find(t => t.id === titleId);
+    document.getElementById('toggleTitleModalTitle').textContent = isEquipped ? 'Hide Title' : 'Display Title';
+    document.getElementById('toggleTitleMsg').textContent = isEquipped ? 
+        `Enter admin password to hide "${titleObj.name}" from Home.` : 
+        `Enter admin password to display "${titleObj.name}" on Home.`;
+        
+    document.getElementById('toggleTitlePassword').value = '';
+    document.getElementById('toggleTitleError').textContent = '';
+    showModal('toggleTitleModal');
+}
+
+document.getElementById('confirmToggleTitleBtn').addEventListener('click', () => {
+    const password = document.getElementById('toggleTitlePassword').value;
+    const errorEl = document.getElementById('toggleTitleError');
+    if (password !== ADMIN_PASSWORD) { errorEl.textContent = 'Incorrect admin password.'; return; }
+    
+    const newValue = pendingToggleTitleAction === 'equip' ? pendingToggleTitleId : null;
+    db.ref(`users/${pendingToggleTitleUserId}`).update({ activeTitle: newValue }).then(() => {
+        closeModal('toggleTitleModal');
+        showToast(pendingToggleTitleAction === 'equip' ? 'Title displayed on Home!' : 'Title hidden from Home.');
+        // Re-render detail modal logic to reflect button change
+        openAchievementDetail(pendingToggleTitleId, 'title');
+    }).catch(err => { errorEl.textContent = 'Error: ' + err.message; });
+});
 
 // ==========================================
 // Rankings
@@ -1751,59 +1617,32 @@ function switchRankingTab(tab) {
 function renderTotalRankings() {
     const container = document.getElementById('totalRankingList');
     const sortBy = document.getElementById('sortSelect').value;
-
     let rankingData = [];
+    
     Object.keys(allUsers).forEach(uid => {
         const user = allUsers[uid];
         const records = allRecords[uid] || {};
+        let totalDist = 0, totalTime = 0, totalSteps = 0, bestPace = Infinity, bestPaceDate = '', latestDate = '';
         
-        let totalDist = 0, totalTime = 0, totalSteps = 0;
-        let bestPace = Infinity;
-        let bestPaceDate = '';
-        let latestDate = '';
-
         Object.values(records).forEach(r => {
-            const dist = r.distance || 0;
-            const dur = r.duration || 0;
-            totalDist += dist;
-            totalTime += dur;
-            totalSteps += (r.steps || 0);
-
+            const dist = r.distance || 0, dur = r.duration || 0;
+            totalDist += dist; totalTime += dur; totalSteps += (r.steps || 0);
             if (dist > 0 && dur > 0) {
                 const pace = dur / dist;
-                if (pace < bestPace) {
-                    bestPace = pace;
-                    bestPaceDate = r.date || '';
-                }
+                if (pace < bestPace) { bestPace = pace; bestPaceDate = r.date || ''; }
             }
-
-            if (r.date && (!latestDate || r.date > latestDate)) {
-                latestDate = r.date;
-            }
+            if (r.date && (!latestDate || r.date > latestDate)) latestDate = r.date;
         });
 
         if (sortBy === 'pace' && bestPace === Infinity) return;
         if (sortBy === 'steps' && totalSteps === 0) return;
-
-        rankingData.push({
-            uid: uid,
-            name: user.name,
-            totalDist: totalDist,
-            totalTime: totalTime,
-            totalSteps: totalSteps,
-            bestPace: bestPace === Infinity ? null : bestPace,
-            bestPaceDate: bestPaceDate,
-            latestDate: latestDate
-        });
+        
+        rankingData.push({ uid: uid, name: user.name, totalDist: totalDist, totalTime: totalTime, totalSteps: totalSteps, bestPace: bestPace === Infinity ? null : bestPace, bestPaceDate: bestPaceDate, latestDate: latestDate });
     });
 
-    if (sortBy === 'distance') {
-        rankingData.sort((a, b) => b.totalDist - a.totalDist);
-    } else if (sortBy === 'steps') {
-        rankingData.sort((a, b) => b.totalSteps - a.totalSteps);
-    } else {
-        rankingData.sort((a, b) => (a.bestPace || Infinity) - (b.bestPace || Infinity));
-    }
+    if (sortBy === 'distance') rankingData.sort((a, b) => b.totalDist - a.totalDist);
+    else if (sortBy === 'steps') rankingData.sort((a, b) => b.totalSteps - a.totalSteps);
+    else rankingData.sort((a, b) => (a.bestPace || Infinity) - (b.bestPace || Infinity));
 
     if (rankingData.length === 0) {
         container.innerHTML = `<div class="empty-state"><p>No data yet.</p></div>`;
@@ -1815,8 +1654,8 @@ function renderTotalRankings() {
         const rank = index + 1;
         const rankClass = rank <= 3 ? 'rank-' + rank : 'rank-other';
         const color = getAvatarColor(item.uid);
-
         let value, detail;
+        
         if (sortBy === 'distance') {
             value = item.totalDist.toFixed(1) + ' km';
             detail = item.latestDate ? formatDate(item.latestDate) : 'No records';
@@ -1839,7 +1678,6 @@ function renderTotalRankings() {
             <div class="rank-value" style="${sortBy==='steps' ? 'font-size:16px;' : ''}">${value}</div>
         </div>`;
     });
-
     container.innerHTML = html;
 }
 
@@ -1847,7 +1685,7 @@ function renderDailyRankings() {
     const container = document.getElementById('dailyRankingList');
     const selectedDate = document.getElementById('rankDate').value;
     const sortBy = document.getElementById('dailySortSelect').value;
-
+    
     if (!selectedDate) {
         container.innerHTML = `<div class="empty-state"><p>Select a date.</p></div>`;
         return;
@@ -1857,30 +1695,17 @@ function renderDailyRankings() {
     Object.keys(allUsers).forEach(uid => {
         const user = allUsers[uid];
         const records = allRecords[uid] || {};
-        let totalDist = 0, totalTime = 0, totalSteps = 0;
-        let count = 0;
+        let totalDist = 0, totalTime = 0, totalSteps = 0, count = 0;
         
         Object.values(records).forEach(r => {
             if (r.date === selectedDate) {
-                totalDist += (r.distance || 0);
-                totalTime += (r.duration || 0);
-                totalSteps += (r.steps || 0);
-                count++;
+                totalDist += (r.distance || 0); totalTime += (r.duration || 0); totalSteps += (r.steps || 0); count++;
             }
         });
         
         if (count > 0) {
-            // Aggregate daily pace = total daily time / total daily distance
             const dailyPace = totalDist > 0 ? (totalTime / totalDist) : Infinity;
-            rankingData.push({
-                uid: uid,
-                name: user.name,
-                totalDist: totalDist,
-                totalTime: totalTime,
-                totalSteps: totalSteps,
-                dailyPace: dailyPace,
-                count: count
-            });
+            rankingData.push({ uid: uid, name: user.name, totalDist: totalDist, totalTime: totalTime, totalSteps: totalSteps, dailyPace: dailyPace, count: count });
         }
     });
 
@@ -1895,11 +1720,7 @@ function renderDailyRankings() {
     }
 
     if (rankingData.length === 0) {
-        container.innerHTML = `
-            <div class="empty-state">
-                <div class="empty-icon">📅</div>
-                <p>No valid runs found on ${formatDate(selectedDate)}.</p>
-            </div>`;
+        container.innerHTML = `<div class="empty-state"><div class="empty-icon">📅</div><p>No valid runs found on ${formatDate(selectedDate)}.</p></div>`;
         return;
     }
 
@@ -1908,7 +1729,6 @@ function renderDailyRankings() {
         const rank = index + 1;
         const rankClass = rank <= 3 ? 'rank-' + rank : 'rank-other';
         const color = getAvatarColor(item.uid);
-        
         let value, detail;
         const paceStr = formatPace(item.totalTime, item.totalDist);
         
@@ -1934,25 +1754,13 @@ function renderDailyRankings() {
             <div class="rank-value" style="${sortBy==='steps' ? 'font-size:16px;' : ''}">${value}</div>
         </div>`;
     });
-
     container.innerHTML = html;
 }
 
 // ==========================================
-// Utility: Escape HTML
+// Boot
 // ==========================================
-function escapeHtml(str) {
-    const div = document.createElement('div');
-    div.appendChild(document.createTextNode(str));
-    return div.innerHTML;
-}
-
-// ==========================================
-// Initialize App
-// ==========================================
-document.addEventListener('DOMContentLoaded', () => {
-    loadUsers();
-});
+document.addEventListener('DOMContentLoaded', () => { loadUsers(); });
 </script>
 
 </body>
