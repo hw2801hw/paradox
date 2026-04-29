@@ -721,7 +721,11 @@
 
         <!-- Home Page -->
         <div class="page active" id="homePage">
-            <div class="section-title">青牧 Runners</div>
+            <!-- 增加了倒數計時器的標題區塊 -->
+            <div class="section-title" style="justify-content: space-between;">
+                <span>青牧 Runners</span>
+                <span id="countdownTimer" style="font-size: 13px; font-weight: 500; color: var(--accent-secondary);"></span>
+            </div>
             <div id="userList">
                 <div class="loading-container"><div class="spinner"></div></div>
             </div>
@@ -920,6 +924,34 @@
 
 <script>
 // ==========================================
+// Countdown Timer (2026-06-07)
+// ==========================================
+function initCountdown() {
+    function updateCountdown() {
+        const targetDate = new Date('2026-06-07T00:00:00');
+        const now = new Date();
+        const diff = targetDate - now;
+        
+        const countdownEl = document.getElementById('countdownTimer');
+        if (!countdownEl) return;
+
+        if (diff <= 0) {
+            countdownEl.textContent = '目標日已到達！';
+            return;
+        }
+
+        const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+        const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+        const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+
+        countdownEl.textContent = `倒數: ${days}天 ${hours}小時 ${minutes}分鐘`;
+    }
+    
+    updateCountdown();
+    setInterval(updateCountdown, 60000); // 每分鐘更新一次
+}
+
+// ==========================================
 // Firebase Initialization
 // ==========================================
 const firebaseConfig = {
@@ -966,7 +998,9 @@ const BADGES = [
 ];
 
 const TITLES = [
-    { id: 'half_marathon', name: 'Half Marathon', image: 'https://i.ibb.co/jkdg772p/21-1km.png' }
+    { id: 'half_marathon', name: 'Half Marathon', image: 'https://i.ibb.co/jkdg772p/21-1km.png' },
+    { id: 'badge_collector', name: 'Badge Collector', image: 'https://i.ibb.co/WNVMMSkp/Achiever.png' },
+    { id: '30000_steps', name: '30000 Steps', image: 'https://i.ibb.co/ccBfm77f/RARE.png' }
 ];
 
 // ==========================================
@@ -1095,6 +1129,47 @@ function escapeHtml(str) {
     return div.innerHTML;
 }
 
+// Helper to check how many unique badges a user has earned
+function checkUserBadgeCount(recordEntries) {
+    let runCount = 0, totalDist = 0, totalDur = 0;
+    let earnedBadges = new Set();
+    
+    for (const r of recordEntries) {
+        runCount++;
+        totalDist += (r.distance || 0);
+        totalDur += (r.duration || 0);
+
+        if (runCount >= 1) earnedBadges.add('first_run');
+        if (runCount >= 10) earnedBadges.add('10_runs');
+        if (totalDist >= 10) earnedBadges.add('10_km');
+        if (totalDur >= 600) earnedBadges.add('10_hours');
+        if (runCount >= 50) earnedBadges.add('50_runs');
+        if (totalDist >= 50) earnedBadges.add('50_km');
+        if (totalDur >= 3000) earnedBadges.add('50_hours');
+        if (runCount >= 100) earnedBadges.add('100_runs');
+        if (totalDist >= 100) earnedBadges.add('100_km');
+        if (totalDur >= 6000) earnedBadges.add('100_hours');
+        if (runCount >= 200) earnedBadges.add('200_runs');
+        if (totalDist >= 200) earnedBadges.add('200_km');
+        if (totalDur >= 12000) earnedBadges.add('200_hours');
+        if (runCount >= 300) earnedBadges.add('300_runs');
+        if (totalDist >= 300) earnedBadges.add('300_km');
+        if (totalDur >= 18000) earnedBadges.add('300_hours');
+        if (runCount >= 400) earnedBadges.add('400_runs');
+        if (totalDist >= 400) earnedBadges.add('400_km');
+        if (totalDur >= 24000) earnedBadges.add('400_hours');
+        if (runCount >= 500) earnedBadges.add('500_runs');
+        if (totalDist >= 500) earnedBadges.add('500_km');
+        if (totalDur >= 30000) earnedBadges.add('500_hours');
+        
+        // Return as soon as 10 badges are achieved, keeping the date of achievement
+        if (earnedBadges.size >= 10) {
+            return { achieved: true, date: r.date };
+        }
+    }
+    return { achieved: false, date: null };
+}
+
 // ==========================================
 // Firebase Data Loading
 // ==========================================
@@ -1136,9 +1211,23 @@ function loadAllRecords() {
 function hasTitle(uid, titleId) {
     const records = allRecords[uid] || {};
     const recordEntries = Object.values(records);
+    
+    // Sort to ensure chronological order for Badge Collector calculation
+    recordEntries.sort((a, b) => {
+        if (a.date !== b.date) return a.date > b.date ? 1 : -1;
+        return (a.time || '') > (b.time || '') ? 1 : -1;
+    });
+
     if (titleId === 'half_marathon') {
         return recordEntries.some(r => (r.distance || 0) >= 21.1);
     }
+    if (titleId === '30000_steps') {
+        return recordEntries.some(r => (r.steps || 0) >= 30000);
+    }
+    if (titleId === 'badge_collector') {
+        return checkUserBadgeCount(recordEntries).achieved;
+    }
+    
     return false;
 }
 
@@ -1163,7 +1252,7 @@ function renderUserList() {
             const titleObj = TITLES.find(t => t.id === user.activeTitle);
             if (titleObj) {
                 // Background Image mode - custom size and position (75% center), displaying text on the left
-                const bgStyle = `background-image: url('${titleObj.image}'); background-size: auto 250%; background-position: 75% center; background-repeat: no-repeat; background-color: var(--bg-card); border: 1px solid var(--accent-primary);`;
+                const bgStyle = `background-image: url('${titleObj.image}'); background-size: auto 150%; background-position: 75% center; background-repeat: no-repeat; background-color: var(--bg-card); border: 1px solid var(--accent-primary);`;
                 
                 html += `
                 <div class="user-card animate-in" style="${bgStyle}" onclick="openProfile('${uid}')" title="${escapeHtml(user.name)}">
@@ -1481,12 +1570,25 @@ function getTitleAchievers(titleId) {
             });
 
             let achievedDate = null;
-            for (const r of recordEntries) {
-                if (titleId === 'half_marathon' && (r.distance || 0) >= 21.1) { 
-                    achievedDate = r.date; 
-                    break; 
+            
+            if (titleId === 'badge_collector') {
+                const result = checkUserBadgeCount(recordEntries);
+                if (result.achieved) {
+                    achievedDate = result.date;
+                }
+            } else {
+                for (const r of recordEntries) {
+                    if (titleId === 'half_marathon' && (r.distance || 0) >= 21.1) { 
+                        achievedDate = r.date; 
+                        break; 
+                    }
+                    if (titleId === '30000_steps' && (r.steps || 0) >= 30000) {
+                        achievedDate = r.date;
+                        break;
+                    }
                 }
             }
+            
             if (achievedDate) {
                 achievers.push({ 
                     uid: uid, 
@@ -1760,7 +1862,10 @@ function renderDailyRankings() {
 // ==========================================
 // Boot
 // ==========================================
-document.addEventListener('DOMContentLoaded', () => { loadUsers(); });
+document.addEventListener('DOMContentLoaded', () => { 
+    initCountdown();
+    loadUsers(); 
+});
 </script>
 
 </body>
