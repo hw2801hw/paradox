@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="zh-TW" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>RunTrack - 數據視覺化分析</title>
+    
+    <!-- Firebase SDK (compat) -->
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        bgPrimary: '#000000',     // 極致黑
+                        bgSecondary: '#09090b',   // 頂部導航微灰黑
+                        bgCard: '#0f0f13',        // 卡片底色
+                        bgCardHover: '#18181b',   // 卡片懸浮色
+                        accentPrimary: '#ff3366', // 鮮明點綴紅
+                        accentSecondary: '#00e5ff',// 霓虹青
+                        accentGreen: '#00e676',   // 螢光綠
+                        textMuted: '#888888',     // 柔和灰文字
+                        borderColor: '#27272a'    // 邊界線
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- Apache ECharts -->
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+
+    <style>
+        /* 隱藏捲軸但保留滾動功能 */
+        ::-webkit-scrollbar { width: 4px; height: 4px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #3f3f46; border-radius: 2px; }
+        ::-webkit-scrollbar-thumb:hover { background: #00e5ff; }
+        
+        /* 基礎設定確保點擊無高光 */
+        body {
+            -webkit-tap-highlight-color: transparent;
+        }
+    </style>
+</head>
+<!-- 強制套用深色背景與白色文字，解決白屏問題 -->
+<body class="min-h-screen flex flex-col antialiased bg-bgPrimary text-white" style="background-color: #000000; color: #ffffff;">
+
+    <!-- 頂部導航列 -->
+    <header class="sticky top-0 z-50 bg-bgSecondary border-b border-borderColor py-3 px-4 flex flex-col gap-3 sm:flex-row sm:h-16 sm:py-0 sm:items-center sm:justify-between shadow-md">
+        <div class="flex items-center justify-between w-full sm:w-auto">
+            <!-- 恢復為「返回紀錄」 -->
+            <button onclick="window.location.href='https://hw2801hw.github.io/paradox/jog'" class="p-2 -ml-2 text-accentSecondary hover:bg-white/5 rounded-full transition-colors flex items-center gap-2">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg>
+                <span class="font-medium text-sm sm:text-base">返回紀錄</span>
+            </button>
+            <h1 class="text-lg sm:text-xl font-bold bg-gradient-to-r from-accentPrimary to-accentSecondary bg-clip-text text-transparent">
+                RunTrack 視覺化圖表
+            </h1>
+        </div>
+        
+        <!-- 全局篩選器 -->
+        <div class="w-full sm:w-auto flex flex-col sm:flex-row justify-end gap-2 sm:gap-3">
+            <select id="monthFilter" style="display: none;" onchange="renderAll()" class="w-full sm:w-auto bg-[#18181b] border border-borderColor text-sm rounded-lg focus:ring-accentSecondary focus:border-accentSecondary block p-2.5 text-white outline-none cursor-pointer">
+                <option value="all">📅 所有月份</option>
+            </select>
+            <select id="userFilter" onchange="onUserChange()" class="w-full sm:w-auto bg-[#18181b] border border-borderColor text-sm rounded-lg focus:ring-accentSecondary focus:border-accentSecondary block p-2.5 text-white outline-none cursor-pointer">
+                <option value="all">👥 所有跑者綜合數據</option>
+                <!-- 動態生成用戶選項 -->
+            </select>
+        </div>
+    </header>
+
+    <!-- 頁面主要內容載入中 -->
+    <div id="loadingOverlay" class="fixed inset-0 z-40 bg-bgPrimary flex flex-col items-center justify-center transition-opacity duration-500" style="background-color: #000000;">
+        <!-- 改用 Tailwind utility classes 渲染 Loader 確保顏色正確 -->
+        <div class="animate-spin rounded-full h-10 w-10 border-[3px] border-white/10 border-t-accentSecondary mb-4"></div>
+        <p class="text-textMuted animate-pulse text-sm">數據同步中...</p>
+    </div>
+
+    <!-- 主體內容區 -->
+    <main class="flex-1 p-3 sm:p-4 lg:p-8 overflow-y-auto w-full max-w-7xl mx-auto">
+        
+        <!-- 頂部數據統計卡片 -->
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6">
+            <div class="bg-bgCard border border-borderColor rounded-xl transition-all duration-200 hover:bg-bgCardHover hover:border-accentPrimary hover:-translate-y-0.5 p-4 sm:p-5 flex flex-col justify-center">
+                <p class="text-textMuted text-xs sm:text-sm font-semibold mb-1">總里程 (km)</p>
+                <h2 id="statTotalDistance" class="text-2xl sm:text-3xl font-bold text-white">0.0</h2>
+            </div>
+            <div class="bg-bgCard border border-borderColor rounded-xl transition-all duration-200 hover:bg-bgCardHover hover:border-accentPrimary hover:-translate-y-0.5 p-4 sm:p-5 flex flex-col justify-center">
+                <p class="text-textMuted text-xs sm:text-sm font-semibold mb-1">累積時長 (h)</p>
+                <h2 id="statTotalTime" class="text-2xl sm:text-3xl font-bold text-accentSecondary">0.0</h2>
+            </div>
+            <div class="bg-bgCard border border-borderColor rounded-xl transition-all duration-200 hover:bg-bgCardHover hover:border-accentPrimary hover:-translate-y-0.5 p-4 sm:p-5 flex flex-col justify-center">
+                <p class="text-textMuted text-xs sm:text-sm font-semibold mb-1">總跑步次數</p>
+                <h2 id="statTotalRuns" class="text-2xl sm:text-3xl font-bold text-accentGreen">0</h2>
+            </div>
+            <div class="bg-bgCard border border-borderColor rounded-xl transition-all duration-200 hover:bg-bgCardHover hover:border-accentPrimary hover:-translate-y-0.5 p-4 sm:p-5 flex flex-col justify-center">
+                <p class="text-textMuted text-xs sm:text-sm font-semibold mb-1">平均配速</p>
+                <h2 id="statAvgPace" class="text-xl sm:text-3xl font-bold text-accentPrimary">--'--"</h2>
+            </div>
+        </div>
+
+        <!-- 圖表網格區域 -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mb-8">
+            
+            <!-- 圖表 1: 累積里程趨勢 -->
+            <div class="bg-bgCard border border-borderColor rounded-xl transition-all duration-200 hover:bg-bgCardHover hover:border-accentPrimary hover:-translate-y-0.5 p-3 sm:p-4 lg:col-span-2">
+                <div class="flex justify-between items-center mb-2 sm:mb-4 px-1 sm:px-2">
+                    <h3 class="text-base sm:text-lg font-bold text-white flex items-center gap-2">
+                        📈 累積里程趨勢
+                    </h3>
+                </div>
+                <div id="chartCumulative" class="w-full h-[280px] sm:h-[400px]"></div>
+            </div>
+
+            <!-- 圖表 2: 各跑者里程貢獻 -->
+            <div class="bg-bgCard border border-borderColor rounded-xl transition-all duration-200 hover:bg-bgCardHover hover:border-accentPrimary hover:-translate-y-0.5 p-3 sm:p-4">
+                <h3 class="text-base sm:text-lg font-bold text-white mb-2 sm:mb-4 px-1 sm:px-2">🏆 總里程排行榜</h3>
+                <div id="chartLeaderboard" class="w-full h-[280px] sm:h-[350px]"></div>
+            </div>
+
+            <!-- 圖表 3: 每月跑步活躍度 -->
+            <div class="bg-bgCard border border-borderColor rounded-xl transition-all duration-200 hover:bg-bgCardHover hover:border-accentPrimary hover:-translate-y-0.5 p-3 sm:p-4">
+                <h3 id="monthlyChartTitle" class="text-base sm:text-lg font-bold text-white mb-2 sm:mb-4 px-1 sm:px-2">📅 每月活躍分析</h3>
+                <div id="chartMonthly" class="w-full h-[280px] sm:h-[350px]"></div>
+            </div>
+            
+        </div>
+    </main>
+
+    <script>
+        // ==========================================
+        // 1. Firebase 核心設定與初始化
+        // ==========================================
+        const firebaseConfig = {
+            apiKey: "AIzaSyACjxWEkXkPUBv6xiWtVWZdsFvxeKURJ1Q",
+            authDomain: "time-f681a.firebaseapp.com",
+            databaseURL: "https://time-f681a-default-rtdb.firebaseio.com",
+            projectId: "time-f681a",
+            storageBucket: "time-f681a.firebasestorage.app",
+            messagingSenderId: "486171948384",
+            appId: "1:486171948384:web:715043928d3a0a0cd39a05"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+
+        // ==========================================
+        // 2. 全域狀態與圖表實例
+        // ==========================================
+        let rawUsers = {};
+        let rawRecords = {};
+        let flatRecords = []; 
+        let userColorMap = {}; // 用於綁定使用者專屬顏色
+        let isFirstLoad = true;
+
+        let chartInstances = {
+            cumulative: null,
+            leaderboard: null,
+            monthly: null
+        };
+
+        const colorPalette = [
+            '#FF3366', '#00E5FF', '#00E676', '#FF9900', '#B366FF', 
+            '#FFD700', '#F15BB5', '#3A86FF', '#00CC99', '#FF5533'
+        ];
+
+        // ==========================================
+        // 3. ECharts 初始化與 RWD 適應
+        // ==========================================
+        function initCharts() {
+            chartInstances.cumulative = echarts.init(document.getElementById('chartCumulative'), 'dark');
+            chartInstances.leaderboard = echarts.init(document.getElementById('chartLeaderboard'), 'dark');
+            chartInstances.monthly = echarts.init(document.getElementById('chartMonthly'), 'dark');
+
+            Object.values(chartInstances).forEach(chart => {
+                if (chart) chart.setOption({ backgroundColor: 'transparent' });
+            });
+
+            window.addEventListener('resize', () => {
+                Object.values(chartInstances).forEach(chart => chart && chart.resize());
+            });
+        }
+
+        // ==========================================
+        // 4. Firebase 資料監聽與正規化
+        // ==========================================
+        function loadData() {
+            db.ref('users').on('value', (userSnap) => {
+                rawUsers = userSnap.val() || {};
+                
+                // 每次網頁載入時，針對每個用戶分配專屬顏色 (打亂色盤順序確保隨機性)
+                if (Object.keys(userColorMap).length === 0 && Object.keys(rawUsers).length > 0) {
+                    const shuffledColors = [...colorPalette].sort(() => Math.random() - 0.5);
+                    let cIdx = 0;
+                    for (const uid in rawUsers) {
+                        userColorMap[uid] = shuffledColors[cIdx % shuffledColors.length];
+                        cIdx++;
+                    }
+                }
+                
+                updateUserFilterDropdown();
+                processDataAndRender();
+            });
+
+            db.ref('records').on('value', (recSnap) => {
+                rawRecords = recSnap.val() || {};
+                processDataAndRender();
+            });
+        }
+
+        function processDataAndRender() {
+            if (Object.keys(rawUsers).length === 0) return; 
+            
+            flatRecords = [];
+            for (const uid in rawRecords) {
+                const userRecords = rawRecords[uid];
+                for (const key in userRecords) {
+                    if (userRecords[key].date) {
+                        flatRecords.push({ uid: uid, userName: rawUsers[uid]?.name || '未知', ...userRecords[key] });
+                    } else {
+                        const monthRecords = userRecords[key];
+                        for (const rid in monthRecords) {
+                            flatRecords.push({ uid: uid, userName: rawUsers[uid]?.name || '未知', ...monthRecords[rid] });
+                        }
+                    }
+                }
+            }
+
+            flatRecords.sort((a, b) => {
+                const timeA = a.time || '00:00';
+                const timeB = b.time || '00:00';
+                return new Date(`${a.date}T${timeA}`) - new Date(`${b.date}T${timeB}`);
+            });
+
+            if (isFirstLoad) {
+                document.getElementById('loadingOverlay').style.opacity = '0';
+                setTimeout(() => document.getElementById('loadingOverlay').style.display = 'none', 500);
+                initCharts();
+                isFirstLoad = false;
+            }
+
+            renderAll();
+        }
+
+        function updateUserFilterDropdown() {
+            const select = document.getElementById('userFilter');
+            const currentVal = select.value;
+            let optionsHtml = '<option value="all">👥 所有跑者綜合數據</option>';
+            for (const uid in rawUsers) {
+                optionsHtml += `<option value="${uid}">🏃 ${rawUsers[uid].name}</option>`;
+            }
+            select.innerHTML = optionsHtml;
+            select.value = rawUsers[currentVal] ? currentVal : 'all';
+            
+            // 觸發一次狀態更新
+            onUserChange(false);
+        }
+
+        function onUserChange(triggerRender = true) {
+            const uid = document.getElementById('userFilter').value;
+            const monthSelect = document.getElementById('monthFilter');
+            
+            if (uid === 'all') {
+                monthSelect.style.display = 'none';
+                monthSelect.value = 'all';
+            } else {
+                monthSelect.style.display = 'block';
+                // 找出該用戶有的所有月份
+                const userRecords = flatRecords.filter(r => r.uid === uid);
+                const months = [...new Set(userRecords.map(r => r.date.substring(0, 7)))].sort().reverse();
+                
+                const currentVal = monthSelect.value;
+                let optionsHtml = '<option value="all">📅 所有月份</option>';
+                months.forEach(m => {
+                    optionsHtml += `<option value="${m}">${m}</option>`;
+                });
+                monthSelect.innerHTML = optionsHtml;
+                
+                // 保留當前選擇，若選擇的月份在新用戶不存在，則重置為 all
+                if (months.includes(currentVal)) {
+                    monthSelect.value = currentVal;
+                } else {
+                    monthSelect.value = 'all';
+                }
+            }
+            
+            if(triggerRender) renderAll();
+        }
+
+        function calcPaceValue(durationMin, distanceKm) {
+            if (!distanceKm || distanceKm <= 0) return 0;
+            return durationMin / distanceKm;
+        }
+
+        function formatPaceDisplay(paceMin) {
+            if (!paceMin || paceMin === 0 || !isFinite(paceMin)) return "--'--\"";
+            const mins = Math.floor(paceMin);
+            const secs = Math.round((paceMin - mins) * 60);
+            return `${mins}'${secs < 10 ? '0' : ''}${secs}"`;
+        }
+
+        // ==========================================
+        // 5. 核心渲染邏輯
+        // ==========================================
+        function renderAll() {
+            const filterUid = document.getElementById('userFilter').value;
+            const filterMonth = document.getElementById('monthFilter').value;
+            
+            let data = flatRecords;
+            
+            // 過濾用戶
+            if (filterUid !== 'all') {
+                data = data.filter(r => r.uid === filterUid);
+            }
+            // 針對指定用戶進階過濾月份
+            if (filterUid !== 'all' && filterMonth !== 'all') {
+                data = data.filter(r => r.date.startsWith(filterMonth));
+            }
+
+            updateSummaryCards(data);
+            renderCumulativeChart(data, filterUid);
+            renderLeaderboardChart(data, filterUid);
+            renderMonthlyOrDailyChart(data, filterUid);
+        }
+
+        function updateSummaryCards(data) {
+            let totalDist = 0, totalTime = 0;
+            data.forEach(r => { totalDist += (r.distance || 0); totalTime += (r.duration || 0); });
+
+            document.getElementById('statTotalDistance').textContent = totalDist.toFixed(1);
+            document.getElementById('statTotalTime').textContent = (totalTime / 60).toFixed(1);
+            document.getElementById('statTotalRuns').textContent = data.length;
+            document.getElementById('statAvgPace').textContent = formatPaceDisplay(calcPaceValue(totalTime, totalDist));
+        }
+
+        function renderCumulativeChart(data, filterUid) {
+            const chart = chartInstances.cumulative;
+            const datesSet = new Set();
+            data.forEach(r => datesSet.add(r.date));
+            const sortedDates = Array.from(datesSet).sort();
+
+            const series = [];
+            const legendData = [];
+            const userGroups = {};
+            
+            data.forEach(r => {
+                if (!userGroups[r.uid]) userGroups[r.uid] = { name: r.userName, dailyDist: {} };
+                userGroups[r.uid].dailyDist[r.date] = (userGroups[r.uid].dailyDist[r.date] || 0) + (r.distance || 0);
+            });
+
+            for (const uid in userGroups) {
+                const uData = userGroups[uid];
+                legendData.push(uData.name);
+                
+                let cumulativeDist = 0;
+                const plotData = sortedDates.map(date => {
+                    cumulativeDist += (uData.dailyDist[date] || 0);
+                    return cumulativeDist.toFixed(2);
+                });
+
+                const uColor = userColorMap[uid] || '#ff3366';
+
+                series.push({
+                    name: uData.name,
+                    type: 'line',
+                    smooth: true,
+                    symbol: 'circle',
+                    symbolSize: window.innerWidth < 640 ? 4 : 6,
+                    itemStyle: { color: uColor },
+                    areaStyle: {
+                        color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                            { offset: 0, color: uColor + '80' },
+                            { offset: 1, color: uColor + '00' }
+                        ])
+                    },
+                    data: plotData
+                });
+            }
+
+            const option = {
+                tooltip: { trigger: 'axis', backgroundColor: 'rgba(15, 15, 19, 0.95)', borderColor: '#27272a', textStyle: { color: '#fff' } },
+                legend: { data: legendData, textStyle: { color: '#888' }, bottom: 0, itemWidth: 10, itemHeight: 10 },
+                grid: { left: '2%', right: '5%', bottom: '12%', top: '5%', containLabel: true },
+                xAxis: { type: 'category', boundaryGap: false, data: sortedDates, axisLabel: { color: '#888' } },
+                yAxis: { type: 'value', name: 'km', splitLine: { lineStyle: { color: 'rgba(255,255,255,0.05)' } }, axisLabel: { color: '#888' } },
+                series: series
+            };
+
+            if (filterUid !== 'all') option.legend.show = false;
+            chart.setOption(option, true);
+        }
+
+        function renderLeaderboardChart(data, filterUid) {
+            const chart = chartInstances.leaderboard;
+            chart.clear();
+            
+            if (filterUid !== 'all') {
+                let distCategories = { '短程 (<5km)': 0, '中程 (5-10km)': 0, '長程 (>10km)': 0 };
+                data.forEach(r => {
+                    if (r.distance < 5) distCategories['短程 (<5km)']++;
+                    else if (r.distance <= 10) distCategories['中程 (5-10km)']++;
+                    else distCategories['長程 (>10km)']++;
+                });
+
+                chart.setOption({
+                    backgroundColor: 'transparent',
+                    tooltip: { trigger: 'item', formatter: '{b}: {c} 次 ({d}%)', backgroundColor: 'rgba(15,15,19,0.9)', borderColor: '#27272a', textStyle: {color: '#fff'} },
+                    series: [{
+                        type: 'pie',
+                        radius: ['45%', '70%'],
+                        itemStyle: { borderRadius: 8, borderColor: '#0f0f13', borderWidth: 2 },
+                        label: { color: '#fff' },
+                        data: [
+                            { value: distCategories['短程 (<5km)'], name: '短程 (<5km)', itemStyle: { color: colorPalette[1] } },
+                            { value: distCategories['中程 (5-10km)'], name: '中程 (5-10km)', itemStyle: { color: colorPalette[0] } },
+                            { value: distCategories['長程 (>10km)'], name: '長程 (>10km)', itemStyle: { color: colorPalette[2] } }
+                        ]
+                    }]
+                }, true);
+                return;
+            }
+
+            const userDists = {};
+            data.forEach(r => { 
+                if (!userDists[r.uid]) userDists[r.uid] = { name: r.userName, dist: 0 };
+                userDists[r.uid].dist += (r.distance || 0); 
+            });
+            const sortedUsers = Object.entries(userDists).map(([uid, u]) => ({ uid, name: u.name, dist: u.dist })).sort((a, b) => a.dist - b.dist);
+            
+            const seriesConfig = {
+                type: 'bar',
+                data: sortedUsers.map(u => ({
+                    value: u.dist.toFixed(1),
+                    // 套用專屬顏色
+                    itemStyle: { color: userColorMap[u.uid] || '#ff3366', borderRadius: [0, 4, 4, 0] }
+                })),
+                label: { show: true, position: 'right', color: '#fff', formatter: '{c} km' }
+            };
+
+            if (sortedUsers.length > 1) {
+                // 手動計算真實的平均值，避免 ECharts {value} 顯示異常
+                const avgDist = sortedUsers.reduce((sum, u) => sum + u.dist, 0) / sortedUsers.length;
+                seriesConfig.markLine = {
+                    symbol: 'none',
+                    lineStyle: { color: '#FFD700', type: 'dashed', width: 2 },
+                    label: { 
+                        show: true, 
+                        position: 'end', 
+                        formatter: `平均\n${avgDist.toFixed(1)} km`, 
+                        color: '#FFD700', 
+                        fontSize: 11,
+                        padding: [0, 0, 0, 0] 
+                    },
+                    data: [{ xAxis: avgDist }]
+                };
+            }
+
+            const option = {
+                backgroundColor: 'transparent',
+                tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' }, backgroundColor: 'rgba(15,15,19,0.9)', borderColor: '#27272a', textStyle: {color:'#fff'} },
+                grid: { left: '2%', right: '15%', bottom: '2%', top: '10%', containLabel: true },
+                xAxis: { type: 'value', splitLine: { show: false }, axisLabel: { color: '#888' } },
+                yAxis: { type: 'category', data: sortedUsers.map(u => u.name), axisLabel: { color: '#ffffff', fontWeight: 'bold' } },
+                series: [seriesConfig]
+            };
+            chart.setOption(option, true);
+        }
+
+        function renderMonthlyOrDailyChart(data, filterUid) {
+            const chart = chartInstances.monthly;
+            const titleEl = document.getElementById('monthlyChartTitle');
+            chart.clear();
+
+            if (filterUid === 'all') {
+                titleEl.textContent = '📅 每月活躍分析 (總和)';
+                const monthlyDist = {};
+                data.forEach(r => {
+                    const month = r.date.substring(0, 7);
+                    monthlyDist[month] = (monthlyDist[month] || 0) + (r.distance || 0);
+                });
+
+                const months = Object.keys(monthlyDist).sort();
+                const dists = months.map(m => monthlyDist[m].toFixed(1));
+
+                chart.setOption({
+                    backgroundColor: 'transparent',
+                    tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' }, backgroundColor: 'rgba(15,15,19,0.9)', borderColor: '#27272a', textStyle:{color:'#fff'} },
+                    grid: { left: '2%', right: '2%', bottom: '10%', top: '10%', containLabel: true },
+                    xAxis: { type: 'category', data: months, axisLabel: { color: '#888' } },
+                    yAxis: { type: 'value', name: 'km', splitLine: { lineStyle: { color: 'rgba(255,255,255,0.05)' } }, axisLabel: { color: '#888' } },
+                    series: [{
+                        data: dists,
+                        type: 'bar',
+                        barMaxWidth: 30,
+                        itemStyle: {
+                            color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                                { offset: 0, color: '#00e5ff' },
+                                { offset: 1, color: '#004d66' }
+                            ]),
+                            borderRadius: [4, 4, 0, 0]
+                        },
+                        label: { show: true, position: 'top', color: '#00e5ff', fontSize: 10 }
+                    }]
+                }, true);
+
+            } else {
+                titleEl.textContent = '📅 跑者紀錄對比 (單筆紀錄)';
+                const xData = [];
+                const yData = [];
+
+                data.forEach(r => {
+                    const timeStr = r.time ? `\n${r.time}` : '';
+                    xData.push(`${r.date}${timeStr}`);
+                    yData.push({
+                        value: r.distance.toFixed(2),
+                        detail: { pace: calcPaceValue(r.duration, r.distance), duration: r.duration }
+                    });
+                });
+
+                // 取用該特定用戶的專屬顏色
+                const uColor = userColorMap[filterUid] || '#ff3366';
+
+                chart.setOption({
+                    backgroundColor: 'transparent',
+                    tooltip: { 
+                        trigger: 'axis', 
+                        axisPointer: { type: 'shadow' },
+                        backgroundColor: 'rgba(15,15,19,0.9)', 
+                        borderColor: '#27272a',
+                        textStyle: {color:'#fff'},
+                        formatter: function (params) {
+                            const p = params[0];
+                            const detail = p.data.detail;
+                            return `
+                                <div style="font-weight:bold;margin-bottom:4px;color:#fff">${p.name.replace('\n', ' ')}</div>
+                                距離: <span style="color:${uColor}">${p.value} km</span><br/>
+                                總時長: ${(detail.duration).toFixed(1)} 分<br/>
+                                平均配速: ${formatPaceDisplay(detail.pace)} /km
+                            `;
+                        }
+                    },
+                    dataZoom: [
+                        { type: 'inside', start: data.length > 15 ? 50 : 0, end: 100 },
+                        { type: 'slider', show: true, bottom: 0, height: 16, borderColor: 'transparent', fillerColor: uColor + '33', textStyle: { color: '#888' } }
+                    ],
+                    grid: { left: '2%', right: '2%', bottom: '15%', top: '10%', containLabel: true },
+                    xAxis: { type: 'category', data: xData, axisLabel: { color: '#888', interval: 'auto', fontSize: 10 } },
+                    yAxis: { type: 'value', name: 'km', splitLine: { lineStyle: { color: 'rgba(255,255,255,0.05)' } }, axisLabel: { color: '#888' } },
+                    series: [{
+                        data: yData,
+                        type: 'bar',
+                        barMaxWidth: 20,
+                        itemStyle: {
+                            color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                                { offset: 0, color: uColor },
+                                { offset: 1, color: uColor + '20' } // 呈現漸層暗黑感
+                            ]),
+                            borderRadius: [4, 4, 0, 0]
+                        },
+                        label: { show: true, position: 'top', color: uColor, fontSize: 10 }
+                    }]
+                }, true);
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            loadData();
+        });
+    </script>
+</body>
+</html>
