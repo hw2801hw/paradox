@@ -163,6 +163,17 @@
             align-items: center;
             gap: 8px;
         }
+        .section-title select {
+            margin-left: auto;
+            padding: 6px 10px;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            background: var(--bg-input);
+            color: var(--text-primary);
+            font-size: 14px;
+            font-weight: 600;
+            outline: none;
+        }
         /* ===== User Cards ===== */
         .user-card {
             background: var(--bg-card);
@@ -721,7 +732,7 @@
 
         <!-- Home Page -->
         <div class="page active" id="homePage">
-            <!-- 增加了倒數計時器的標題區塊 -->
+            <!-- Countdown Title Row -->
             <div class="section-title" style="justify-content: space-between;">
                 <span>青牧 Runners</span>
                 <span id="countdownTimer" style="font-size: 13px; font-weight: 500; color: var(--accent-secondary);"></span>
@@ -770,8 +781,17 @@
                 </div>
                 <button class="btn btn-green" onclick="addRecord()">Add Record</button>
             </div>
-            <div class="section-title">📋 Records</div>
+            
+            <div class="section-title">
+                <span>📋 Records <span id="recordCountDisplay" style="font-size: 14px; font-weight: normal; color: var(--text-secondary); margin-left: 6px;"></span></span>
+                <select id="recordMonthSelect" style="display:none;" onchange="renderRecords()"></select>
+            </div>
             <div id="recordList"></div>
+            
+            <!-- Visual Charts Button -->
+            <div style="margin-top: 16px; margin-bottom: 24px;">
+                <a href="https://hw2801hw.github.io/paradox/records" target="_blank" class="btn btn-secondary" style="text-decoration: none;">📊 Visual charts</a>
+            </div>
         </div>
 
         <!-- Rankings Page -->
@@ -948,7 +968,7 @@ function initCountdown() {
     }
     
     updateCountdown();
-    setInterval(updateCountdown, 60000); // 每分鐘更新一次
+    setInterval(updateCountdown, 60000); // Update every minute
 }
 
 // ==========================================
@@ -1014,6 +1034,7 @@ let allRecords = {};
 let pendingAction = null;
 let pendingDeleteUserId = null;
 let pendingDeleteRecordId = null;
+let pendingDeleteRecordMonth = null;
 let pendingToggleTitleUserId = null;
 let pendingToggleTitleId = null;
 let pendingToggleTitleAction = null; // 'equip' or 'unequip'
@@ -1129,6 +1150,34 @@ function escapeHtml(str) {
     return div.innerHTML;
 }
 
+// Helper: Flatten records for a user, handling both old structure and new YYYY-MM nested structure
+function getFlatRecords(uid) {
+    const userRecords = allRecords[uid] || {};
+    let flatList = [];
+    
+    for (const key in userRecords) {
+        if (userRecords[key].date) {
+            // Old flat structure: key is recordId
+            flatList.push({ 
+                ...userRecords[key], 
+                id: key, 
+                month: userRecords[key].date.substring(0, 7) 
+            });
+        } else {
+            // New nested structure: key is YYYY-MM
+            const monthRecords = userRecords[key];
+            for (const rid in monthRecords) {
+                flatList.push({ 
+                    ...monthRecords[rid], 
+                    id: rid, 
+                    month: key 
+                });
+            }
+        }
+    }
+    return flatList;
+}
+
 // Helper to check how many unique badges a user has earned
 function checkUserBadgeCount(recordEntries) {
     let runCount = 0, totalDist = 0, totalDur = 0;
@@ -1209,8 +1258,7 @@ function loadAllRecords() {
 // User Management
 // ==========================================
 function hasTitle(uid, titleId) {
-    const records = allRecords[uid] || {};
-    const recordEntries = Object.values(records);
+    const recordEntries = getFlatRecords(uid);
     
     // Sort to ensure chronological order for Badge Collector calculation
     recordEntries.sort((a, b) => {
@@ -1241,11 +1289,11 @@ function renderUserList() {
     let html = '';
     userIds.forEach(uid => {
         const user = allUsers[uid];
-        const records = allRecords[uid] || {};
-        const recordCount = Object.keys(records).length;
+        const recordEntries = getFlatRecords(uid);
+        const recordCount = recordEntries.length;
         const color = getAvatarColor(uid);
         let totalDist = 0;
-        Object.values(records).forEach(r => { totalDist += (r.distance || 0); });
+        recordEntries.forEach(r => { totalDist += (r.distance || 0); });
         
         // Check if user has an active title and it's a valid title
         if (user.activeTitle && hasTitle(uid, user.activeTitle)) {
@@ -1358,8 +1406,7 @@ function renderProfileHeader() {
     const user = currentUserData;
     if (!user) return;
     const color = getAvatarColor(currentUserId);
-    const records = allRecords[currentUserId] || {};
-    const recordArr = Object.values(records);
+    const recordArr = getFlatRecords(currentUserId);
     let totalDist = 0, totalTime = 0;
     
     recordArr.forEach(r => {
@@ -1399,25 +1446,52 @@ function saveBio() {
 
 function renderRecords() {
     const container = document.getElementById('recordList');
-    const records = allRecords[currentUserId] || {};
-    const recordEntries = Object.entries(records);
-    if (recordEntries.length === 0) {
+    const monthSelect = document.getElementById('recordMonthSelect');
+    const recordCountDisplay = document.getElementById('recordCountDisplay');
+    const flatRecords = getFlatRecords(currentUserId);
+
+    if (flatRecords.length === 0) {
         container.innerHTML = `<div class="empty-state"><div class="empty-icon">📋</div><p>No records yet.<br>Add your first run above!</p></div>`;
+        monthSelect.style.display = 'none';
+        if (recordCountDisplay) recordCountDisplay.textContent = '';
         return;
     }
     
-    recordEntries.sort((a, b) => {
-        if (a[1].date > b[1].date) return 1;
-        if (a[1].date < b[1].date) return -1;
-        const timeA = a[1].time || '';
-        const timeB = b[1].time || '';
+    monthSelect.style.display = 'block';
+
+    // Get unique months and sort descending
+    const months = [...new Set(flatRecords.map(r => r.month))].sort().reverse();
+    
+    let selectedMonth = monthSelect.value;
+    if (!selectedMonth || !months.includes(selectedMonth)) {
+        selectedMonth = months[0];
+    }
+
+    // Populate dropdown
+    monthSelect.innerHTML = months.map(m => `<option value="${m}" ${m === selectedMonth ? 'selected' : ''}>${m}</option>`).join('');
+
+    // Filter by selected month and sort by date ascending (oldest first)
+    const filteredRecords = flatRecords.filter(r => r.month === selectedMonth);
+    
+    if (recordCountDisplay) {
+        recordCountDisplay.textContent = `(${filteredRecords.length} Record${filteredRecords.length !== 1 ? 's' : ''})`;
+    }
+
+    // !!! 警告：此處記錄排序已被強制設定為「最舊的在上，最新的在下」。
+    // !!! 絕對不要再擅自改動此部分的排序邏輯！！！
+
+    filteredRecords.sort((a, b) => {
+        if (a.date > b.date) return 1;
+        if (a.date < b.date) return -1;
+        const timeA = a.time || '';
+        const timeB = b.time || '';
         if (timeA > timeB) return 1;
         if (timeA < timeB) return -1;
         return 0;
     });
     
     let html = '';
-    recordEntries.forEach(([rid, rec]) => {
+    filteredRecords.forEach(rec => {
         const pace = formatPace(rec.duration, rec.distance);
         const timeStr = rec.time ? ` at ${rec.time}` : '';
         const stepsHtml = rec.steps ? `<div class="stat"><div class="stat-value" style="font-size: 16px;">${rec.steps}</div><div class="stat-label">steps</div></div>` : '';
@@ -1425,6 +1499,9 @@ function renderRecords() {
         const minDisp = rec.durationMin !== undefined ? rec.durationMin : Math.floor(rec.duration);
         const secDisp = rec.durationSec !== undefined ? String(rec.durationSec).padStart(2, '0') : '00';
         
+        // Ensure month is passed along correctly to the delete button (in case it came from an old flat structure)
+        const deleteMonthArg = rec.date && !allRecords[currentUserId][rec.id] ? rec.month : 'flat';
+
         html += `
         <div class="record-card animate-in">
             <div class="record-date">${formatDate(rec.date)}${timeStr}</div>
@@ -1434,10 +1511,15 @@ function renderRecords() {
                 <div class="stat"><div class="stat-value" style="font-size: 15px">${pace}</div><div class="stat-label">pace</div></div>
                 ${stepsHtml}${kcalHtml}
             </div>
-            <button class="delete-btn" onclick="confirmDeleteRecord('${rid}')" title="Delete">🗑</button>
+            <button class="delete-btn" onclick="confirmDeleteRecord('${deleteMonthArg}', '${rec.id}')" title="Delete">🗑</button>
         </div>`;
     });
-    container.innerHTML = html;
+
+    if (filteredRecords.length === 0) {
+        container.innerHTML = `<div class="empty-state"><p>No records in ${selectedMonth}.</p></div>`;
+    } else {
+        container.innerHTML = html;
+    }
 }
 
 function addRecord() {
@@ -1456,7 +1538,10 @@ function addRecord() {
     if (durationSec < 0 || durationSec > 59) { showToast('Seconds must be 0-59.', 'error'); return; }
 
     const durationMinutes = totalDurationSec / 60;
-    db.ref('records/' + currentUserId).push().set({
+    const yearMonth = date.substring(0, 7); // Extracts YYYY-MM
+    
+    // Write new records to nested YYYY-MM structure
+    db.ref('records/' + currentUserId + '/' + yearMonth).push().set({
         date: date, time: time, duration: durationMinutes, durationMin: durationMin,
         durationSec: durationSec, distance: distance, steps: steps > 0 ? steps : null,
         kcal: kcal > 0 ? kcal : null, createdAt: new Date().toISOString()
@@ -1470,8 +1555,9 @@ function addRecord() {
     }).catch(err => { showToast('Error: ' + err.message, 'error'); });
 }
 
-function confirmDeleteRecord(recordId) {
+function confirmDeleteRecord(monthArg, recordId) {
     pendingDeleteRecordId = recordId;
+    pendingDeleteRecordMonth = monthArg;
     document.getElementById('deleteRecordPassword').value = '';
     document.getElementById('deleteRecordError').textContent = '';
     showModal('deleteRecordModal');
@@ -1482,10 +1568,16 @@ document.getElementById('confirmDeleteRecordBtn').addEventListener('click', () =
     const errorEl = document.getElementById('deleteRecordError');
     if (password !== ADMIN_PASSWORD) { errorEl.textContent = 'Incorrect admin password.'; return; }
     
-    db.ref('records/' + currentUserId + '/' + pendingDeleteRecordId).remove().then(() => {
+    // Support deleting from both the old flat structure and the new nested month structure
+    const dbPath = pendingDeleteRecordMonth === 'flat' 
+        ? 'records/' + currentUserId + '/' + pendingDeleteRecordId
+        : 'records/' + currentUserId + '/' + pendingDeleteRecordMonth + '/' + pendingDeleteRecordId;
+
+    db.ref(dbPath).remove().then(() => {
         closeModal('deleteRecordModal');
         showToast('Record deleted.');
         pendingDeleteRecordId = null;
+        pendingDeleteRecordMonth = null;
     }).catch(err => { errorEl.textContent = 'Error: ' + err.message; });
 });
 
@@ -1509,8 +1601,7 @@ function getBadgeAchievers(badgeId) {
     const achievers = [];
     Object.keys(allUsers).forEach(uid => {
         const user = allUsers[uid];
-        const records = allRecords[uid] || {};
-        const recordEntries = Object.values(records);
+        const recordEntries = getFlatRecords(uid);
         
         if (recordEntries.length > 0) {
             recordEntries.sort((a, b) => {
@@ -1560,8 +1651,7 @@ function getTitleAchievers(titleId) {
     const achievers = [];
     Object.keys(allUsers).forEach(uid => {
         const user = allUsers[uid];
-        const records = allRecords[uid] || {};
-        const recordEntries = Object.values(records);
+        const recordEntries = getFlatRecords(uid);
         
         if (recordEntries.length > 0) {
             recordEntries.sort((a, b) => {
@@ -1723,10 +1813,10 @@ function renderTotalRankings() {
     
     Object.keys(allUsers).forEach(uid => {
         const user = allUsers[uid];
-        const records = allRecords[uid] || {};
+        const recordEntries = getFlatRecords(uid);
         let totalDist = 0, totalTime = 0, totalSteps = 0, bestPace = Infinity, bestPaceDate = '', latestDate = '';
         
-        Object.values(records).forEach(r => {
+        recordEntries.forEach(r => {
             const dist = r.distance || 0, dur = r.duration || 0;
             totalDist += dist; totalTime += dur; totalSteps += (r.steps || 0);
             if (dist > 0 && dur > 0) {
@@ -1796,10 +1886,10 @@ function renderDailyRankings() {
     let rankingData = [];
     Object.keys(allUsers).forEach(uid => {
         const user = allUsers[uid];
-        const records = allRecords[uid] || {};
+        const recordEntries = getFlatRecords(uid);
         let totalDist = 0, totalTime = 0, totalSteps = 0, count = 0;
         
-        Object.values(records).forEach(r => {
+        recordEntries.forEach(r => {
             if (r.date === selectedDate) {
                 totalDist += (r.distance || 0); totalTime += (r.duration || 0); totalSteps += (r.steps || 0); count++;
             }
