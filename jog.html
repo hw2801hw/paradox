@@ -276,7 +276,7 @@
             background: var(--accent-primary);
             color: #fff;
         }
-        /* ===== Achievement / Badges / Titles Section ===== */
+        /* ===== Achievement / Badges / Titles / Trophies Section ===== */
         .badges-grid {
             display: grid;
             grid-template-columns: repeat(2, 1fr);
@@ -685,6 +685,23 @@
         .user-card-right { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
         .sort-row { display: flex; gap: 8px; margin-bottom: 16px; }
         .sort-row select { flex: 1; padding: 12px 16px; border-radius: 10px; border: 1px solid var(--border-color); background: var(--bg-input); color: var(--text-primary); font-size: 16px; outline: none; }
+        
+        /* 30 Days Avatar Animation (Enhanced Multi-Layer Glow) */
+        @keyframes flashRandom {
+            0%   { border-color: #ff0055; box-shadow: inset 0 0 8px rgba(255,0,85,0.8), 0 0 0 2px #0d0d0d, 0 0 0 5px #ff0055, 0 0 0 8px rgba(255,0,85,0.5), 0 0 18px 6px #ff0055; }
+            14%  { border-color: #00ff99; box-shadow: inset 0 0 8px rgba(0,255,153,0.8), 0 0 0 2px #0d0d0d, 0 0 0 5px #00ff99, 0 0 0 8px rgba(0,255,153,0.5), 0 0 18px 6px #00ff99; }
+            28%  { border-color: #00ccff; box-shadow: inset 0 0 8px rgba(0,204,255,0.8), 0 0 0 2px #0d0d0d, 0 0 0 5px #00ccff, 0 0 0 8px rgba(0,204,255,0.5), 0 0 18px 6px #00ccff; }
+            42%  { border-color: #ffcc00; box-shadow: inset 0 0 8px rgba(255,204,0,0.8), 0 0 0 2px #0d0d0d, 0 0 0 5px #ffcc00, 0 0 0 8px rgba(255,204,0,0.5), 0 0 18px 6px #ffcc00; }
+            57%  { border-color: #cc00ff; box-shadow: inset 0 0 8px rgba(204,0,255,0.8), 0 0 0 2px #0d0d0d, 0 0 0 5px #cc00ff, 0 0 0 8px rgba(204,0,255,0.5), 0 0 18px 6px #cc00ff; }
+            71%  { border-color: #ff3300; box-shadow: inset 0 0 8px rgba(255,51,0,0.8), 0 0 0 2px #0d0d0d, 0 0 0 5px #ff3300, 0 0 0 8px rgba(255,51,0,0.5), 0 0 18px 6px #ff3300; }
+            85%  { border-color: #00ffff; box-shadow: inset 0 0 8px rgba(0,255,255,0.8), 0 0 0 2px #0d0d0d, 0 0 0 5px #00ffff, 0 0 0 8px rgba(0,255,255,0.5), 0 0 18px 6px #00ffff; }
+            100% { border-color: #ff0055; box-shadow: inset 0 0 8px rgba(255,0,85,0.8), 0 0 0 2px #0d0d0d, 0 0 0 5px #ff0055, 0 0 0 8px rgba(255,0,85,0.5), 0 0 18px 6px #ff0055; }
+        }
+        .avatar-30days {
+            border: 3px solid transparent !important;
+            animation: flashRandom 4s linear infinite !important;
+        }
+
         @keyframes fadeIn {
             from { opacity: 0; transform: translateY(10px); }
             to { opacity: 1; transform: translateY(0); }
@@ -715,6 +732,7 @@
             <div class="achievement-tabs">
                 <button class="achievement-tab active" onclick="switchAchievementTab('badges')">Badges</button>
                 <button class="achievement-tab" onclick="switchAchievementTab('titles')">Titles</button>
+                <button class="achievement-tab" onclick="switchAchievementTab('trophies')">Trophy</button>
             </div>
             
             <div id="badgesSection">
@@ -726,6 +744,12 @@
             <div id="titlesSection" style="display:none;">
                 <div class="badges-grid" id="titlesGrid">
                     <!-- Titles dynamically rendered here -->
+                </div>
+            </div>
+            
+            <div id="trophiesSection" style="display:none;">
+                <div class="badges-grid" id="trophiesGrid">
+                    <!-- Trophies dynamically rendered here -->
                 </div>
             </div>
         </div>
@@ -1020,7 +1044,13 @@ const BADGES = [
 const TITLES = [
     { id: 'half_marathon', name: 'Half Marathon', image: 'https://i.ibb.co/jkdg772p/21-1km.png' },
     { id: 'badge_collector', name: 'Badge Collector', image: 'https://i.ibb.co/WNVMMSkp/Achiever.png' },
-    { id: '30000_steps', name: '30000 Steps', image: 'https://i.ibb.co/ccBfm77f/RARE.png' }
+    { id: '30000_steps', name: '30000 Steps', image: 'https://i.ibb.co/ccBfm77f/RARE.png' },
+    { id: '30_days', name: '30 days', image: 'https://i.ibb.co/bRH5c4Z3/30days.png' }
+];
+
+const TROPHIES = [
+    { id: 'trophy_67', name: '67', image: 'https://i.ibb.co/TMT3Sqg5/67.png' },
+    { id: 'trophy_1234567', name: '1234567', image: 'https://i.ibb.co/FkmcCrnS/123.png' }
 ];
 
 // ==========================================
@@ -1064,6 +1094,7 @@ function navigateTo(page) {
         document.getElementById('addUserBtn').style.display = 'none';
         renderBadges();
         renderTitles();
+        renderTrophies();
     } else if (page === 'profile') {
         document.getElementById('profilePage').classList.add('active');
         document.getElementById('backBtn').classList.add('visible');
@@ -1246,6 +1277,7 @@ function loadAllRecords() {
         if (currentPage === 'achievement') {
             renderBadges();
             renderTitles();
+            renderTrophies();
         }
         if (currentPage === 'profile' && currentUserId) {
             renderRecords();
@@ -1275,6 +1307,18 @@ function hasTitle(uid, titleId) {
     if (titleId === 'badge_collector') {
         return checkUserBadgeCount(recordEntries).achieved;
     }
+    if (titleId === '30_days') {
+        if (recordEntries.length === 0) return true;
+        
+        let latestDateStr = recordEntries[0].date;
+        for (let r of recordEntries) {
+            if (r.date > latestDateStr) latestDateStr = r.date;
+        }
+        const now = new Date().getTime();
+        const latestTime = new Date(latestDateStr).getTime();
+        const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
+        return (now - latestTime) >= thirtyDaysMs;
+    }
     
     return false;
 }
@@ -1295,6 +1339,8 @@ function renderUserList() {
         let totalDist = 0;
         recordEntries.forEach(r => { totalDist += (r.distance || 0); });
         
+        const avatarClass = user.activeTitle === '30_days' ? ' avatar-30days' : '';
+
         // Check if user has an active title and it's a valid title
         if (user.activeTitle && hasTitle(uid, user.activeTitle)) {
             const titleObj = TITLES.find(t => t.id === user.activeTitle);
@@ -1305,7 +1351,7 @@ function renderUserList() {
                 html += `
                 <div class="user-card animate-in" style="${bgStyle}" onclick="openProfile('${uid}')" title="${escapeHtml(user.name)}">
                     <div class="user-card-left">
-                        <div class="user-avatar" style="background:${color}; box-shadow: 0 2px 8px rgba(0,0,0,0.6); border: 2px solid #fff;">${getInitial(user.name)}</div>
+                        <div class="user-avatar${avatarClass}" style="background:${color}; box-shadow: 0 2px 8px rgba(0,0,0,0.6); border: 2px solid #fff;">${getInitial(user.name)}</div>
                         <div style="text-shadow: 0 2px 4px rgba(0,0,0,0.8);">
                             <div class="user-name" style="color: #ffffff;">${escapeHtml(user.name)}</div>
                             <div class="user-stats" style="color: #e2e8f0;">${recordCount} run${recordCount !== 1 ? 's' : ''} · ${totalDist.toFixed(1)} km</div>
@@ -1324,7 +1370,7 @@ function renderUserList() {
         html += `
         <div class="user-card animate-in" onclick="openProfile('${uid}')">
             <div class="user-card-left">
-                <div class="user-avatar" style="background:${color}">${getInitial(user.name)}</div>
+                <div class="user-avatar${avatarClass}" style="background:${color}">${getInitial(user.name)}</div>
                 <div>
                     <div class="user-name">${escapeHtml(user.name)}</div>
                     <div class="user-stats">${recordCount} run${recordCount !== 1 ? 's' : ''} · ${totalDist.toFixed(1)} km</div>
@@ -1407,6 +1453,7 @@ function renderProfileHeader() {
     if (!user) return;
     const color = getAvatarColor(currentUserId);
     const recordArr = getFlatRecords(currentUserId);
+    const avatarClass = user.activeTitle === '30_days' ? ' avatar-30days' : '';
     let totalDist = 0, totalTime = 0;
     
     recordArr.forEach(r => {
@@ -1416,7 +1463,7 @@ function renderProfileHeader() {
     
     const bioText = user.bio ? escapeHtml(user.bio) : 'Add a short bio...';
     container.innerHTML = `
-        <div class="avatar-large" style="background:${color}">${getInitial(user.name)}</div>
+        <div class="avatar-large${avatarClass}" style="background:${color}">${getInitial(user.name)}</div>
         <div class="profile-name">${escapeHtml(user.name)}</div>
         <div class="profile-bio" style="margin-top: 8px; font-size: 14px; color: var(--text-secondary); display: flex; align-items: center; justify-content: center; gap: 8px; cursor:pointer;" onclick="showEditBioModal()">
             <span>${bioText}</span>
@@ -1582,18 +1629,23 @@ document.getElementById('confirmDeleteRecordBtn').addEventListener('click', () =
 });
 
 // ==========================================
-// Achievement (Badges & Titles)
+// Achievement (Badges & Titles & Trophies)
 // ==========================================
 function switchAchievementTab(tab) {
     document.querySelectorAll('.achievement-tab').forEach(t => t.classList.remove('active'));
+    document.getElementById('badgesSection').style.display = 'none';
+    document.getElementById('titlesSection').style.display = 'none';
+    document.getElementById('trophiesSection').style.display = 'none';
+    
     if (tab === 'badges') {
-        document.querySelector('.achievement-tab:first-child').classList.add('active');
+        document.querySelector('.achievement-tab:nth-child(1)').classList.add('active');
         document.getElementById('badgesSection').style.display = '';
-        document.getElementById('titlesSection').style.display = 'none';
-    } else {
-        document.querySelector('.achievement-tab:last-child').classList.add('active');
-        document.getElementById('badgesSection').style.display = 'none';
+    } else if (tab === 'titles') {
+        document.querySelector('.achievement-tab:nth-child(2)').classList.add('active');
         document.getElementById('titlesSection').style.display = '';
+    } else if (tab === 'trophies') {
+        document.querySelector('.achievement-tab:nth-child(3)').classList.add('active');
+        document.getElementById('trophiesSection').style.display = '';
     }
 }
 
@@ -1653,13 +1705,30 @@ function getTitleAchievers(titleId) {
         const user = allUsers[uid];
         const recordEntries = getFlatRecords(uid);
         
-        if (recordEntries.length > 0) {
+        let achievedDate = null;
+
+        if (titleId === '30_days') {
+            if (recordEntries.length === 0) {
+                // 如果是0記錄（包含剛創建或一直沒跑），直接授予稱號
+                achievedDate = user.createdAt ? user.createdAt.split('T')[0] : new Date().toISOString().split('T')[0];
+            } else {
+                let latestDateStr = recordEntries[0].date;
+                for (let r of recordEntries) {
+                    if (r.date > latestDateStr) latestDateStr = r.date;
+                }
+                const now = new Date().getTime();
+                const latestTime = new Date(latestDateStr).getTime();
+                const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
+                
+                if ((now - latestTime) >= thirtyDaysMs) {
+                    achievedDate = new Date(latestTime + thirtyDaysMs).toISOString().split('T')[0];
+                }
+            }
+        } else if (recordEntries.length > 0) {
             recordEntries.sort((a, b) => {
                 if (a.date !== b.date) return a.date > b.date ? 1 : -1;
                 return (a.time || '') > (b.time || '') ? 1 : -1;
             });
-
-            let achievedDate = null;
             
             if (titleId === 'badge_collector') {
                 const result = checkUserBadgeCount(recordEntries);
@@ -1678,18 +1747,68 @@ function getTitleAchievers(titleId) {
                     }
                 }
             }
+        }
             
-            if (achievedDate) {
-                achievers.push({ 
-                    uid: uid, 
-                    name: user.name, 
-                    dateAchieved: achievedDate,
-                    activeTitle: user.activeTitle
-                });
-            }
+        if (achievedDate) {
+            achievers.push({ 
+                uid: uid, 
+                name: user.name, 
+                dateAchieved: achievedDate,
+                activeTitle: user.activeTitle
+            });
         }
     });
     achievers.sort((a, b) => (a.dateAchieved > b.dateAchieved ? 1 : -1));
+    return achievers;
+}
+
+function getTrophyAchievers(trophyId) {
+    const achievers = [];
+    const targetDate = '2026-06-07';
+
+    if (trophyId === 'trophy_67') {
+        Object.keys(allUsers).forEach(uid => {
+            const user = allUsers[uid];
+            const recordEntries = getFlatRecords(uid);
+            if (recordEntries.some(r => r.date === targetDate)) {
+                achievers.push({ uid: uid, name: user.name, dateAchieved: targetDate });
+            }
+        });
+        achievers.sort((a, b) => (a.name > b.name ? 1 : -1));
+    } else if (trophyId === 'trophy_1234567') {
+        let userPaces = [];
+        Object.keys(allUsers).forEach(uid => {
+            const user = allUsers[uid];
+            const recordEntries = getFlatRecords(uid);
+            const targetRecords = recordEntries.filter(r => r.date === targetDate);
+            
+            if (targetRecords.length > 0) {
+                let totalDist = 0;
+                let totalTime = 0;
+                targetRecords.forEach(r => {
+                    totalDist += (r.distance || 0);
+                    totalTime += (r.duration || 0);
+                });
+                if (totalDist > 0 && totalTime > 0) {
+                    const dailyPace = totalTime / totalDist;
+                    userPaces.push({ uid: uid, name: user.name, pace: dailyPace, dateAchieved: targetDate });
+                }
+            }
+        });
+        
+        // Sort by pace ascending (lowest pace is fastest)
+        userPaces.sort((a, b) => a.pace - b.pace);
+        
+        // Pick Top 3
+        for (let i = 0; i < Math.min(3, userPaces.length); i++) {
+            achievers.push({
+                uid: userPaces[i].uid,
+                name: userPaces[i].name,
+                dateAchieved: userPaces[i].dateAchieved
+            });
+        }
+    }
+    
     return achievers;
 }
 
@@ -1717,9 +1836,30 @@ function renderTitles() {
     container.innerHTML = html;
 }
 
+function renderTrophies() {
+    const container = document.getElementById('trophiesGrid');
+    if (!container) return;
+    let html = '';
+    TROPHIES.forEach(trophy => {
+        const achievers = getTrophyAchievers(trophy.id);
+        const filterStyle = achievers.length > 0 ? '' : 'filter: grayscale(100%); opacity: 0.5;';
+        html += `<div class="badge-item animate-in" onclick="openAchievementDetail('${trophy.id}', 'trophy')"><img src="${trophy.image}" alt="${trophy.name}" class="badge-icon" style="${filterStyle}"></div>`;
+    });
+    container.innerHTML = html;
+}
+
 function openAchievementDetail(itemId, type) {
-    const item = type === 'badge' ? BADGES.find(b => b.id === itemId) : TITLES.find(t => t.id === itemId);
-    const achievers = type === 'badge' ? getBadgeAchievers(itemId) : getTitleAchievers(itemId);
+    let item, achievers;
+    if (type === 'badge') {
+        item = BADGES.find(b => b.id === itemId);
+        achievers = getBadgeAchievers(itemId);
+    } else if (type === 'title') {
+        item = TITLES.find(t => t.id === itemId);
+        achievers = getTitleAchievers(itemId);
+    } else {
+        item = TROPHIES.find(t => t.id === itemId);
+        achievers = getTrophyAchievers(itemId);
+    }
     
     document.getElementById('achievementDetailImg').src = item.image;
     document.getElementById('achievementDetailTitle').textContent = item.name;
@@ -1732,7 +1872,9 @@ function openAchievementDetail(itemId, type) {
     } else {
         let html = '';
         achievers.forEach((achiever) => {
+            const user = allUsers[achiever.uid];
             const color = getAvatarColor(achiever.uid);
+            const avatarClass = (user && user.activeTitle === '30_days') ? ' avatar-30days' : '';
             let actionBtn = '';
             
             if (type === 'title') {
@@ -1742,7 +1884,7 @@ function openAchievementDetail(itemId, type) {
             
             html += `
             <div class="ranking-card" style="margin-bottom: 8px;">
-                <div class="user-avatar" style="background:${color};width:40px;height:40px;font-size:16px;">${getInitial(achiever.name)}</div>
+                <div class="user-avatar${avatarClass}" style="background:${color};width:40px;height:40px;font-size:16px;">${getInitial(achiever.name)}</div>
                 <div class="rank-info">
                     <div class="rank-name">${escapeHtml(achiever.name)}</div>
                     <div class="rank-detail">Achieved on ${formatDate(achiever.dateAchieved)}</div>
@@ -1843,6 +1985,8 @@ function renderTotalRankings() {
 
     let html = '';
     rankingData.forEach((item, index) => {
+        const user = allUsers[item.uid];
+        const avatarClass = (user && user.activeTitle === '30_days') ? ' avatar-30days' : '';
         const rank = index + 1;
         const rankClass = rank <= 3 ? 'rank-' + rank : 'rank-other';
         const color = getAvatarColor(item.uid);
@@ -1862,7 +2006,7 @@ function renderTotalRankings() {
         html += `
         <div class="ranking-card animate-in">
             <div class="rank-num ${rankClass}">${rank}</div>
-            <div class="user-avatar" style="background:${color};width:40px;height:40px;font-size:16px;">${getInitial(item.name)}</div>
+            <div class="user-avatar${avatarClass}" style="background:${color};width:40px;height:40px;font-size:16px;">${getInitial(item.name)}</div>
             <div class="rank-info">
                 <div class="rank-name">${escapeHtml(item.name)}</div>
                 <div class="rank-detail">${detail}</div>
@@ -1918,6 +2062,8 @@ function renderDailyRankings() {
 
     let html = '';
     rankingData.forEach((item, index) => {
+        const user = allUsers[item.uid];
+        const avatarClass = (user && user.activeTitle === '30_days') ? ' avatar-30days' : '';
         const rank = index + 1;
         const rankClass = rank <= 3 ? 'rank-' + rank : 'rank-other';
         const color = getAvatarColor(item.uid);
@@ -1938,7 +2084,7 @@ function renderDailyRankings() {
         html += `
         <div class="ranking-card animate-in">
             <div class="rank-num ${rankClass}">${rank}</div>
-            <div class="user-avatar" style="background:${color};width:40px;height:40px;font-size:16px;">${getInitial(item.name)}</div>
+            <div class="user-avatar${avatarClass}" style="background:${color};width:40px;height:40px;font-size:16px;">${getInitial(item.name)}</div>
             <div class="rank-info">
                 <div class="rank-name">${escapeHtml(item.name)}</div>
                 <div class="rank-detail">${detail}</div>
