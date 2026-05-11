@@ -1339,7 +1339,7 @@ function renderUserList() {
         let totalDist = 0;
         recordEntries.forEach(r => { totalDist += (r.distance || 0); });
         
-        const avatarClass = user.activeTitle === '30_days' ? ' avatar-30days' : '';
+        const avatarClass = (user.activeTitle === '30_days' && hasTitle(uid, '30_days')) ? ' avatar-30days' : '';
 
         // Check if user has an active title and it's a valid title
         if (user.activeTitle && hasTitle(uid, user.activeTitle)) {
@@ -1453,7 +1453,7 @@ function renderProfileHeader() {
     if (!user) return;
     const color = getAvatarColor(currentUserId);
     const recordArr = getFlatRecords(currentUserId);
-    const avatarClass = user.activeTitle === '30_days' ? ' avatar-30days' : '';
+    const avatarClass = (user.activeTitle === '30_days' && hasTitle(currentUserId, '30_days')) ? ' avatar-30days' : '';
     let totalDist = 0, totalTime = 0;
     
     recordArr.forEach(r => {
@@ -1874,7 +1874,7 @@ function openAchievementDetail(itemId, type) {
         achievers.forEach((achiever) => {
             const user = allUsers[achiever.uid];
             const color = getAvatarColor(achiever.uid);
-            const avatarClass = (user && user.activeTitle === '30_days') ? ' avatar-30days' : '';
+            const avatarClass = (user && user.activeTitle === '30_days' && hasTitle(achiever.uid, '30_days')) ? ' avatar-30days' : '';
             let actionBtn = '';
             
             if (type === 'title') {
@@ -1986,7 +1986,7 @@ function renderTotalRankings() {
     let html = '';
     rankingData.forEach((item, index) => {
         const user = allUsers[item.uid];
-        const avatarClass = (user && user.activeTitle === '30_days') ? ' avatar-30days' : '';
+        const avatarClass = (user && user.activeTitle === '30_days' && hasTitle(item.uid, '30_days')) ? ' avatar-30days' : '';
         const rank = index + 1;
         const rankClass = rank <= 3 ? 'rank-' + rank : 'rank-other';
         const color = getAvatarColor(item.uid);
@@ -2063,7 +2063,7 @@ function renderDailyRankings() {
     let html = '';
     rankingData.forEach((item, index) => {
         const user = allUsers[item.uid];
-        const avatarClass = (user && user.activeTitle === '30_days') ? ' avatar-30days' : '';
+        const avatarClass = (user && user.activeTitle === '30_days' && hasTitle(item.uid, '30_days')) ? ' avatar-30days' : '';
         const rank = index + 1;
         const rankClass = rank <= 3 ? 'rank-' + rank : 'rank-other';
         const color = getAvatarColor(item.uid);
