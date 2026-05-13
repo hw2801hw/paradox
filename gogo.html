@@ -463,23 +463,59 @@
 
             // --- 遊戲初始化與定位 ---
             function initGame() {
+                // 某些設備可能 GPS 反應較慢，所以這裡做個保險機制
+                // 如果 8 秒內都沒取得位置，就先用模擬位置開始，避免卡在 Loading
+                let gpsTimeout = setTimeout(() => {
+                    if (!map) { // 如果地圖還沒初始化，代表還沒成功載入
+                        handleGPSFail("GPS 訊號微弱，暫時使用模擬位置...");
+                    }
+                }, 8000);
+
                 if (navigator.geolocation) {
+                    // 先嘗試取得一次當前位置
                     navigator.geolocation.getCurrentPosition(
                         (pos) => {
+                            clearTimeout(gpsTimeout); // 成功取得位置，清除 timeout
+                            if(map) return; // 如果已經由其他方式啟動就不再啟動
+
                             player.lat = pos.coords.latitude;
                             player.lng = pos.coords.longitude;
+                            
+                            // 強制確保不會勾選模擬模式
+                            useMock = false;
+                            els.settingMock.checked = false;
+                            
                             startGame();
+
+                            // 持續追蹤
                             watchId = navigator.geolocation.watchPosition(updatePosition, (err) => {
-                                console.warn('GPS 追蹤失敗', err);
-                            }, { enableHighAccuracy: true, maximumAge: 10000 });
+                                console.warn('GPS 追蹤發生錯誤', err);
+                            }, { 
+                                enableHighAccuracy: true, 
+                                maximumAge: 0, 
+                                timeout: 10000 
+                            });
                         },
                         (err) => {
+                            clearTimeout(gpsTimeout);
                             console.warn("GPS 定位失敗或被拒絕", err);
-                            handleGPSFail("無法取得 GPS 位置，使用模擬器開始...");
+                            
+                            // 詳細錯誤訊息判斷
+                            let errorMsg = "無法取得 GPS，進入模擬模式...";
+                            if(err.code === 1) errorMsg = "您拒絕了位置權限，進入模擬模式...";
+                            else if (err.code === 2) errorMsg = "無法獲取當前位置，進入模擬模式...";
+                            else if (err.code === 3) errorMsg = "獲取位置超時，進入模擬模式...";
+                            
+                            handleGPSFail(errorMsg);
                         },
-                        { timeout: 5000, enableHighAccuracy: false }
+                        { 
+                            enableHighAccuracy: true, // 盡量使用精確位置
+                            timeout: 7000,            // 給予 7 秒獲取時間
+                            maximumAge: 0             // 不使用快取位置
+                        }
                     );
                 } else {
+                    clearTimeout(gpsTimeout);
                     handleGPSFail("瀏覽器不支援 GPS，使用模擬器開始...");
                 }
             }
@@ -498,6 +534,11 @@
                 els.settingMock.checked = true;
                 startGame();
             });
+            
+            // 讓按鈕預設一開始就顯示，讓玩家不想等 GPS 的時候可以直接點
+            setTimeout(() => {
+                 els.btnMockStart.classList.remove('hidden-view');
+            }, 1000);
 
             function startGame() {
                 els.loading.classList.add('hidden-view');
