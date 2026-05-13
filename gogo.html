@@ -589,29 +589,32 @@
 
             // --- 生成遊戲世界 ---
             function generateWorld() {
-                const RADIUS = 0.015; // 大約 1.5 公里範圍
+                // 將範圍縮小，確保怪物會密集生成在玩家視野範圍內 (大約 200~300 公尺)
+                // 這樣一進遊戲不用縮小地圖就能直接看到怪物
+                const RADIUS_LAT = 0.003; 
+                const RADIUS_LNG = 0.003; 
+                
                 activeMonsters = [];
                 activeStops = [];
 
-                // 生成 50 隻寶可夢
-                for(let i=0; i<50; i++) {
-                    // 根據機率隨機選擇（這裡簡單隨機）
+                // 生成 40 隻寶可夢在附近
+                for(let i=0; i<40; i++) {
                     let tpl = POKEMONS[Math.floor(Math.random() * POKEMONS.length)];
                     activeMonsters.push({
                         uid: 'm_' + i,
                         ...tpl,
-                        lat: player.lat + (Math.random() - 0.5) * RADIUS,
-                        lng: player.lng + (Math.random() - 0.5) * RADIUS,
+                        lat: player.lat + (Math.random() - 0.5) * RADIUS_LAT,
+                        lng: player.lng + (Math.random() - 0.5) * RADIUS_LNG,
                         hp: 100
                     });
                 }
                 
-                // 生成 20 個補給站
-                for(let i=0; i<20; i++) {
+                // 生成 10 個補給站
+                for(let i=0; i<10; i++) {
                     activeStops.push({
                         uid: 's_' + i,
-                        lat: player.lat + (Math.random() - 0.5) * RADIUS,
-                        lng: player.lng + (Math.random() - 0.5) * RADIUS,
+                        lat: player.lat + (Math.random() - 0.5) * RADIUS_LAT,
+                        lng: player.lng + (Math.random() - 0.5) * RADIUS_LNG,
                         name: '區域補給站 ' + (i+1),
                         cooldown: 0
                     });
@@ -648,18 +651,37 @@
                 monsterMarkers = {};
                 stopMarkers = {};
 
-                // 加入怪物標記
+                // 加入怪物標記 (確保 z-index 比玩家低一點，但比底圖高)
                 activeMonsters.forEach(m => {
-                    let icon = L.divIcon({ className: 'monster-marker', html: m.emoji, iconSize: [48, 48], iconAnchor: [24, 24] });
-                    let marker = L.marker([m.lat, m.lng], {icon: icon}).addTo(map);
+                    // 使用稍微大一點的字體確保清楚可見
+                    let icon = L.divIcon({ 
+                        className: 'monster-marker', 
+                        html: `<div style="font-size: 40px;">${m.emoji}</div>`, 
+                        iconSize: [50, 50], 
+                        iconAnchor: [25, 25] 
+                    });
+                    let marker = L.marker([m.lat, m.lng], {
+                        icon: icon,
+                        zIndexOffset: 100 
+                    }).addTo(map);
+                    
                     marker.on('click', () => openCaptureScreen(m));
                     monsterMarkers[m.uid] = marker;
                 });
 
                 // 加入補給站標記
                 activeStops.forEach(s => {
-                    let icon = L.divIcon({ className: 'stop-marker', html: '🧊', iconSize: [48, 48], iconAnchor: [24, 24] });
-                    let marker = L.marker([s.lat, s.lng], {icon: icon}).addTo(map);
+                    let icon = L.divIcon({ 
+                        className: 'stop-marker', 
+                        html: `<div style="font-size: 40px;">🧊</div>`, 
+                        iconSize: [50, 50], 
+                        iconAnchor: [25, 25] 
+                    });
+                    let marker = L.marker([s.lat, s.lng], {
+                        icon: icon,
+                        zIndexOffset: 50
+                    }).addTo(map);
+                    
                     marker.on('click', () => openStopScreen(s));
                     stopMarkers[s.uid] = marker;
                 });
