@@ -125,10 +125,22 @@
                 <div id="chartLeaderboard" class="w-full h-[280px] sm:h-[350px]"></div>
             </div>
 
-            <!-- 圖表 3: 每月跑步活躍度 -->
-            <div class="bg-bgCard border border-borderColor rounded-xl transition-all duration-200 hover:bg-bgCardHover hover:border-accentPrimary hover:-translate-y-0.5 p-3 sm:p-4">
-                <h3 id="monthlyChartTitle" class="text-base sm:text-lg font-bold text-white mb-2 sm:mb-4 px-1 sm:px-2">📅 每月活躍分析</h3>
-                <div id="chartMonthly" class="w-full h-[280px] sm:h-[350px]"></div>
+            <!-- 新增 圖表: 累積時長排行榜 -->
+            <div id="cardLeaderboardTime" style="display: none;" class="bg-bgCard border border-borderColor rounded-xl transition-all duration-200 hover:bg-bgCardHover hover:border-accentPrimary hover:-translate-y-0.5 p-3 sm:p-4">
+                <h3 class="text-base sm:text-lg font-bold text-white mb-2 sm:mb-4 px-1 sm:px-2">⏱️ 累積時長排行榜</h3>
+                <div id="chartLeaderboardTime" class="w-full h-[280px] sm:h-[350px]"></div>
+            </div>
+
+            <!-- 新增 圖表: 總跑步次數排行榜 -->
+            <div id="cardLeaderboardCount" style="display: none;" class="bg-bgCard border border-borderColor rounded-xl transition-all duration-200 hover:bg-bgCardHover hover:border-accentPrimary hover:-translate-y-0.5 p-3 sm:p-4">
+                <h3 class="text-base sm:text-lg font-bold text-white mb-2 sm:mb-4 px-1 sm:px-2">🏃 總次數排行榜</h3>
+                <div id="chartLeaderboardCount" class="w-full h-[280px] sm:h-[350px]"></div>
+            </div>
+
+            <!-- 新增 圖表: 平均配速排行榜 -->
+            <div id="cardLeaderboardPace" style="display: none;" class="bg-bgCard border border-borderColor rounded-xl transition-all duration-200 hover:bg-bgCardHover hover:border-accentPrimary hover:-translate-y-0.5 p-3 sm:p-4">
+                <h3 class="text-base sm:text-lg font-bold text-white mb-2 sm:mb-4 px-1 sm:px-2">⚡ 平均配速排行榜</h3>
+                <div id="chartLeaderboardPace" class="w-full h-[280px] sm:h-[350px]"></div>
             </div>
 
             <!-- 圖表 4: 能力評估雷達圖 (僅在個人介面顯示) -->
@@ -190,6 +202,12 @@
                     <!-- 動態填入 -->
                 </div>
             </div>
+
+            <!-- 圖表 3: 每月跑步活躍度 (移至頁面最底部) -->
+            <div id="cardMonthly" class="bg-bgCard border border-borderColor rounded-xl transition-all duration-200 hover:bg-bgCardHover hover:border-accentPrimary hover:-translate-y-0.5 p-3 sm:p-4">
+                <h3 id="monthlyChartTitle" class="text-base sm:text-lg font-bold text-white mb-2 sm:mb-4 px-1 sm:px-2">📅 每月活躍分析</h3>
+                <div id="chartMonthly" class="w-full h-[280px] sm:h-[350px]"></div>
+            </div>
             
         </div>
     </main>
@@ -222,9 +240,11 @@
         let chartInstances = {
             cumulative: null,
             leaderboard: null,
+            leaderboardTime: null,   // 新增
+            leaderboardCount: null,  // 新增
+            leaderboardPace: null,   // 新增
             monthly: null,
             radar: null
-            // 移除了 bestRadar
         };
 
         const colorPalette = [
@@ -238,9 +258,11 @@
         function initCharts() {
             chartInstances.cumulative = echarts.init(document.getElementById('chartCumulative'), 'dark');
             chartInstances.leaderboard = echarts.init(document.getElementById('chartLeaderboard'), 'dark');
+            chartInstances.leaderboardTime = echarts.init(document.getElementById('chartLeaderboardTime'), 'dark'); // 新增
+            chartInstances.leaderboardCount = echarts.init(document.getElementById('chartLeaderboardCount'), 'dark'); // 新增
+            chartInstances.leaderboardPace = echarts.init(document.getElementById('chartLeaderboardPace'), 'dark'); // 新增
             chartInstances.monthly = echarts.init(document.getElementById('chartMonthly'), 'dark');
             chartInstances.radar = echarts.init(document.getElementById('chartRadar'), 'dark');
-            // 移除了 bestRadar 的初始化
 
             Object.values(chartInstances).forEach(chart => {
                 if (chart) chart.setOption({ backgroundColor: 'transparent' });
@@ -249,6 +271,87 @@
             window.addEventListener('resize', () => {
                 Object.values(chartInstances).forEach(chart => chart && chart.resize());
             });
+        }
+
+        // 共用的渲染排行榜長條圖函數
+        function renderBarChartForRanking(chart, dataArr, valueKey, valueName, colorMap, isPace = false) {
+            if (!chart) return;
+            // 過濾無效值 (距離為0或配速為0的數據)
+            let validData = dataArr.filter(u => u[valueKey] > 0);
+            
+            // 排序：ECharts 從下往上繪製
+            // 配速(越小越好)：差的放前面，好的放陣列尾端，畫在圖表最上方
+            if (isPace) {
+                validData.sort((a, b) => b[valueKey] - a[valueKey]);
+            } else {
+                validData.sort((a, b) => a[valueKey] - b[valueKey]);
+            }
+
+            const seriesConfig = {
+                type: 'bar',
+                data: validData.map(u => ({
+                    value: isPace ? u[valueKey] : u[valueKey].toFixed(valueKey === 'count' ? 0 : 1),
+                    itemStyle: { color: colorMap[u.uid] || '#ff3366', borderRadius: [0, 4, 4, 0] }
+                })),
+                label: { 
+                    show: true, 
+                    position: 'right', 
+                    color: '#fff', 
+                    formatter: function(params) {
+                        return isPace ? formatPaceDisplay(params.value) : `${params.value} ${valueName}`;
+                    }
+                }
+            };
+
+            // 若有大於一筆資料，加入平均線
+            if (validData.length > 1) {
+                const avgValue = validData.reduce((sum, u) => sum + u[valueKey], 0) / validData.length;
+                seriesConfig.markLine = {
+                    symbol: 'none',
+                    lineStyle: { color: '#FFD700', type: 'dashed', width: 2 },
+                    label: { 
+                        show: true, 
+                        position: 'end', 
+                        formatter: function() {
+                            return `平均\n${isPace ? formatPaceDisplay(avgValue) : avgValue.toFixed(valueKey === 'count' ? 0 : 1) + ' ' + valueName}`;
+                        }, 
+                        color: '#FFD700', 
+                        fontSize: 11,
+                        padding: [0, 0, 0, 0] 
+                    },
+                    data: [{ xAxis: avgValue }]
+                };
+            }
+
+            const option = {
+                backgroundColor: 'transparent',
+                tooltip: { 
+                    trigger: 'axis', 
+                    axisPointer: { type: 'shadow' }, 
+                    backgroundColor: 'rgba(15,15,19,0.9)', 
+                    borderColor: '#27272a', 
+                    textStyle: {color:'#fff'},
+                    formatter: function(params) {
+                        const val = params[0].value;
+                        const displayVal = isPace ? formatPaceDisplay(val) : `${val} ${valueName}`;
+                        return `${params[0].name}<br/>${displayVal}`;
+                    }
+                },
+                grid: { left: '2%', right: '15%', bottom: '2%', top: '10%', containLabel: true },
+                xAxis: { 
+                    type: 'value', 
+                    splitLine: { show: false }, 
+                    axisLabel: { 
+                        color: '#888',
+                        formatter: function(val) {
+                            return isPace ? formatPaceDisplay(val) : val;
+                        }
+                    } 
+                },
+                yAxis: { type: 'category', data: validData.map(u => u.name), axisLabel: { color: '#ffffff', fontWeight: 'bold' } },
+                series: [seriesConfig]
+            };
+            chart.setOption(option, true);
         }
 
         // ==========================================
@@ -464,9 +567,23 @@
 
         function renderLeaderboardChart(data, filterUid) {
             const chart = chartInstances.leaderboard;
+            const cardTime = document.getElementById('cardLeaderboardTime');
+            const cardCount = document.getElementById('cardLeaderboardCount');
+            const cardPace = document.getElementById('cardLeaderboardPace');
+            const cardMonthly = document.getElementById('cardMonthly');
+
             chart.clear();
+            if (chartInstances.leaderboardTime) chartInstances.leaderboardTime.clear();
+            if (chartInstances.leaderboardCount) chartInstances.leaderboardCount.clear();
+            if (chartInstances.leaderboardPace) chartInstances.leaderboardPace.clear();
             
             if (filterUid !== 'all') {
+                // 單一跑者視圖：隱藏額外的排行榜，且讓每月活躍分析恢復單欄寬度
+                if(cardTime) cardTime.style.display = 'none';
+                if(cardCount) cardCount.style.display = 'none';
+                if(cardPace) cardPace.style.display = 'none';
+                if(cardMonthly) cardMonthly.classList.remove('lg:col-span-2');
+
                 let distCategories = { '短程 (<5km)': 0, '中程 (5-10km)': 0, '長程 (>10km)': 0 };
                 data.forEach(r => {
                     if (r.distance < 5) distCategories['短程 (<5km)']++;
@@ -489,53 +606,45 @@
                         ]
                     }]
                 }, true);
+                
+                setTimeout(() => { if (chartInstances.monthly) chartInstances.monthly.resize(); }, 10);
                 return;
             }
 
-            const userDists = {};
+            // 綜合數據視圖：顯示所有排行榜，並讓每月活躍分析跨越兩欄置底
+            if(cardTime) cardTime.style.display = 'block';
+            if(cardCount) cardCount.style.display = 'block';
+            if(cardPace) cardPace.style.display = 'block';
+            if(cardMonthly) cardMonthly.classList.add('lg:col-span-2');
+
+            // 確保 UI 顯示後進行 ECharts 視窗重繪
+            setTimeout(() => {
+                if (chartInstances.leaderboardTime) chartInstances.leaderboardTime.resize();
+                if (chartInstances.leaderboardCount) chartInstances.leaderboardCount.resize();
+                if (chartInstances.leaderboardPace) chartInstances.leaderboardPace.resize();
+                if (chartInstances.monthly) chartInstances.monthly.resize();
+            }, 10);
+
+            // 計算各項統計數值
+            const userStats = {};
             data.forEach(r => { 
-                if (!userDists[r.uid]) userDists[r.uid] = { name: r.userName, dist: 0 };
-                userDists[r.uid].dist += (r.distance || 0); 
+                if (!userStats[r.uid]) userStats[r.uid] = { name: r.userName, dist: 0, dur: 0, count: 0 };
+                userStats[r.uid].dist += (r.distance || 0); 
+                userStats[r.uid].dur += (r.duration || 0);
+                userStats[r.uid].count += 1;
             });
-            const sortedUsers = Object.entries(userDists).map(([uid, u]) => ({ uid, name: u.name, dist: u.dist })).sort((a, b) => a.dist - b.dist);
             
-            const seriesConfig = {
-                type: 'bar',
-                data: sortedUsers.map(u => ({
-                    value: u.dist.toFixed(1),
-                    // 套用專屬顏色
-                    itemStyle: { color: userColorMap[u.uid] || '#ff3366', borderRadius: [0, 4, 4, 0] }
-                })),
-                label: { show: true, position: 'right', color: '#fff', formatter: '{c} km' }
-            };
-
-            if (sortedUsers.length > 1) {
-                // 手動計算真實的平均值，避免 ECharts {value} 顯示異常
-                const avgDist = sortedUsers.reduce((sum, u) => sum + u.dist, 0) / sortedUsers.length;
-                seriesConfig.markLine = {
-                    symbol: 'none',
-                    lineStyle: { color: '#FFD700', type: 'dashed', width: 2 },
-                    label: { 
-                        show: true, 
-                        position: 'end', 
-                        formatter: `平均\n${avgDist.toFixed(1)} km`, 
-                        color: '#FFD700', 
-                        fontSize: 11,
-                        padding: [0, 0, 0, 0] 
-                    },
-                    data: [{ xAxis: avgDist }]
-                };
-            }
-
-            const option = {
-                backgroundColor: 'transparent',
-                tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' }, backgroundColor: 'rgba(15,15,19,0.9)', borderColor: '#27272a', textStyle: {color:'#fff'} },
-                grid: { left: '2%', right: '15%', bottom: '2%', top: '10%', containLabel: true },
-                xAxis: { type: 'value', splitLine: { show: false }, axisLabel: { color: '#888' } },
-                yAxis: { type: 'category', data: sortedUsers.map(u => u.name), axisLabel: { color: '#ffffff', fontWeight: 'bold' } },
-                series: [seriesConfig]
-            };
-            chart.setOption(option, true);
+            // 轉換為陣列並計算配速
+            const userArr = Object.entries(userStats).map(([uid, u]) => ({ 
+                uid, name: u.name, dist: u.dist, dur: u.dur, count: u.count,
+                pace: u.dist > 0 ? (u.dur / u.dist) : 0
+            }));
+            
+            // 渲染 4 個排行榜
+            renderBarChartForRanking(chart, userArr, 'dist', 'km', userColorMap, false);
+            renderBarChartForRanking(chartInstances.leaderboardTime, userArr, 'dur', '分', userColorMap, false);
+            renderBarChartForRanking(chartInstances.leaderboardCount, userArr, 'count', '次', userColorMap, false);
+            renderBarChartForRanking(chartInstances.leaderboardPace, userArr, 'pace', '', userColorMap, true);
         }
 
         function renderMonthlyOrDailyChart(data, filterUid) {
