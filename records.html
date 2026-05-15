@@ -119,7 +119,7 @@
                 <div id="chartCumulative" class="w-full h-[280px] sm:h-[400px]"></div>
             </div>
 
-            <!-- 圖表 2: 各跑者里程貢獻 -->
+            <!-- 圖表 2: 各跑者里程貢獻 / 個人距離分佈 -->
             <div class="bg-bgCard border border-borderColor rounded-xl transition-all duration-200 hover:bg-bgCardHover hover:border-accentPrimary hover:-translate-y-0.5 p-3 sm:p-4">
                 <h3 class="text-base sm:text-lg font-bold text-white mb-2 sm:mb-4 px-1 sm:px-2">🏆 總里程排行榜</h3>
                 <div id="chartLeaderboard" class="w-full h-[280px] sm:h-[350px]"></div>
@@ -129,6 +129,66 @@
             <div class="bg-bgCard border border-borderColor rounded-xl transition-all duration-200 hover:bg-bgCardHover hover:border-accentPrimary hover:-translate-y-0.5 p-3 sm:p-4">
                 <h3 id="monthlyChartTitle" class="text-base sm:text-lg font-bold text-white mb-2 sm:mb-4 px-1 sm:px-2">📅 每月活躍分析</h3>
                 <div id="chartMonthly" class="w-full h-[280px] sm:h-[350px]"></div>
+            </div>
+
+            <!-- 圖表 4: 能力評估雷達圖 (僅在個人介面顯示) -->
+            <div id="radarCard" style="display: none;" class="bg-bgCard border border-borderColor rounded-xl transition-all duration-200 hover:bg-bgCardHover hover:border-accentPrimary hover:-translate-y-0.5 p-3 sm:p-4">
+                <div class="flex justify-between items-center mb-2 sm:mb-4 px-1 sm:px-2">
+                    <h3 class="text-base sm:text-lg font-bold text-white flex items-center gap-2">
+                        ⚡ 能力評估 (S-F)
+                    </h3>
+                    <div class="text-right">
+                        <span class="text-xs text-textMuted font-medium">綜合評級</span>
+                        <div id="radarGrade" class="text-2xl sm:text-3xl font-black italic leading-none" style="text-shadow: 0 0 10px rgba(255,255,255,0.2);">A</div>
+                    </div>
+                </div>
+                <div id="chartRadar" class="w-full h-[280px] sm:h-[350px]"></div>
+                <!-- 滿分標準參考區塊 -->
+                <div id="radarMaxRef" class="mt-4 text-[11px] sm:text-xs text-textMuted bg-[#18181b] p-3 rounded-lg border border-borderColor flex flex-wrap gap-x-3 gap-y-2 justify-center items-center">
+                    <!-- 動態填入 -->
+                </div>
+            </div>
+
+            <!-- 圖表 5: 最佳成績 4格 (僅在個人介面顯示) -->
+            <div id="bestStatsCard" style="display: none;" class="bg-bgCard border border-borderColor rounded-xl transition-all duration-200 hover:bg-bgCardHover hover:border-accentPrimary hover:-translate-y-0.5 p-3 sm:p-4">
+                <div class="flex justify-between items-center mb-4 sm:mb-6 px-1 sm:px-2">
+                    <h3 class="text-base sm:text-lg font-bold text-white flex items-center gap-2">
+                        🌟 最佳成績 (S-F)
+                    </h3>
+                    <div class="text-right">
+                        <span class="text-xs text-textMuted font-medium">單項綜合評級</span>
+                        <div id="bestStatsGrade" class="text-2xl sm:text-3xl font-black italic leading-none" style="text-shadow: 0 0 10px rgba(255,255,255,0.2);">A</div>
+                    </div>
+                </div>
+                
+                <!-- 4個最佳成績格子 -->
+                <div class="grid grid-cols-2 gap-3 sm:gap-4 mb-5">
+                    <div class="bg-[#18181b] rounded-lg p-4 sm:p-5 border border-borderColor flex flex-col justify-center items-center relative overflow-hidden group">
+                        <div class="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                        <span class="text-textMuted text-xs sm:text-sm font-medium mb-1">最遠距離</span>
+                        <span id="bestValDist" class="text-2xl sm:text-3xl font-bold text-white relative z-10">0.0 km</span>
+                    </div>
+                    <div class="bg-[#18181b] rounded-lg p-4 sm:p-5 border border-borderColor flex flex-col justify-center items-center relative overflow-hidden group">
+                        <div class="absolute inset-0 bg-gradient-to-br from-accentSecondary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                        <span class="text-textMuted text-xs sm:text-sm font-medium mb-1">最長時長</span>
+                        <span id="bestValDur" class="text-2xl sm:text-3xl font-bold text-accentSecondary relative z-10">0 分</span>
+                    </div>
+                    <div class="bg-[#18181b] rounded-lg p-4 sm:p-5 border border-borderColor flex flex-col justify-center items-center relative overflow-hidden group">
+                        <div class="absolute inset-0 bg-gradient-to-br from-accentPrimary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                        <span class="text-textMuted text-xs sm:text-sm font-medium mb-1">最快配速</span>
+                        <span id="bestValPace" class="text-2xl sm:text-3xl font-bold text-accentPrimary relative z-10">--'--"</span>
+                    </div>
+                    <div class="bg-[#18181b] rounded-lg p-4 sm:p-5 border border-borderColor flex flex-col justify-center items-center relative overflow-hidden group">
+                        <div class="absolute inset-0 bg-gradient-to-br from-accentGreen/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                        <span class="text-textMuted text-xs sm:text-sm font-medium mb-1">最多步數</span>
+                        <span id="bestValSteps" class="text-2xl sm:text-3xl font-bold text-accentGreen relative z-10">0 步</span>
+                    </div>
+                </div>
+
+                <!-- 全局最佳參考區塊 -->
+                <div id="bestGlobalRef" class="text-xs text-textMuted bg-[#0f0f13] p-3 rounded-lg border border-borderColor leading-relaxed">
+                    <!-- 動態填入 -->
+                </div>
             </div>
             
         </div>
@@ -162,7 +222,9 @@
         let chartInstances = {
             cumulative: null,
             leaderboard: null,
-            monthly: null
+            monthly: null,
+            radar: null
+            // 移除了 bestRadar
         };
 
         const colorPalette = [
@@ -177,6 +239,8 @@
             chartInstances.cumulative = echarts.init(document.getElementById('chartCumulative'), 'dark');
             chartInstances.leaderboard = echarts.init(document.getElementById('chartLeaderboard'), 'dark');
             chartInstances.monthly = echarts.init(document.getElementById('chartMonthly'), 'dark');
+            chartInstances.radar = echarts.init(document.getElementById('chartRadar'), 'dark');
+            // 移除了 bestRadar 的初始化
 
             Object.values(chartInstances).forEach(chart => {
                 if (chart) chart.setOption({ backgroundColor: 'transparent' });
@@ -327,6 +391,8 @@
             renderCumulativeChart(data, filterUid);
             renderLeaderboardChart(data, filterUid);
             renderMonthlyOrDailyChart(data, filterUid);
+            renderRadarChart(filterUid, filterMonth); // 渲染能力評估雷達圖
+            renderBestStats(filterUid, filterMonth); // 渲染最佳成績 4 格
         }
 
         function updateSummaryCards(data) {
@@ -567,6 +633,305 @@
                     }]
                 }, true);
             }
+        }
+
+        // 渲染能力評估雷達圖 (僅支援個人顯示)
+        function renderRadarChart(filterUid, filterMonth) {
+            const card = document.getElementById('radarCard');
+            if (filterUid === 'all') {
+                card.style.display = 'none';
+                return;
+            }
+            card.style.display = 'block';
+            
+            const chart = chartInstances.radar;
+            chart.clear();
+
+            // 以目前選取的月份或所有時間，統計所有跑者的表現以做為天花板基準 (Max)
+            let baseRecords = flatRecords;
+            if (filterMonth !== 'all') {
+                baseRecords = baseRecords.filter(r => r.date.startsWith(filterMonth));
+            }
+
+            const userStats = {};
+            baseRecords.forEach(r => {
+                if (!userStats[r.uid]) {
+                    userStats[r.uid] = { dist: 0, dur: 0, count: 0, steps: 0 };
+                }
+                userStats[r.uid].dist += (r.distance || 0);
+                userStats[r.uid].dur += (r.duration || 0);
+                userStats[r.uid].count += 1;
+                // 移除先前的距離估算，直接使用真實步數，無資料則計為0
+                userStats[r.uid].steps += (Number(r.steps) || 0);
+            });
+
+            // 尋找全體最高標準建立100分的雷達圖邊界
+            let maxDist = 0.1, maxDur = 0.1, maxCount = 0.1, maxSteps = 0.1;
+            let minPace = 999; // 配速越低越好
+
+            for (const uid in userStats) {
+                const stat = userStats[uid];
+                if (stat.dist > maxDist) maxDist = stat.dist;
+                if (stat.dur > maxDur) maxDur = stat.dur;
+                if (stat.count > maxCount) maxCount = stat.count;
+                if (stat.steps > maxSteps) maxSteps = stat.steps;
+                
+                const pace = calcPaceValue(stat.dur, stat.dist);
+                if (pace > 0 && pace < minPace) minPace = pace;
+            }
+            if (minPace === 999) minPace = 5;
+
+            // 取出當前特定跑者的數據
+            const uStat = userStats[filterUid] || { dist: 0, dur: 0, count: 0, steps: 0 };
+            const uPace = calcPaceValue(uStat.dur, uStat.dist) || 999;
+
+            // 計算五維度分數 (0 ~ 100)
+            const scoreDist = Math.min(100, (uStat.dist / maxDist) * 100);
+            const scoreDur = Math.min(100, (uStat.dur / maxDur) * 100);
+            const scoreCount = Math.min(100, (uStat.count / maxCount) * 100);
+            const scoreSteps = Math.min(100, (uStat.steps / maxSteps) * 100);
+            
+            // 配速計分：與最佳配速差距越小分數越高 (容許差距5分鐘)
+            let scorePace = 0;
+            const paceRange = 5; 
+            if (uStat.count === 0) {
+                scorePace = 0;
+            } else if (uPace <= minPace) {
+                scorePace = 100;
+            } else if (uPace > minPace + paceRange) {
+                scorePace = 20; // 只要有跑，最低給20分底分
+            } else {
+                scorePace = 100 - ((uPace - minPace) / paceRange) * 80;
+            }
+
+            const scores = [
+                Math.round(scoreDist),
+                Math.round(scoreDur),
+                Math.round(scorePace),
+                Math.round(scoreCount),
+                Math.round(scoreSteps)
+            ];
+
+            // 運算綜合評級 S ~ F
+            const avgScore = scores.reduce((a, b) => a + b, 0) / 5;
+            let grade = 'F', gradeColor = '#888888';
+            if (avgScore >= 90) { grade = 'S'; gradeColor = '#FFD700'; }      
+            else if (avgScore >= 80) { grade = 'A'; gradeColor = '#FF3366'; } 
+            else if (avgScore >= 70) { grade = 'B'; gradeColor = '#B366FF'; } 
+            else if (avgScore >= 60) { grade = 'C'; gradeColor = '#00E5FF'; } 
+            else if (avgScore >= 50) { grade = 'D'; gradeColor = '#00E676'; } 
+            else if (avgScore >= 40) { grade = 'E'; gradeColor = '#FF9900'; } 
+
+            const gradeEl = document.getElementById('radarGrade');
+            // 修改綜合評分顯示加入具體分數
+            gradeEl.innerHTML = `${grade} <span class="text-lg sm:text-xl font-normal text-textMuted" style="font-style: normal; text-shadow: none;">(${Math.round(avgScore)}分)</span>`;
+            gradeEl.style.color = gradeColor;
+
+            const uColor = userColorMap[filterUid] || '#ff3366';
+
+            // 繪製 ECharts 雷達圖
+            chart.setOption({
+                backgroundColor: 'transparent',
+                tooltip: {
+                    trigger: 'item',
+                    backgroundColor: 'rgba(15,15,19,0.95)',
+                    borderColor: '#27272a',
+                    textStyle: {color:'#fff'},
+                    formatter: function(params) {
+                        return `${params.name}<br/>
+                                距離: ${scores[0]} 分<br/>
+                                時長: ${scores[1]} 分<br/>
+                                配速: ${scores[2]} 分<br/>
+                                次數: ${scores[3]} 分<br/>
+                                步數: ${scores[4]} 分`;
+                    }
+                },
+                radar: {
+                    indicator: [
+                        { name: `距離\n(${uStat.dist.toFixed(1)}km)`, max: 100 },
+                        { name: `時長\n(${uStat.dur.toFixed(0)}分)`, max: 100 },
+                        { name: `配速\n(${formatPaceDisplay(uPace)})`, max: 100 },
+                        { name: `次數\n(${uStat.count}次)`, max: 100 },
+                        { name: `步數\n(${uStat.steps}步)`, max: 100 }
+                    ],
+                    shape: 'polygon',
+                    radius: '65%',
+                    axisName: { color: '#888', fontWeight: 'bold' },
+                    splitArea: {
+                        areaStyle: { color: ['rgba(255,255,255,0.02)', 'rgba(255,255,255,0.05)', 'rgba(255,255,255,0.02)', 'rgba(255,255,255,0.05)'] }
+                    },
+                    axisLine: { lineStyle: { color: 'rgba(255,255,255,0.1)' } },
+                    splitLine: { lineStyle: { color: 'rgba(255,255,255,0.1)' } }
+                },
+                series: [{
+                    name: '能力評估',
+                    type: 'radar',
+                    data: [
+                        {
+                            value: scores,
+                            name: '綜合能力',
+                            itemStyle: { color: uColor },
+                            areaStyle: { color: uColor + '66' },
+                            lineStyle: { color: uColor, width: 2 },
+                            symbol: 'circle',
+                            symbolSize: 6
+                        }
+                    ]
+                }]
+            }, true);
+            
+            // 寫入滿分標準參考值
+            const maxRefEl = document.getElementById('radarMaxRef');
+            if (maxRefEl) {
+                maxRefEl.innerHTML = `
+                    <span class="font-bold text-white px-1">滿分標準：</span>
+                    <span class="px-1">距離: <span class="text-white">${maxDist.toFixed(1)}km</span></span>
+                    <span class="px-1">時長: <span class="text-white">${maxDur.toFixed(0)}分</span></span>
+                    <span class="px-1">配速: <span class="text-white">${formatPaceDisplay(minPace)}</span></span>
+                    <span class="px-1">次數: <span class="text-white">${maxCount}次</span></span>
+                    <span class="px-1">步數: <span class="text-white">${maxSteps}步</span></span>
+                `;
+            }
+
+            // 修正佈局：當雷達圖顯示時通知圖表重新計算寬高
+            setTimeout(() => { chart.resize(); }, 10);
+        }
+
+        // 修改：渲染最佳成績 4格 (僅支援個人顯示)
+        function renderBestStats(filterUid, filterMonth) {
+            const card = document.getElementById('bestStatsCard');
+            if (filterUid === 'all') {
+                card.style.display = 'none';
+                return;
+            }
+            card.style.display = 'block';
+
+            // 建立全局天花板基準 (Max) 以及達成者紀錄
+            let baseRecords = flatRecords;
+            if (filterMonth !== 'all') {
+                baseRecords = baseRecords.filter(r => r.date.startsWith(filterMonth));
+            }
+
+            let globalBest = {
+                dist: { val: 0.1, name: '無' },
+                dur: { val: 0.1, name: '無' },
+                pace: { val: 999, name: '無' },
+                steps: { val: 0.1, name: '無' }
+            };
+
+            baseRecords.forEach(r => {
+                if (r.distance > globalBest.dist.val) { 
+                    globalBest.dist.val = r.distance; 
+                    globalBest.dist.name = r.userName; 
+                }
+                if (r.duration > globalBest.dur.val) { 
+                    globalBest.dur.val = r.duration; 
+                    globalBest.dur.name = r.userName; 
+                }
+                
+                // 移除先前的距離估算，直接使用真實步數，無資料則計為0
+                const steps = Number(r.steps) || 0;
+                if (steps > globalBest.steps.val) { 
+                    globalBest.steps.val = steps; 
+                    globalBest.steps.name = r.userName; 
+                }
+                
+                const pace = calcPaceValue(r.duration, r.distance);
+                if (pace > 0 && pace < globalBest.pace.val) { 
+                    globalBest.pace.val = pace; 
+                    globalBest.pace.name = r.userName; 
+                }
+            });
+            
+            if (globalBest.pace.val === 999) globalBest.pace.val = 5;
+
+            // 尋找當前用戶的單筆最佳數據
+            const userRecords = baseRecords.filter(r => r.uid === filterUid);
+            let uMaxDist = 0, uMaxDur = 0, uMaxSteps = 0;
+            let uMinPace = 999;
+
+            userRecords.forEach(r => {
+                if (r.distance > uMaxDist) uMaxDist = r.distance;
+                if (r.duration > uMaxDur) uMaxDur = r.duration;
+                // 移除先前的距離估算，直接使用真實步數，無資料則計為0
+                const steps = Number(r.steps) || 0;
+                if (steps > uMaxSteps) uMaxSteps = steps;
+                
+                const pace = calcPaceValue(r.duration, r.distance);
+                if (pace > 0 && pace < uMinPace) uMinPace = pace;
+            });
+
+            if (userRecords.length === 0) uMinPace = 0;
+
+            // 計算各單項分數 (0 ~ 100)
+            const scoreMaxDist = Math.min(100, (uMaxDist / globalBest.dist.val) * 100) || 0;
+            const scoreMaxDur = Math.min(100, (uMaxDur / globalBest.dur.val) * 100) || 0;
+            const scoreMaxSteps = Math.min(100, (uMaxSteps / globalBest.steps.val) * 100) || 0;
+            
+            let scoreMinPace = 0;
+            const paceRange = 5; 
+            if (userRecords.length === 0) {
+                scoreMinPace = 0;
+            } else if (uMinPace <= globalBest.pace.val) {
+                scoreMinPace = 100;
+            } else if (uMinPace > globalBest.pace.val + paceRange) {
+                scoreMinPace = 20;
+            } else {
+                scoreMinPace = 100 - ((uMinPace - globalBest.pace.val) / paceRange) * 80;
+            }
+
+            const bestScores = [
+                Math.round(scoreMaxDist),
+                Math.round(scoreMaxDur),
+                Math.round(scoreMinPace),
+                Math.round(scoreMaxSteps)
+            ];
+
+            // 運算最佳成績總評級 S ~ F
+            const bestAvgScore = bestScores.reduce((a, b) => a + b, 0) / 4;
+            let bGrade = 'F', bGradeColor = '#888888';
+            if (bestAvgScore >= 90) { bGrade = 'S'; bGradeColor = '#FFD700'; }      
+            else if (bestAvgScore >= 80) { bGrade = 'A'; bGradeColor = '#FF3366'; } 
+            else if (bestAvgScore >= 70) { bGrade = 'B'; bGradeColor = '#B366FF'; } 
+            else if (bestAvgScore >= 60) { bGrade = 'C'; bGradeColor = '#00E5FF'; } 
+            else if (bestAvgScore >= 50) { bGrade = 'D'; bGradeColor = '#00E676'; } 
+            else if (bestAvgScore >= 40) { bGrade = 'E'; bGradeColor = '#FF9900'; } 
+
+            const bGradeEl = document.getElementById('bestStatsGrade');
+            bGradeEl.innerHTML = `${bGrade} <span class="text-lg sm:text-xl font-normal text-textMuted" style="font-style: normal; text-shadow: none;">(${Math.round(bestAvgScore)}分)</span>`;
+            bGradeEl.style.color = bGradeColor;
+
+            // 更新 4 個格子的數值
+            document.getElementById('bestValDist').textContent = uMaxDist.toFixed(1) + ' km';
+            document.getElementById('bestValDur').textContent = uMaxDur.toFixed(0) + ' 分';
+            document.getElementById('bestValPace').textContent = formatPaceDisplay(uMinPace);
+            document.getElementById('bestValSteps').textContent = uMaxSteps + ' 步';
+
+            // 更新全局最佳參考
+            document.getElementById('bestGlobalRef').innerHTML = `
+                <div class="font-bold text-white mb-2 border-b border-borderColor pb-2 flex items-center gap-1.5">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-accentPrimary"><circle cx="12" cy="8" r="7"></circle><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"></polyline></svg>
+                    本月群組最佳紀錄 (各項滿分標準參考)
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
+                    <div class="flex items-center justify-between bg-[#18181b] p-2.5 rounded border border-borderColor/50">
+                        <span class="text-textMuted">📍 最遠距離</span>
+                        <span class="text-white font-medium">${globalBest.dist.val.toFixed(1)}km <span class="text-xs text-accentSecondary ml-1">(${globalBest.dist.name})</span></span>
+                    </div>
+                    <div class="flex items-center justify-between bg-[#18181b] p-2.5 rounded border border-borderColor/50">
+                        <span class="text-textMuted">⏱️ 最長時長</span>
+                        <span class="text-white font-medium">${globalBest.dur.val.toFixed(0)}分 <span class="text-xs text-accentSecondary ml-1">(${globalBest.dur.name})</span></span>
+                    </div>
+                    <div class="flex items-center justify-between bg-[#18181b] p-2.5 rounded border border-borderColor/50">
+                        <span class="text-textMuted">⚡ 最快配速</span>
+                        <span class="text-white font-medium">${formatPaceDisplay(globalBest.pace.val)} <span class="text-xs text-accentSecondary ml-1">(${globalBest.pace.name})</span></span>
+                    </div>
+                    <div class="flex items-center justify-between bg-[#18181b] p-2.5 rounded border border-borderColor/50">
+                        <span class="text-textMuted">👣 最多步數</span>
+                        <span class="text-white font-medium">${globalBest.steps.val}步 <span class="text-xs text-accentSecondary ml-1">(${globalBest.steps.name})</span></span>
+                    </div>
+                </div>
+            `;
         }
 
         document.addEventListener('DOMContentLoaded', () => {
