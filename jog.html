@@ -1038,11 +1038,17 @@ const BADGES = [
     { id: '400_hours', name: '400 Hours', image: 'https://i.ibb.co/MkFYm1ND/400-Hours.png' },
     { id: '500_runs', name: '500 Runs', image: 'https://i.ibb.co/YTbwVHg2/500-Runs.png' },
     { id: '500_km', name: '500 Km', image: 'https://i.ibb.co/G4DCrmj1/500Km.png' },
-    { id: '500_hours', name: '500 Hours', image: 'https://i.ibb.co/cc7XwJTG/500-Hours.png' }
+    { id: '500_hours', name: '500 Hours', image: 'https://i.ibb.co/cc7XwJTG/500-Hours.png' },
+    { id: '666_km', name: '666 Km', image: 'https://i.ibb.co/tPYsr26z/666KM.png' },
+    { id: '777_km', name: '777 Km', image: 'https://i.ibb.co/vCCfvJRq/777KM.png' },
+    { id: '1000_km', name: '1000 Km', image: 'https://i.ibb.co/rRWjp85f/1000KM.png' },
+    { id: '1314_km', name: '1314 Km', image: 'https://i.ibb.co/tpkT8nJK/1314KM.png' }
 ];
 
 const TITLES = [
     { id: 'half_marathon', name: 'Half Marathon', image: 'https://i.ibb.co/jkdg772p/21-1km.png' },
+    { id: 'full_marathon', name: 'Full Marathon', image: 'https://i.ibb.co/mCCxBvK2/Epic.png' },
+    { id: 'ultra_marathon', name: 'Ultra-marathon', image: 'https://i.ibb.co/ZprPK2pZ/Legend.png' },
     { id: 'badge_collector', name: 'Badge Collector', image: 'https://i.ibb.co/WNVMMSkp/Achiever.png' },
     { id: '30000_steps', name: '30000 Steps', image: 'https://i.ibb.co/ccBfm77f/RARE.png' },
     { id: '30_days', name: '30 days', image: 'https://i.ibb.co/bRH5c4Z3/30days.png' }
@@ -1241,6 +1247,10 @@ function checkUserBadgeCount(recordEntries) {
         if (runCount >= 500) earnedBadges.add('500_runs');
         if (totalDist >= 500) earnedBadges.add('500_km');
         if (totalDur >= 30000) earnedBadges.add('500_hours');
+        if (totalDist >= 666) earnedBadges.add('666_km');
+        if (totalDist >= 777) earnedBadges.add('777_km');
+        if (totalDist >= 1000) earnedBadges.add('1000_km');
+        if (totalDist >= 1314) earnedBadges.add('1314_km');
         
         // Return as soon as 10 badges are achieved, keeping the date of achievement
         if (earnedBadges.size >= 10) {
@@ -1300,6 +1310,12 @@ function hasTitle(uid, titleId) {
 
     if (titleId === 'half_marathon') {
         return recordEntries.some(r => (r.distance || 0) >= 21.1);
+    }
+    if (titleId === 'full_marathon') {
+        return recordEntries.some(r => (r.distance || 0) >= 42.2);
+    }
+    if (titleId === 'ultra_marathon') {
+        return recordEntries.some(r => (r.distance || 0) >= 50);
     }
     if (titleId === '30000_steps') {
         return recordEntries.some(r => (r.steps || 0) >= 30000);
@@ -1691,6 +1707,10 @@ function getBadgeAchievers(badgeId) {
                 if (badgeId === '500_runs' && runCount >= 500) { achievedDate = r.date; break; }
                 if (badgeId === '500_km' && totalDist >= 500) { achievedDate = r.date; break; }
                 if (badgeId === '500_hours' && totalDur >= 30000) { achievedDate = r.date; break; }
+                if (badgeId === '666_km' && totalDist >= 666) { achievedDate = r.date; break; }
+                if (badgeId === '777_km' && totalDist >= 777) { achievedDate = r.date; break; }
+                if (badgeId === '1000_km' && totalDist >= 1000) { achievedDate = r.date; break; }
+                if (badgeId === '1314_km' && totalDist >= 1314) { achievedDate = r.date; break; }
             }
             if (achievedDate) achievers.push({ uid: uid, name: user.name, dateAchieved: achievedDate });
         }
@@ -1738,6 +1758,14 @@ function getTitleAchievers(titleId) {
             } else {
                 for (const r of recordEntries) {
                     if (titleId === 'half_marathon' && (r.distance || 0) >= 21.1) { 
+                        achievedDate = r.date; 
+                        break; 
+                    }
+                    if (titleId === 'full_marathon' && (r.distance || 0) >= 42.2) { 
+                        achievedDate = r.date; 
+                        break; 
+                    }
+                    if (titleId === 'ultra_marathon' && (r.distance || 0) >= 50) { 
                         achievedDate = r.date; 
                         break; 
                     }
