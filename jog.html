@@ -233,6 +233,9 @@
             color: var(--accent-secondary);
             font-weight: 600;
             margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
         }
         .record-card .record-stats {
             display: flex;
@@ -360,6 +363,11 @@
             color: #0d0d0d;
             box-shadow: 0 4px 15px rgba(0, 230, 118, 0.3);
         }
+        .btn-blue {
+            background: linear-gradient(135deg, var(--accent-secondary), #0088cc);
+            color: #0d0d0d;
+            box-shadow: 0 4px 15px rgba(0, 210, 255, 0.3);
+        }
         .btn-small {
             padding: 10px 16px;
             font-size: 14px;
@@ -399,6 +407,32 @@
         }
         .form-group textarea {
             resize: vertical;
+        }
+        /* ===== Activity Toggle ===== */
+        .type-toggle {
+            display: flex;
+            background: var(--bg-input);
+            border-radius: 8px;
+            overflow: hidden;
+            border: 1px solid var(--border-color);
+        }
+        .type-btn {
+            padding: 6px 12px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            border: none;
+            background: transparent;
+            color: var(--text-secondary);
+            transition: all 0.2s;
+        }
+        .type-btn.active[data-type="run"] {
+            background: var(--accent-green);
+            color: #0d0d0d;
+        }
+        .type-btn.active[data-type="walk"] {
+            background: var(--accent-secondary);
+            color: #0d0d0d;
         }
         /* ===== Modal ===== */
         .modal-overlay {
@@ -675,7 +709,6 @@
         .add-record-section h3 {
             font-size: 17px;
             font-weight: 600;
-            margin-bottom: 12px;
             color: var(--accent-secondary);
         }
         /* ===== Layout Classes ===== */
@@ -770,7 +803,13 @@
         <div class="page" id="profilePage">
             <div class="profile-header" id="profileHeader"></div>
             <div class="add-record-section">
-                <h3>📝 Add Record</h3>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                    <h3 id="addRecordTitle" style="margin-bottom: 0;">📝 Add Run Record</h3>
+                    <div class="type-toggle" id="activityTypeToggle">
+                        <button class="type-btn active" data-type="run" onclick="setActivityType('run')">🏃 Run</button>
+                        <button class="type-btn" data-type="walk" onclick="setActivityType('walk')">🚶 Walk</button>
+                    </div>
+                </div>
                 <div class="form-group">
                     <label>Date</label>
                     <input type="date" id="recordDate">
@@ -803,7 +842,7 @@
                         <input type="text" inputmode="numeric" pattern="\d*" id="recordKcal" placeholder="e.g. 300" oninput="this.value = this.value.replace(/[^0-9]/g, '')">
                     </div>
                 </div>
-                <button class="btn btn-green" onclick="addRecord()">Add Record</button>
+                <button id="addRecordBtn" class="btn btn-green" onclick="addRecord()">Add Run Record</button>
             </div>
             
             <div class="section-title">
@@ -830,7 +869,6 @@
                     <select id="sortSelect" onchange="renderTotalRankings()">
                         <option value="distance">Sort by Total Distance</option>
                         <option value="pace">Sort by Best Pace</option>
-                        <option value="steps">Sort by Total Steps</option>
                     </select>
                 </div>
                 <div id="totalRankingList"></div>
@@ -843,7 +881,6 @@
                     <select id="dailySortSelect" onchange="renderDailyRankings()">
                         <option value="distance">Sort by Total Distance</option>
                         <option value="pace">Sort by Best Pace</option>
-                        <option value="steps">Sort by Total Steps</option>
                     </select>
                 </div>
                 <div id="dailyRankingList"></div>
@@ -1074,6 +1111,7 @@ let pendingDeleteRecordMonth = null;
 let pendingToggleTitleUserId = null;
 let pendingToggleTitleId = null;
 let pendingToggleTitleAction = null; // 'equip' or 'unequip'
+let currentActivityType = 'run'; // Default activity type for Add Record
 
 // ==========================================
 // Navigation & Core Functions
@@ -1461,6 +1499,8 @@ function openProfile(uid) {
     document.getElementById('recordDate').value = new Date().toISOString().split('T')[0];
     const now = new Date();
     document.getElementById('recordTime').value = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
+    // Reset toggle to default on entering profile
+    setActivityType('run');
 }
 
 function renderProfileHeader() {
@@ -1505,6 +1545,28 @@ function saveBio() {
         closeModal('editBioModal');
         showToast('Bio updated!');
     }).catch(err => { showToast('Error: ' + err.message, 'error'); });
+}
+
+function setActivityType(type) {
+    currentActivityType = type;
+    document.querySelectorAll('#activityTypeToggle .type-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.type === type);
+    });
+    
+    // Update title and button based on selection
+    const titleEl = document.getElementById('addRecordTitle');
+    const btnEl = document.getElementById('addRecordBtn');
+    if (titleEl && btnEl) {
+        if (type === 'walk') {
+            titleEl.innerHTML = '📝 Add Walk Record';
+            btnEl.innerHTML = 'Add Walk Record';
+            btnEl.className = 'btn btn-blue';
+        } else {
+            titleEl.innerHTML = '📝 Add Run Record';
+            btnEl.innerHTML = 'Add Run Record';
+            btnEl.className = 'btn btn-green';
+        }
+    }
 }
 
 function renderRecords() {
@@ -1565,9 +1627,17 @@ function renderRecords() {
         // Ensure month is passed along correctly to the delete button (in case it came from an old flat structure)
         const deleteMonthArg = rec.date && !allRecords[currentUserId][rec.id] ? rec.month : 'flat';
 
+        // Render Run/Walk Badge Only if explicitly set to run or walk
+        let typeBadge = '';
+        if (rec.type === 'walk') {
+            typeBadge = `<span style="background: var(--accent-secondary); color: #0d0d0d; padding: 2px 6px; border-radius: 4px; font-size: 11px; margin-left: 6px; font-weight: bold; vertical-align: middle;">🚶 Walk</span>`;
+        } else if (rec.type === 'run') {
+            typeBadge = `<span style="background: var(--accent-green); color: #0d0d0d; padding: 2px 6px; border-radius: 4px; font-size: 11px; margin-left: 6px; font-weight: bold; vertical-align: middle;">🏃 Run</span>`;
+        }
+
         html += `
         <div class="record-card animate-in">
-            <div class="record-date">${formatDate(rec.date)}${timeStr}</div>
+            <div class="record-date">${formatDate(rec.date)}${timeStr} ${typeBadge}</div>
             <div class="record-stats">
                 <div class="stat"><div class="stat-value" style="font-size: 16px;">${minDisp}'${secDisp}"</div><div class="stat-label">time</div></div>
                 <div class="stat"><div class="stat-value" style="font-size: 16px;">${rec.distance.toFixed(2)}</div><div class="stat-label">km</div></div>
@@ -1607,7 +1677,7 @@ function addRecord() {
     db.ref('records/' + currentUserId + '/' + yearMonth).push().set({
         date: date, time: time, duration: durationMinutes, durationMin: durationMin,
         durationSec: durationSec, distance: distance, steps: steps > 0 ? steps : null,
-        kcal: kcal > 0 ? kcal : null, createdAt: new Date().toISOString()
+        kcal: kcal > 0 ? kcal : null, type: currentActivityType, createdAt: new Date().toISOString()
     }).then(() => {
         showToast('Record added!');
         document.getElementById('recordDurationMin').value = '';
@@ -1615,6 +1685,7 @@ function addRecord() {
         document.getElementById('recordDistance').value = '';
         document.getElementById('recordSteps').value = '';
         document.getElementById('recordKcal').value = '';
+        setActivityType('run'); // Reset to default after adding
     }).catch(err => { showToast('Error: ' + err.message, 'error'); });
 }
 
@@ -1984,11 +2055,11 @@ function renderTotalRankings() {
     Object.keys(allUsers).forEach(uid => {
         const user = allUsers[uid];
         const recordEntries = getFlatRecords(uid);
-        let totalDist = 0, totalTime = 0, totalSteps = 0, bestPace = Infinity, bestPaceDate = '', latestDate = '';
+        let totalDist = 0, totalTime = 0, bestPace = Infinity, bestPaceDate = '', latestDate = '';
         
         recordEntries.forEach(r => {
             const dist = r.distance || 0, dur = r.duration || 0;
-            totalDist += dist; totalTime += dur; totalSteps += (r.steps || 0);
+            totalDist += dist; totalTime += dur;
             if (dist > 0 && dur > 0) {
                 const pace = dur / dist;
                 if (pace < bestPace) { bestPace = pace; bestPaceDate = r.date || ''; }
@@ -1997,13 +2068,11 @@ function renderTotalRankings() {
         });
 
         if (sortBy === 'pace' && bestPace === Infinity) return;
-        if (sortBy === 'steps' && totalSteps === 0) return;
         
-        rankingData.push({ uid: uid, name: user.name, totalDist: totalDist, totalTime: totalTime, totalSteps: totalSteps, bestPace: bestPace === Infinity ? null : bestPace, bestPaceDate: bestPaceDate, latestDate: latestDate });
+        rankingData.push({ uid: uid, name: user.name, totalDist: totalDist, totalTime: totalTime, bestPace: bestPace === Infinity ? null : bestPace, bestPaceDate: bestPaceDate, latestDate: latestDate });
     });
 
     if (sortBy === 'distance') rankingData.sort((a, b) => b.totalDist - a.totalDist);
-    else if (sortBy === 'steps') rankingData.sort((a, b) => b.totalSteps - a.totalSteps);
     else rankingData.sort((a, b) => (a.bestPace || Infinity) - (b.bestPace || Infinity));
 
     if (rankingData.length === 0) {
@@ -2023,9 +2092,6 @@ function renderTotalRankings() {
         if (sortBy === 'distance') {
             value = item.totalDist.toFixed(1) + ' km';
             detail = item.latestDate ? formatDate(item.latestDate) : 'No records';
-        } else if (sortBy === 'steps') {
-            value = item.totalSteps.toLocaleString() + ' steps';
-            detail = item.latestDate ? formatDate(item.latestDate) : 'No records';
         } else {
             value = formatPace(item.bestPace, 1);
             detail = item.bestPaceDate ? formatDate(item.bestPaceDate) : '';
@@ -2039,7 +2105,7 @@ function renderTotalRankings() {
                 <div class="rank-name">${escapeHtml(item.name)}</div>
                 <div class="rank-detail">${detail}</div>
             </div>
-            <div class="rank-value" style="${sortBy==='steps' ? 'font-size:16px;' : ''}">${value}</div>
+            <div class="rank-value">${value}</div>
         </div>`;
     });
     container.innerHTML = html;
@@ -2059,25 +2125,22 @@ function renderDailyRankings() {
     Object.keys(allUsers).forEach(uid => {
         const user = allUsers[uid];
         const recordEntries = getFlatRecords(uid);
-        let totalDist = 0, totalTime = 0, totalSteps = 0, count = 0;
+        let totalDist = 0, totalTime = 0, count = 0;
         
         recordEntries.forEach(r => {
             if (r.date === selectedDate) {
-                totalDist += (r.distance || 0); totalTime += (r.duration || 0); totalSteps += (r.steps || 0); count++;
+                totalDist += (r.distance || 0); totalTime += (r.duration || 0); count++;
             }
         });
         
         if (count > 0) {
             const dailyPace = totalDist > 0 ? (totalTime / totalDist) : Infinity;
-            rankingData.push({ uid: uid, name: user.name, totalDist: totalDist, totalTime: totalTime, totalSteps: totalSteps, dailyPace: dailyPace, count: count });
+            rankingData.push({ uid: uid, name: user.name, totalDist: totalDist, totalTime: totalTime, dailyPace: dailyPace, count: count });
         }
     });
 
     if (sortBy === 'distance') {
         rankingData.sort((a, b) => b.totalDist - a.totalDist);
-    } else if (sortBy === 'steps') {
-        rankingData = rankingData.filter(item => item.totalSteps > 0);
-        rankingData.sort((a, b) => b.totalSteps - a.totalSteps);
     } else if (sortBy === 'pace') {
         rankingData = rankingData.filter(item => item.dailyPace !== Infinity);
         rankingData.sort((a, b) => a.dailyPace - b.dailyPace);
@@ -2101,9 +2164,6 @@ function renderDailyRankings() {
         if (sortBy === 'distance') {
             value = item.totalDist.toFixed(2) + ' km';
             detail = `${formatDuration(item.totalTime)} · ${paceStr}`;
-        } else if (sortBy === 'steps') {
-            value = item.totalSteps.toLocaleString() + ' steps';
-            detail = `${item.totalDist.toFixed(2)} km · ${formatDuration(item.totalTime)}`;
         } else {
             value = paceStr;
             detail = `${item.totalDist.toFixed(2)} km · ${formatDuration(item.totalTime)}`;
@@ -2117,7 +2177,7 @@ function renderDailyRankings() {
                 <div class="rank-name">${escapeHtml(item.name)}</div>
                 <div class="rank-detail">${detail}</div>
             </div>
-            <div class="rank-value" style="${sortBy==='steps' ? 'font-size:16px;' : ''}">${value}</div>
+            <div class="rank-value">${value}</div>
         </div>`;
     });
     container.innerHTML = html;
