@@ -770,8 +770,9 @@
                 userStats[r.uid].dist += (r.distance || 0);
                 userStats[r.uid].dur += (r.duration || 0);
                 userStats[r.uid].count += 1;
-                // 移除先前的距離估算，直接使用真實步數，無資料則計為0
-                userStats[r.uid].steps += (Number(r.steps) || 0);
+                // 自動計算步數 (若無資料則為距離km * 1000)
+                const recordSteps = (r.steps && Number(r.steps) > 0) ? Number(r.steps) : Math.round((r.distance || 0) * 1000);
+                userStats[r.uid].steps += recordSteps;
             });
 
             // 尋找全體最高標準建立100分的雷達圖邊界
@@ -938,8 +939,8 @@
                     globalBest.dur.name = r.userName; 
                 }
                 
-                // 移除先前的距離估算，直接使用真實步數，無資料則計為0
-                const steps = Number(r.steps) || 0;
+                // 自動計算步數 (若無資料則為距離km * 1000)
+                const steps = (r.steps && Number(r.steps) > 0) ? Number(r.steps) : Math.round((r.distance || 0) * 1000);
                 if (steps > globalBest.steps.val) { 
                     globalBest.steps.val = steps; 
                     globalBest.steps.name = r.userName; 
@@ -962,8 +963,8 @@
             userRecords.forEach(r => {
                 if (r.distance > uMaxDist) uMaxDist = r.distance;
                 if (r.duration > uMaxDur) uMaxDur = r.duration;
-                // 移除先前的距離估算，直接使用真實步數，無資料則計為0
-                const steps = Number(r.steps) || 0;
+                // 自動計算步數 (若無資料則為距離km * 1000)
+                const steps = (r.steps && Number(r.steps) > 0) ? Number(r.steps) : Math.round((r.distance || 0) * 1000);
                 if (steps > uMaxSteps) uMaxSteps = steps;
                 
                 const pace = calcPaceValue(r.duration, r.distance);
