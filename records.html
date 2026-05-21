@@ -685,16 +685,36 @@
                 }, true);
 
             } else {
-                titleEl.textContent = '📅 跑者紀錄對比 (單筆紀錄)';
+                titleEl.textContent = '📅 跑者紀錄對比 (單日紀錄)';
                 const xData = [];
                 const yData = [];
 
+                // 依據日期分組並加總當日數據
+                const dailyStats = {};
                 data.forEach(r => {
-                    const timeStr = r.time ? `\n${r.time}` : '';
-                    xData.push(`${r.date}${timeStr}`);
+                    if (!dailyStats[r.date]) {
+                        dailyStats[r.date] = { distance: 0, duration: 0, steps: 0 };
+                    }
+                    dailyStats[r.date].distance += (r.distance || 0);
+                    dailyStats[r.date].duration += (r.duration || 0);
+                    
+                    const recordSteps = (r.steps && Number(r.steps) > 0) ? Number(r.steps) : Math.round((r.distance || 0) * 1000);
+                    dailyStats[r.date].steps += recordSteps;
+                });
+
+                // 將分組結果轉為陣列
+                const sortedDates = Object.keys(dailyStats).sort();
+                
+                sortedDates.forEach(date => {
+                    const stats = dailyStats[date];
+                    xData.push(date);
                     yData.push({
-                        value: r.distance.toFixed(2),
-                        detail: { pace: calcPaceValue(r.duration, r.distance), duration: r.duration }
+                        value: stats.distance.toFixed(2),
+                        detail: { 
+                            pace: calcPaceValue(stats.duration, stats.distance), 
+                            duration: stats.duration,
+                            steps: stats.steps
+                        }
                     });
                 });
 
@@ -713,15 +733,16 @@
                             const p = params[0];
                             const detail = p.data.detail;
                             return `
-                                <div style="font-weight:bold;margin-bottom:4px;color:#fff">${p.name.replace('\n', ' ')}</div>
+                                <div style="font-weight:bold;margin-bottom:4px;color:#fff">${p.name}</div>
                                 距離: <span style="color:${uColor}">${p.value} km</span><br/>
                                 總時長: ${(detail.duration).toFixed(1)} 分<br/>
-                                平均配速: ${formatPaceDisplay(detail.pace)} /km
+                                平均配速: ${formatPaceDisplay(detail.pace)} /km<br/>
+                                總步數: ${detail.steps} 步
                             `;
                         }
                     },
                     dataZoom: [
-                        { type: 'inside', start: data.length > 15 ? 50 : 0, end: 100 },
+                        { type: 'inside', start: sortedDates.length > 15 ? 50 : 0, end: 100 },
                         { type: 'slider', show: true, bottom: 0, height: 16, borderColor: 'transparent', fillerColor: uColor + '33', textStyle: { color: '#888' } }
                     ],
                     grid: { left: '2%', right: '2%', bottom: '15%', top: '10%', containLabel: true },
