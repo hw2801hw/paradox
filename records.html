@@ -137,12 +137,6 @@
                 <div id="chartLeaderboardCount" class="w-full h-[280px] sm:h-[350px]"></div>
             </div>
 
-            <!-- 新增 圖表: 平均配速排行榜 -->
-            <div id="cardLeaderboardPace" style="display: none;" class="bg-bgCard border border-borderColor rounded-xl transition-all duration-200 hover:bg-bgCardHover hover:border-accentPrimary hover:-translate-y-0.5 p-3 sm:p-4">
-                <h3 class="text-base sm:text-lg font-bold text-white mb-2 sm:mb-4 px-1 sm:px-2">⚡ 平均配速排行榜</h3>
-                <div id="chartLeaderboardPace" class="w-full h-[280px] sm:h-[350px]"></div>
-            </div>
-
             <!-- 圖表 4: 能力評估雷達圖 (僅在個人介面顯示) -->
             <div id="radarCard" style="display: none;" class="bg-bgCard border border-borderColor rounded-xl transition-all duration-200 hover:bg-bgCardHover hover:border-accentPrimary hover:-translate-y-0.5 p-3 sm:p-4">
                 <div class="flex justify-between items-center mb-2 sm:mb-4 px-1 sm:px-2">
@@ -203,14 +197,36 @@
                 </div>
             </div>
 
-            <!-- 圖表 3: 每月跑步活躍度 (移至頁面最底部) -->
+            <!-- 圖表 3: 每月跑步活躍度 -->
             <div id="cardMonthly" class="bg-bgCard border border-borderColor rounded-xl transition-all duration-200 hover:bg-bgCardHover hover:border-accentPrimary hover:-translate-y-0.5 p-3 sm:p-4">
                 <h3 id="monthlyChartTitle" class="text-base sm:text-lg font-bold text-white mb-2 sm:mb-4 px-1 sm:px-2">📅 每月活躍分析</h3>
                 <div id="chartMonthly" class="w-full h-[280px] sm:h-[350px]"></div>
             </div>
+
+            <!-- 新增 圖表: 綜合能力評級 Tier List -->
+            <div id="tierListCard" style="display: none;" class="bg-bgCard border border-borderColor rounded-xl transition-all duration-200 hover:bg-bgCardHover hover:border-accentPrimary hover:-translate-y-0.5 p-3 sm:p-4 lg:col-span-2">
+                <h3 class="text-base sm:text-lg font-bold text-white mb-4 px-1 sm:px-2 flex items-center gap-2">
+                    🏅 綜合能力評級 (Tier List)
+                </h3>
+                <div id="tierListContainer" class="flex flex-col gap-2.5">
+                    <!-- 動態填入 Tier List -->
+                </div>
+            </div>
             
         </div>
     </main>
+
+    <!-- BGM 背景音樂設定 -->
+    <audio id="bgmAudio" src="http://googleusercontent.com/file_content/1" loop autoplay></audio>
+    <script>
+        // 為了繞過瀏覽器的自動播放限制，當使用者互動(點擊)時確保音樂播放
+        document.addEventListener('click', function() {
+            const audio = document.getElementById('bgmAudio');
+            if (audio && audio.paused) {
+                audio.play().catch(function(e) { console.log('BGM Play blocked:', e); });
+            }
+        }, { once: true });
+    </script>
 
     <script>
         // ==========================================
@@ -240,9 +256,8 @@
         let chartInstances = {
             cumulative: null,
             leaderboard: null,
-            leaderboardTime: null,   // 新增
-            leaderboardCount: null,  // 新增
-            leaderboardPace: null,   // 新增
+            leaderboardTime: null,
+            leaderboardCount: null,
             monthly: null,
             radar: null
         };
@@ -258,9 +273,8 @@
         function initCharts() {
             chartInstances.cumulative = echarts.init(document.getElementById('chartCumulative'), 'dark');
             chartInstances.leaderboard = echarts.init(document.getElementById('chartLeaderboard'), 'dark');
-            chartInstances.leaderboardTime = echarts.init(document.getElementById('chartLeaderboardTime'), 'dark'); // 新增
-            chartInstances.leaderboardCount = echarts.init(document.getElementById('chartLeaderboardCount'), 'dark'); // 新增
-            chartInstances.leaderboardPace = echarts.init(document.getElementById('chartLeaderboardPace'), 'dark'); // 新增
+            chartInstances.leaderboardTime = echarts.init(document.getElementById('chartLeaderboardTime'), 'dark');
+            chartInstances.leaderboardCount = echarts.init(document.getElementById('chartLeaderboardCount'), 'dark');
             chartInstances.monthly = echarts.init(document.getElementById('chartMonthly'), 'dark');
             chartInstances.radar = echarts.init(document.getElementById('chartRadar'), 'dark');
 
@@ -496,6 +510,7 @@
             renderMonthlyOrDailyChart(data, filterUid);
             renderRadarChart(filterUid, filterMonth); // 渲染能力評估雷達圖
             renderBestStats(filterUid, filterMonth); // 渲染最佳成績 4 格
+            renderTierList(filterUid, filterMonth); // 渲染能力綜合評估 Tier List
         }
 
         function updateSummaryCards(data) {
@@ -569,19 +584,16 @@
             const chart = chartInstances.leaderboard;
             const cardTime = document.getElementById('cardLeaderboardTime');
             const cardCount = document.getElementById('cardLeaderboardCount');
-            const cardPace = document.getElementById('cardLeaderboardPace');
             const cardMonthly = document.getElementById('cardMonthly');
 
             chart.clear();
             if (chartInstances.leaderboardTime) chartInstances.leaderboardTime.clear();
             if (chartInstances.leaderboardCount) chartInstances.leaderboardCount.clear();
-            if (chartInstances.leaderboardPace) chartInstances.leaderboardPace.clear();
             
             if (filterUid !== 'all') {
                 // 單一跑者視圖：隱藏額外的排行榜，且讓每月活躍分析恢復單欄寬度
                 if(cardTime) cardTime.style.display = 'none';
                 if(cardCount) cardCount.style.display = 'none';
-                if(cardPace) cardPace.style.display = 'none';
                 if(cardMonthly) cardMonthly.classList.remove('lg:col-span-2');
 
                 let distCategories = { '短程 (<5km)': 0, '中程 (5-10km)': 0, '長程 (>10km)': 0 };
@@ -614,14 +626,12 @@
             // 綜合數據視圖：顯示所有排行榜，並讓每月活躍分析跨越兩欄置底
             if(cardTime) cardTime.style.display = 'block';
             if(cardCount) cardCount.style.display = 'block';
-            if(cardPace) cardPace.style.display = 'block';
             if(cardMonthly) cardMonthly.classList.add('lg:col-span-2');
 
             // 確保 UI 顯示後進行 ECharts 視窗重繪
             setTimeout(() => {
                 if (chartInstances.leaderboardTime) chartInstances.leaderboardTime.resize();
                 if (chartInstances.leaderboardCount) chartInstances.leaderboardCount.resize();
-                if (chartInstances.leaderboardPace) chartInstances.leaderboardPace.resize();
                 if (chartInstances.monthly) chartInstances.monthly.resize();
             }, 10);
 
@@ -634,17 +644,15 @@
                 userStats[r.uid].count += 1;
             });
             
-            // 轉換為陣列並計算配速
+            // 轉換為陣列
             const userArr = Object.entries(userStats).map(([uid, u]) => ({ 
-                uid, name: u.name, dist: u.dist, dur: u.dur, count: u.count,
-                pace: u.dist > 0 ? (u.dur / u.dist) : 0
+                uid, name: u.name, dist: u.dist, dur: u.dur, count: u.count
             }));
             
-            // 渲染 4 個排行榜
+            // 渲染 3 個排行榜
             renderBarChartForRanking(chart, userArr, 'dist', 'km', userColorMap, false);
             renderBarChartForRanking(chartInstances.leaderboardTime, userArr, 'dur', '分', userColorMap, false);
             renderBarChartForRanking(chartInstances.leaderboardCount, userArr, 'count', '次', userColorMap, false);
-            renderBarChartForRanking(chartInstances.leaderboardPace, userArr, 'pace', '', userColorMap, true);
         }
 
         function renderMonthlyOrDailyChart(data, filterUid) {
@@ -1063,6 +1071,136 @@
                     </div>
                 </div>
             `;
+        }
+
+        // 新增：渲染所有跑者的 Tier List (僅在「所有跑者綜合數據」顯示)
+        function renderTierList(filterUid, filterMonth) {
+            const card = document.getElementById('tierListCard');
+            // 只在選擇 "所有跑者綜合數據" 時顯示
+            if (filterUid !== 'all') {
+                card.style.display = 'none';
+                return;
+            }
+            card.style.display = 'block';
+
+            let baseRecords = flatRecords;
+            if (filterMonth !== 'all') {
+                baseRecords = baseRecords.filter(r => r.date.startsWith(filterMonth));
+            }
+
+            // 統計所有跑者資料建立最高標準 (與 RadarChart 邏輯保持完全一致)
+            const userStats = {};
+            baseRecords.forEach(r => {
+                if (!userStats[r.uid]) {
+                    userStats[r.uid] = { name: r.userName, dist: 0, dur: 0, count: 0, steps: 0 };
+                }
+                userStats[r.uid].dist += (r.distance || 0);
+                userStats[r.uid].dur += (r.duration || 0);
+                userStats[r.uid].count += 1;
+                const recordSteps = (r.steps && Number(r.steps) > 0) ? Number(r.steps) : Math.round((r.distance || 0) * 1000);
+                userStats[r.uid].steps += recordSteps;
+            });
+
+            let maxDist = 0.1, maxDur = 0.1, maxCount = 0.1, maxSteps = 0.1;
+            let minPace = 999;
+
+            for (const uid in userStats) {
+                const stat = userStats[uid];
+                if (stat.dist > maxDist) maxDist = stat.dist;
+                if (stat.dur > maxDur) maxDur = stat.dur;
+                if (stat.count > maxCount) maxCount = stat.count;
+                if (stat.steps > maxSteps) maxSteps = stat.steps;
+                const pace = calcPaceValue(stat.dur, stat.dist);
+                if (pace > 0 && pace < minPace) minPace = pace;
+            }
+            if (minPace === 999) minPace = 5;
+
+            // 準備每個階級的結構
+            const tiers = {
+                'S': { color: '#FFD700', users: [] },
+                'A': { color: '#FF3366', users: [] },
+                'B': { color: '#B366FF', users: [] },
+                'C': { color: '#00E5FF', users: [] },
+                'D': { color: '#00E676', users: [] },
+                'E': { color: '#FF9900', users: [] },
+                'F': { color: '#888888', users: [] }
+            };
+
+            const paceRange = 5; 
+            for (const uid in userStats) {
+                const uStat = userStats[uid];
+                const uPace = calcPaceValue(uStat.dur, uStat.dist) || 999;
+
+                // 五維度分數計算
+                const scoreDist = Math.min(100, (uStat.dist / maxDist) * 100);
+                const scoreDur = Math.min(100, (uStat.dur / maxDur) * 100);
+                const scoreCount = Math.min(100, (uStat.count / maxCount) * 100);
+                const scoreSteps = Math.min(100, (uStat.steps / maxSteps) * 100);
+                
+                let scorePace = 0;
+                if (uStat.count === 0) {
+                    scorePace = 0;
+                } else if (uPace <= minPace) {
+                    scorePace = 100;
+                } else if (uPace > minPace + paceRange) {
+                    scorePace = 20; 
+                } else {
+                    scorePace = 100 - ((uPace - minPace) / paceRange) * 80;
+                }
+
+                // 綜合平均分
+                const avgScore = (scoreDist + scoreDur + scorePace + scoreCount + scoreSteps) / 5;
+
+                let grade = 'F';
+                if (avgScore >= 90) grade = 'S';      
+                else if (avgScore >= 80) grade = 'A'; 
+                else if (avgScore >= 70) grade = 'B'; 
+                else if (avgScore >= 60) grade = 'C'; 
+                else if (avgScore >= 50) grade = 'D'; 
+                else if (avgScore >= 40) grade = 'E'; 
+
+                tiers[grade].users.push({
+                    name: uStat.name,
+                    score: Math.round(avgScore),
+                    uid: uid
+                });
+            }
+
+            // 對每個層級內的跑者以分數高低排序
+            for(let key in tiers) {
+                tiers[key].users.sort((a, b) => b.score - a.score);
+            }
+
+            const container = document.getElementById('tierListContainer');
+            container.innerHTML = '';
+
+            // 依序生成 S 到 F 的 Tier List 行
+            ['S', 'A', 'B', 'C', 'D', 'E', 'F'].forEach(grade => {
+                const tierData = tiers[grade];
+
+                let usersHtml = tierData.users.map(u => {
+                    const uColor = userColorMap[u.uid] || '#ffffff';
+                    return `
+                        <div class="bg-[#18181b] px-3 py-1.5 rounded-md border border-borderColor flex items-center gap-2 hover:border-[${uColor}] transition-colors duration-200">
+                            <span class="font-bold text-sm sm:text-base" style="color: ${uColor}">${u.name}</span>
+                            <span class="text-xs text-textMuted bg-[#0f0f13] px-1.5 py-0.5 rounded">${u.score}分</span>
+                        </div>`;
+                }).join('');
+
+                if (!usersHtml) usersHtml = `<span class="text-xs text-textMuted italic py-1.5 px-2">尚未有跑者達到此階級</span>`;
+
+                const rowHtml = `
+                    <div class="flex border border-borderColor rounded-lg overflow-hidden bg-[#0f0f13]">
+                        <div class="w-14 sm:w-20 flex-shrink-0 flex items-center justify-center text-xl sm:text-2xl font-black bg-[#18181b] border-r border-borderColor" style="color: ${tierData.color};">
+                            ${grade}
+                        </div>
+                        <div class="flex-1 p-2 sm:p-3 flex flex-wrap gap-2 items-center">
+                            ${usersHtml}
+                        </div>
+                    </div>
+                `;
+                container.insertAdjacentHTML('beforeend', rowHtml);
+            });
         }
 
         document.addEventListener('DOMContentLoaded', () => {
