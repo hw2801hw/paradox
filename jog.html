@@ -799,6 +799,9 @@
 </head>
 <body>
 
+<!-- ===== Background Music ===== -->
+<audio id="bgMusic" src="bgm.mp3" loop autoplay></audio>
+
 <div id="app">
     <!-- ===== Header ===== -->
     <header class="app-header">
@@ -1698,23 +1701,21 @@ function renderRecords() {
     // Populate dropdown
     monthSelect.innerHTML = months.map(m => `<option value="${m}" ${m === selectedMonth ? 'selected' : ''}>${m}</option>`).join('');
 
-    // Filter by selected month and sort by date ascending (oldest first)
+    // Filter by selected month
     const filteredRecords = flatRecords.filter(r => r.month === selectedMonth);
     
     if (recordCountDisplay) {
         recordCountDisplay.textContent = `(${filteredRecords.length} Record${filteredRecords.length !== 1 ? 's' : ''})`;
     }
 
-    // !!! 警告：此處記錄排序已被強制設定為「最舊的在上，最新的在下」。
-    // !!! 絕對不要再擅自改動此部分的排序邏輯！！！
-
+    // 記錄排序已被設定為「最新的在上，最舊的在下」
     filteredRecords.sort((a, b) => {
-        if (a.date > b.date) return 1;
-        if (a.date < b.date) return -1;
+        if (a.date < b.date) return 1;
+        if (a.date > b.date) return -1;
         const timeA = a.time || '';
         const timeB = b.time || '';
-        if (timeA > timeB) return 1;
-        if (timeA < timeB) return -1;
+        if (timeA < timeB) return 1;
+        if (timeA > timeB) return -1;
         return 0;
     });
     
@@ -2292,6 +2293,15 @@ function renderDailyRankings() {
 document.addEventListener('DOMContentLoaded', () => { 
     initCountdown();
     loadUsers(); 
+    
+    // Add click event to initialize background music if it was blocked by browser
+    document.addEventListener('click', function playAudioOnFirstInteraction() {
+        const audio = document.getElementById('bgMusic');
+        if (audio && audio.paused) {
+            audio.play().catch(e => console.warn('Audio play failed:', e));
+        }
+        document.removeEventListener('click', playAudioOnFirstInteraction);
+    });
 });
 </script>
 
