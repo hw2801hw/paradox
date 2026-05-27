@@ -800,7 +800,7 @@
 <body>
 
 <!-- ===== Background Music ===== -->
-<audio id="bgMusic" src="bgm.mp3" loop autoplay></audio>
+<audio id="bgMusic" src="brahms-lullaby-wiegenlied-op-49-no-4-classical-music-for-babies.mp3" loop autoplay></audio>
 
 <div id="app">
     <!-- ===== Header ===== -->
@@ -966,6 +966,18 @@
 </div>
 
 <!-- ===== Modals ===== -->
+<div class="modal-overlay" id="confirmRecordModal">
+    <div class="modal">
+        <h2>📝 Confirm Record</h2>
+        <p style="text-align:center;font-size:15px;color:var(--text-secondary);margin-bottom:12px;">Are you sure you want to submit this record?</p>
+        <div id="confirmRecordDetails" style="background:var(--bg-input); padding:16px; border-radius:10px; border:1px solid var(--border-color); font-size:14px; color:var(--text-primary); margin-bottom:20px; line-height:1.6; text-align:left;">
+            <!-- Record details filled dynamically -->
+        </div>
+        <button class="btn btn-green" onclick="submitPendingRecord()">Confirm</button>
+        <button class="btn btn-cancel" onclick="closeModal('confirmRecordModal')">Cancel</button>
+    </div>
+</div>
+
 <div class="modal-overlay" id="achievementDetailModal">
     <div class="modal" style="max-height: 80vh;">
         <img id="achievementDetailImg" src="" alt="Badge" style="width: 100px; height: 100px; margin: 0 auto 12px auto; display: block; object-fit: contain;">
@@ -1170,6 +1182,7 @@ let pendingToggleTitleUserId = null;
 let pendingToggleTitleId = null;
 let pendingToggleTitleAction = null; // 'equip' or 'unequip'
 let currentActivityType = 'run'; // Default activity type for Add Record
+let pendingRecordData = null; // Stores temporary record before submit confirmation
 
 // ==========================================
 // Navigation & Core Functions
@@ -1777,20 +1790,58 @@ function addRecord() {
     const durationMinutes = totalDurationSec / 60;
     const yearMonth = date.substring(0, 7); // Extracts YYYY-MM
     
-    // Write new records to nested YYYY-MM structure
-    db.ref('records/' + currentUserId + '/' + yearMonth).push().set({
-        date: date, time: time, duration: durationMinutes, durationMin: durationMin,
-        durationSec: durationSec, distance: distance, steps: steps > 0 ? steps : null,
-        kcal: kcal > 0 ? kcal : null, type: currentActivityType, createdAt: new Date().toISOString()
-    }).then(() => {
+    // Save record data temporarily in state
+    pendingRecordData = {
+        date: date,
+        time: time,
+        duration: durationMinutes,
+        durationMin: durationMin,
+        durationSec: durationSec,
+        distance: distance,
+        steps: steps > 0 ? steps : null,
+        kcal: kcal > 0 ? kcal : null,
+        type: currentActivityType,
+        yearMonth: yearMonth
+    };
+
+    // Construct detailed display text inside modal (in English)
+    const typeLabel = currentActivityType === 'walk' ? '🚶 Walk' : '🏃 Run';
+    const stepsLine = steps > 0 ? `<br><strong>Steps:</strong> ${steps}` : '';
+    const kcalLine = kcal > 0 ? `<br><strong>Kcal:</strong> ${kcal}` : '';
+    
+    const detailsHtml = `
+        <strong>Type:</strong> ${typeLabel}<br>
+        <strong>Date:</strong> ${date} ${time ? 'at ' + time : ''}<br>
+        <strong>Distance:</strong> ${distance.toFixed(2)} km<br>
+        <strong>Duration:</strong> ${durationMin} min ${durationSec} sec${stepsLine}${kcalLine}
+    `;
+    
+    document.getElementById('confirmRecordDetails').innerHTML = detailsHtml;
+    showModal('confirmRecordModal');
+}
+
+function submitPendingRecord() {
+    if (!pendingRecordData || !currentUserId) return;
+    
+    const { yearMonth, ...dataToSave } = pendingRecordData;
+    dataToSave.createdAt = new Date().toISOString();
+
+    db.ref('records/' + currentUserId + '/' + yearMonth).push().set(dataToSave).then(() => {
+        closeModal('confirmRecordModal');
         showToast('Record added!');
+        
+        // Reset form inputs
         document.getElementById('recordDurationMin').value = '';
         document.getElementById('recordDurationSec').value = '';
         document.getElementById('recordDistance').value = '';
         document.getElementById('recordSteps').value = '';
         document.getElementById('recordKcal').value = '';
         setActivityType('run'); // Reset to default after adding
-    }).catch(err => { showToast('Error: ' + err.message, 'error'); });
+        pendingRecordData = null;
+    }).catch(err => {
+        closeModal('confirmRecordModal');
+        showToast('Error: ' + err.message, 'error');
+    });
 }
 
 function confirmDeleteRecord(monthArg, recordId) {
