@@ -393,7 +393,7 @@ const FACTIONS = {
   dark:  { id:'dark',  name:'🌑 暗流派', color:'#9b59b6', desc:'發動時，每點造成等同【總攻擊】 200% 的傷害，受 2% 最大生命反噬。' },
 };
 
-// 怪物/Boss 配置 (骰子魔王強化: 成長 5% -> 20%)
+// 怪物/Boss 配置 (骰子魔王每回合抵擋首次直接傷害，煉獄魔王移除 5% 攻擊成長)
 const STAGE_CONFIGS = [
   { stage: 0, enemies: [{ name:"👾 史萊姆", hp:100, atk:10, emoji:"👾", color:"#7bed9f", desc:"軟綿綿的史萊姆" }] },
   { stage: 1, enemies: [{ name:"🐺 野狼", hp:200, atk:20, emoji:"🐺", color:"#a4b0be", desc:"嗷嗚～咬人了！" }] },
@@ -410,16 +410,16 @@ const STAGE_CONFIGS = [
   { stage: 7, enemies: [{ name:"👹 鬼神", hp:700, atk:70, emoji:"👹", color:"#fd79a8", desc:"恐怖的鬼神！" }] },
   { stage: 8, enemies: [{ name:"🦂 毒蠍王", hp:800, atk:80, emoji:"🦂", color:"#fdcb6e", desc:"劇毒螫針！" }] },
   { stage: 9, enemies: [
-      { name:"💀 骰子魔王", hp:10000, atk:1000, emoji:"💀", color:"#ff6b6b", desc:"Boss！每次攻擊吸血10%，每回合攻擊成長+20%！", isBoss:true, atkGrowth: 0.20 },
-      { name:"🔥 煉獄魔王", hp:10000, atk:1000, emoji:"🔥", color:"#eb4d4b", desc:"Boss！免疫一切中毒，所有攻擊無視護盾！每回合攻擊成長+5%！", isBoss:true, poisonImmune:true, ignoreShield:true, atkGrowth: 0.05 }
+      { name:"💀 骰子魔王", hp:10000, atk:1000, emoji:"💀", color:"#ff6b6b", desc:"Boss！每次攻擊吸血10%，每回合攻擊成長+20%！且每回合可抵擋首次傷害(中毒除外)！", isBoss:true, atkGrowth: 0.20 },
+      { name:"🔥 煉獄魔王", hp:10000, atk:1000, emoji:"🔥", color:"#eb4d4b", desc:"Boss！免疫一切中毒，所有攻擊無視護盾！", isBoss:true, poisonImmune:true, ignoreShield:true, atkGrowth: 0.0 }
     ]
   }
 ];
 
-// 技能資料庫 (毒液塗抹削弱: 20% -> 5%)
+// 技能資料庫 (攻擊強化削弱: 30 -> 1，毒液塗抹削弱: 20% -> 5%)
 const SKILLS_DB = [
   // 【攻】技能
-  { id:"atk_up",    type:"atk", name:"⚔️ 攻擊強化",   desc:"基礎攻擊力總和 +30",            effect: g => { g.bonusAtk += 30; } },
+  { id:"atk_up",    type:"atk", name:"⚔️ 攻擊強化",   desc:"基礎攻擊力總和 +1",            effect: g => { g.bonusAtk += 1; } },
   { id:"atk_mult",  type:"atk", name:"💥 玻璃大砲",   desc:"組合倍率 +7，但最大生命與當前生命-50%", effect: g => { g.playerMaxHp = Math.max(1, Math.floor(g.playerMaxHp * 0.5)); g.playerHp = Math.min(g.playerHp, g.playerMaxHp); } },
   { id:"atk_crit",  type:"atk", name:"🎯 六點爆擊",   desc:"骰子有6點時，最終總傷害額外 +100%", effect: null },
   { id:"atk_lucky", type:"atk", name:"🍀 不現一骰",   desc:"絕對不會出現 1 點（1點會被重新骰掉）", effect: null },
@@ -492,7 +492,8 @@ function loadStage() {
     atkMultiplier: 1.0,           // 獨立的攻擊倍率
     atkGrowth: e.atkGrowth || 0,  // 個體成長值
     enrageTriggered: false,       // 是否已經觸發過死亡暴怒
-    enraged: false                // 是否處於暴怒狀態
+    enraged: false,               // 是否處於暴怒狀態
+    damageBlockedThisRound: false // 魔王每回合傷害抵擋標記
   }));
   
   G.targetIndex = 0; 
@@ -563,7 +564,7 @@ function showDex(type) {
     content.innerHTML += `
       <div style="background:#2d3436; padding:12px; border-radius:8px; border:2px dashed #ff7675; margin-top:10px;">
         <div style="color:#ff7675; font-weight:bold; font-size:18px;">⚔️ 極限攻擊 (集齊5個【攻】)</div>
-        <div style="color:#dfe6e9; font-size:14px; margin-top:4px;">重擲次數上限 +2<br>基礎攻擊力 +100%<br>所有骰型倍率額外 +2<br><span style="color:#ff4444;">※ 副作用：玩家最大生命值 -50%</span></div>
+        <div style="color:#dfe6e9; font-size:14px; margin-top:4px;">重擲次數上限 +1<br>基礎攻擊力 +100%<br>所有骰型倍率額外 +1<br><span style="color:#ff4444;">※ 副作用：玩家最大生命值 -50%</span></div>
       </div>
       <div style="background:#2d3436; padding:12px; border-radius:8px; border:2px dashed #74b9ff; margin-top:10px;">
         <div style="color:#74b9ff; font-weight:bold; font-size:18px;">🛡️ 絕對防禦 (集齊5個【防】)</div>
@@ -587,6 +588,7 @@ function showDex(type) {
         <div style="color:#b2bec3; font-size:14px; margin-top:4px; line-height: 1.5;">
           生命值：10000 | 攻擊力：1000<br>
           <span style="color:#ffd700;">※ 暴虐吞噬</span>：攻擊時能將造成實際傷害的 10% 轉化為自身生命回復。每回合過後基礎攻擊力額外成長 20%！<br>
+          <span style="color:#ffd700;">※ 傷害免役</span>：每回合首次受到直接傷害或流派連打時會被完全抵擋（中毒除外）。<br>
           <span style="color:#ff3838;">※ 復仇暴怒</span>：當其他魔王被擊敗時，立刻增加 100% 基礎攻擊力！
         </div>
       </div>
@@ -595,7 +597,7 @@ function showDex(type) {
         <div style="color:#b2bec3; font-size:14px; margin-top:4px; line-height: 1.5;">
           生命值：10000 | 攻擊力：1000<br>
           <span style="color:#ff7675;">※ 中毒免疫</span>：不受任何來自毒液、技能或流派的中毒傷害。<br>
-          <span style="color:#ff7675;">※ 無視護盾</span>：攻擊無視任何盾牌吸收（如光流派盾），造成直擊生命真實傷害！每回合攻擊成長 5%！<br>
+          <span style="color:#ff7675;">※ 無視護盾</span>：攻擊無視任何盾牌吸收（如光流派盾），造成直擊生命真實傷害！已移除每回合攻擊成長。<br>
           <span style="color:#ff3838;">※ 復仇暴怒</span>：當其他魔王被擊敗時，立刻增加 100% 基礎攻擊力！
         </div>
       </div>
@@ -637,7 +639,7 @@ function getBestCombo(dice) {
   let d = [...dice];
   let bonusMult = 0;
   if (G.skills.includes('atk_mult')) bonusMult += 7; 
-  if (G.synergyAtk) bonusMult += 2; 
+  if (G.synergyAtk) bonusMult += 1; // 極限攻擊：骰型倍率額外由+2改成+1
   if (G.synergyDef && !G.hasRerolled) bonusMult += 5; 
   
   for (const combo of COMBOS) {
@@ -676,6 +678,25 @@ function checkEnrage() {
   }
 }
 
+// 核心傷害處理器（提供首傷抵擋檢測，同時確保中毒依然能正常造成傷害）
+function applyDamageToEnemy(enemyIdx, rawDmg, isPoison = false) {
+  const enemy = G.enemies[enemyIdx];
+  if (!enemy || enemy.hp <= 0) return 0;
+
+  let dmgToDeal = rawDmg;
+  
+  // 骰子魔王：每回合首次受到【直接傷害】或【流派連擊】（isPoison為false）時會完全抵擋！
+  if (enemy.name.includes("骰子") && !enemy.damageBlockedThisRound && !isPoison) {
+    enemy.damageBlockedThisRound = true;
+    dmgToDeal = 0;
+    showDamageFloat(`🛡️ 抵擋`, false, '#3498db', enemyIdx);
+    return 0; // 本次傷害被完全抵擋
+  }
+
+  enemy.hp = Math.max(0, enemy.hp - dmgToDeal);
+  return dmgToDeal;
+}
+
 async function performAttack() {
   if (!G.canAttack || G.isAnimating || rollingCount > 0) return;
   G.isAnimating = true;
@@ -694,12 +715,18 @@ async function performAttack() {
   await wait(150);
   G.heroAttacking = false;
 
-  // 1. 造成一般傷害
+  // 1. 造成一般傷害（透過 applyDamageToEnemy 計算抵擋）
   const targetEnemy = G.enemies[G.targetIndex];
-  targetEnemy.hp = Math.max(0, targetEnemy.hp - dmg);
-  showDamageFloat(`💥 ${dmg}`, false, '#ffd700', G.targetIndex);
+  const actualDmg = applyDamageToEnemy(G.targetIndex, dmg, false);
+  
+  if (actualDmg > 0) {
+    showDamageFloat(`💥 ${actualDmg}`, false, '#ffd700', G.targetIndex);
+    document.getElementById('last-dmg-display').textContent = `基礎攻擊對 ${targetEnemy.name} 造成 ${actualDmg} 點傷害！`;
+  } else {
+    document.getElementById('last-dmg-display').textContent = `🛡️ ${targetEnemy.name} 抵擋了你的基礎攻擊！`;
+  }
+  
   triggerFlash('rgba(255,200,50,0.35)', 250);
-  document.getElementById('last-dmg-display').textContent = `基礎攻擊對 ${targetEnemy.name} 造成 ${dmg} 點傷害！`;
   
   checkEnrage(); // 檢查死亡暴怒
   renderBattleCanvas();
@@ -723,12 +750,16 @@ async function performAttack() {
         showDamageFloat(`💧 +${heal}`, true, '#3498db');
       } 
       else if (G.faction === 'fire') {
-        // 火流派削弱：1% 傷害
+        // 火流派削弱：1% 傷害（直接對全體透過 applyDamageToEnemy 處理）
         G.enemies.forEach((enemy, idx) => {
           if (enemy.hp > 0) {
             const fdmg = Math.max(1, Math.floor(enemy.maxHp * 0.01));
-            enemy.hp = Math.max(0, enemy.hp - fdmg);
-            showDamageFloat(`🔥 ${fdmg}`, false, '#e74c3c', idx);
+            const dealt = applyDamageToEnemy(idx, fdmg, false);
+            if (dealt > 0) {
+              showDamageFloat(`🔥 ${dealt}`, false, '#e74c3c', idx);
+            } else {
+              document.getElementById('last-dmg-display').textContent = `🛡️ 骰子魔王 抵擋了火焰亂舞！`;
+            }
           }
         });
         triggerFlash('rgba(231,76,60,0.2)', 150);
@@ -748,9 +779,13 @@ async function performAttack() {
         if (currentTarget && currentTarget.hp > 0) {
           const selfDmg = Math.max(1, Math.floor(G.playerMaxHp * 0.02));
           const darkDmg = dmg * 2;
-          currentTarget.hp = Math.max(0, currentTarget.hp - darkDmg);
+          const dealt = applyDamageToEnemy(G.targetIndex, darkDmg, false);
           G.playerHp = Math.max(0, G.playerHp - selfDmg);
-          showDamageFloat(`🌑 ${darkDmg}`, false, '#9b59b6', G.targetIndex);
+          if (dealt > 0) {
+            showDamageFloat(`🌑 ${dealt}`, false, '#9b59b6', G.targetIndex);
+          } else {
+            document.getElementById('last-dmg-display').textContent = `🛡️ 骰子魔王 抵擋了暗黑連擊！`;
+          }
           setTimeout(() => showDamageFloat(`🩸 -${selfDmg}`, true, '#ff4444'), 100);
         }
       }
@@ -763,7 +798,7 @@ async function performAttack() {
     await wait(400);
   }
 
-  // 3. 裝備技能毒液附加 (削弱至 5%)
+  // 3. 裝備技能毒液附加 (使用原始 dmg 去計算附加值，確保即使直擊被抵擋依然能成功中毒！)
   if (G.skills.includes('atk_poison') && G.enemies[G.targetIndex] && G.enemies[G.targetIndex].hp > 0) {
     const poisonGain = Math.max(1, Math.floor(dmg * 0.05)); 
     const targetEnemyNow = G.enemies[G.targetIndex];
@@ -797,12 +832,12 @@ async function monstersAttackTurn() {
     const m = G.enemies[i];
     if (m.hp <= 0) continue; 
     
-    // 1. 中毒結算
+    // 1. 中毒結算（傳入 isPoison = true 確保中毒不受魔王的首次盾牌抵擋機制干擾）
     if (m.poisonDmg > 0 && !m.poisonImmune) {
       document.getElementById('last-dmg-display').textContent = `🤢 ${m.name} 受到中毒傷害！`;
       await wait(300);
-      m.hp = Math.max(0, m.hp - m.poisonDmg);
-      showDamageFloat(`☠️ ${m.poisonDmg}`, false, '#2ecc71', i);
+      const dealtPoison = applyDamageToEnemy(i, m.poisonDmg, true);
+      showDamageFloat(`☠️ ${dealtPoison}`, false, '#2ecc71', i);
       
       checkEnrage(); // 毒殺 Boss 也可能觸發暴怒
       updateUI();
@@ -868,7 +903,7 @@ async function monstersAttackTurn() {
     if (G.playerHp <= 0) { G.isAnimating = false; checkDeath(); return; }
   }
 
-  // 怪物回合結束後，個別成長 Boss 的攻擊倍率 (例如骰子魔王20%，煉獄魔王5%)
+  // 怪物回合結束後，個別成長 Boss 的攻擊倍率 (骰子魔王+20%，煉獄魔王為 0.0 移除成長)
   G.enemies.forEach(m => {
     if (m.hp > 0 && m.isBoss) {
       m.atkMultiplier += m.atkGrowth;
@@ -916,6 +951,12 @@ function checkDeath() {
 function newRound() {
   G.rerollLeft = G.maxReroll; G.hasRerolled = false; rollingCount = 0;
   G.dice = G.dice.map(() => randDie()); G.canAttack = true;
+  
+  // 每回合重擲時，重置魔王首傷抵擋標記！
+  G.enemies.forEach(m => {
+    m.damageBlockedThisRound = false;
+  });
+
   updateUI(); drawDiceArea(); updateComboDisplay();
 }
 
@@ -1000,12 +1041,15 @@ function updateUI() {
     const poisonTag = enemy.poisonDmg > 0 ? ` <span class="text-green-400 font-bold text-xs">(🤢毒${enemy.poisonDmg})</span>` : '';
     const bossTag = enemy.isBoss ? ` <span class="text-red-500 text-xs font-bold">[BOSS]</span>` : '';
     const enrageTag = enemy.enraged ? ` <span class="text-red-500 text-xs font-bold bg-white/20 px-1 rounded">💢暴怒</span>` : '';
+    
+    // 如果魔王這回合的免傷盾還沒用掉，顯示盾標
+    const bossShieldTag = (enemy.name.includes("骰子") && !enemy.damageBlockedThisRound && !isDead) ? ` <span class="text-blue-300 text-xs font-bold">🛡️首擋</span>` : '';
     const targetIndicator = isTargeted && !isDead ? ' <span class="text-yellow-400 font-bold">🎯</span>' : '';
     
     div.innerHTML = `
       <div class="flex justify-between items-center mb-0.5" style="font-size:12px;">
         <span class="pixel-text font-bold truncate ${isDead ? 'line-through text-gray-500' : 'text-red-300'}">
-          ${targetIndicator}${enemy.emoji} ${enemy.name}${enrageTag}${poisonTag}${bossTag}
+          ${targetIndicator}${enemy.emoji} ${enemy.name}${enrageTag}${poisonTag}${bossTag}${bossShieldTag}
         </span>
         <span class="${isDead ? 'text-gray-500' : 'text-red-300'} font-bold">${enemy.hp}/${enemy.maxHp}</span>
       </div>
@@ -1091,6 +1135,9 @@ function getMonsterPositions(count, width) {
   return [width * 0.44, width * 0.68, width * 0.88];
 }
 
+// =============================================
+// Canvas 渲染繪製邏輯
+// =============================================
 function renderBattleCanvas() {
   const canvas = document.getElementById('battle-canvas'); if(!canvas) return;
   canvas.width = canvas.getBoundingClientRect().width || 340; canvas.height = 180;
@@ -1155,6 +1202,16 @@ function drawMonster(ctx, x, y, m, isTargeted) {
     ctx.beginPath(); ctx.arc(0, 0, size*0.6, 0, Math.PI*2); ctx.fill();
   }
 
+  // 骰子魔王每回合首次免傷護盾外觀特效（一圈炫彩藍盾）
+  if (m.name.includes("骰子") && !m.damageBlockedThisRound) {
+    ctx.strokeStyle = '#3498db'; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.arc(0, 0, size * 0.75, 0, Math.PI * 2); ctx.stroke();
+    
+    // 微弱發光底盤
+    ctx.fillStyle = 'rgba(52, 152, 219, 0.15)';
+    ctx.beginPath(); ctx.arc(0, 0, size * 0.75, 0, Math.PI * 2); ctx.fill();
+  }
+
   ctx.shadowBlur = 0; // 關閉陰影給其餘部分
   ctx.globalAlpha = 0.3; ctx.beginPath(); ctx.ellipse(0, size/2+8, size*0.5, 6, 0, 0, Math.PI*2); ctx.fillStyle = '#000'; ctx.fill(); ctx.globalAlpha = 1;
 
@@ -1204,10 +1261,11 @@ function showSkillScreen(isReroll = false) {
       const atkCount = G.skills.filter(id => { const f = SKILLS_DB.find(s=>s.id===id); return f && f.type === 'atk'; }).length;
       const defCount = G.skills.filter(id => { const f = SKILLS_DB.find(s=>s.id===id); return f && f.type === 'def'; }).length;
       
+      // 極限攻擊：重擲上限與骰型倍率額外均改為 +1
       if (atkCount === 5 && !G.synergyAtk) {
-        G.synergyAtk = true; G.maxReroll += 2;
+        G.synergyAtk = true; G.maxReroll += 1;
         G.playerMaxHp = Math.max(1, Math.floor(G.playerMaxHp * 0.5)); G.playerHp = Math.min(G.playerHp, G.playerMaxHp);
-        showSynergyModal('⚔️ 極限攻擊解鎖', '集齊5個【攻】技能：<br>重擲次數上限 +2<br>基礎攻擊力 +100%<br>所有骰型倍率額外 +2<br><span style="color:#ff7675;">※ 副作用：最大生命值永久減半 (-50%)！</span>');
+        showSynergyModal('⚔️ 極限攻擊解鎖', '集齊5個【攻】技能：<br>重擲次數上限 +1<br>基礎攻擊力 +100%<br>所有骰型倍率額外 +1<br><span style="color:#ff7675;">※ 副作用：最大生命值永久減半 (-50%)！</span>');
         return;
       }
       if (defCount === 5 && !G.synergyDef) {
