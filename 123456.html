@@ -1,0 +1,1275 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>骰子大師</title>
+<script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+<style>
+  /* 全域重置與基礎設定 */
+  * { box-sizing: border-box; margin: 0; padding: 0; touch-action: manipulation; }
+  body {
+    background: #1a1a2e;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    font-family: 'Segoe UI', sans-serif;
+    overflow: hidden;
+  }
+
+  /* 遊戲容器：固定 9:16 比例 */
+  #game-wrapper {
+    position: relative;
+    width: 360px;
+    height: 640px;
+    background: linear-gradient(180deg, #0f3460 0%, #16213e 50%, #1a1a2e 100%);
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 0 40px rgba(100,200,255,0.3), 0 0 80px rgba(100,100,255,0.15);
+  }
+
+  /* 響應式縮放 */
+  @media (max-height: 660px) {
+    #game-wrapper { transform: scale(0.85); transform-origin: center center; }
+  }
+  @media (max-height: 550px) {
+    #game-wrapper { transform: scale(0.7); transform-origin: center center; }
+  }
+  @media (min-width: 420px) and (min-height: 700px) {
+    #game-wrapper { width: 405px; height: 720px; }
+  }
+
+  /* 像素風格字體模擬 */
+  .pixel-text {
+    font-family: 'Courier New', monospace;
+    letter-spacing: 1px;
+    text-shadow: 2px 2px 0px rgba(0,0,0,0.5);
+  }
+
+  /* 骰子樣式 */
+  .dice-btn {
+    width: 58px;
+    height: 58px;
+    border-radius: 12px;
+    border: 3px solid #fff;
+    background: linear-gradient(135deg, #ffffff 0%, #dce9f5 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    position: relative;
+    box-shadow: 4px 4px 0px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.8);
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  .dice-btn:active { transform: scale(0.9) translateY(2px); box-shadow: 1px 1px 0px rgba(0,0,0,0.4); }
+  
+  /* 流派骰專屬樣式 */
+  .dice-btn.faction-dice.water { border-color: #3498db; box-shadow: 0 0 12px #3498db, 4px 4px 0px rgba(0,0,0,0.5); }
+  .dice-btn.faction-dice.fire { border-color: #e74c3c; box-shadow: 0 0 12px #e74c3c, 4px 4px 0px rgba(0,0,0,0.5); }
+  .dice-btn.faction-dice.wood { border-color: #2ecc71; box-shadow: 0 0 12px #2ecc71, 4px 4px 0px rgba(0,0,0,0.5); }
+  .dice-btn.faction-dice.light { border-color: #f1c40f; box-shadow: 0 0 12px #f1c40f, 4px 4px 0px rgba(0,0,0,0.5); }
+  .dice-btn.faction-dice.dark { border-color: #9b59b6; box-shadow: 0 0 12px #9b59b6, 4px 4px 0px rgba(0,0,0,0.5); }
+
+  .dice-btn.rolling { animation: diceRoll 0.5s ease; }
+  @keyframes diceRoll {
+    0% { transform: rotate(0deg) scale(1); }
+    25% { transform: rotate(90deg) scale(0.8); }
+    50% { transform: rotate(180deg) scale(1.1); }
+    75% { transform: rotate(270deg) scale(0.9); }
+    100% { transform: rotate(360deg) scale(1); }
+  }
+
+  /* 血條 */
+  .hp-bar-outer {
+    height: 14px;
+    background: #333;
+    border-radius: 7px;
+    border: 2px solid rgba(255,255,255,0.2);
+    overflow: hidden;
+  }
+  .hp-bar-inner {
+    height: 100%;
+    border-radius: 5px;
+    transition: width 0.5s ease;
+  }
+  .hp-bar-player { background: linear-gradient(90deg, #4caf50, #8bc34a); }
+  .hp-bar-enemy { background: linear-gradient(90deg, #f44336, #ff5722); }
+
+  /* 攻擊按鈕 */
+  #btn-attack {
+    background: linear-gradient(135deg, #ff6b35, #f7931e);
+    border: 3px solid #ffd700;
+    border-radius: 12px;
+    color: white;
+    font-size: 20px;
+    font-weight: bold;
+    letter-spacing: 2px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    box-shadow: 0 4px 0px #c0392b, 0 6px 15px rgba(255,100,0,0.4);
+    text-shadow: 1px 2px 0px rgba(0,0,0,0.5);
+    user-select: none;
+    width: 100%;
+    padding: 14px 0;
+  }
+  #btn-attack:active { transform: translateY(3px); box-shadow: 0 1px 0px #c0392b; }
+  #btn-attack:disabled { background: linear-gradient(135deg, #666, #555); border-color: #888; box-shadow: none; cursor: not-allowed; }
+
+  /* 主選單按鈕 */
+  .menu-btn {
+    width: 220px;
+    padding: 12px;
+    margin-bottom: 12px;
+    background: linear-gradient(135deg, #2980b9, #2c3e50);
+    border: 2px solid #3498db;
+    border-radius: 12px;
+    color: white;
+    font-size: 18px;
+    font-weight: bold;
+    cursor: pointer;
+    box-shadow: 0 4px 0px #1a5276;
+    transition: transform 0.1s, filter 0.2s;
+  }
+  .menu-btn:active { transform: translateY(4px); box-shadow: 0 0px 0px #1a5276; }
+  .menu-btn:hover { filter: brightness(1.1); }
+
+  /* 流派卡片 */
+  .faction-card {
+    background: rgba(0,0,0,0.6);
+    border: 2px solid white;
+    border-radius: 10px;
+    padding: 12px;
+    cursor: pointer;
+    transition: transform 0.2s, background 0.2s;
+    text-align: center;
+  }
+  .faction-card:hover { transform: scale(1.03); background: rgba(255,255,255,0.1); }
+
+  /* 技能選擇面板 */
+  .skill-card {
+    background: linear-gradient(135deg, #1e3a5f, #0d2137);
+    border: 2px solid #4fc3f7;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    padding: 12px;
+  }
+  .skill-card:hover, .skill-card:active {
+    border-color: #ffd700;
+    background: linear-gradient(135deg, #2a4a6f, #1a3147);
+    transform: scale(1.03);
+    box-shadow: 0 0 15px rgba(255,215,0,0.4);
+  }
+
+  /* 覆蓋層 */
+  .overlay {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    background: rgba(0,0,0,0.85);
+  }
+
+  /* 傷害數字 */
+  .damage-float {
+    position: absolute;
+    font-weight: bold;
+    text-shadow: 2px 2px 0px #000, -1px -1px 0px #000;
+    pointer-events: none;
+    animation: floatUp 1s ease-out forwards;
+    z-index: 50;
+  }
+  @keyframes floatUp {
+    0% { opacity: 1; transform: translateY(0) scale(1); }
+    50% { opacity: 1; transform: translateY(-40px) scale(1.2); }
+    100% { opacity: 0; transform: translateY(-80px) scale(0.8); }
+  }
+
+  /* 星星特效 */
+  @keyframes starPop {
+    0% { opacity: 1; transform: scale(0) rotate(0deg); }
+    50% { opacity: 1; transform: scale(1.5) rotate(180deg); }
+    100% { opacity: 0; transform: scale(0) rotate(360deg); }
+  }
+
+  /* 捲動條隱藏 */
+  ::-webkit-scrollbar { display: none; }
+
+  /* 閃爍動畫 */
+  @keyframes pulse-glow {
+    0%, 100% { box-shadow: 0 0 8px rgba(255,215,0,0.5); }
+    50% { box-shadow: 0 0 20px rgba(255,215,0,0.9); }
+  }
+  .combo-glow { animation: pulse-glow 1s infinite; }
+
+  /* 背景星星 */
+  .star {
+    position: absolute;
+    background: white;
+    border-radius: 50%;
+    animation: twinkle 2s infinite alternate;
+  }
+  @keyframes twinkle { 0% { opacity: 0.2; } 100% { opacity: 1; } }
+</style>
+</head>
+<body>
+<div id="game-wrapper">
+  <!-- 背景裝飾星星 -->
+  <div id="bg-stars"></div>
+
+  <!-- 主選單 -->
+  <div id="screen-main-menu" class="overlay" style="background:#1a1a2e; z-index:200;">
+    <h1 style="color:#ffd700; font-size:44px; text-shadow:4px 4px 0 #000; margin-bottom:10px;" class="pixel-text">骰子大師</h1>
+    <div style="color:#a29bfe; margin-bottom:30px; font-size:14px;">流派構築 × 隨機骰運</div>
+    <button onclick="showFactionSelect()" class="menu-btn">▶ 開始遊戲</button>
+    <button onclick="showDex('skill')" class="menu-btn">📖 技能圖鑑</button>
+    <button onclick="showDex('faction')" class="menu-btn">🔮 流派圖鑑</button>
+    <button onclick="showDex('boss')" class="menu-btn">👑 魔王圖鑑</button>
+  </div>
+
+  <!-- 流派選擇 -->
+  <div id="screen-faction-select" class="overlay" style="background:rgba(0,0,0,0.92); z-index:150; display:none; padding:15px;">
+    <h2 style="color:white; margin-bottom:15px; font-size:24px;" class="pixel-text">選擇初始流派</h2>
+    <div style="color:#aaa; font-size:14px; margin-bottom:15px; text-align:center;">
+      流派骰會固定在中間位置。<br>點數越大，流派發動次數越多！
+    </div>
+    <div id="faction-list" style="display:flex; flex-direction:column; gap:8px; width:100%; overflow-y:auto; padding-bottom:10px;">
+      <!-- 由 JS 動態生成 -->
+    </div>
+  </div>
+
+  <!-- 圖鑑介面 -->
+  <div id="screen-dex" class="overlay" style="background:rgba(10,20,40,0.95); z-index:250; display:none; padding:20px;">
+    <h2 id="dex-title" style="color:#ffd700; margin-bottom:15px; font-size:26px;" class="pixel-text">圖鑑</h2>
+    <div id="dex-content" style="overflow-y:auto; flex:1; width:100%; display:flex; flex-direction:column; gap:10px; padding:5px;">
+      <!-- 由 JS 動態生成 -->
+    </div>
+    <button onclick="closeDex()" style="margin-top:15px; padding:12px; width:100%; background:#e74c3c; border:none; border-radius:10px; color:white; font-size:18px; font-weight:bold; box-shadow:0 3px 0 #c0392b;">返回主選單</button>
+  </div>
+
+  <!-- 主遊戲畫面 -->
+  <div id="screen-game" style="display:none; flex-direction:column; height:100%; padding:8px 10px;">
+
+    <!-- 頂部：關卡 + 玩家血條 -->
+    <div style="flex-shrink:0;">
+      <div class="flex justify-between items-center mb-1">
+        <span id="stage-title" class="pixel-text text-yellow-300" style="font-size:18px;">⚔️ 第 1 關</span>
+        <span id="player-shield-text" class="text-yellow-400 pixel-text" style="font-size:14px; display:none;">🛡️ 0</span>
+        <span id="player-hp-text" class="text-green-300 pixel-text" style="font-size:16px;">❤️ 100/100</span>
+      </div>
+      <div class="hp-bar-outer mb-1">
+        <div id="player-hp-bar" class="hp-bar-inner hp-bar-player" style="width:100%;"></div>
+      </div>
+      <div class="flex justify-between items-center">
+        <span class="text-blue-300 pixel-text" style="font-size:14px;">⚔️ 基礎攻擊: <span id="player-atk-text">0</span></span>
+        <span id="player-faction-text" class="text-purple-300 pixel-text" style="font-size:14px;">流派: 無</span>
+      </div>
+    </div>
+
+    <!-- 戰鬥區域 -->
+    <div style="flex:1; position:relative; min-height:0; display:flex; flex-direction:column;">
+      <!-- 敵方資訊區 -->
+      <div id="enemies-hud" style="padding: 4px 0 2px 0;">
+        <!-- 由 JS 動態渲染多隻敵人的血條 -->
+      </div>
+      
+      <!-- 多目標手動鎖定按鈕 -->
+      <div id="target-selectors" class="flex justify-center gap-1 my-1" style="display:none;"></div>
+
+      <!-- Canvas 戰鬥場景 -->
+      <canvas id="battle-canvas" style="width:100%; height:180px; display:block; border-radius:12px; margin:4px 0; touch-action: none;"></canvas>
+
+      <!-- 最終傷害與狀態顯示 -->
+      <div id="last-dmg-display" class="text-center" style="font-size:13px; color:#ffd700; min-height:20px; font-weight:bold; letter-spacing:1px; line-height:1.2; margin-top:2px;"></div>
+
+      <!-- 骰型結果 -->
+      <div id="combo-banner" style="background:rgba(0,0,0,0.5); border-radius:10px; padding:6px 10px; text-align:center; min-height:36px; border:1px solid rgba(255,255,255,0.1); margin-top:2px;">
+        <span id="combo-text" class="pixel-text text-white" style="font-size:14px;">🎲 請擲骰子</span>
+        <span id="mult-text" class="text-yellow-300 pixel-text" style="font-size:14px; margin-left:8px;"></span>
+      </div>
+      
+      <!-- 技能收集進度 -->
+      <div class="flex justify-between items-center mt-1 px-1">
+        <span id="atk-progress" class="pixel-text text-red-400" style="font-size:12px; opacity:0.8;">⚔️ 攻: 0/5</span>
+        <span id="def-progress" class="pixel-text text-blue-400" style="font-size:12px; opacity:0.8;">🛡️ 防: 0/5</span>
+      </div>
+    </div>
+
+    <!-- 底部：骰子區域 -->
+    <div style="flex-shrink:0;">
+      <!-- 狀態提示 -->
+      <div class="flex justify-between items-center mb-1">
+        <span class="text-cyan-300 pixel-text" style="font-size:14px;">🔄 剩餘重擲: <span id="reroll-count">3</span> 次</span>
+        <span class="text-gray-300" style="font-size:12px;">(點擊單顆骰子重擲)</span>
+      </div>
+
+      <!-- 5顆骰子 -->
+      <div id="dice-area" class="flex justify-around items-center mb-2" style="padding: 0 4px; margin-bottom: 20px;">
+        <!-- 骰子由 JS 動態生成 -->
+      </div>
+
+      <!-- 按鈕區 -->
+      <button id="btn-attack" onclick="performAttack()">
+        ⚔️ 發動攻擊！
+      </button>
+    </div>
+  </div>
+
+  <!-- 技能選擇畫面 -->
+  <div id="screen-skill" class="overlay" style="display:none; padding:20px;">
+    <div class="text-center mb-4">
+      <div style="font-size:40px;">🌟</div>
+      <div class="pixel-text text-yellow-300" style="font-size:22px; margin-top:8px;">選擇技能！</div>
+      <div class="text-gray-300" style="font-size:15px; margin-top:4px;">通過第 <span id="skill-stage-num">1</span> 關！<br>收集5個同類型技能可解鎖強大組合技</div>
+    </div>
+    <div id="skill-cards" class="w-full" style="display:flex; flex-direction:column; gap:10px;">
+      <!-- 技能卡片由 JS 生成 -->
+    </div>
+    <button id="btn-reroll-skills" onclick="rerollSkills()" style="margin-top:16px; padding:10px 30px; background:linear-gradient(135deg, #34495e, #2c3e50); border:2px solid #7f8c8d; border-radius:10px; color:white; font-size:16px; font-weight:bold; cursor:pointer; box-shadow:0 3px 0 #1a252f; transition:transform 0.1s;">
+      🔄 重抽一次
+    </button>
+  </div>
+  
+  <!-- 組合技解鎖特效畫面 -->
+  <div id="screen-synergy" class="overlay" style="display:none; z-index:300;">
+    <div style="font-size:60px; animation: starPop 0.5s ease;" id="synergy-icon">🔥</div>
+    <div class="pixel-text text-yellow-300" style="font-size:28px; margin-top:10px;" id="synergy-title">解鎖組合技</div>
+    <div id="synergy-desc" class="text-white text-center" style="font-size:16px; margin-top:8px; padding:0 20px; line-height:1.5;"></div>
+    <button onclick="closeSynergy()" style="margin-top:20px; padding:12px 40px; background:linear-gradient(135deg,#27ae60,#2ecc71); border:3px solid #a8e6cf; border-radius:14px; color:white; font-size:20px; font-weight:bold; cursor:pointer; box-shadow:0 4px 0px #1a7a45; letter-spacing:2px;">
+      繼續
+    </button>
+  </div>
+
+  <!-- 勝利畫面 -->
+  <div id="screen-win" class="overlay" style="display:none;">
+    <div style="font-size:60px; animation: starPop 0.5s ease;">🏆</div>
+    <div class="pixel-text text-yellow-300" style="font-size:28px; margin-top:10px;">勝利！</div>
+    <div id="win-msg" class="text-white text-center" style="font-size:17px; margin-top:8px; padding:0 20px;"></div>
+    <button id="btn-next-stage" onclick="nextStage()" style="margin-top:20px; padding:14px 40px; background:linear-gradient(135deg,#27ae60,#2ecc71); border:3px solid #a8e6cf; border-radius:14px; color:white; font-size:20px; font-weight:bold; cursor:pointer; box-shadow:0 4px 0px #1a7a45; letter-spacing:2px;">
+      ▶ 下一關
+    </button>
+  </div>
+
+  <!-- 失敗畫面 -->
+  <div id="screen-lose" class="overlay" style="display:none;">
+    <div style="font-size:60px;">💀</div>
+    <div class="pixel-text text-red-400" style="font-size:28px; margin-top:10px;">遊戲結束</div>
+    <div id="lose-msg" class="text-gray-300 text-center" style="font-size:17px; margin-top:8px; padding:0 20px;"></div>
+    <button onclick="returnToMenu()" style="margin-top:20px; padding:14px 40px; background:linear-gradient(135deg,#e74c3c,#c0392b); border:3px solid #ff8a80; border-radius:14px; color:white; font-size:20px; font-weight:bold; cursor:pointer; box-shadow:0 4px 0px #922b21; letter-spacing:2px;">
+      🏠 回主選單
+    </button>
+  </div>
+
+  <!-- 最終勝利畫面 -->
+  <div id="screen-final-win" class="overlay" style="display:none; background:rgba(0,0,0,0.92);">
+    <div style="font-size:64px; animation: diceRoll 1s ease infinite;">👑</div>
+    <div class="pixel-text text-yellow-300" style="font-size:26px; margin-top:10px; text-align:center;">恭喜通關！</div>
+    <div class="text-yellow-200 text-center" style="font-size:17px; margin-top:8px; padding:0 20px;">
+      你擊敗了雙生傳說魔王！<br>成為真正的終極骰子大師！🎲✨
+    </div>
+    <button onclick="returnToMenu()" style="margin-top:24px; padding:14px 40px; background:linear-gradient(135deg,#f39c12,#d35400); border:3px solid #ffd700; border-radius:14px; color:white; font-size:20px; font-weight:bold; cursor:pointer; box-shadow:0 4px 0px #7d4800; letter-spacing:2px;">
+      🏠 回主選單
+    </button>
+  </div>
+</div>
+
+<script>
+// =============================================
+// 基礎資料定義
+// =============================================
+
+// 流派資料庫 (火流派削弱: 2% -> 1%)
+const FACTIONS = {
+  water: { id:'water', name:'💧 水流派', color:'#3498db', desc:'發動時，每點回復自己 5% 最大生命。生存力極強。' },
+  fire:  { id:'fire',  name:'🔥 火流派', color:'#e74c3c', desc:'發動時，每點額外造成【所有在場敵方】 1% 最大生命傷害（不需鎖定）。' },
+  wood:  { id:'wood',  name:'🌿 木流派', color:'#2ecc71', desc:'發動時，每點永久增加自己 1% 最大生命值。生生不息。' },
+  light: { id:'light', name:'✨ 光流派', color:'#f1c40f', desc:'發動時，每點獲得等同【總攻擊】 20% 的護盾（護盾為永久效果，可帶至下關）。' },
+  dark:  { id:'dark',  name:'🌑 暗流派', color:'#9b59b6', desc:'發動時，每點造成等同【總攻擊】 100% 的傷害，受 2% 最大生命反噬。' },
+};
+
+// 怪物/Boss 配置 (骰子魔王強化: 成長 5% -> 20%)
+const STAGE_CONFIGS = [
+  { stage: 0, enemies: [{ name:"👾 史萊姆", hp:100, atk:10, emoji:"👾", color:"#7bed9f", desc:"軟綿綿的史萊姆" }] },
+  { stage: 1, enemies: [{ name:"🐺 野狼", hp:200, atk:20, emoji:"🐺", color:"#a4b0be", desc:"嗷嗚～咬人了！" }] },
+  { stage: 2, enemies: [{ name:"🦎 蜥蜴人", hp:300, atk:30, emoji:"🦎", color:"#6ab04c", desc:"吐出毒液！" }] },
+  { stage: 3, enemies: [{ name:"🧟 殭屍", hp:400, atk:40, emoji:"🧟", color:"#badc58", desc:"腐臭的殭屍" }] },
+  { stage: 4, enemies: [
+      { name:"🦎 蜥蜴前鋒A", hp:500, atk:50, emoji:"🦎", color:"#ffbe76", desc:"精銳前鋒，突擊玩家！" },
+      { name:"🛡️ 蜥蜴重甲衛", hp:500, atk:50, emoji:"🛡️", color:"#f9ca24", desc:"重裝護衛，防護極強！" },
+      { name:"🦎 蜥蜴前鋒B", hp:500, atk:50, emoji:"🦎", color:"#ffbe76", desc:"精銳前鋒，夾擊玩家！" }
+    ]
+  },
+  { stage: 5, enemies: [{ name:"🧙 黑巫師", hp:500, atk:50, emoji:"🧙", color:"#6c5ce7", desc:"施展黑魔法！" }] },
+  { stage: 6, enemies: [{ name:"🐉 小龍", hp:600, atk:60, emoji:"🐉", color:"#e17055", desc:"噴出火焰！" }] },
+  { stage: 7, enemies: [{ name:"👹 鬼神", hp:700, atk:70, emoji:"👹", color:"#fd79a8", desc:"恐怖的鬼神！" }] },
+  { stage: 8, enemies: [{ name:"🦂 毒蠍王", hp:800, atk:80, emoji:"🦂", color:"#fdcb6e", desc:"劇毒螫針！" }] },
+  { stage: 9, enemies: [
+      { name:"💀 骰子魔王", hp:10000, atk:1000, emoji:"💀", color:"#ff6b6b", desc:"Boss！每次攻擊吸血10%，每回合攻擊成長+20%！", isBoss:true, atkGrowth: 0.20 },
+      { name:"🔥 煉獄魔王", hp:10000, atk:1000, emoji:"🔥", color:"#eb4d4b", desc:"Boss！免疫一切中毒，所有攻擊無視護盾！每回合攻擊成長+5%！", isBoss:true, poisonImmune:true, ignoreShield:true, atkGrowth: 0.05 }
+    ]
+  }
+];
+
+// 技能資料庫 (毒液塗抹削弱: 20% -> 5%)
+const SKILLS_DB = [
+  // 【攻】技能
+  { id:"atk_up",    type:"atk", name:"⚔️ 攻擊強化",   desc:"基礎攻擊力總和 +30",            effect: g => { g.bonusAtk += 30; } },
+  { id:"atk_mult",  type:"atk", name:"💥 玻璃大砲",   desc:"組合倍率 +7，但最大生命與當前生命-50%", effect: g => { g.playerMaxHp = Math.max(1, Math.floor(g.playerMaxHp * 0.5)); g.playerHp = Math.min(g.playerHp, g.playerMaxHp); } },
+  { id:"atk_crit",  type:"atk", name:"🎯 六點爆擊",   desc:"骰子有6點時，最終總傷害額外 +100%", effect: null },
+  { id:"atk_lucky", type:"atk", name:"🍀 不現一骰",   desc:"絕對不會出現 1 點（1點會被重新骰掉）", effect: null },
+  { id:"atk_poison",type:"atk", name:"☠️ 毒液塗抹",   desc:"每次攻擊後，鎖定目標中毒，每回合扣等同總攻擊5%的生命值", effect: null },
+  // 【防】技能
+  { id:"def_shield",type:"def", name:"🛡️ 幻影護盾",   desc:"怪物攻擊時有 25% 機率其傷害化為 0",     effect: null },
+  { id:"def_heal",  type:"def", name:"💊 治療藥水",   desc:"每回合結束自動回復 100 點HP",     effect: null },
+  { id:"def_reroll",type:"def", name:"🔄 額外重擲",   desc:"每回合重擲次數上限 +1",         effect: g => { g.maxReroll += 1; } },
+  { id:"def_hp",    type:"def", name:"❤️ 生命突變",   desc:"40%機率最大生命值-20%，60%機率+5倍", effect: g => { if (Math.random() < 0.4) { g.playerMaxHp = Math.max(1, Math.floor(g.playerMaxHp * 0.8)); g.playerHp = Math.min(g.playerHp, g.playerMaxHp); } else { const oldMax = g.playerMaxHp; g.playerMaxHp *= 6; g.playerHp += (g.playerMaxHp - oldMax); } } },
+  { id:"def_thorns",type:"def", name:"🌵 荊棘之甲",   desc:"每次受到敵人攻擊時，最大生命值永久隨機 +1~5%", effect: null }
+];
+
+// 骰型定義
+const COMBOS = [
+  { name:"五骰子", mult:10,  check: v => allSame(v,5) },
+  { name:"四骰子", mult:5,   check: v => hasN(v,4) },
+  { name:"葫蘆",   mult:3.5, check: v => isFullHouse(v) },
+  { name:"順子",   mult:3,   check: v => isStraight(v) },
+  { name:"三骰子", mult:2.5, check: v => hasN(v,3) },
+  { name:"兩對",   mult:2,   check: v => countPairs(v)>=2 },
+  { name:"一對",   mult:1.5, check: v => countPairs(v)>=1 },
+];
+
+// 全域遊戲狀態
+let G = {};
+let rollingCount = 0; 
+let hasRerolledSkills = false; 
+const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+function initGame(factionId = null) {
+  G = {
+    faction: factionId || G.faction,
+    stage: 0,
+    playerHp: 777,
+    playerMaxHp: 777,
+    bonusAtk: 0,         
+    maxReroll: 3,
+    skills: [],          
+    shield: 0,           
+    dice: [1,2,3,4,5],
+    rerollLeft: 3,
+    enemies: [],         
+    targetIndex: 0,      
+    canAttack: true,
+    isAnimating: false,
+    heroAttacking: false,
+    synergyAtk: false,   
+    synergyDef: false,   
+    hasRerolled: false   
+  };
+  loadStage();
+}
+
+function loadStage() {
+  const config = STAGE_CONFIGS[G.stage];
+  
+  // 複製並初始化敵人資料 (加入攻擊倍率與暴怒狀態)
+  G.enemies = config.enemies.map(e => ({
+    name: e.name,
+    hp: e.hp,
+    maxHp: e.hp,
+    atk: e.atk,
+    emoji: e.emoji,
+    color: e.color,
+    desc: e.desc,
+    isBoss: e.isBoss || false,
+    poisonImmune: e.poisonImmune || false,
+    ignoreShield: e.ignoreShield || false,
+    poisonDmg: 0,
+    atkMultiplier: 1.0,           // 獨立的攻擊倍率
+    atkGrowth: e.atkGrowth || 0,  // 個體成長值
+    enrageTriggered: false,       // 是否已經觸發過死亡暴怒
+    enraged: false                // 是否處於暴怒狀態
+  }));
+  
+  G.targetIndex = 0; 
+  G.rerollLeft = G.maxReroll;
+  G.canAttack = true;
+  G.hasRerolled = false;
+  rollingCount = 0;
+  
+  G.dice = [1,2,3,4,5].map(() => randDie());
+  
+  updateUI();
+  renderBattleCanvas();
+  drawDiceArea();
+  updateComboDisplay();
+  document.getElementById('last-dmg-display').textContent = '關卡開始！請鎖定敵人或進行骰子重擲。';
+}
+
+// =============================================
+// 畫面切換邏輯
+// =============================================
+function showMainMenu() {
+  document.querySelectorAll('.overlay').forEach(el => el.style.display = 'none');
+  document.getElementById('screen-game').style.display = 'none';
+  document.getElementById('screen-main-menu').style.display = 'flex';
+}
+
+function showFactionSelect() {
+  document.getElementById('screen-main-menu').style.display = 'none';
+  const list = document.getElementById('faction-list');
+  list.innerHTML = '';
+  
+  Object.values(FACTIONS).forEach(f => {
+    const btn = document.createElement('div');
+    btn.className = 'faction-card';
+    btn.style.borderColor = f.color;
+    btn.innerHTML = `
+      <div style="font-size:24px; color:${f.color}; font-weight:bold; letter-spacing:1px;">${f.name}</div>
+      <div style="color:#ddd; margin-top:6px; font-size:14px;">${f.desc}</div>
+    `;
+    btn.onclick = () => {
+      document.getElementById('screen-faction-select').style.display = 'none';
+      document.getElementById('screen-game').style.display = 'flex';
+      initGame(f.id);
+    };
+    list.appendChild(btn);
+  });
+  
+  document.getElementById('screen-faction-select').style.display = 'flex';
+}
+
+function showDex(type) {
+  document.getElementById('screen-dex').style.display = 'flex';
+  const content = document.getElementById('dex-content');
+  const title = document.getElementById('dex-title');
+  content.innerHTML = '';
+  
+  if (type === 'skill') {
+    title.textContent = '📖 技能圖鑑';
+    SKILLS_DB.forEach(s => {
+      const typeTag = s.type === 'atk' ? '<span style="color:#ff6b6b">[攻]</span>' : '<span style="color:#74b9ff">[防]</span>';
+      content.innerHTML += `
+      <div style="background:#1e3a5f; padding:12px; border-radius:8px; border:1px solid #4fc3f7;">
+        <div style="color:#ffd700; font-weight:bold; font-size:18px;">${typeTag} ${s.name}</div>
+        <div style="color:#b2bec3; font-size:14px; margin-top:4px;">${s.desc}</div>
+      </div>`;
+    });
+    
+    content.innerHTML += `
+      <div style="background:#2d3436; padding:12px; border-radius:8px; border:2px dashed #ff7675; margin-top:10px;">
+        <div style="color:#ff7675; font-weight:bold; font-size:18px;">⚔️ 極限攻擊 (集齊5個【攻】)</div>
+        <div style="color:#dfe6e9; font-size:14px; margin-top:4px;">重擲次數上限 +2<br>基礎攻擊力 +100%<br>所有骰型倍率額外 +2<br><span style="color:#ff4444;">※ 副作用：玩家最大生命值 -50%</span></div>
+      </div>
+      <div style="background:#2d3436; padding:12px; border-radius:8px; border:2px dashed #74b9ff; margin-top:10px;">
+        <div style="color:#74b9ff; font-weight:bold; font-size:18px;">🛡️ 絕對防禦 (集齊5個【防】)</div>
+        <div style="color:#dfe6e9; font-size:14px; margin-top:4px;">防禦力化為絕對的 100 點<br>「不進行重擲」時，所有骰型倍率額外 +5<br>最大生命值 +100%<br><span style="color:#ff4444;">※ 副作用：所有攻擊的最終傷害 -20%</span></div>
+      </div>
+    `;
+  } else if (type === 'faction') {
+    title.textContent = '🔮 流派圖鑑';
+    Object.values(FACTIONS).forEach(f => {
+      content.innerHTML += `
+      <div style="background:#1e3a5f; padding:12px; border-radius:8px; border:1px solid ${f.color};">
+        <div style="color:${f.color}; font-weight:bold; font-size:18px;">${f.name}</div>
+        <div style="color:#b2bec3; font-size:14px; margin-top:4px;">${f.desc}</div>
+      </div>`;
+    });
+  } else if (type === 'boss') {
+    title.textContent = '👑 魔王圖鑑';
+    content.innerHTML += `
+      <div style="background:#1e3a5f; padding:12px; border-radius:8px; border:1px solid #ff6b6b; margin-bottom: 8px;">
+        <div style="color:#ff6b6b; font-weight:bold; font-size:20px;">💀 骰子魔王 (Stage 10)</div>
+        <div style="color:#b2bec3; font-size:14px; margin-top:4px; line-height: 1.5;">
+          生命值：10000 | 攻擊力：1000<br>
+          <span style="color:#ffd700;">※ 暴虐吞噬</span>：攻擊時能將造成實際傷害的 10% 轉化為自身生命回復。每回合過後基礎攻擊力額外成長 20%！<br>
+          <span style="color:#ff3838;">※ 復仇暴怒</span>：當其他魔王被擊敗時，立刻增加 100% 基礎攻擊力！
+        </div>
+      </div>
+      <div style="background:#1e3a5f; padding:12px; border-radius:8px; border:1px solid #eb4d4b;">
+        <div style="color:#eb4d4b; font-weight:bold; font-size:20px;">🔥 煉獄魔王 (Stage 10)</div>
+        <div style="color:#b2bec3; font-size:14px; margin-top:4px; line-height: 1.5;">
+          生命值：10000 | 攻擊力：1000<br>
+          <span style="color:#ff7675;">※ 中毒免疫</span>：不受任何來自毒液、技能或流派的中毒傷害。<br>
+          <span style="color:#ff7675;">※ 無視護盾</span>：攻擊無視任何盾牌吸收（如光流派盾），造成直擊生命真實傷害！每回合攻擊成長 5%！<br>
+          <span style="color:#ff3838;">※ 復仇暴怒</span>：當其他魔王被擊敗時，立刻增加 100% 基礎攻擊力！
+        </div>
+      </div>
+    `;
+  }
+}
+
+function closeDex() { document.getElementById('screen-dex').style.display = 'none'; }
+function returnToMenu() { showMainMenu(); }
+
+// =============================================
+// 骰型與分數計算
+// =============================================
+function randDie() { 
+  let val = Math.floor(Math.random()*6)+1; 
+  if (G.skills && G.skills.includes('atk_lucky') && val === 1) return randDie(); 
+  return val;
+}
+
+function randDieExcluding(excludeVal) {
+  let res;
+  do { res = Math.floor(Math.random()*6)+1; } 
+  while(res === excludeVal || (G.skills && G.skills.includes('atk_lucky') && res === 1));
+  return res;
+}
+
+function getCounts(dice) { const c = {}; dice.forEach(d => c[d] = (c[d]||0)+1); return c; }
+function allSame(dice) { return new Set(dice).size === 1; }
+function hasN(dice, n) { return Object.values(getCounts(dice)).some(v => v >= n); }
+function isFullHouse(dice) { const vals = Object.values(getCounts(dice)).sort((a,b)=>b-a); return vals[0]===3 && vals[1]===2; }
+function isStraight(dice) {
+  const sorted = [...new Set(dice)].sort((a,b)=>a-b);
+  if (sorted.length !== 5) return false;
+  return (sorted.join('') === '12345' || sorted.join('') === '23456');
+}
+function countPairs(dice) { return Object.values(getCounts(dice)).filter(v => v >= 2).length; }
+
+function getBestCombo(dice) {
+  let d = [...dice];
+  let bonusMult = 0;
+  if (G.skills.includes('atk_mult')) bonusMult += 7; 
+  if (G.synergyAtk) bonusMult += 2; 
+  if (G.synergyDef && !G.hasRerolled) bonusMult += 5; 
+  
+  for (const combo of COMBOS) {
+    if (combo.check(d)) return { name: combo.name, mult: combo.mult + bonusMult };
+  }
+  return { name:"散骨", mult: 1 + bonusMult };
+}
+
+// =============================================
+// 核心戰鬥邏輯與暴怒判定
+// =============================================
+
+// 判定場上的魔王是否因同伴死亡而暴怒
+function checkEnrage() {
+  let enrageTriggeredThisCall = false;
+  
+  G.enemies.forEach(m => {
+    // 若該 Boss 剛死亡且未觸發過暴怒信號
+    if (m.isBoss && m.hp <= 0 && !m.enrageTriggered) {
+      m.enrageTriggered = true; 
+      
+      // 讓其他存活的 Boss 進入暴怒
+      G.enemies.forEach((aliveBoss, idx) => {
+        if (aliveBoss.isBoss && aliveBoss.hp > 0 && !aliveBoss.enraged) {
+          aliveBoss.atkMultiplier += 1.0; // 基礎攻擊力 +100%
+          aliveBoss.enraged = true;
+          showDamageFloat(`💢 暴怒 (+100%攻)`, false, '#ff0000', idx);
+          enrageTriggeredThisCall = true;
+        }
+      });
+    }
+  });
+
+  if (enrageTriggeredThisCall) {
+    document.getElementById('last-dmg-display').innerHTML = `<span style="color:#ff3838;">⚠️ 同伴陣亡！存活的魔王陷入暴怒！</span>`;
+  }
+}
+
+async function performAttack() {
+  if (!G.canAttack || G.isAnimating || rollingCount > 0) return;
+  G.isAnimating = true;
+  G.canAttack = false;
+
+  const baseAtkRaw = G.dice.reduce((a,b) => a+b, 0) + G.bonusAtk;
+  const baseAtk = G.synergyAtk ? Math.floor(baseAtkRaw * 2.0) : baseAtkRaw;
+  const combo = getBestCombo(G.dice);
+  let dmg = Math.floor(baseAtk * combo.mult);
+
+  if (G.skills.includes('atk_crit') && G.dice.includes(6)) dmg = Math.floor(dmg * 2.0);
+  if (G.synergyDef) dmg = Math.floor(dmg * 0.8);
+
+  G.heroAttacking = true;
+  renderBattleCanvas();
+  await wait(150);
+  G.heroAttacking = false;
+
+  // 1. 造成一般傷害
+  const targetEnemy = G.enemies[G.targetIndex];
+  targetEnemy.hp = Math.max(0, targetEnemy.hp - dmg);
+  showDamageFloat(`💥 ${dmg}`, false, '#ffd700', G.targetIndex);
+  triggerFlash('rgba(255,200,50,0.35)', 250);
+  document.getElementById('last-dmg-display').textContent = `基礎攻擊對 ${targetEnemy.name} 造成 ${dmg} 點傷害！`;
+  
+  checkEnrage(); // 檢查死亡暴怒
+  renderBattleCanvas();
+  updateUI();
+  await wait(400);
+
+  // 2. 流派連擊發動
+  const factionPoints = G.dice[2];
+  if (factionPoints > 0 && G.faction) {
+    document.getElementById('last-dmg-display').textContent = `✨ ${FACTIONS[G.faction].name}發動：連擊 ${factionPoints} 次！`;
+    await wait(200);
+
+    for(let i=0; i<factionPoints; i++) {
+      const anyEnemyAlive = G.enemies.some(e => e.hp > 0);
+      if (!anyEnemyAlive && G.faction !== 'water' && G.faction !== 'light' && G.faction !== 'wood') break;
+      await wait(200);
+      
+      if (G.faction === 'water') {
+        const heal = Math.max(1, Math.floor(G.playerMaxHp * 0.05));
+        G.playerHp = Math.min(G.playerMaxHp, G.playerHp + heal);
+        showDamageFloat(`💧 +${heal}`, true, '#3498db');
+      } 
+      else if (G.faction === 'fire') {
+        // 火流派削弱：1% 傷害
+        G.enemies.forEach((enemy, idx) => {
+          if (enemy.hp > 0) {
+            const fdmg = Math.max(1, Math.floor(enemy.maxHp * 0.01));
+            enemy.hp = Math.max(0, enemy.hp - fdmg);
+            showDamageFloat(`🔥 ${fdmg}`, false, '#e74c3c', idx);
+          }
+        });
+        triggerFlash('rgba(231,76,60,0.2)', 150);
+      } 
+      else if (G.faction === 'wood') {
+        const hpGrowth = Math.max(1, Math.floor(G.playerMaxHp * 0.01));
+        G.playerMaxHp += hpGrowth; G.playerHp += hpGrowth;
+        showDamageFloat(`🌿 上限+${hpGrowth}`, true, '#2ecc71');
+      } 
+      else if (G.faction === 'light') {
+        const shieldGain = Math.max(1, Math.floor(dmg * 0.2));
+        G.shield += shieldGain;
+        showDamageFloat(`✨ 盾+${shieldGain}`, true, '#f1c40f');
+      } 
+      else if (G.faction === 'dark') {
+        const currentTarget = G.enemies[G.targetIndex];
+        if (currentTarget && currentTarget.hp > 0) {
+          const selfDmg = Math.max(1, Math.floor(G.playerMaxHp * 0.02));
+          currentTarget.hp = Math.max(0, currentTarget.hp - dmg);
+          G.playerHp = Math.max(0, G.playerHp - selfDmg);
+          showDamageFloat(`🌑 ${dmg}`, false, '#9b59b6', G.targetIndex);
+          setTimeout(() => showDamageFloat(`🩸 -${selfDmg}`, true, '#ff4444'), 100);
+        }
+      }
+      
+      checkEnrage(); // 每次流派攻擊後檢查是否引發魔王死亡與暴怒
+      autoRedirectTarget(); 
+      updateUI();
+      renderBattleCanvas();
+    }
+    await wait(400);
+  }
+
+  // 3. 裝備技能毒液附加 (削弱至 5%)
+  if (G.skills.includes('atk_poison') && G.enemies[G.targetIndex] && G.enemies[G.targetIndex].hp > 0) {
+    const poisonGain = Math.max(1, Math.floor(dmg * 0.05)); 
+    const targetEnemyNow = G.enemies[G.targetIndex];
+    if (targetEnemyNow.poisonImmune) {
+      showDamageFloat(`❌ 免疫毒素`, false, '#95a5a6', G.targetIndex);
+    } else {
+      targetEnemyNow.poisonDmg += poisonGain;
+      showDamageFloat(`☠️ 毒+${poisonGain}`, false, '#2ecc71', G.targetIndex);
+    }
+    await wait(300);
+  }
+
+  // 檢查敵我死活
+  autoRedirectTarget();
+  const allDead = G.enemies.every(e => e.hp <= 0);
+  if (allDead || G.playerHp <= 0) {
+    G.isAnimating = false;
+    checkDeath();
+    return;
+  }
+
+  // 輪到怪物全體進行攻擊
+  monstersAttackTurn();
+}
+
+// =============================================
+// 敵方全體行動回合
+// =============================================
+async function monstersAttackTurn() {
+  for (let i = 0; i < G.enemies.length; i++) {
+    const m = G.enemies[i];
+    if (m.hp <= 0) continue; 
+    
+    // 1. 中毒結算
+    if (m.poisonDmg > 0 && !m.poisonImmune) {
+      document.getElementById('last-dmg-display').textContent = `🤢 ${m.name} 受到中毒傷害！`;
+      await wait(300);
+      m.hp = Math.max(0, m.hp - m.poisonDmg);
+      showDamageFloat(`☠️ ${m.poisonDmg}`, false, '#2ecc71', i);
+      
+      checkEnrage(); // 毒殺 Boss 也可能觸發暴怒
+      updateUI();
+      renderBattleCanvas();
+      await wait(400);
+
+      if (m.hp <= 0) {
+        autoRedirectTarget();
+        if (G.enemies.every(e => e.hp <= 0)) { G.isAnimating = false; checkDeath(); return; }
+        continue; 
+      }
+    }
+
+    // 2. 怪物實際進攻
+    if (G.skills.includes('def_thorns')) {
+      const pct = Math.floor(Math.random() * 5) + 1; 
+      const hpGrowth = Math.max(1, Math.floor(G.playerMaxHp * (pct / 100)));
+      G.playerMaxHp += hpGrowth; G.playerHp += hpGrowth;
+      showDamageFloat(`🌵 荊棘最大HP+${pct}%`, true, '#2ecc71');
+    }
+
+    // 套用個體的攻擊倍率
+    let rawDmg = Math.floor(m.atk * m.atkMultiplier);
+    
+    let isBlockedByPhantom = false;
+    if (G.skills.includes('def_shield') && Math.random() < 0.25) { rawDmg = 0; isBlockedByPhantom = true; }
+    
+    let defValue = G.synergyDef ? 100 : 0;
+    rawDmg = Math.max(0, rawDmg - defValue);
+
+    let shieldBlocked = 0;
+    if (G.shield > 0 && !m.ignoreShield) {
+      if (G.shield >= rawDmg) { shieldBlocked = rawDmg; G.shield -= rawDmg; rawDmg = 0; } 
+      else { shieldBlocked = G.shield; rawDmg -= G.shield; G.shield = 0; }
+    }
+
+    G.playerHp = Math.max(0, G.playerHp - rawDmg);
+    
+    let dmgText = `💥 ${rawDmg}`;
+    if (isBlockedByPhantom) dmgText += ` (🛡️幻影抵消)`;
+    else {
+      if (shieldBlocked > 0) dmgText += ` (🛡️抵消${shieldBlocked})`;
+      if (m.ignoreShield && G.shield > 0) dmgText += ` (無視護盾!)`;
+      if (defValue > 0) dmgText += ` (減免${defValue})`;
+    }
+    
+    showDamageFloat(dmgText, true, '#ff4444');
+    if (rawDmg > 0) triggerFlash('rgba(255,0,0,0.3)', 300);
+    
+    if (m.isBoss && rawDmg > 0 && m.name.includes("骰子")) {
+      const heal = Math.floor(rawDmg * 0.1);
+      if (heal > 0) {
+        m.hp = Math.min(m.maxHp, m.hp + heal);
+        setTimeout(() => showDamageFloat(`🩸 吸血+${heal}`, false, '#ff6b6b', i), 300);
+      }
+    }
+    
+    document.getElementById('last-dmg-display').textContent = isBlockedByPhantom ? `🛡️ 幻影避閃！${m.name}攻擊化為0！` : `👹 ${m.name} 對你造成 ${rawDmg} 點傷害！`;
+    updateUI();
+    renderBattleCanvas();
+    await wait(600); 
+
+    if (G.playerHp <= 0) { G.isAnimating = false; checkDeath(); return; }
+  }
+
+  // 怪物回合結束後，個別成長 Boss 的攻擊倍率 (例如骰子魔王20%，煉獄魔王5%)
+  G.enemies.forEach(m => {
+    if (m.hp > 0 && m.isBoss) {
+      m.atkMultiplier += m.atkGrowth;
+    }
+  });
+
+  // 治療藥水技能發動
+  if (G.skills.includes('def_heal')) {
+    G.playerHp = Math.min(G.playerMaxHp, G.playerHp + 100);
+    document.getElementById('last-dmg-display').textContent += ' 💊+100HP';
+    showDamageFloat(`💊 +100`, true, '#2ecc71');
+    updateUI();
+    await wait(300);
+  }
+
+  G.isAnimating = false;
+  newRound();
+}
+
+function setTarget(idx) {
+  if (G.enemies[idx] && G.enemies[idx].hp > 0 && G.canAttack && !G.isAnimating) {
+    G.targetIndex = idx; updateUI(); renderBattleCanvas();
+  }
+}
+
+function autoRedirectTarget() {
+  if (!G.enemies || G.enemies.length === 0) return;
+  if (!G.enemies[G.targetIndex] || G.enemies[G.targetIndex].hp <= 0) {
+    for (let i = 0; i < G.enemies.length; i++) {
+      if (G.enemies[i].hp > 0) { G.targetIndex = i; break; }
+    }
+  }
+}
+
+function checkDeath() {
+  if (G.playerHp <= 0) {
+    document.getElementById('lose-msg').textContent = `你在第 ${G.stage+1} 關倒下了...\n骰子之神不會忘記你的勇氣！`;
+    document.getElementById('screen-lose').style.display = 'flex';
+  } else if (G.enemies.every(e => e.hp <= 0)) {
+    if (G.stage >= 9) document.getElementById('screen-final-win').style.display = 'flex';
+    else showSkillScreen(false); 
+  }
+}
+
+function newRound() {
+  G.rerollLeft = G.maxReroll; G.hasRerolled = false; rollingCount = 0;
+  G.dice = G.dice.map(() => randDie()); G.canAttack = true;
+  updateUI(); drawDiceArea(); updateComboDisplay();
+}
+
+function diceClicked(idx) {
+  const diceEls = document.querySelectorAll('.dice-btn');
+  if (G.rerollLeft <= 0 || G.isAnimating || !G.canAttack || diceEls[idx].classList.contains('rolling')) return;
+  
+  G.rerollLeft--; G.hasRerolled = true; rollingCount++; updateUI(); 
+  diceEls[idx].classList.add('rolling');
+
+  setTimeout(() => {
+    G.dice[idx] = randDieExcluding(G.dice[idx]); 
+    diceEls[idx].classList.remove('rolling'); rollingCount--;
+    if(rollingCount === 0) { drawDiceArea(); updateComboDisplay(); updateUI(); }
+  }, 500);
+}
+
+// =============================================
+// 繪製與 UI 更新
+// =============================================
+function drawDiceArea() {
+  const area = document.getElementById('dice-area');
+  area.innerHTML = '';
+  G.dice.forEach((val, idx) => {
+    const btn = document.createElement('div'); btn.className = 'dice-btn';
+    if (idx === 2 && G.faction) { btn.classList.add('faction-dice'); btn.classList.add(G.faction); }
+    btn.onclick = () => diceClicked(idx);
+
+    const canvas = document.createElement('canvas'); canvas.width = 44; canvas.height = 44;
+    drawDiceFace(canvas, val); btn.appendChild(canvas);
+
+    const label = document.createElement('div');
+    label.style.cssText = 'position:absolute;bottom:-18px;width:100%;text-align:center;color:#ffd700;font-size:13px;font-weight:bold;text-shadow:1px 1px 2px #000;';
+    label.textContent = val + '點'; btn.appendChild(label);
+    area.appendChild(btn);
+  });
+}
+
+function drawDiceFace(canvas, val) {
+  const ctx = canvas.getContext('2d'); const w = canvas.width, h = canvas.height;
+  const grad = ctx.createLinearGradient(0,0,w,h);
+  grad.addColorStop(0, '#ffffff'); grad.addColorStop(1, '#e0e0e0');
+  ctx.fillStyle = grad; roundRect(ctx, 2, 2, w-4, h-4, 8); ctx.fill();
+  ctx.strokeStyle = '#ccc'; ctx.lineWidth = 1.5; roundRect(ctx, 2, 2, w-4, h-4, 8); ctx.stroke();
+
+  ctx.fillStyle = '#2c2c2c'; const pips = getPipPositions(val, w, h);
+  pips.forEach(([px,py]) => { ctx.beginPath(); ctx.arc(px, py, 4.5, 0, Math.PI*2); ctx.fill(); });
+}
+
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath(); ctx.moveTo(x+r, y); ctx.lineTo(x+w-r, y); ctx.arcTo(x+w, y, x+w, y+r, r); ctx.lineTo(x+w, y+h-r);
+  ctx.arcTo(x+w, y+h, x+w-r, y+h, r); ctx.lineTo(x+r, y+h); ctx.arcTo(x, y+h, x, y+h-r, r); ctx.lineTo(x, y+r);
+  ctx.arcTo(x, y, x+r, y, r); ctx.closePath();
+}
+
+function getPipPositions(val, w, h) {
+  const mx = w/2, my = h/2, ox = w*0.28, oy = h*0.28;
+  const pos = {
+    1: [[mx, my]], 2: [[mx-ox, my-oy], [mx+ox, my+oy]], 3: [[mx-ox, my-oy], [mx, my], [mx+ox, my+oy]],
+    4: [[mx-ox,my-oy],[mx+ox,my-oy],[mx-ox,my+oy],[mx+ox,my+oy]], 5: [[mx-ox,my-oy],[mx+ox,my-oy],[mx,my],[mx-ox,my+oy],[mx+ox,my+oy]],
+    6: [[mx-ox,my-oy],[mx+ox,my-oy],[mx-ox,my],[mx+ox,my],[mx-ox,my+oy],[mx+ox,my+oy]],
+  };
+  return pos[val] || pos[1];
+}
+
+function updateUI() {
+  if (!G || !G.enemies) return;
+  document.getElementById('stage-title').textContent = `⚔️ 第 ${G.stage+1} 關${G.enemies.some(e=>e.isBoss)?' 👑':' '}`;
+  
+  document.getElementById('player-hp-text').textContent = `❤️ ${G.playerHp}/${G.playerMaxHp}`;
+  document.getElementById('player-hp-bar').style.width = (G.playerHp/G.playerMaxHp*100) + '%';
+  const shieldEl = document.getElementById('player-shield-text');
+  if (G.shield > 0) { shieldEl.textContent = `🛡️ ${G.shield}`; shieldEl.style.display = 'inline'; }
+  else { shieldEl.style.display = 'none'; }
+
+  const hudContainer = document.getElementById('enemies-hud'); hudContainer.innerHTML = '';
+  G.enemies.forEach((enemy, idx) => {
+    const isTargeted = idx === G.targetIndex; const isDead = enemy.hp <= 0;
+    const div = document.createElement('div');
+    div.className = "mb-1 p-1 rounded transition-all " + (isTargeted && !isDead ? "bg-red-900/40 border border-red-500/50" : "bg-black/30 border border-transparent");
+    
+    const poisonTag = enemy.poisonDmg > 0 ? ` <span class="text-green-400 font-bold text-xs">(🤢毒${enemy.poisonDmg})</span>` : '';
+    const bossTag = enemy.isBoss ? ` <span class="text-red-500 text-xs font-bold">[BOSS]</span>` : '';
+    const enrageTag = enemy.enraged ? ` <span class="text-red-500 text-xs font-bold bg-white/20 px-1 rounded">💢暴怒</span>` : '';
+    const targetIndicator = isTargeted && !isDead ? ' <span class="text-yellow-400 font-bold">🎯</span>' : '';
+    
+    div.innerHTML = `
+      <div class="flex justify-between items-center mb-0.5" style="font-size:12px;">
+        <span class="pixel-text font-bold truncate ${isDead ? 'line-through text-gray-500' : 'text-red-300'}">
+          ${targetIndicator}${enemy.emoji} ${enemy.name}${enrageTag}${poisonTag}${bossTag}
+        </span>
+        <span class="${isDead ? 'text-gray-500' : 'text-red-300'} font-bold">${enemy.hp}/${enemy.maxHp}</span>
+      </div>
+      <div class="hp-bar-outer" style="height:6px;">
+        <div class="hp-bar-inner hp-bar-enemy" style="width:${(enemy.hp/enemy.maxHp*100)}%;"></div>
+      </div>
+    `;
+    hudContainer.appendChild(div);
+  });
+
+  const targetSelectors = document.getElementById('target-selectors');
+  if (G.enemies.length > 1) {
+    targetSelectors.style.display = 'flex'; targetSelectors.innerHTML = '';
+    G.enemies.forEach((enemy, idx) => {
+      if (enemy.hp <= 0) return;
+      const btn = document.createElement('button');
+      btn.className = `px-2 py-1 text-xs rounded border font-bold font-mono transition-all ` + (idx === G.targetIndex ? 'bg-red-600 text-white border-red-400 shadow-glow' : 'bg-slate-800 text-slate-400 border-slate-600');
+      btn.textContent = `🎯 ${enemy.emoji}`; btn.onclick = () => setTarget(idx);
+      targetSelectors.appendChild(btn);
+    });
+  } else { targetSelectors.style.display = 'none'; }
+
+  const baseAtkRaw = G.dice.reduce((a,b)=>a+b, 0) + G.bonusAtk;
+  const baseAtk = G.synergyAtk ? Math.floor(baseAtkRaw * 2.0) : baseAtkRaw;
+  document.getElementById('player-atk-text').textContent = baseAtk + (G.synergyAtk ? ' (極限+100%)' : '');
+  
+  if (G.faction) {
+    const fEl = document.getElementById('player-faction-text');
+    fEl.textContent = `流派: ${FACTIONS[G.faction].name.split(' ')[1]}`; fEl.style.color = FACTIONS[G.faction].color;
+  }
+
+  document.getElementById('reroll-count').textContent = G.rerollLeft;
+  const atkCount = G.skills.filter(id => SKILLS_DB.find(s=>s.id===id)?.type === 'atk').length;
+  const defCount = G.skills.filter(id => SKILLS_DB.find(s=>s.id===id)?.type === 'def').length;
+  document.getElementById('atk-progress').textContent = `⚔️ 攻: ${Math.min(atkCount, 5)}/5`;
+  document.getElementById('def-progress').textContent = `🛡️ 防: ${Math.min(defCount, 5)}/5`;
+
+  const canAct = G.canAttack && !G.isAnimating && rollingCount === 0;
+  document.getElementById('btn-attack').disabled = !canAct;
+}
+
+function updateComboDisplay() {
+  if (!G || !G.dice) return;
+  const baseAtkRaw = G.dice.reduce((a,b)=>a+b, 0) + G.bonusAtk;
+  const baseAtk = G.synergyAtk ? Math.floor(baseAtkRaw * 2.0) : baseAtkRaw;
+  const combo = getBestCombo(G.dice);
+  let dmg = Math.floor(baseAtk * combo.mult);
+  if (G.synergyDef) dmg = Math.floor(dmg * 0.8);
+  
+  const comboText = document.getElementById('combo-text'); comboText.textContent = '🎯 ' + combo.name;
+  let multStr = `(${baseAtk}) ×${combo.mult}`;
+  if (G.synergyDef && !G.hasRerolled) multStr += ` (守勢+5)`;
+  if (G.synergyDef) multStr += ` [防副作用-20%]`;
+  document.getElementById('mult-text').textContent = `${multStr} = ${dmg}傷`;
+
+  const banner = document.getElementById('combo-banner');
+  if (combo.mult >= 5) { comboText.style.color = '#ff6b6b'; banner.style.borderColor = '#ff6b6b'; banner.classList.add('combo-glow'); } 
+  else if (combo.mult >= 3) { comboText.style.color = '#ffd700'; banner.style.borderColor = '#ffd700'; banner.classList.add('combo-glow'); } 
+  else if (combo.mult >= 2) { comboText.style.color = '#a29bfe'; banner.style.borderColor = '#a29bfe'; banner.classList.remove('combo-glow'); } 
+  else { comboText.style.color = '#dfe6e9'; banner.style.borderColor = 'rgba(255,255,255,0.1)'; banner.classList.remove('combo-glow'); }
+}
+
+function showDamageFloat(text, isPlayerZone, color, targetIdx = 0) {
+  const wrapper = document.getElementById('game-wrapper');
+  const el = document.createElement('div'); el.className = 'damage-float pixel-text'; el.textContent = text;
+  el.style.color = color; el.style.fontSize = '26px';
+  if (isPlayerZone) el.style.left = '15%';
+  else {
+    const positions = [55, 70, 85];
+    const leftPos = (!G.enemies || G.enemies.length === 1) ? 55 : (G.enemies.length === 2 ? (targetIdx === 0 ? 50 : 75) : positions[targetIdx]);
+    el.style.left = leftPos + '%';
+  }
+  el.style.top = (30 + Math.random()*10) + '%';
+  wrapper.appendChild(el); setTimeout(() => el.remove(), 1100);
+}
+
+let flashEffect = { active: false, color: '', timer: 0 };
+function triggerFlash(color, duration=300) { flashEffect = { active: true, color, timer: Date.now()+duration }; }
+
+function getMonsterPositions(count, width) {
+  if (count === 1) return [width * 0.72];
+  if (count === 2) return [width * 0.55, width * 0.82];
+  return [width * 0.44, width * 0.68, width * 0.88];
+}
+
+function renderBattleCanvas() {
+  const canvas = document.getElementById('battle-canvas'); if(!canvas) return;
+  canvas.width = canvas.getBoundingClientRect().width || 340; canvas.height = 180;
+  const ctx = canvas.getContext('2d'); const W = canvas.width, H = canvas.height, now = Date.now();
+
+  const bgGrad = ctx.createLinearGradient(0,0,0,H);
+  bgGrad.addColorStop(0, '#0a1628'); bgGrad.addColorStop(1, '#16213e');
+  ctx.fillStyle = bgGrad; ctx.fillRect(0,0,W,H);
+
+  ctx.fillStyle = 'rgba(255,255,220,0.8)'; ctx.beginPath(); ctx.arc(W-35, 25, 16, 0, Math.PI*2); ctx.fill();
+  const stars = [[20,15],[55,8],[90,18],[130,6],[165,22],[210,10],[245,17],[285,8]];
+  stars.forEach(([sx,sy],i) => {
+    ctx.globalAlpha = 0.4 + 0.6*Math.abs(Math.sin(now/700+i));
+    ctx.fillStyle = 'white'; ctx.beginPath(); ctx.arc(sx, sy, 1.5, 0, Math.PI*2); ctx.fill();
+  });
+  ctx.globalAlpha = 1;
+
+  const groundY = H*0.78;
+  ctx.fillStyle = '#0d2010'; ctx.fillRect(0, groundY, W, H-groundY);
+  ctx.fillStyle = '#1e5128'; ctx.fillRect(0, groundY, W, 5);
+
+  if (!G || !G.enemies) {
+    if (flashEffect.active) { if (now < flashEffect.timer) { ctx.fillStyle = flashEffect.color; ctx.fillRect(0, 0, W, H); } else { flashEffect.active = false; } }
+    return;
+  }
+
+  const mPositions = getMonsterPositions(G.enemies.length, W);
+  G.enemies.forEach((m, idx) => {
+    if (m.hp > 0) drawMonster(ctx, mPositions[idx], groundY-24, m, idx === G.targetIndex);
+  });
+
+  drawHero(ctx, W*0.16, groundY-20);
+
+  if (flashEffect.active) { if (now < flashEffect.timer) { ctx.fillStyle = flashEffect.color; ctx.fillRect(0, 0, W, H); } else { flashEffect.active = false; } }
+}
+
+function drawMonster(ctx, x, y, m, isTargeted) {
+  if(!m) return;
+  const size = m.isBoss ? 56 : 42; const bob = Math.sin(Date.now() / 400 + x) * 4;
+  ctx.save(); ctx.translate(x, y + bob);
+
+  // 暴怒紅光特效
+  if (m.enraged) {
+    ctx.shadowColor = '#ff0000'; ctx.shadowBlur = 15;
+  }
+
+  if (isTargeted) {
+    ctx.strokeStyle = '#ff3838'; ctx.lineWidth = 2; ctx.setLineDash([4, 4]);
+    ctx.beginPath(); ctx.arc(0, 0, size * 0.9, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle = '#ff3838'; ctx.beginPath(); ctx.arc(0, -size * 1.1, 4, 0, Math.PI*2); ctx.fill();
+  }
+
+  if (m.isBoss) {
+    const pulse = 0.5 + 0.5*Math.sin(Date.now()/300);
+    const glow = ctx.createRadialGradient(0,0,size*0.4, 0,0,size*0.9);
+    glow.addColorStop(0, `rgba(255,80,80,${0.2+pulse*0.2})`); glow.addColorStop(1, 'rgba(255,0,0,0)');
+    ctx.beginPath(); ctx.arc(0, 0, size*0.9, 0, Math.PI*2); ctx.fillStyle = glow; ctx.fill();
+  }
+
+  if (m.poisonDmg > 0 && !m.poisonImmune) {
+    ctx.fillStyle = `rgba(46, 204, 113, ${0.4 + 0.2*Math.sin(Date.now()/200)})`;
+    ctx.beginPath(); ctx.arc(0, 0, size*0.6, 0, Math.PI*2); ctx.fill();
+  }
+
+  ctx.shadowBlur = 0; // 關閉陰影給其餘部分
+  ctx.globalAlpha = 0.3; ctx.beginPath(); ctx.ellipse(0, size/2+8, size*0.5, 6, 0, 0, Math.PI*2); ctx.fillStyle = '#000'; ctx.fill(); ctx.globalAlpha = 1;
+
+  ctx.beginPath(); ctx.arc(0, 0, size/2, 0, Math.PI*2);
+  ctx.fillStyle = m.color; ctx.fill();
+  ctx.strokeStyle = m.enraged ? '#ff0000' : (isTargeted ? '#ff3838' : 'rgba(255,255,255,0.4)'); 
+  ctx.lineWidth = isTargeted || m.enraged ? 2.5 : 1.5; ctx.stroke();
+
+  ctx.font = `${m.isBoss?44:32}px serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(m.emoji, 0, 0);
+  ctx.restore();
+}
+
+function drawHero(ctx, x, y) {
+  const bob = Math.sin(Date.now() / 500) * 2; const atkOffset = G.heroAttacking ? 25 : 0; 
+  ctx.save(); ctx.translate(x + atkOffset, y + bob);
+  ctx.globalAlpha = 0.25; ctx.beginPath(); ctx.ellipse(0, 52, 18, 6, 0, 0, Math.PI*2); ctx.fillStyle = '#000'; ctx.fill(); ctx.globalAlpha = 1;
+  ctx.fillStyle = '#2471a3'; ctx.fillRect(-11, 11, 22, 28);
+  ctx.fillStyle = '#c0392b'; ctx.beginPath(); ctx.moveTo(-18,14); ctx.lineTo(-7,14); ctx.lineTo(-7,28); ctx.lineTo(-12,34); ctx.lineTo(-18,28); ctx.fill();
+  ctx.strokeStyle = '#bdc3c7'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(14,10); ctx.lineTo(14,40); ctx.stroke();
+  ctx.fillStyle = '#f0b27a'; ctx.beginPath(); ctx.arc(0, -4, 12, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = '#2471a3'; ctx.beginPath(); ctx.arc(0, -4, 12, Math.PI, 0); ctx.fill();
+  ctx.fillStyle = '#1a5276'; ctx.fillRect(-12, -4, 24, 4);
+  ctx.fillStyle = '#1a252f'; ctx.beginPath(); ctx.arc(-4,-3,2,0,Math.PI*2); ctx.arc(4,-3,2,0,Math.PI*2); ctx.fill();
+  ctx.restore();
+}
+
+// =============================================
+// 技能與過關
+// =============================================
+function showSkillScreen(isReroll = false) {
+  if (!isReroll) hasRerolledSkills = false; 
+  const available = SKILLS_DB.filter(s => !G.skills.includes(s.id));
+  const picks = available.sort(()=>Math.random()-0.5).slice(0,3);
+
+  document.getElementById('skill-stage-num').textContent = G.stage+1;
+  const cardsEl = document.getElementById('skill-cards'); cardsEl.innerHTML = '';
+  
+  picks.forEach(skill => {
+    const card = document.createElement('div'); card.className = 'skill-card';
+    const typeTag = skill.type === 'atk' ? '<span style="color:#ff6b6b">[攻]</span>' : '<span style="color:#74b9ff">[防]</span>';
+    card.innerHTML = `<div style="font-size:18px;font-weight:bold;color:#ffd700;" class="pixel-text">${typeTag} ${skill.name}</div><div style="font-size:13px;color:#b2bec3;margin-top:4px;">${skill.desc}</div>`;
+    
+    card.onclick = () => {
+      G.skills.push(skill.id); if (skill.effect) skill.effect(G);
+      document.getElementById('screen-skill').style.display = 'none';
+      
+      const atkCount = G.skills.filter(id => { const f = SKILLS_DB.find(s=>s.id===id); return f && f.type === 'atk'; }).length;
+      const defCount = G.skills.filter(id => { const f = SKILLS_DB.find(s=>s.id===id); return f && f.type === 'def'; }).length;
+      
+      if (atkCount === 5 && !G.synergyAtk) {
+        G.synergyAtk = true; G.maxReroll += 2;
+        G.playerMaxHp = Math.max(1, Math.floor(G.playerMaxHp * 0.5)); G.playerHp = Math.min(G.playerHp, G.playerMaxHp);
+        showSynergyModal('⚔️ 極限攻擊解鎖', '集齊5個【攻】技能：<br>重擲次數上限 +2<br>基礎攻擊力 +100%<br>所有骰型倍率額外 +2<br><span style="color:#ff7675;">※ 副作用：最大生命值永久減半 (-50%)！</span>');
+        return;
+      }
+      if (defCount === 5 && !G.synergyDef) {
+        G.synergyDef = true; const oldMax = G.playerMaxHp; G.playerMaxHp *= 2; G.playerHp += oldMax;
+        showSynergyModal('🛡️ 絕對防禦解鎖', '集齊5個【防】技能：<br>防禦力化為絕對的 100 點<br>「不進行重擲」時，所有骰型倍率額外 +5<br>最大生命值 +100%<br><span style="color:#ff7675;">※ 副作用：所有最終總傷害永久降低 20%！</span>');
+        return;
+      }
+      G.stage++; loadStage();
+    };
+    cardsEl.appendChild(card);
+  });
+
+  const rerollBtn = document.getElementById('btn-reroll-skills');
+  if (hasRerolledSkills) {
+    rerollBtn.disabled = true; rerollBtn.textContent = '重抽已使用';
+    rerollBtn.style.opacity = '0.5'; rerollBtn.style.cursor = 'not-allowed';
+  } else {
+    rerollBtn.disabled = false; rerollBtn.textContent = '🔄 重抽一次';
+    rerollBtn.style.opacity = '1'; rerollBtn.style.cursor = 'pointer';
+  }
+  document.getElementById('screen-skill').style.display = 'flex';
+}
+
+function rerollSkills() { if (hasRerolledSkills) return; hasRerolledSkills = true; showSkillScreen(true); }
+function showSynergyModal(title, desc) {
+  document.getElementById('synergy-icon').textContent = title.includes('攻擊') ? '⚔️' : '🛡️';
+  document.getElementById('synergy-title').textContent = title; document.getElementById('synergy-desc').innerHTML = desc;
+  document.getElementById('screen-synergy').style.display = 'flex';
+}
+function closeSynergy() { document.getElementById('screen-synergy').style.display = 'none'; G.stage++; loadStage(); }
+function nextStage() { document.getElementById('screen-win').style.display = 'none'; G.stage++; loadStage(); }
+
+let animFrame = null;
+function startAnimLoop() {
+  function loop() { renderBattleCanvas(); animFrame = requestAnimationFrame(loop); }
+  if (animFrame) cancelAnimationFrame(animFrame); animFrame = requestAnimationFrame(loop);
+}
+
+window.addEventListener('load', () => {
+  const container = document.getElementById('bg-stars');
+  for (let i = 0; i < 20; i++) {
+    const star = document.createElement('div'); star.className = 'star'; const size = Math.random()*2+1;
+    star.style.cssText = `width:${size}px; height:${size}px; left:${Math.random()*100}%; top:${Math.random()*100}%; animation-delay:${Math.random()*2}s; animation-duration:${1.5+Math.random()*2}s;`;
+    container.appendChild(star);
+  }
+
+  const canvas = document.getElementById('battle-canvas');
+  if (canvas) {
+    canvas.addEventListener('click', (e) => {
+      if (!G || !G.enemies || !G.canAttack || G.isAnimating) return;
+      const rect = canvas.getBoundingClientRect(); const clickX = e.clientX - rect.left; const width = canvas.width;
+      const positions = getMonsterPositions(G.enemies.length, width);
+      let bestIdx = 0; let minDist = Infinity;
+      
+      positions.forEach((posX, idx) => {
+        const dist = Math.abs(clickX - posX);
+        if (dist < minDist && G.enemies[idx] && G.enemies[idx].hp > 0) { minDist = dist; bestIdx = idx; }
+      });
+      if (minDist < 45) { G.targetIndex = bestIdx; updateUI(); renderBattleCanvas(); }
+    });
+  }
+  showMainMenu(); startAnimLoop();
+});
+</script>
+</body>
+</html>
