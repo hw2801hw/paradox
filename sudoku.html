@@ -434,13 +434,33 @@
             solution = Array(81).fill(0);
             solveSudoku(solution);
             board = [...solution];
-            const indices = [...Array(81).keys()];
-            shuffleArray(indices);
-            givenCells = [];
-            const removeCount = 81 - 34;
-            for (let i = 0; i < removeCount; i++) {
-                board[indices[i]] = 0;
+            
+            // 正中間九宮格的索引：行3~5, 列3~5
+            // 索引計算方式：row * 9 + col
+            const centerIndices = [30, 31, 32, 39, 40, 41, 48, 49, 50];
+            
+            // 取出所有非正中間九宮格的索引
+            const otherIndices = [];
+            for (let i = 0; i < 81; i++) {
+                if (!centerIndices.includes(i)) {
+                    otherIndices.push(i);
+                }
             }
+            
+            // 打亂剩餘的 72 個位置
+            shuffleArray(otherIndices);
+            
+            // 目標是保留 49 個數字
+            // 中心固定保留了 9 個，因此還要保留 40 個（也就是在 72 個中移除 32 個）
+            const removeCount = 81 - 49; // 32 個
+            
+            // 移除隨機選定的位置
+            for (let i = 0; i < removeCount; i++) {
+                board[otherIndices[i]] = 0;
+            }
+            
+            // 記錄所有提示格子
+            givenCells = [];
             for (let i = 0; i < 81; i++) {
                 if (board[i] !== 0) givenCells.push(i);
             }
