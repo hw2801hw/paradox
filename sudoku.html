@@ -430,40 +430,118 @@
             }
         }
 
+        // ─── 唯一解數獨生成器邏輯 ──────────────────────────────
         function generateSudoku() {
+            let attempts = 0;
+            const maxAttempts = 10;
+
+            while (attempts < maxAttempts) {
+                solution = Array(81).fill(0);
+                solveSudoku(solution);
+                board = [...solution];
+                
+                // 正中間九宮格的索引：行3~5, 列3~5 (共 9 個)
+                const centerIndices = [30, 31, 32, 39, 40, 41, 48, 49, 50];
+                
+                // 取出所有非正中間九宮格的索引
+                const otherIndices = [];
+                for (let i = 0; i < 81; i++) {
+                    if (!centerIndices.includes(i)) {
+                        otherIndices.push(i);
+                    }
+                }
+                
+                // 打亂其餘的 72 個位置
+                shuffleArray(otherIndices);
+                
+                let dugCount = 0;
+                const targetDug = 81 - 49; // 需要挖空 32 個格子，以保留 49 個數字
+                
+                // 漸進式挖空並確保唯一解
+                for (let i = 0; i < otherIndices.length; i++) {
+                    if (dugCount === targetDug) break;
+                    
+                    const idx = otherIndices[i];
+                    const backupValue = board[idx];
+                    
+                    // 嘗試挖空
+                    board[idx] = 0;
+                    
+                    // 檢查挖空後是否仍為唯一解
+                    if (isUniqueSolution(board)) {
+                        dugCount++;
+                    } else {
+                        // 若不是唯一解則復原
+                        board[idx] = backupValue;
+                    }
+                }
+                
+                // 成功挖滿 32 個孔
+                if (dugCount === targetDug) {
+                    givenCells = [];
+                    for (let i = 0; i < 81; i++) {
+                        if (board[i] !== 0) givenCells.push(i);
+                    }
+                    return; // 成功生成，退出函數
+                }
+                
+                attempts++;
+            }
+
+            // 安全防護機制：若在極罕見情況下無法生成，進行強制挖空
+            forceGenerate49();
+        }
+
+        // 備用強制生成函數
+        function forceGenerate49() {
             solution = Array(81).fill(0);
             solveSudoku(solution);
             board = [...solution];
-            
-            // 正中間九宮格的索引：行3~5, 列3~5
-            // 索引計算方式：row * 9 + col
             const centerIndices = [30, 31, 32, 39, 40, 41, 48, 49, 50];
-            
-            // 取出所有非正中間九宮格的索引
             const otherIndices = [];
             for (let i = 0; i < 81; i++) {
                 if (!centerIndices.includes(i)) {
                     otherIndices.push(i);
                 }
             }
-            
-            // 打亂剩餘的 72 個位置
             shuffleArray(otherIndices);
-            
-            // 目標是保留 49 個數字
-            // 中心固定保留了 9 個，因此還要保留 40 個（也就是在 72 個中移除 32 個）
-            const removeCount = 81 - 49; // 32 個
-            
-            // 移除隨機選定的位置
-            for (let i = 0; i < removeCount; i++) {
+            for (let i = 0; i < 32; i++) {
                 board[otherIndices[i]] = 0;
             }
-            
-            // 記錄所有提示格子
             givenCells = [];
             for (let i = 0; i < 81; i++) {
                 if (board[i] !== 0) givenCells.push(i);
             }
+        }
+
+        // 檢查數獨盤面是否有唯一解
+        function isUniqueSolution(b) {
+            const tempBoard = [...b];
+            const countRef = { val: 0 };
+            countSolutions(tempBoard, countRef);
+            return countRef.val === 1;
+        }
+
+        // 計算盤面的解數量，若找到 2 個解則提前終止
+        function countSolutions(b, countRef) {
+            const empty = b.indexOf(0);
+            if (empty === -1) {
+                countRef.val++;
+                return countRef.val >= 2; // 若解數 >= 2 回傳 true，中斷後續回溯
+            }
+            const row = Math.floor(empty / 9);
+            const col = empty % 9;
+            for (let num = 1; num <= 9; num++) {
+                if (isValid(b, row, col, num)) {
+                    b[empty] = num;
+                    if (countSolutions(b, countRef)) {
+                        b[empty] = 0;
+                        return true; // 向上層傳遞終止訊號
+                    }
+                    b[empty] = 0;
+                }
+            }
+            return false;
         }
 
         function solveSudoku(b) {
