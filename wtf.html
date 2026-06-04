@@ -1,0 +1,843 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>傳道棋 - Propagation Chess</title>
+<script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+<style>
+  /* ===== 使用說明 =====
+   * 傳道棋 (Propagation Chess)
+   * - 玩家(藍) vs AI(紅)，5×5 棋盤
+   * - 開局：雙方各放一個「3」在空位上
+   * - 正常回合：點自己的棋子
+   * - 數值 1→2 或 2→3（升級）
+   * - 數值 3→傳道（消失，向四方各放一個1）
+   * - 【第50回合後】傳道門檻提升至 4，超過 4 才會傳道。
+   * - 傳道效果：
+   * - 空位→放置己方1
+   * - 己方棋子→數值+1
+   * - 對方棋子→轉色+1
+   * - 將對方全部棋子轉化即勝利
+   * - 技能：1被動 + 1主動 (CD:5) + 1必殺技 (50回合解鎖，限1次)
+   =================== */
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+  html,body{width:100%;height:100%;overflow:hidden;font-family:'Segoe UI','PingFang TC','Microsoft JhengHei',sans-serif}
+  body{background:linear-gradient(135deg,#0f172a 0%,#1e293b 50%,#0f172a 100%);display:flex;justify-content:center;align-items:center}
+  .game-container{width:100%;max-width:430px;height:100dvh;max-height:932px;display:flex;flex-direction:column;align-items:center;padding:6px;position:relative;overflow:hidden}
+  .board-wrapper{width:100%;max-width:400px;aspect-ratio:1/1;padding:4px;background:linear-gradient(145deg,#334155,#1e293b);border-radius:12px;border:2px solid #475569;box-shadow:0 8px 32px rgba(0,0,0,.5),inset 0 1px 0 rgba(255,255,255,.05);margin-top:2px}
+  .board{display:grid;grid-template-columns:repeat(5,1fr);grid-template-rows:repeat(5,1fr);gap:4px;width:100%;height:100%}
+  .cell{position:relative;border-radius:8px;background:#1e293b;border:2px solid #334155;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:background .12s,border-color .12s,filter .12s;font-weight:900;color:#fff;text-shadow:0 2px 4px rgba(0,0,0,.6);user-select:none;-webkit-user-select:none;font-size:clamp(24px,8vw,48px)}
+  .cell:hover{border-color:#94a3b8}
+  .cell:active{transform:scale(.93)}
+  .cell.blue{background:linear-gradient(135deg,#2563eb,#1d4ed8);border-color:#3b82f6;box-shadow:0 2px 8px rgba(37,99,235,.4),inset 0 1px 0 rgba(255,255,255,.15)}
+  .cell.red{background:linear-gradient(135deg,#dc2626,#b91c1c);border-color:#ef4444;box-shadow:0 2px 8px rgba(220,38,38,.4),inset 0 1px 0 rgba(255,255,255,.15)}
+  .cell.can-place:hover{background:rgba(59,130,246,.15);border-color:#3b82f6}
+  .cell.can-click:hover{filter:brightness(1.25);border-color:#93c5fd}
+  @keyframes pop-in{0%{transform:scale(0);opacity:0}60%{transform:scale(1.3);opacity:1}100%{transform:scale(1);opacity:1}}
+  @keyframes explode-out{0%{transform:scale(1);opacity:1}40%{transform:scale(1.5);opacity:.6}100%{transform:scale(0);opacity:0}}
+  @keyframes boost{0%,100%{transform:scale(1)}50%{transform:scale(1.25)}}
+  @keyframes convert-flash{0%{filter:brightness(1)}30%{filter:brightness(2.5)}100%{filter:brightness(1)}}
+  @keyframes turn-pulse{0%,100%{opacity:1}50%{opacity:.5}}
+  @keyframes auto-explode{0%{transform:scale(1);opacity:1;box-shadow:0 0 0 0 rgba(250,204,21,.8)}50%{transform:scale(1.3);box-shadow:0 0 20px 8px rgba(250,204,21,.6)}100%{transform:scale(0);opacity:0}}
+  @keyframes passive-glow{0%,100%{box-shadow:0 0 5px 2px rgba(250,204,21,.4)}50%{box-shadow:0 0 15px 5px rgba(250,204,21,.7)}}
+  @keyframes spawn-drop{0%{transform:translateY(-20px) scale(0);opacity:0}60%{transform:translateY(5px) scale(1.2);opacity:1}100%{transform:translateY(0) scale(1);opacity:1}}
+  @keyframes resist-wave{0%{box-shadow:0 0 0 0 rgba(34,197,94,.8)}50%{box-shadow:0 0 25px 10px rgba(34,197,94,.5)}100%{box-shadow:0 0 0 0 rgba(34,197,94,0)}}
+  .anim-pop{animation:pop-in .3s ease-out}
+  .anim-explode{animation:explode-out .25s ease-in forwards;pointer-events:none}
+  .anim-boost{animation:boost .28s ease-out}
+  .anim-convert{animation:convert-flash .35s ease-out}
+  .anim-auto{animation:auto-explode .35s ease-in forwards;pointer-events:none}
+  .anim-spawn{animation:spawn-drop .4s ease-out}
+  .anim-resist{animation:resist-wave .4s ease-out}
+  .turn-pulse{animation:turn-pulse 1.2s ease-in-out infinite}
+  .passive-active{animation:passive-glow 2s ease-in-out infinite}
+  .score-bar{height:8px;border-radius:4px;transition:width .5s ease}
+  .overlay{position:absolute;inset:0;background:rgba(0,0,0,.85);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:100;backdrop-filter:blur(8px)}
+  @keyframes slide-up{from{transform:translateY(40px);opacity:0}to{transform:translateY(0);opacity:1}}
+  .overlay-content{animation:slide-up .5s ease-out}
+  .btn-main{font-size:16px;padding:10px 28px;border-radius:10px;font-weight:700;cursor:pointer;border:none;transition:all .2s}
+  .btn-main:hover{transform:scale(1.05)}.btn-main:active{transform:scale(.95)}
+  .passive-card{background:linear-gradient(135deg,#334155,#1e293b);border:2px solid #475569;border-radius:6px;padding:4px 8px;text-align:center;transition:all .3s;display:flex;flex-direction:column;justify-content:center}
+  .passive-card.selected{border-color:#facc15;box-shadow:0 0 10px rgba(250,204,21,.2)}
+  .passive-icon{font-size:16px;margin-bottom:0px;line-height:1}
+  .passive-name{font-size:11px;font-weight:700;color:#facc15;margin-bottom:1px}
+  .passive-desc{font-size:9px;color:#94a3b8;line-height:1.2;letter-spacing: -0.2px;}
+  .active-card{transition:all .2s;}
+  .active-card.ready{border-color:#3b82f6;box-shadow:0 0 10px rgba(59,130,246,.5);cursor:pointer;}
+  .active-card.ready:hover{background:linear-gradient(135deg,#3b82f6,#1e3a8a);}
+  .active-card.ready:active{transform:scale(0.95);}
+  .active-card.cd{border-color:#334155;opacity:0.6;cursor:not-allowed;filter:grayscale(0.5);}
+  .ult-card{background:linear-gradient(135deg,#4c1d95,#2e1065);border-color:#8b5cf6;}
+  .ult-card.ready{box-shadow:0 0 12px rgba(139,92,246,.6);cursor:pointer;}
+  .ult-card.ready:hover{filter:brightness(1.2);}
+</style>
+</head>
+<body>
+<div class="game-container">
+  <div class="w-full flex flex-col items-center gap-0 mb-1">
+    <h1 class="text-xl font-black text-white tracking-wider" style="text-shadow:0 2px 10px rgba(59,130,246,.5)">⛪ 傳道棋</h1>
+  </div>
+  
+  <!-- 技能顯示區塊 (縮小並排以節省空間) -->
+  <div class="w-full max-w-[400px] mb-1 px-1 flex flex-col gap-1">
+    <!-- 被動技能 -->
+    <div class="flex justify-between gap-1">
+      <div id="playerPassive" class="passive-card flex-1">
+        <div class="passive-name">玩家被動</div>
+      </div>
+      <div id="aiPassive" class="passive-card flex-1">
+        <div class="passive-name">AI 被動</div>
+      </div>
+    </div>
+    <!-- 主動技能 -->
+    <div class="flex justify-between gap-1">
+      <div id="playerActive" class="passive-card active-card flex-1" onclick="usePlayerActive()">
+        <div class="passive-name">玩家主動</div>
+      </div>
+      <div id="aiActive" class="passive-card active-card flex-1">
+        <div class="passive-name">AI 主動</div>
+      </div>
+    </div>
+    <!-- 必殺技 (50回合解鎖) -->
+    <div class="flex justify-between gap-1">
+      <div id="playerUlt" class="passive-card active-card ult-card flex-1" onclick="usePlayerUlt()">
+        <div class="passive-name text-purple-300">必殺：時空扭曲 ⏳</div>
+        <div class="passive-desc">解鎖:50回合 | 效果:連動2回(限1次)</div>
+        <div class="text-[10px] mt-0.5 font-bold p-status"></div>
+      </div>
+      <div id="aiUlt" class="passive-card active-card ult-card flex-1">
+        <div class="passive-name text-purple-300">必殺：時空扭曲 ⏳</div>
+        <div class="passive-desc">解鎖:50回合 | 效果:連動2回(限1次)</div>
+        <div class="text-[10px] mt-0.5 font-bold p-status"></div>
+      </div>
+    </div>
+  </div>
+  
+  <div id="turnBox" class="w-full max-w-[400px] mb-1 px-2 mt-1">
+    <div class="flex items-center justify-center gap-2 py-1.5 px-4 rounded-lg bg-slate-800/80 border border-slate-700">
+      <div id="turnDot" class="w-3 h-3 rounded-full bg-blue-500 turn-pulse"></div>
+      <span id="turnText" class="text-white font-bold" style="font-size:14px">玩家回合</span>
+    </div>
+  </div>
+  <div class="w-full max-w-[400px] mb-1 px-2">
+    <div class="flex items-center gap-2">
+      <div class="flex items-center gap-1 min-w-[40px]"><span class="text-blue-400 font-bold" style="font-size:12px">🔵</span><span id="blueN" class="text-white font-bold" style="font-size:14px">0</span></div>
+      <div class="flex-1 bg-slate-700 rounded-full h-2 overflow-hidden flex"><div id="blueBar" class="score-bar bg-blue-500" style="width:50%"></div><div id="redBar" class="score-bar bg-red-500" style="width:50%"></div></div>
+      <div class="flex items-center gap-1 min-w-[40px] justify-end"><span id="redN" class="text-white font-bold" style="font-size:14px">0</span><span class="text-red-400 font-bold" style="font-size:12px">🔴</span></div>
+    </div>
+  </div>
+  <div class="w-full max-w-[400px] mb-1 px-2 flex justify-between items-center">
+    <span id="roundLabel" class="text-slate-400" style="font-size:12px">回合 1</span>
+    <button onclick="resetGame()" class="text-slate-400 hover:text-white transition-colors cursor-pointer px-2 py-0.5 rounded hover:bg-slate-700" style="font-size:12px">🔄 重新開始</button>
+  </div>
+  
+  <div class="board-wrapper"><div class="board" id="board"></div></div>
+  
+  <div class="w-full max-w-[400px] mt-2 px-2">
+    <div id="hintBox" class="text-center text-slate-300 py-1.5 px-3 rounded-lg bg-slate-800/50 border border-slate-700/50 leading-tight" style="font-size:13px; min-height: 40px; display: flex; align-items: center; justify-content: center;">
+      💡 點擊空位放置你的第一個棋子（數值3）
+    </div>
+  </div>
+  
+  <div id="overlay" class="overlay" style="display:none">
+    <div class="overlay-content flex flex-col items-center gap-5">
+      <div id="ovEmoji" class="text-7xl">🎉</div>
+      <div id="ovTitle" class="text-4xl font-black text-blue-400">你贏了！</div>
+      <div id="ovSub" class="text-lg text-slate-300"></div>
+      <button onclick="resetGame()" class="btn-main bg-blue-600 text-white hover:bg-blue-500 mt-2">🔄 再來一局</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const R=5,C=5,DIRS=[[-1,0],[1,0],[0,-1],[0,1]],BLUE='blue',RED='red';
+let bd,turn,phase,openN,round,over,animating;
+
+// 技能狀態
+let playerPassive=null, aiPassive=null;
+let playerActive=null, aiActive=null;
+let playerActiveCD=0, aiActiveCD=0;
+let pSkill2=false, aiSkill2=false;
+
+// 必殺技狀態
+let playerUltUsed=false, aiUltUsed=false;
+let extraTurn=null; // 紀錄觸發連續行動的陣營 (BLUE 或 RED)
+
+// 動態門檻 (第50回合後，傳道門檻提升)
+function getLimit() { return round >= 50 ? 4 : 3; }
+
+// 被動技能庫
+const PASSIVE_INFO=[
+  {name:'逆境重生',icon:'🛡️',desc:'對方無法存在數值6的棋子，被轉化時60%機率重生3'},
+  {name:'傳道循環',icon:'⚡',desc:'傳道60%機率母棋留2，對方隨機-1'},
+  {name:'抗性護盾',icon:'🔮',desc:'對方傳道時60%機率不被感染且變1'}
+];
+
+// 主動技能庫
+const ACTIVE_INFO=[
+  {name:'降維打擊',icon:'☄️',desc:'立即使對方所有棋子數值變為 1'},
+  {name:'信仰奪取',icon:'🤝',desc:'下回合開始時，將對方達到傳道門檻的棋子轉化'},
+  {name:'異端淨化',icon:'🔥',desc:'立即令對方所有數值為 2 的棋子消失'}
+];
+
+// ===== BOARD =====
+function init(){bd=[];for(let r=0;r<R;r++){bd[r]=[];for(let c=0;c<C;c++)bd[r][c]={o:null,v:0}}}
+function get(r,c){return document.querySelector(`.cell[data-r="${r}"][data-c="${c}"]`)}
+function stamp(el,r,c){
+  el.className='cell';
+  el.textContent='';
+  const d=bd[r][c];
+  if(d.o===BLUE){el.classList.add('blue');el.textContent=d.v}
+  else if(d.o===RED){el.classList.add('red');el.textContent=d.v}
+  if(!over&&!animating){
+    if(phase==='opening'&&openN===0&&d.o===null&&turn===BLUE)el.classList.add('can-place');
+    else if(phase==='normal'&&d.o===turn&&turn===BLUE)el.classList.add('can-click');
+  }
+}
+function stampAll(){for(let r=0;r<R;r++)for(let c=0;c<C;c++){const e=get(r,c);if(e)stamp(e,r,c)}}
+function buildBoard(){
+  const el=document.getElementById('board');el.innerHTML='';
+  for(let r=0;r<R;r++)for(let c=0;c<C;c++){
+    const d=document.createElement('div');d.className='cell';d.dataset.r=r;d.dataset.c=c;
+    d.addEventListener('click',()=>onclick(r,c));
+    el.appendChild(d);
+  }
+  stampAll();scores();
+}
+
+// ===== SCORES =====
+function cnt(brd,who){let n=0;for(let r=0;r<R;r++)for(let c=0;c<C;c++)if(brd[r][c].o===who)n++;return n}
+function scores(){
+  const b=cnt(bd,BLUE),rv=cnt(bd,RED);
+  document.getElementById('blueN').textContent=b;
+  document.getElementById('redN').textContent=rv;
+  const t=b+rv||1;
+  document.getElementById('blueBar').style.width=(b/t*100)+'%';
+  document.getElementById('redBar').style.width=(rv/t*100)+'%';
+}
+
+// ===== UI =====
+function uiTurn(){
+  if(over)return;
+  const dot=document.getElementById('turnDot'),txt=document.getElementById('turnText');
+  dot.classList.remove('bg-blue-500','bg-red-500');
+  if(turn===BLUE){
+    dot.classList.add('bg-blue-500');
+    txt.textContent=phase==='opening'&&openN===0?'玩家回合 — 放置首棋':'玩家回合 — 行動或施放技能';
+  }else{dot.classList.add('bg-red-500');txt.textContent='AI 思考中...';}
+  document.getElementById('roundLabel').textContent=`回合 ${round}`;
+  updateActiveUI(); // 每回合更新主動/必殺技 UI 狀態
+}
+function hint(s){document.getElementById('hintBox').innerHTML=s}
+
+function updatePassiveUI(){
+  const pp=document.getElementById('playerPassive'), ap=document.getElementById('aiPassive');
+  if(playerPassive!==null){
+    const pi=PASSIVE_INFO[playerPassive];
+    pp.innerHTML=`<div class="passive-icon">${pi.icon}</div><div class="passive-name">${pi.name}</div><div class="passive-desc">${pi.desc}</div>`;
+    pp.classList.add('selected');
+  }
+  if(aiPassive!==null){
+    const ai=PASSIVE_INFO[aiPassive];
+    ap.innerHTML=`<div class="passive-icon">${ai.icon}</div><div class="passive-name">${ai.name}</div><div class="passive-desc">${ai.desc}</div>`;
+    ap.classList.add('selected');
+  }
+}
+
+function updateActiveUI(){
+  const pa=document.getElementById('playerActive'), aa=document.getElementById('aiActive');
+  if(playerActive!==null){
+    const pi=ACTIVE_INFO[playerActive];
+    let statusHTML = playerActiveCD===0 ? `<span class="text-green-400">✅ 點擊施放</span>` : `<span class="text-red-400">⏳ 冷卻 ${playerActiveCD} 回合</span>`;
+    pa.innerHTML=`<div class="passive-name text-blue-300">主動：${pi.name} ${pi.icon}</div><div class="passive-desc">${pi.desc}</div><div class="text-[10px] mt-0.5 font-bold">${statusHTML}</div>`;
+    
+    pa.classList.remove('ready', 'cd');
+    if(playerActiveCD===0 && turn===BLUE && phase==='normal') pa.classList.add('ready');
+    else pa.classList.add('cd');
+  }
+  if(aiActive!==null){
+    const pi=ACTIVE_INFO[aiActive];
+    let statusHTML = aiActiveCD===0 ? `<span class="text-green-400">✅ 準備就緒</span>` : `<span class="text-red-400">⏳ 冷卻 ${aiActiveCD} 回合</span>`;
+    aa.innerHTML=`<div class="passive-name text-red-300">主動：${pi.name} ${pi.icon}</div><div class="passive-desc">${pi.desc}</div><div class="text-[10px] mt-0.5 font-bold">${statusHTML}</div>`;
+    
+    aa.classList.remove('ready', 'cd');
+    if(aiActiveCD===0) aa.classList.add('ready');
+    else aa.classList.add('cd');
+  }
+
+  // 更新必殺技狀態
+  const pu = document.getElementById('playerUlt'), au = document.getElementById('aiUlt');
+  if (playerUltUsed) {
+      pu.classList.add('cd'); pu.classList.remove('ready');
+      pu.querySelector('.p-status').innerHTML = '<span class="text-slate-500">❌ 已使用</span>';
+  } else if (round >= 50) {
+      if (turn === BLUE && phase === 'normal') pu.classList.add('ready');
+      else pu.classList.remove('ready');
+      pu.classList.remove('cd');
+      pu.querySelector('.p-status').innerHTML = '<span class="text-purple-400">✨ 點擊施放</span>';
+  } else {
+      pu.classList.add('cd'); pu.classList.remove('ready');
+      pu.querySelector('.p-status').innerHTML = `<span class="text-red-400">🔒 需50回合 (${round}/50)</span>`;
+  }
+
+  if (aiUltUsed) {
+      au.classList.add('cd'); au.classList.remove('ready');
+      au.querySelector('.p-status').innerHTML = '<span class="text-slate-500">❌ 已使用</span>';
+  } else if (round >= 50) {
+      au.classList.add('ready'); au.classList.remove('cd');
+      au.querySelector('.p-status').innerHTML = '<span class="text-purple-400">✨ 準備就緒</span>';
+  } else {
+      au.classList.add('cd'); au.classList.remove('ready');
+      au.querySelector('.p-status').innerHTML = `<span class="text-red-400">🔒 需50回合 (${round}/50)</span>`;
+  }
+}
+
+// ===== SKILLS LOGIC =====
+function assignSkills() {
+  playerPassive = Math.floor(Math.random() * 3);
+  aiPassive = Math.floor(Math.random() * 3);
+  playerActive = Math.floor(Math.random() * 3);
+  aiActive = Math.floor(Math.random() * 3);
+  playerActiveCD = 0; aiActiveCD = 0;
+  pSkill2 = false; aiSkill2 = false;
+  
+  // 重置必殺技
+  playerUltUsed = false; aiUltUsed = false; extraTurn = null;
+  
+  updatePassiveUI();
+  updateActiveUI();
+  const pi = PASSIVE_INFO[playerPassive], ai = ACTIVE_INFO[playerActive];
+  hint(`✨ 獲得被動【${pi.name}】與主動【${ai.name}】！<br>點擊空位放置你的首個棋子(3)`);
+}
+
+// 玩家施放主動技能
+function usePlayerActive() {
+  if(over || animating || turn !== BLUE || phase !== 'normal' || playerActiveCD > 0) return;
+  
+  playerActiveCD = 5;
+  updateActiveUI();
+  let used = false;
+
+  if(playerActive === 0) { // 降維打擊
+    for(let r=0;r<R;r++)for(let c=0;c<C;c++) if(bd[r][c].o===RED) bd[r][c].v=1;
+    hint('✨ 施放【降維打擊】！敵方所有棋子退化為1！');
+    used = true;
+  } else if (playerActive === 1) { // 信仰奪取
+    pSkill2 = true;
+    hint('✨ 施放【信仰奪取】！下回合開始時將奪走對方的最高級棋子！');
+    used = true;
+  } else if (playerActive === 2) { // 異端淨化
+    for(let r=0;r<R;r++)for(let c=0;c<C;c++) if(bd[r][c].o===RED && bd[r][c].v===2) { bd[r][c].o=null; bd[r][c].v=0; }
+    hint('✨ 施放【異端淨化】！敵方所有數值 2 的棋子消失了！');
+    used = true;
+  }
+
+  if(used) {
+    stampAll(); scores(); winCheck();
+  }
+}
+
+// 玩家施放必殺技
+function usePlayerUlt() {
+  if(over || animating || turn !== BLUE || phase !== 'normal' || playerUltUsed || round < 50) return;
+  playerUltUsed = true;
+  extraTurn = BLUE;
+  updateActiveUI();
+  hint('⏳ 施放必殺技【時空扭曲】！你將連續行動兩回合！');
+}
+
+// ===== CLICK =====
+function onclick(r,c){
+  if(over||animating||turn!==BLUE)return;
+  const d=bd[r][c];
+  const limit = getLimit();
+  
+  if(phase==='opening'&&openN===0){
+    if(d.o!==null)return;
+    bd[r][c]={o:BLUE,v:3};stamp(get(r,c),r,c);get(r,c).classList.add('anim-pop');
+    scores();openN=1; endPlayer(); return;
+  }
+  if(phase!=='normal'||d.o!==BLUE)return;
+  if(d.v < limit){
+    d.v++;stamp(get(r,c),r,c);get(r,c).classList.add('anim-boost');scores();endPlayer();
+  }else{
+    animating=true;stampAll();
+    doProp(r,c,BLUE,playerPassive,()=>{animating=false;scores();stampAll();if(!winCheck())endPlayer()});
+  }
+}
+
+// ===== PROPAGATION (visual with auto-chain) =====
+function doProp(r,c,owner,passiveType,cb){
+  const opponent = owner === BLUE ? RED : BLUE;
+  const oppPassive = (opponent === BLUE ? playerPassive : aiPassive);
+  const limit = getLimit();
+  
+  if(oppPassive === 2 && Math.random() < 0.6) {
+    bd[r][c].v = 1;
+    stamp(get(r,c), r, c);
+    showFloatText(r, c, '護盾成功!', '#22c55e');
+    if(cb) cb();
+    return;
+  }
+
+  const el=get(r,c);
+  const stayAs2 = passiveType === 1 && Math.random() < 0.6;
+  
+  if(!stayAs2) el.classList.add('anim-explode');
+  
+  const delay=280;
+  setTimeout(()=>{
+    if(stayAs2) {
+      bd[r][c] = {o: owner, v: 2};
+      const enemyCells = [];
+      for(let rr=0; rr<R; rr++) for(let cc=0; cc<C; cc++) if(bd[rr][cc].o === opponent) enemyCells.push({r:rr, c:cc});
+      if(enemyCells.length > 0) {
+        const target = enemyCells[Math.floor(Math.random()*enemyCells.length)];
+        if(bd[target.r][target.c].v === 1) {
+          bd[target.r][target.c] = {o: null, v: 0};
+          stamp(get(target.r, target.c), target.r, target.c);
+          showFloatText(target.r, target.c, '消失!', '#ef4444');
+        } else {
+          bd[target.r][target.c].v -= 1;
+          stamp(get(target.r, target.c), target.r, target.c);
+          showFloatText(target.r, target.c, '-1', '#ef4444');
+        }
+      }
+    } else {
+      bd[r][c]={o:null,v:0};
+    }
+    stamp(el,r,c);
+
+    const tgts=[];
+    for(const[dr,dc]of DIRS){const nr=r+dr,nc=c+dc;if(nr>=0&&nr<R&&nc>=0&&nc<C)tgts.push({nr,nc})}
+    const chainQ=[];
+    const spawnQ=[]; 
+    
+    tgts.forEach(({nr,nc},i)=>{
+      setTimeout(()=>{
+        const t=bd[nr][nc],te=get(nr,nc);
+        if(t.o===null){
+          bd[nr][nc]={o:owner,v:1};stamp(te,nr,nc);te.classList.add('anim-pop');
+        }else if(t.o===owner){
+          t.v++;
+          if(t.v >= 6 && oppPassive === 0) {
+             bd[nr][nc] = {o:null, v:0}; stamp(te,nr,nc); showFloatText(nr,nc,'制裁!','#fff');
+          } else {
+             stamp(te,nr,nc);te.classList.add('anim-boost');
+             if(t.v > limit) chainQ.push({r:nr,c:nc});
+          }
+        }else{
+          const convertedOwner=t.o;
+          const victimPassive=convertedOwner===BLUE?playerPassive:aiPassive;
+          
+          const ov=t.v;
+          t.o=owner;t.v=ov+1;
+          
+          if(t.v >= 6 && oppPassive === 0) {
+             bd[nr][nc] = {o:null, v:0}; stamp(te,nr,nc); showFloatText(nr,nc,'制裁!','#fff');
+          } else {
+             stamp(te,nr,nc);te.classList.add('anim-convert');
+             if(t.v > limit) chainQ.push({r:nr,c:nc});
+          }
+          
+          if(victimPassive===0){
+            if(Math.random() < 0.6) spawnQ.push(convertedOwner);
+          }
+        }
+        scores();
+      },i*90);
+    });
+    
+    setTimeout(()=>{
+      spawnQ.forEach(o => spawnRandomPiece(o));
+      setTimeout(()=>runChains(chainQ,owner,passiveType,cb),180);
+    },tgts.length*90+100);
+  },delay);
+}
+
+function spawnRandomPiece(owner){
+  const empties=[];
+  for(let r=0;r<R;r++)for(let c=0;c<C;c++)if(bd[r][c].o===null)empties.push({r,c});
+  if(empties.length===0)return;
+  const spot=empties[Math.floor(Math.random()*empties.length)];
+  bd[spot.r][spot.c]={o:owner,v:3};
+  const el=get(spot.r,spot.c);
+  stamp(el,spot.r,spot.c);
+  el.classList.add('anim-spawn');
+  showFloatText(spot.r,spot.c,'重生!','#facc15');
+  scores();
+}
+
+function showFloatText(r,c,text,color){
+  const el=get(r,c);
+  if(!el)return;
+  const float=document.createElement('div');
+  float.textContent=text;
+  float.style.cssText=`position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:12px;font-weight:bold;color:${color};text-shadow:0 2px 4px rgba(0,0,0,.8);pointer-events:none;z-index:50;animation:pop-in .3s ease-out`;
+  el.appendChild(float);
+  setTimeout(()=>float.remove(),800);
+}
+
+function runChains(q,owner,passiveType,cb){
+  const limit = getLimit();
+  while(q.length>0){
+    const h=q[0];
+    const d=bd[h.r][h.c];
+    if(d.o===owner&&d.v>limit){break;}
+    q.shift();
+  }
+  if(q.length===0){if(cb)cb();return}
+  const{r,c}=q.shift();
+  doProp(r,c,owner,passiveType,()=>runChains(q,owner,passiveType,cb));
+}
+
+// ===== SIMULATION (for AI, no animation) =====
+function cloneBd(b){return b.map(row=>row.map(c=>({o:c.o,v:c.v})))}
+function simProp(brd,r,c,owner,passiveType){
+  const limit = getLimit();
+  const opponent = owner === BLUE ? RED : BLUE;
+  const oppPassive = (opponent === BLUE ? playerPassive : aiPassive); 
+  if(oppPassive === 2 && Math.random() < 0.6) { brd[r][c].v = 1; return; }
+
+  const stayAs2 = passiveType === 1 && Math.random() < 0.6;
+  if(stayAs2) {
+    brd[r][c] = {o: owner, v: 2};
+  } else {
+    brd[r][c]={o:null,v:0};
+  }
+  
+  const chains=[];
+  for(const[dr,dc]of DIRS){
+    const nr=r+dr,nc=c+dc;
+    if(nr<0||nr>=R||nc<0||nc>=C)continue;
+    const t=brd[nr][nc];
+    if(t.o===null){brd[nr][nc]={o:owner,v:1}}
+    else if(t.o===owner){
+        t.v++;
+        if(t.v >= 6 && oppPassive === 0) brd[nr][nc]={o:null,v:0};
+        else if(t.v>limit)chains.push({r:nr,c:nc});
+    }
+    else{
+      const ov=t.v;t.o=owner;t.v=ov+1;
+      if(t.v >= 6 && oppPassive === 0) brd[nr][nc]={o:null,v:0};
+      else if(t.v>limit)chains.push({r:nr,c:nc});
+    }
+  }
+  
+  let safety=0;
+  while(chains.length>0&&safety<30){
+    safety++;
+    const ch=chains.shift();
+    const cell=brd[ch.r][ch.c];
+    if(cell.o!==owner||cell.v<=limit)continue;
+    cell.o=null;cell.v=0;
+    for(const[dr,dc]of DIRS){
+      const nr=ch.r+dr,nc=ch.c+dc;
+      if(nr<0||nr>=R||nc<0||nc>=C)continue;
+      const t=brd[nr][nc];
+      if(t.o===null){brd[nr][nc]={o:owner,v:1}}
+      else if(t.o===owner){
+          t.v+=1;
+          if(t.v >= 6 && oppPassive === 0) brd[nr][nc]={o:null,v:0};
+          else if(t.v>limit)chains.push({r:nr,c:nc});
+      }
+      else{
+        const defenderPassive=t.o===BLUE?playerPassive:aiPassive;
+        const resist=defenderPassive===2&&Math.random()<0.6;
+        if(resist){t.v=1;}
+        else{
+            const ov=t.v;t.o=owner;t.v=ov+1;
+            if(t.v >= 6 && oppPassive === 0) brd[nr][nc]={o:null,v:0};
+            else if(t.v>limit)chains.push({r:nr,c:nc});
+        }
+      }
+    }
+  }
+}
+
+// ===== GAME FLOW =====
+function endPlayer(){
+  // 檢查是否為玩家的額外回合 (必殺技觸發)
+  if(extraTurn === BLUE) {
+      extraTurn = null;
+      turn = BLUE;
+      uiTurn();
+      if(!pSkill2) hint('✨ 必殺技【時空扭曲】生效！這是你的額外回合！');
+      return;
+  }
+
+  turn=RED; uiTurn();
+  
+  // 觸發 AI 的技能 2 (信仰奪取)
+  let delay = 50;
+  const limit = getLimit();
+  if(aiSkill2 && phase === 'normal') {
+    let conv = false;
+    for(let r=0;r<R;r++)for(let c=0;c<C;c++){
+      if(bd[r][c].o===BLUE && bd[r][c].v >= limit){ bd[r][c].o=RED; conv=true; stamp(get(r,c),r,c); get(r,c).classList.add('anim-convert'); }
+    }
+    if(conv) { hint('🤖 AI 的【信仰奪取】觸發！你的最高級棋子被奪走了！'); scores(); delay = 1000; }
+    aiSkill2 = false;
+    if(winCheck()) return;
+  }
+  
+  if(!aiSkill2 && delay === 50 && phase === 'normal') hint('🤖 AI 思考中...');
+  setTimeout(phase==='opening' ? aiOpen : aiMove, delay);
+}
+
+function endAI(){
+  // 檢查是否為 AI 的額外回合 (必殺技觸發)
+  if(extraTurn === RED) {
+      extraTurn = null;
+      turn = RED;
+      uiTurn();
+      hint('🤖 必殺技【時空扭曲】生效！AI的額外回合！');
+      setTimeout(phase==='opening' ? aiOpen : aiMove, 1000);
+      return;
+  }
+
+  round++;
+  if(playerActiveCD > 0) playerActiveCD--;
+  if(aiActiveCD > 0) aiActiveCD--;
+  
+  turn=BLUE; uiTurn();
+  
+  const limit = getLimit();
+  // 觸發玩家的技能 2 (信仰奪取)
+  let delayMsg = false;
+  if(pSkill2 && phase === 'normal') {
+    let conv = false;
+    for(let r=0;r<R;r++)for(let c=0;c<C;c++){
+      if(bd[r][c].o===RED && bd[r][c].v >= limit){ bd[r][c].o=BLUE; conv=true; stamp(get(r,c),r,c); get(r,c).classList.add('anim-convert'); }
+    }
+    if(conv) { hint('✨ 【信仰奪取】觸發！對方的最高級棋子已轉為己用！'); scores(); delayMsg = true; }
+    pSkill2 = false;
+    if(winCheck()) return;
+  }
+
+  if(!winCheck()){
+    if(round === 50) {
+      hint('🌌 第 50 回合！傳道門檻提升為 5！<br>雙方必殺技【時空扭曲】已解鎖！');
+    } else if(!delayMsg) {
+      hint('💡 點擊你的棋子：升級或傳道。亦可使用主動與必殺技！');
+    }
+    stampAll();
+  }
+}
+
+function winCheck(){
+  if(phase!=='normal')return false;
+  const b=cnt(bd,BLUE),rv=cnt(bd,RED);
+  if(rv===0&&b>0){showEnd(true);return true}
+  if(b===0&&rv>0){showEnd(false);return true}
+  return false;
+}
+function showEnd(pw){
+  over=true;stampAll();
+  document.getElementById('ovEmoji').textContent=pw?'🎉':'😔';
+  const t=document.getElementById('ovTitle');
+  t.textContent=pw?'你贏了！':'你輸了';
+  t.className=pw?'text-4xl font-black text-blue-400':'text-4xl font-black text-red-400';
+  document.getElementById('ovSub').textContent=pw?'成功將所有敵方棋子傳道！':'AI 將你的棋子全部轉化了…';
+  document.getElementById('overlay').style.display='flex';
+  document.getElementById('turnDot').classList.remove('turn-pulse');
+  document.getElementById('turnText').textContent=pw?'遊戲結束 — 勝利！':'遊戲結束 — 失敗';
+}
+
+// ===== AI =====
+function aiOpen(){
+  let pr=2,pc=2;
+  for(let r=0;r<R;r++)for(let c=0;c<C;c++)if(bd[r][c].o===BLUE){pr=r;pc=c}
+  let best=null,bs=-1e9;
+  for(let r=0;r<R;r++)for(let c=0;c<C;c++){
+    if(bd[r][c].o!==null)continue;
+    const dist=Math.abs(r-pr)+Math.abs(c-pc);
+    const cen=4-(Math.abs(r-2)+Math.abs(c-2));
+    const s=dist*3+cen*2+Math.random()*3;
+    if(s>bs){bs=s;best={r,c}}
+  }
+  bd[best.r][best.c]={o:RED,v:3};stamp(get(best.r,best.c),best.r,best.c);
+  get(best.r,best.c).classList.add('anim-pop');
+  scores();openN=2;phase='normal';endAI();
+}
+
+function evalFor(brd,who){
+  const opp=who===RED?BLUE:RED;
+  const limit = getLimit();
+  let mc=0,oc=0,mv=0,ov=0,m3=0,o3=0,m2=0,o2=0,mCen=0,oCen=0;
+  for(let r=0;r<R;r++)for(let c=0;c<C;c++){
+    const cl=brd[r][c],cd=Math.abs(r-2)+Math.abs(c-2);
+    if(cl.o===who){mc++;mv+=cl.v;if(cl.v>=limit)m3++;else if(cl.v===limit-1)m2++;mCen+=(4-cd)}
+    else if(cl.o===opp){oc++;ov+=cl.v;if(cl.v>=limit)o3++;else if(cl.v===limit-1)o2++;oCen+=(4-cd)}
+  }
+  if(oc===0&&mc>0)return 1e8;
+  if(mc===0&&oc>0)return -1e8;
+  let s=0;
+  s+=(mc-oc)*200; s+=(mv-ov)*15; s+=m3*50; s-=o3*70; s+=m2*25; s-=o2*15; s+=(mCen-oCen)*3;
+
+  for(let r=0;r<R;r++)for(let c=0;c<C;c++){
+    if(brd[r][c].o===who&&brd[r][c].v>=limit){
+      let adj=0;
+      for(const[dr,dc]of DIRS){ const nr=r+dr,nc=c+dc; if(nr>=0&&nr<R&&nc>=0&&nc<C&&brd[nr][nc].o===opp)adj++; }
+      s+=adj*15;
+    }
+    if(brd[r][c].o===opp&&brd[r][c].v>=limit){
+      let adj=0;
+      for(const[dr,dc]of DIRS){ const nr=r+dr,nc=c+dc; if(nr>=0&&nr<R&&nc>=0&&nc<C&&brd[nr][nc].o===who)adj++; }
+      s-=adj*20;
+    }
+  }
+  return s;
+}
+
+function getMoves(brd,who){
+  const mv=[];
+  const limit = getLimit();
+  for(let r=0;r<R;r++)for(let c=0;c<C;c++){
+    if(brd[r][c].o!==who)continue;
+    if(brd[r][c].v < limit)mv.push({t:'up',r,c});
+    else mv.push({t:'prop',r,c});
+  }
+  return mv;
+}
+
+function simMove(brd,mv,who,passiveType){
+  const b=cloneBd(brd);
+  if(mv.t==='up')b[mv.r][mv.c].v++;
+  else simProp(b,mv.r,mv.c,who,passiveType);
+  return b;
+}
+
+function quickScore(brd,mv,who){
+  const opp=who===RED?BLUE:RED;
+  if(mv.t==='prop'){
+    let s=0;
+    for(const[dr,dc]of DIRS){
+      const nr=mv.r+dr,nc=mv.c+dc;
+      if(nr<0||nr>=R||nc<0||nc>=C)continue;
+      const t=brd[nr][nc];
+      if(t.o===opp)s+=30; else if(t.o===who)s+=5; else s+=8;
+    }
+    return s;
+  }
+  let s=5;
+  for(const[dr,dc]of DIRS){
+    const nr=mv.r+dr,nc=mv.c+dc;
+    if(nr>=0&&nr<R&&nc>=0&&nc<C&&brd[nr][nc].o===opp)s+=15;
+  }
+  return s;
+}
+
+function aiMove(){
+  if(over)return;
+  
+  // AI 決定是否使用必殺技 (50回合後)
+  if(round >= 50 && !aiUltUsed) {
+      aiUltUsed = true;
+      extraTurn = RED;
+      updateActiveUI();
+      hint('🤖 AI 施放了必殺技【時空扭曲】！');
+      setTimeout(aiActiveLogic, 1200);
+      return;
+  }
+  
+  aiActiveLogic();
+}
+
+function aiActiveLogic() {
+  if(over)return;
+  
+  // AI 決定是否使用主動技能
+  if(aiActiveCD === 0 && phase === 'normal') {
+    let use = false;
+    if(aiActive === 0) {
+      let c=0; for(let r=0;r<R;r++)for(let c2=0;c2<C;c2++) if(bd[r][c2].o===BLUE && bd[r][c2].v > 1) c++;
+      if(c>=2) use = true;
+    } else if(aiActive === 1) {
+      let c=0; for(let r=0;r<R;r++)for(let c2=0;c2<C;c2++) if(bd[r][c2].o===BLUE && bd[r][c2].v >= 2) c++;
+      if(c>=1) use = true;
+    } else if(aiActive === 2) {
+      let c=0; for(let r=0;r<R;r++)for(let c2=0;c2<C;c2++) if(bd[r][c2].o===BLUE && bd[r][c2].v === 2) c++;
+      if(c>=2) use = true;
+    }
+
+    if(use) {
+      aiActiveCD = 5;
+      updateActiveUI();
+      hint(`🤖 AI 施放了主動技【${ACTIVE_INFO[aiActive].name}】！`);
+      if(aiActive === 0) {
+        for(let r=0;r<R;r++)for(let c=0;c<C;c++) if(bd[r][c].o===BLUE) bd[r][c].v=1;
+      } else if (aiActive === 1) {
+        aiSkill2 = true;
+      } else if (aiActive === 2) {
+        for(let r=0;r<R;r++)for(let c=0;c<C;c++) if(bd[r][c].o===BLUE && bd[r][c].v===2) {bd[r][c].o=null;bd[r][c].v=0;}
+      }
+      stampAll(); scores();
+      if(winCheck()) return;
+      setTimeout(aiMoveCore, 1200); // 放完技能稍微等一下再下棋
+      return;
+    }
+  }
+  
+  aiMoveCore();
+}
+
+function aiMoveCore(){
+  if(over)return;
+  const moves=getMoves(bd,RED);
+  if(moves.length===0){winCheck();return}
+
+  moves.sort((a,b)=>quickScore(bd,b,RED)-quickScore(bd,a,RED));
+
+  let bestMv=moves[0],bestSc=-1e9;
+  const opp=BLUE;
+  const limit1 = Math.min(moves.length, 6);
+
+  for(let i=0; i<limit1; i++){
+    const mv = moves[i];
+    const afterMe = simMove(bd, mv, RED, aiPassive);
+    if(cnt(afterMe, opp) === 0){ bestMv = mv; break; }
+
+    const oppMvs = getMoves(afterMe, opp);
+    let worst = 1e9;
+    
+    if(oppMvs.length === 0){
+      worst = evalFor(afterMe, RED);
+    } else {
+      oppMvs.sort((a,b)=>quickScore(afterMe,b,opp)-quickScore(afterMe,a,opp));
+      const limit2 = Math.min(oppMvs.length, 3);
+      for(let j=0; j<limit2; j++){
+        const afterOpp = simMove(afterMe, oppMvs[j], opp, playerPassive);
+        const s = evalFor(afterOpp, RED);
+        if(s < worst) worst = s;
+        if(worst <= bestSc) break;
+      }
+    }
+    worst += Math.random() * 1.5;
+    if(worst > bestSc){ bestSc = worst; bestMv = mv; }
+  }
+
+  if(bestMv.t==='up'){
+    bd[bestMv.r][bestMv.c].v++;stamp(get(bestMv.r,bestMv.c),bestMv.r,bestMv.c);
+    get(bestMv.r,bestMv.c).classList.add('anim-boost');scores();if(!winCheck())endAI();
+  }else{
+    animating=true;stampAll();
+    doProp(bestMv.r,bestMv.c,RED,aiPassive,()=>{
+      animating=false;scores();stampAll();if(!winCheck())endAI();
+    });
+  }
+}
+
+// ===== RESET =====
+function resetGame(){
+  over=false;animating=false;turn=BLUE;phase='opening';openN=0;round=1;
+  document.getElementById('overlay').style.display='none';
+  document.getElementById('turnDot').classList.add('turn-pulse');
+  init();buildBoard();uiTurn();
+  assignSkills();
+}
+window.addEventListener('DOMContentLoaded',resetGame);
+</script>
+</body>
+</html>

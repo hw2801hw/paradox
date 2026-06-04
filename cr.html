@@ -1,0 +1,1507 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+<title>皇室達陣戰</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none}
+html,body{width:100%;height:100%;overflow:hidden;background:#111;display:flex;justify-content:center;align-items:center;font-family:'Segoe UI','Microsoft JhengHei',Arial,sans-serif}
+#gameContainer{position:relative;background:#1a3a1a;overflow:hidden}
+canvas{display:block;width:100%;height:100%}
+.overlay{position:absolute;top:0;left:0;width:100%;height:100%;display:flex;flex-direction:column;justify-content:center;align-items:center;background:rgba(0,0,0,0.88);z-index:100;color:#fff}
+.overlay h1{font-size:7vmin;margin-bottom:2vmin;text-shadow:0 0 20px gold}
+.overlay h2{font-size:4.5vmin;margin-bottom:3vmin;color:#ffd700}
+.overlay p{font-size:2.8vmin;margin-bottom:1vmin;color:#ccc;text-align:center;padding:0 5vmin}
+.overlay button{padding:2vmin 6vmin;font-size:4vmin;border:none;border-radius:2vmin;cursor:pointer;font-weight:bold;margin-top:2vmin;transition:transform 0.1s}
+.overlay button:active{transform:scale(0.95)}
+#startBtn{background:linear-gradient(180deg,#4CAF50,#2E7D32);color:#fff;box-shadow:0 4px 15px rgba(76,175,80,0.5)}
+#restartBtn{background:linear-gradient(180deg,#FF9800,#E65100);color:#fff;box-shadow:0 4px 15px rgba(255,152,0,0.5)}
+#resultText{font-size:8vmin;font-weight:bold;text-shadow:0 0 30px currentColor}
+#deckSelect{position:absolute;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.94);z-index:99;display:none;flex-direction:column;align-items:center;overflow-y:auto;color:#fff;padding:1.5vmin;-webkit-overflow-scrolling:touch}
+#deckSelect h2{font-size:4vmin;margin:1vmin 0;color:#ffd700}
+#deckSelect .hint{font-size:2.2vmin;color:#aaa;margin-bottom:0.8vmin}
+#cardGrid{display:grid;grid-template-columns:repeat(4,1fr);gap:1.2vmin;width:96%;max-width:500px}
+.cardOption{border:2px solid #444;border-radius:1.2vmin;padding:0.8vmin;text-align:center;cursor:pointer;background:linear-gradient(180deg,#1a1a2e,#0d0d1a);transition:all 0.15s}
+.cardOption.selected{border-color:#ffd700;background:linear-gradient(180deg,#2a2a4e,#1a1a3e);box-shadow:0 0 12px rgba(255,215,0,0.4)}
+.cardOption .emoji{font-size:4.5vmin}
+.cardOption .cname{font-size:1.9vmin;font-weight:bold;margin:0.2vmin 0;color:#eee}
+.cardOption .cost{font-size:1.8vmin;color:#e040fb}
+.cardOption .desc{font-size:1.4vmin;color:#999}
+.cardOption .stats{font-size:1.2vmin;color:#777;margin-top:0.2vmin}
+#confirmDeck{padding:1.5vmin 5vmin;font-size:3.5vmin;border:none;border-radius:1.5vmin;background:linear-gradient(180deg,#4CAF50,#2E7D32);color:#fff;cursor:pointer;margin:1.5vmin 0;font-weight:bold;box-shadow:0 4px 15px rgba(76,175,80,0.4)}
+#confirmDeck:disabled{background:#444;color:#666;box-shadow:none}
+#selectedCount{font-size:2.8vmin;color:#ffd700;margin:0.8vmin 0}
+</style>
+</head>
+<body>
+
+<div id="gameContainer">
+  <canvas id="gameCanvas"></canvas>
+
+  <!-- ===== 開始畫面 ===== -->
+  <div class="overlay" id="startScreen">
+    <h1>⚔️ 皇室達陣戰 ⚔️</h1>
+    <h2>🏈 Touchdown Mode 🏈</h2>
+    <p>將你的單位推入敵方達陣區得分！</p>
+    <p>先得 3 分者獲勝 ⏱️ 限時 3 分鐘</p>
+    <p>平手進入 ⚡突然死亡 模式</p>
+    <button id="startBtn">🏈 開始遊戲</button>
+  </div>
+
+  <!-- ===== 選牌畫面 ===== -->
+  <div id="deckSelect">
+    <h2>📋 選擇 8 張上陣卡牌</h2>
+    <div class="hint">點擊卡牌選擇/取消，選滿 8 張後確認</div>
+    <div id="selectedCount">已選: 0 / 8</div>
+    <div id="cardGrid"></div>
+    <button id="confirmDeck" disabled>✅ 確認出戰</button>
+  </div>
+
+  <!-- ===== 結束畫面 ===== -->
+  <div class="overlay" id="endScreen" style="display:none">
+    <div id="resultText"></div>
+    <h2 id="finalScore"></h2>
+    <button id="restartBtn">🔄 再玩一次</button>
+  </div>
+</div>
+
+<script>
+/* ==============================================================
+   皇室達陣戰 - Clash Royale Touchdown Mode
+   完整單一檔案遊戲 - HTML5 Canvas
+   
+   場地方向：
+   - 頂部 = AI 敵方達陣區 (紅色) ← 玩家單位往上推進
+   - 底部 = 玩家己方達陣區 (綠色) ← AI 單位往下推進
+   - 玩家在下半場放置（靠近自己的綠色達陣區）
+   - AI 在上半場放置（靠近自己的紅色達陣區）
+   ============================================================== */
+
+// ============ Canvas & 容器 ============
+const CVS = document.getElementById('gameCanvas');
+const CTX = CVS.getContext('2d');
+const container = document.getElementById('gameContainer');
+
+// ============ 遊戲邏輯尺寸 (9:16) ============
+const GW = 360;
+const GH = 640;
+
+// ============ 場地佈局常數 ============
+const HUD_H = 44;          // 頂部HUD高度
+const CARD_AREA_H = 100;   // 底部卡牌區高度
+const FIELD_TOP = HUD_H;
+const FIELD_BOT = GH - CARD_AREA_H;
+const FIELD_H = FIELD_BOT - FIELD_TOP;
+const FIELD_MID = FIELD_TOP + FIELD_H / 2;
+
+// 達陣區 (各 50px 高)
+const TZ_H = 50;
+// AI達陣區在頂部（紅色）- 玩家要把單位推到這裡得分
+const AI_TZ_TOP = FIELD_TOP;
+const AI_TZ_BOT = FIELD_TOP + TZ_H;
+// 玩家達陣區在底部（綠色）- AI要把單位推到這裡得分
+const PLAYER_TZ_TOP = FIELD_BOT - TZ_H;
+const PLAYER_TZ_BOT = FIELD_BOT;
+
+// 30碼限制線
+// 玩家只能在下半場靠近自己這邊放 (PLAYER_30 到 FIELD_BOT)
+const PLAYER_30 = FIELD_BOT - FIELD_H * 0.35;
+// AI只能在上半場靠近自己這邊放 (FIELD_TOP 到 AI_30)
+const AI_30 = FIELD_TOP + FIELD_H * 0.35;
+
+// ============ 20張卡牌資料庫 ============
+const ALL_CARDS = [
+  // ── 地面單位 6張 ──
+  {id:0, name:'巨石戰士', emoji:'🪨', type:'ground', cost:7,
+   hp:2400, atk:180, atkSpd:1.8, moveSpd:0.4, range:28,
+   desc:'衝鋒坦克', special:'charge', canHitAir:false, count:1, radius:15},
+
+  {id:1, name:'骷髏軍團', emoji:'💀', type:'ground', cost:3,
+   hp:80, atk:55, atkSpd:0.8, moveSpd:1.0, range:18,
+   desc:'6隻蜂擁', special:'swarm', canHitAir:false, count:6, radius:7},
+
+  {id:2, name:'弓箭射手', emoji:'🏹', type:'ground', cost:3,
+   hp:320, atk:85, atkSpd:1.0, moveSpd:0.8, range:110,
+   desc:'遠程對空×2', special:'ranged', canHitAir:true, count:2, radius:8},
+
+  {id:3, name:'聖光法師', emoji:'🧙', type:'ground', cost:5,
+   hp:550, atk:140, atkSpd:1.4, moveSpd:0.65, range:95,
+   desc:'範圍魔法/對空', special:'splash', canHitAir:true, count:1, radius:11},
+
+  {id:4, name:'狂戰斧手', emoji:'🪓', type:'ground', cost:4,
+   hp:750, atk:150, atkSpd:1.1, moveSpd:0.85, range:25,
+   desc:'低血狂暴加速', special:'enrage_self', canHitAir:false, count:1, radius:11},
+
+  {id:5, name:'暗影刺客', emoji:'🗡️', type:'ground', cost:4,
+   hp:480, atk:210, atkSpd:0.9, moveSpd:1.4, range:25,
+   desc:'突進跳躍', special:'dash', canHitAir:false, count:1, radius:9},
+
+  // ── 飛行單位 6張 ──
+  {id:6, name:'火焰飛龍', emoji:'🐉', type:'air', cost:6,
+   hp:950, atk:130, atkSpd:1.5, moveSpd:0.55, range:75,
+   desc:'範圍火焰/對空', special:'splash', canHitAir:true, count:1, radius:14},
+
+  {id:7, name:'蝙蝠群', emoji:'🦇', type:'air', cost:2,
+   hp:55, atk:35, atkSpd:0.7, moveSpd:1.3, range:18,
+   desc:'5隻快攻', special:'swarm', canHitAir:true, count:5, radius:6},
+
+  {id:8, name:'雷電鳳凰', emoji:'🦅', type:'air', cost:5,
+   hp:650, atk:115, atkSpd:1.2, moveSpd:0.95, range:55,
+   desc:'死亡爆炸/對空', special:'death_bomb', canHitAir:true, count:1, radius:12},
+
+  {id:9, name:'氣球炸彈', emoji:'🎈', type:'air', cost:5,
+   hp:850, atk:260, atkSpd:2.5, moveSpd:0.45, range:25,
+   desc:'只攻建築/高傷', special:'building_target', canHitAir:false, count:1, radius:13},
+
+  {id:10, name:'仙靈治者', emoji:'🧚', type:'air', cost:4,
+   hp:420, atk:0, atkSpd:1.0, moveSpd:0.75, range:80,
+   desc:'治療友軍光環', special:'heal_aura', canHitAir:false, count:1, radius:10},
+
+  {id:11, name:'寒冰幽靈', emoji:'👻', type:'air', cost:3,
+   hp:380, atk:75, atkSpd:1.2, moveSpd:0.85, range:30,
+   desc:'攻擊減速敵人', special:'slow', canHitAir:true, count:1, radius:10},
+
+  // ── 建築卡 4張 ──
+  {id:12, name:'加農炮', emoji:'💣', type:'building', cost:3,
+   hp:650, atk:130, atkSpd:0.9, moveSpd:0, range:105,
+   desc:'地面高傷防禦', special:'cannon', canHitAir:false, count:1, radius:16, lifetime:30},
+
+  {id:13, name:'弓箭塔', emoji:'🏰', type:'building', cost:4,
+   hp:520, atk:75, atkSpd:0.7, moveSpd:0, range:115,
+   desc:'對空遠程防禦', special:'anti_air', canHitAir:true, count:1, radius:16, lifetime:30},
+
+  {id:14, name:'哥布林小屋', emoji:'🛖', type:'building', cost:5,
+   hp:550, atk:0, atkSpd:0, moveSpd:0, range:0,
+   desc:'每5秒產哥布林', special:'spawn', canHitAir:false, count:1, radius:16, lifetime:40,
+   spawnInterval:5, spawnUnit:{name:'小哥布林',emoji:'👺',hp:160,atk:65,atkSpd:0.9,moveSpd:1.1,range:20,radius:7,canHitAir:false}},
+
+  {id:15, name:'石牆堡壘', emoji:'🧱', type:'building', cost:2,
+   hp:1400, atk:0, atkSpd:0, moveSpd:0, range:0,
+   desc:'嘲諷吸引敵人', special:'taunt', canHitAir:false, count:1, radius:18, lifetime:25},
+
+  // ── 法術卡 4張 ──
+  {id:16, name:'狂暴法術', emoji:'💢', type:'spell', cost:2,
+   hp:0, atk:0, atkSpd:0, moveSpd:0, range:0,
+   desc:'友軍攻速+移速', special:'rage', radius:75, duration:6},
+
+  {id:17, name:'復仇滾木', emoji:'🪵', type:'spell', cost:2,
+   hp:0, atk:160, atkSpd:0, moveSpd:0, range:0,
+   desc:'橫掃擊退地面', special:'log', radius:0},
+
+  {id:18, name:'流星雨', emoji:'☄️', type:'spell', cost:3,
+   hp:0, atk:320, atkSpd:0, moveSpd:0, range:0,
+   desc:'大範圍空地轟炸', special:'meteor', radius:85},
+
+  {id:19, name:'冰凍法術', emoji:'❄️', type:'spell', cost:4,
+   hp:0, atk:90, atkSpd:0, moveSpd:0, range:0,
+   desc:'凍結+微傷', special:'freeze', radius:75, duration:4}
+];
+
+// ============ 遊戲狀態變數 ============
+let gameState = 'start'; // start | deckSelect | playing | suddenDeath | ended
+let playerScore = 0, aiScore = 0;
+let gameTime = 180;
+let playerElixir = 5, aiElixir = 5;
+const MAX_ELIXIR = 10;
+let elixirAccum = 0;
+
+// ============ 8卡循環系統 ============
+// playerDeck[0..7] = 8張選定的牌（固定順序的牌組）
+// playerQueue[0..7] = 循環隊列（索引到 deck），初始洗牌後的出牌順序
+// playerHand[0..3] = 當前手上4張（索引到 deck）
+// playerNextCard = 下一張要補的牌（索引到 deck）
+// queuePos = 隊列中下一張要補的位置
+let playerDeck = [];
+let aiDeck = [];
+let playerQueue = []; // 循環隊列
+let aiQueue = [];
+let playerHand = [];  // 手牌 (4張, 存的是卡牌物件引用)
+let aiHand = [];
+let playerNextCard = null; // 下一張牌物件
+let aiNextCard = null;
+let playerQueuePos = 0;
+let aiQueuePos = 0;
+
+let units = [];
+let buildings = [];
+let effects = [];
+let spellEffects = [];
+
+// 拖曳
+let selectedCard = null; // index in playerHand (0-3)
+let dragPos = null;
+let isDragging = false;
+let touchId = null;
+
+// 時間控制
+let lastTime = 0;
+let animId = 0;
+
+// 音效
+let audioCtx = null;
+function getAudioCtx() {
+  if (!audioCtx) {
+    try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch(e) {}
+  }
+  return audioCtx;
+}
+
+// ============ RWD 自適應縮放 ============
+function resize() {
+  const ww = window.innerWidth;
+  const wh = window.innerHeight;
+  const ratio = 9 / 16;
+  let cw, ch;
+  if (ww / wh < ratio) { cw = ww; ch = ww / ratio; }
+  else { ch = wh; cw = wh * ratio; }
+  container.style.width = cw + 'px';
+  container.style.height = ch + 'px';
+  container.style.position = 'absolute';
+  container.style.left = ((ww - cw) / 2) + 'px';
+  container.style.top = ((wh - ch) / 2) + 'px';
+  CVS.width = GW;
+  CVS.height = GH;
+}
+window.addEventListener('resize', resize);
+resize();
+
+function screenToGame(clientX, clientY) {
+  const r = CVS.getBoundingClientRect();
+  return { x: (clientX - r.left) / r.width * GW, y: (clientY - r.top) / r.height * GH };
+}
+
+// ============ 簡易音效 ============
+function playSound(type) {
+  const ctx = getAudioCtx();
+  if (!ctx) return;
+  try {
+    const osc = ctx.createOscillator();
+    const g = ctx.createGain();
+    osc.connect(g); g.connect(ctx.destination);
+    g.gain.value = 0.08;
+    if (type === 'place') { osc.frequency.value = 520; osc.type = 'triangle'; }
+    else if (type === 'score') { osc.frequency.value = 880; osc.type = 'sine'; g.gain.value = 0.15; }
+    else if (type === 'hit') { osc.frequency.value = 180; osc.type = 'square'; g.gain.value = 0.03; }
+    else if (type === 'spell') { osc.frequency.value = 350; osc.type = 'sawtooth'; g.gain.value = 0.06; }
+    osc.start();
+    osc.stop(ctx.currentTime + 0.12);
+  } catch(e) {}
+}
+
+// ============ 選牌UI ============
+const deckSelectDiv = document.getElementById('deckSelect');
+const cardGrid = document.getElementById('cardGrid');
+const confirmBtn = document.getElementById('confirmDeck');
+const selectedCountEl = document.getElementById('selectedCount');
+let selectedCards = new Set();
+
+function showDeckSelect() {
+  deckSelectDiv.style.display = 'flex';
+  cardGrid.innerHTML = '';
+  selectedCards.clear();
+
+  ALL_CARDS.forEach((c, i) => {
+    const d = document.createElement('div');
+    d.className = 'cardOption';
+    const statsText = c.type === 'spell'
+      ? `DMG:${c.atk||'-'} R:${c.radius||'-'}`
+      : `HP:${c.hp} ATK:${c.atk}`;
+    d.innerHTML = `<div class="emoji">${c.emoji}</div><div class="cname">${c.name}</div><div class="cost">💧${c.cost}</div><div class="desc">${c.desc}</div><div class="stats">${statsText}</div>`;
+    d.addEventListener('click', () => {
+      if (selectedCards.has(i)) { selectedCards.delete(i); d.classList.remove('selected'); }
+      else if (selectedCards.size < 8) { selectedCards.add(i); d.classList.add('selected'); }
+      selectedCountEl.textContent = `已選: ${selectedCards.size} / 8`;
+      confirmBtn.disabled = selectedCards.size !== 8;
+    });
+    cardGrid.appendChild(d);
+  });
+  selectedCountEl.textContent = '已選: 0 / 8';
+  confirmBtn.disabled = true;
+}
+
+confirmBtn.addEventListener('click', () => {
+  playerDeck = Array.from(selectedCards).map(i => ({...ALL_CARDS[i]}));
+  // AI隨機選8張
+  const shuffled = [...ALL_CARDS].sort(() => Math.random() - 0.5);
+  aiDeck = shuffled.slice(0, 8).map(c => ({...c}));
+  deckSelectDiv.style.display = 'none';
+  initGame();
+});
+
+// ============ 8卡循環初始化 ============
+function initCardCycle(deck) {
+  // 建立 0~7 的索引陣列並洗牌
+  const indices = [0,1,2,3,4,5,6,7];
+  for (let i = indices.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [indices[i], indices[j]] = [indices[j], indices[i]];
+  }
+  // 前4張是手牌，第5張是下一張，剩下是隊列
+  const hand = indices.slice(0, 4).map(i => ({...deck[i], deckIdx: i}));
+  const nextCard = {...deck[indices[4]], deckIdx: indices[4]};
+  // 完整隊列（用完一張後從 queuePos=5 開始取）
+  const queue = indices;
+  return { hand, nextCard, queue, queuePos: 5 };
+}
+
+// 使用一張手牌後循環
+function useCard(hand, nextCard, queue, queuePos, deck, handIdx) {
+  // 把用掉的牌的 deckIdx 記下
+  const usedDeckIdx = hand[handIdx].deckIdx;
+  // 當前手牌的那個位置換成 nextCard
+  hand[handIdx] = nextCard;
+  // nextCard 變成隊列中的下一張
+  const nextDeckIdx = queue[queuePos % 8];
+  const newNext = {...deck[nextDeckIdx], deckIdx: nextDeckIdx};
+  // 把用掉的牌放回隊列尾端（覆蓋即將離開的位置）
+  // 實際上我們需要把 usedDeckIdx 放到隊列中某個位置
+  // 簡化做法：queue 持續循環，把用掉的放到 queuePos+3 的位置（確保不會馬上再出現）
+  queue[(queuePos + 3) % 8] = usedDeckIdx;
+  return { nextCard: newNext, queuePos: (queuePos + 1) % 8 };
+}
+
+// ============ 遊戲初始化 ============
+function initGame() {
+  gameState = 'playing';
+  playerScore = 0; aiScore = 0;
+  gameTime = 180;
+  playerElixir = 5; aiElixir = 5;
+  elixirAccum = 0;
+  units = []; buildings = []; effects = []; spellEffects = [];
+  selectedCard = null; dragPos = null; isDragging = false;
+
+  // 初始化卡牌循環
+  const pInit = initCardCycle(playerDeck);
+  playerHand = pInit.hand;
+  playerNextCard = pInit.nextCard;
+  playerQueue = pInit.queue;
+  playerQueuePos = pInit.queuePos;
+
+  const aInit = initCardCycle(aiDeck);
+  aiHand = aInit.hand;
+  aiNextCard = aInit.nextCard;
+  aiQueue = aInit.queue;
+  aiQueuePos = aInit.queuePos;
+
+  lastTime = performance.now();
+  cancelAnimationFrame(animId);
+  animId = requestAnimationFrame(gameLoop);
+}
+
+// ============ 主遊戲循環 ============
+function gameLoop(ts) {
+  if (gameState !== 'playing' && gameState !== 'suddenDeath') return;
+  const dt = Math.min((ts - lastTime) / 1000, 0.05);
+  lastTime = ts;
+  update(dt);
+  render();
+  animId = requestAnimationFrame(gameLoop);
+}
+
+// ============ 更新邏輯 ============
+function update(dt) {
+  // ── 計時 ──
+  if (gameState === 'playing') {
+    gameTime -= dt;
+    if (gameTime <= 0) {
+      gameTime = 0;
+      if (playerScore !== aiScore) { endGame(playerScore > aiScore ? 'win' : 'lose'); return; }
+      else { gameState = 'suddenDeath'; }
+    }
+  }
+
+  // ── 聖水增長 ──
+  const rate = gameState === 'suddenDeath' ? 2.0 : 1.0;
+  elixirAccum += dt * rate;
+  while (elixirAccum >= 1) {
+    elixirAccum -= 1;
+    playerElixir = Math.min(MAX_ELIXIR, playerElixir + 1);
+    aiElixir = Math.min(MAX_ELIXIR, aiElixir + 1);
+  }
+
+  updateSpellEffects(dt);
+  updateBuildings(dt);
+  updateUnits(dt);
+  checkTouchdown();
+  effects = effects.filter(e => { e.life -= dt; return e.life > 0; });
+  aiLogic(dt);
+
+  if (playerScore >= 3) { endGame('win'); return; }
+  if (aiScore >= 3) { endGame('lose'); return; }
+}
+
+// ── 法術持續效果 ──
+function updateSpellEffects(dt) {
+  spellEffects = spellEffects.filter(se => {
+    se.elapsed += dt;
+    if (se.type === 'rage') {
+      units.forEach(u => {
+        if (u.owner === se.owner && dist(u.x, u.y, se.x, se.y) < se.radius) {
+          u.rageTimer = 0.5;
+        }
+      });
+    }
+    return se.elapsed < se.duration;
+  });
+}
+
+// ── 建築更新 ──
+function updateBuildings(dt) {
+  buildings = buildings.filter(b => {
+    b.lifeElapsed += dt;
+    if (b.hp <= 0 || b.lifeElapsed >= b.lifetime) return false;
+
+    // 哥布林小屋生產
+    if (b.card.special === 'spawn') {
+      b.spawnTimer += dt;
+      if (b.spawnTimer >= b.card.spawnInterval) {
+        b.spawnTimer -= b.card.spawnInterval;
+        const su = b.card.spawnUnit;
+        // 玩家單位往上(-1)，AI單位往下(+1)
+        const dir = b.owner === 'player' ? -1 : 1;
+        spawnUnit({
+          name:su.name, emoji:su.emoji, type:'ground',
+          hp:su.hp, maxHp:su.hp, atk:su.atk, atkSpd:su.atkSpd,
+          moveSpd:su.moveSpd, range:su.range, radius:su.radius,
+          canHitAir:su.canHitAir, special:'none'
+        }, b.x + (Math.random()-0.5)*20, b.y + dir*25, b.owner);
+      }
+    }
+
+    // 攻擊
+    if (b.card.atk > 0) {
+      b.atkTimer += dt;
+      if (b.atkTimer >= b.card.atkSpd) {
+        let tgt = findNearestEnemy(b, b.card.canHitAir, b.owner);
+        if (tgt && dist(b.x, b.y, tgt.x, tgt.y) <= b.card.range) {
+          b.atkTimer = 0;
+          tgt.hp -= b.card.atk;
+          effects.push({x:tgt.x, y:tgt.y, life:0.2, type:'hit', color:'#ff0'});
+        }
+      }
+    }
+
+    // 嘲諷
+    if (b.card.special === 'taunt') {
+      units.forEach(u => {
+        if (u.owner !== b.owner && dist(u.x, u.y, b.x, b.y) < 130 && u.special !== 'building_target') {
+          u.tauntTarget = b;
+        }
+      });
+    }
+    return true;
+  });
+}
+
+// ── 單位更新 ──
+function updateUnits(dt) {
+  units = units.filter(u => u.hp > 0);
+
+  for (const u of units) {
+    if (u.slowTimer > 0) u.slowTimer -= dt;
+    if (u.rageTimer > 0) u.rageTimer -= dt;
+    if (u.freezeTimer > 0) { u.freezeTimer -= dt; continue; }
+    if (u.dashCooldown > 0) u.dashCooldown -= dt;
+
+    let spdMult = 1;
+    if (u.slowTimer > 0) spdMult *= 0.5;
+    if (u.rageTimer > 0) spdMult *= 1.5;
+    if (u.special === 'enrage_self' && u.hp < u.maxHp * 0.5) spdMult *= 1.6;
+    let atkMult = u.rageTimer > 0 ? 1.4 : 1;
+
+    // 治療光環
+    if (u.special === 'heal_aura') {
+      for (const u2 of units) {
+        if (u2.owner === u.owner && u2 !== u && dist(u.x, u.y, u2.x, u2.y) < 80) {
+          u2.hp = Math.min(u2.maxHp, u2.hp + 40 * dt);
+        }
+      }
+    }
+
+    // 尋找目標
+    let target = null;
+
+    // 嘲諷優先
+    if (u.tauntTarget) {
+      if (u.tauntTarget.hp > 0) target = u.tauntTarget;
+      else u.tauntTarget = null;
+    }
+
+    // 氣球只打建築
+    if (u.special === 'building_target') {
+      target = null;
+      let md = Infinity;
+      for (const b of buildings) {
+        if (b.owner !== u.owner) {
+          const d = dist(u.x, u.y, b.x, b.y);
+          if (d < md) { md = d; target = b; }
+        }
+      }
+    }
+
+    if (!target) {
+      target = findNearestEnemy(u, u.canHitAir, u.owner);
+    }
+
+    // 也考慮敵方建築
+    if (!target || (target && !target.card)) {
+      let md = target ? dist(u.x, u.y, target.x, target.y) : Infinity;
+      for (const b of buildings) {
+        if (b.owner !== u.owner) {
+          const d = dist(u.x, u.y, b.x, b.y);
+          if (d < md) { md = d; target = b; }
+        }
+      }
+    }
+
+    const inRange = target && dist(u.x, u.y, target.x, target.y) <= u.range;
+
+    if (inRange && u.atk > 0) {
+      u.atkTimer += dt;
+      if (u.atkTimer >= u.atkSpd) {
+        u.atkTimer = 0;
+        const dmg = u.atk * atkMult;
+        if (u.special === 'splash') {
+          const allT = [...units, ...buildings].filter(t =>
+            t.owner !== u.owner && dist(t.x, t.y, target.x, target.y) < 45 &&
+            (u.canHitAir || t.type !== 'air')
+          );
+          for (const t of allT) t.hp -= dmg;
+          effects.push({x:target.x, y:target.y, life:0.3, type:'splash', color:u.type==='air'?'#f60':'#ff0', r:45});
+        } else {
+          target.hp -= dmg;
+          if (u.special === 'slow' && target.slowTimer !== undefined) target.slowTimer = 2.5;
+        }
+        effects.push({x:target.x, y:target.y, life:0.15, type:'hit', color:'#fff'});
+      }
+    } else {
+      u.atkTimer = Math.max(0, u.atkTimer - dt * 0.5);
+      let gx, gy;
+      if (target) { gx = target.x; gy = target.y; }
+      else {
+        // 玩家單位往上推（往AI達陣區頂部），AI單位往下推（往玩家達陣區底部）
+        gx = GW / 2 + (Math.sin(u.x * 0.1) * 30);
+        gy = u.owner === 'player' ? AI_TZ_BOT - 10 : PLAYER_TZ_TOP + 10;
+      }
+
+      // 暗影刺客突進
+      if (u.special === 'dash' && target && dist(u.x, u.y, target.x, target.y) < 130 && dist(u.x, u.y, target.x, target.y) > 40 && u.dashCooldown <= 0) {
+        const a = Math.atan2(target.y - u.y, target.x - u.x);
+        u.x += Math.cos(a) * 55;
+        u.y += Math.sin(a) * 55;
+        u.dashCooldown = 3;
+        effects.push({x:u.x, y:u.y, life:0.3, type:'dash', color:'#a0f'});
+      }
+
+      const angle = Math.atan2(gy - u.y, gx - u.x);
+      let speed = u.moveSpd * 60 * dt * spdMult;
+
+      if (u.special === 'charge' && target && dist(u.x, u.y, target.x, target.y) > 80) {
+        speed *= 1.6;
+      }
+
+      u.x += Math.cos(angle) * speed;
+      u.y += Math.sin(angle) * speed;
+
+      u.x = clamp(u.x, u.radius + 2, GW - u.radius - 2);
+      u.y = clamp(u.y, FIELD_TOP + 2, FIELD_BOT - 2);
+    }
+  }
+
+  // 死亡效果
+  const alive = [];
+  for (const u of units) {
+    if (u.hp <= 0) {
+      if (u.special === 'death_bomb') {
+        for (const u2 of units) {
+          if (u2.owner !== u.owner && u2.hp > 0 && dist(u.x, u.y, u2.x, u2.y) < 65) u2.hp -= 160;
+        }
+        for (const b of buildings) {
+          if (b.owner !== u.owner && dist(u.x, u.y, b.x, b.y) < 65) b.hp -= 160;
+        }
+        effects.push({x:u.x, y:u.y, life:0.5, type:'explosion', color:'#ff0', r:65});
+      }
+      effects.push({x:u.x, y:u.y, life:0.4, type:'death', color:'#f44'});
+    } else {
+      alive.push(u);
+    }
+  }
+  units = alive;
+}
+
+function findNearestEnemy(src, canHitAir, owner) {
+  let best = null, md = Infinity;
+  for (const u of units) {
+    if (u.owner === owner) continue;
+    if (u.type === 'air' && !canHitAir) continue;
+    const d = dist(src.x, src.y, u.x, u.y);
+    if (d < md) { md = d; best = u; }
+  }
+  return best;
+}
+
+function dist(x1, y1, x2, y2) { return Math.hypot(x1 - x2, y1 - y2); }
+function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+
+// ── 達陣判定 ──
+// 玩家單位到達 AI 達陣區（頂部）= 玩家得分
+// AI 單位到達 玩家達陣區（底部）= AI 得分
+function checkTouchdown() {
+  for (const u of units) {
+    // 玩家單位推進到頂部AI達陣區
+    if (u.owner === 'player' && u.y <= AI_TZ_BOT) {
+      playerScore++;
+      playSound('score');
+      effects.push({x:GW/2, y:GH/2-40, life:2, type:'touchdown', text:'🏈 TOUCHDOWN!', color:'#4CAF50'});
+      clearField();
+      if (gameState === 'suddenDeath') endGame('win');
+      return;
+    }
+    // AI單位推進到底部玩家達陣區
+    if (u.owner === 'ai' && u.y >= PLAYER_TZ_TOP) {
+      aiScore++;
+      playSound('score');
+      effects.push({x:GW/2, y:GH/2-40, life:2, type:'touchdown', text:'❌ AI 達陣!', color:'#f44336'});
+      clearField();
+      if (gameState === 'suddenDeath') endGame('lose');
+      return;
+    }
+  }
+}
+
+function clearField() { units = []; buildings = []; spellEffects = []; }
+
+// ── 生成單位/建築 ──
+function spawnUnit(data, x, y, owner) {
+  units.push({
+    x, y, owner,
+    name: data.name, emoji: data.emoji, type: data.type || 'ground',
+    hp: data.hp, maxHp: data.maxHp || data.hp,
+    atk: data.atk, atkSpd: data.atkSpd, moveSpd: data.moveSpd,
+    range: data.range, radius: data.radius || 10,
+    canHitAir: data.canHitAir || false, special: data.special || 'none',
+    atkTimer: 0, slowTimer: 0, rageTimer: 0, freezeTimer: 0,
+    dashCooldown: 0, tauntTarget: null
+  });
+}
+
+function spawnBuilding(card, x, y, owner) {
+  buildings.push({
+    x, y, owner, card,
+    hp: card.hp, maxHp: card.hp, radius: card.radius,
+    lifetime: card.lifetime, lifeElapsed: 0,
+    atkTimer: 0, spawnTimer: 0
+  });
+}
+
+// ── 出牌 ──
+function playCardAt(card, x, y, owner) {
+  if (card.type === 'spell') {
+    castSpell(card, x, y, owner);
+    playSound('spell');
+  } else if (card.type === 'building') {
+    spawnBuilding(card, x, y, owner);
+    playSound('place');
+  } else {
+    const cnt = card.count || 1;
+    for (let i = 0; i < cnt; i++) {
+      const ox = cnt > 1 ? (Math.random()-0.5)*35 : 0;
+      const oy = cnt > 1 ? (Math.random()-0.5)*35 : 0;
+      spawnUnit({...card, maxHp:card.hp}, x+ox, y+oy, owner);
+    }
+    playSound('place');
+  }
+  effects.push({x, y, life:0.5, type:'spawn', color: owner==='player'?'#4CAF50':'#f44336'});
+}
+
+function castSpell(card, x, y, owner) {
+  // 玩家往上攻，AI往下攻
+  const dir = owner === 'player' ? -1 : 1;
+  switch(card.special) {
+    case 'rage':
+      spellEffects.push({type:'rage', x, y, radius:card.radius, duration:card.duration, elapsed:0, owner});
+      effects.push({x, y, life:card.duration, type:'rage_area', r:card.radius});
+      break;
+    case 'log':
+      for (const u of units) {
+        if (u.owner !== owner && u.type !== 'air') {
+          if (Math.abs(u.x - x) < GW * 0.6) {
+            const dy = (u.y - y) * dir;
+            if (dy >= -20 && dy < 200) {
+              u.hp -= card.atk;
+              u.y += dir * 35;
+            }
+          }
+        }
+      }
+      effects.push({x, y, life:0.6, type:'log', dir, color:'#8B4513'});
+      break;
+    case 'meteor':
+      for (const t of [...units, ...buildings]) {
+        if (t.owner !== owner && dist(x, y, t.x, t.y) < card.radius) {
+          t.hp -= card.atk;
+        }
+      }
+      effects.push({x, y, life:0.8, type:'meteor', color:'#f60', r:card.radius});
+      break;
+    case 'freeze':
+      for (const u of units) {
+        if (u.owner !== owner && dist(x, y, u.x, u.y) < card.radius) {
+          u.freezeTimer = card.duration;
+          u.hp -= card.atk;
+        }
+      }
+      for (const b of buildings) {
+        if (b.owner !== owner && dist(x, y, b.x, b.y) < card.radius) {
+          b.hp -= card.atk;
+        }
+      }
+      effects.push({x, y, life:1, type:'freeze_area', r:card.radius});
+      break;
+  }
+}
+
+// ============ AI 邏輯 ============
+let aiThinkTimer = 0;
+function aiLogic(dt) {
+  aiThinkTimer += dt;
+  if (aiThinkTimer < 1.2) return;
+  aiThinkTimer = 0;
+
+  if (aiHand.length === 0) return;
+
+  const affordable = aiHand.filter(c => c.cost <= aiElixir);
+  if (affordable.length === 0) return;
+
+  // AI單位在上半場，玩家威脅=玩家單位在上半場（接近AI達陣區）
+  const threats = units.filter(u => u.owner === 'player' && u.y < FIELD_MID);
+  const myUnits = units.filter(u => u.owner === 'ai');
+  const myBuildings = buildings.filter(b => b.owner === 'ai');
+
+  let cardToPlay = null;
+  let px, py;
+
+  // 策略1: 防守
+  if (threats.length >= 2 && myUnits.length + myBuildings.length < 2) {
+    const defCards = affordable.filter(c => c.type === 'building' || c.special === 'swarm' || c.special === 'splash' || c.type === 'spell');
+    const pool = defCards.length > 0 ? defCards : affordable;
+    cardToPlay = pool[Math.floor(Math.random() * pool.length)];
+    const t = threats[0];
+    px = t.x + (Math.random()-0.5)*50;
+    // AI 放置在上半場（FIELD_TOP ~ AI_30）
+    py = AI_30 - 30 - Math.random()*30;
+  }
+  // 策略2: 積極進攻
+  else if (aiElixir >= 7) {
+    affordable.sort((a,b) => b.cost - a.cost);
+    cardToPlay = affordable[0];
+    px = GW / 2 + (Math.random()-0.5)*140;
+    py = AI_30 - 20 - Math.random()*40;
+  }
+  // 策略3: 支援
+  else if (myUnits.length > 0 && aiElixir >= 4 && Math.random() < 0.4) {
+    const support = affordable.filter(c => c.type === 'spell' || c.special === 'heal_aura' || c.type === 'air');
+    const pool = support.length > 0 ? support : affordable;
+    cardToPlay = pool[Math.floor(Math.random() * pool.length)];
+    const ally = myUnits[0];
+    px = ally.x + (Math.random()-0.5)*40;
+    py = Math.min(AI_30, ally.y - 10);
+  }
+  // 策略4: 隨機
+  else if (aiElixir >= 5 && Math.random() < 0.35) {
+    cardToPlay = affordable[Math.floor(Math.random() * affordable.length)];
+    px = GW * (0.2 + Math.random() * 0.6);
+    py = AI_30 - 20 - Math.random() * 50;
+  }
+
+  if (!cardToPlay) return;
+
+  // 法術特殊處理
+  if (cardToPlay.type === 'spell') {
+    const enemyUnits = units.filter(u => u.owner === 'player');
+    if (enemyUnits.length > 0) {
+      let bestU = enemyUnits[0], bestCount = 0;
+      for (const eu of enemyUnits) {
+        const cnt = enemyUnits.filter(e => dist(e.x, e.y, eu.x, eu.y) < 80).length;
+        if (cnt > bestCount) { bestCount = cnt; bestU = eu; }
+      }
+      px = bestU.x; py = bestU.y;
+    } else {
+      return;
+    }
+  }
+
+  // AI放置限制 (上半場: FIELD_TOP ~ AI_30)
+  if (cardToPlay.type !== 'spell') {
+    py = clamp(py, FIELD_TOP + 15, AI_30);
+  }
+  px = clamp(px, 20, GW - 20);
+
+  aiElixir -= cardToPlay.cost;
+  playCardAt(cardToPlay, px, py, 'ai');
+
+  // AI卡牌循環
+  const handIdx = aiHand.indexOf(cardToPlay);
+  if (handIdx >= 0) {
+    const result = useCard(aiHand, aiNextCard, aiQueue, aiQueuePos, aiDeck, handIdx);
+    aiNextCard = result.nextCard;
+    aiQueuePos = result.queuePos;
+  }
+}
+
+// ============ 渲染 ============
+function render() {
+  CTX.clearRect(0, 0, GW, GH);
+  drawField();
+  drawBuildings();
+  drawUnits();
+  drawEffects();
+  drawHUD();
+  drawCardArea();
+  drawDragPreview();
+}
+
+function drawField() {
+  // 草地
+  for (let i = 0; i < 20; i++) {
+    const y = FIELD_TOP + (FIELD_H / 20) * i;
+    CTX.fillStyle = i % 2 === 0 ? '#2d8a2d' : '#2a822a';
+    CTX.fillRect(0, y, GW, FIELD_H / 20 + 1);
+  }
+
+  // 縱線
+  CTX.strokeStyle = 'rgba(255,255,255,0.15)';
+  CTX.lineWidth = 1;
+  for (let x = 0; x <= GW; x += GW/6) {
+    CTX.beginPath(); CTX.moveTo(x, FIELD_TOP); CTX.lineTo(x, FIELD_BOT); CTX.stroke();
+  }
+
+  // ===== AI達陣區 (頂部 - 敵方 紅色) =====
+  const grd1 = CTX.createLinearGradient(0, AI_TZ_TOP, 0, AI_TZ_BOT);
+  grd1.addColorStop(0, 'rgba(244,67,54,0.5)');
+  grd1.addColorStop(1, 'rgba(244,67,54,0.15)');
+  CTX.fillStyle = grd1;
+  CTX.fillRect(0, AI_TZ_TOP, GW, TZ_H);
+  CTX.strokeStyle = 'rgba(244,67,54,0.3)';
+  for (let x = -TZ_H; x < GW; x += 15) {
+    CTX.beginPath(); CTX.moveTo(x, AI_TZ_BOT); CTX.lineTo(x + TZ_H, AI_TZ_TOP); CTX.stroke();
+  }
+  CTX.fillStyle = 'rgba(255,255,255,0.9)';
+  CTX.font = 'bold 12px Arial';
+  CTX.textAlign = 'center';
+  CTX.textBaseline = 'middle';
+  CTX.fillText('🔴 敵方達陣區 🔴', GW/2, AI_TZ_TOP + TZ_H/2);
+
+  // ===== 玩家達陣區 (底部 - 己方 綠色) =====
+  const grd2 = CTX.createLinearGradient(0, PLAYER_TZ_TOP, 0, PLAYER_TZ_BOT);
+  grd2.addColorStop(0, 'rgba(76,175,80,0.15)');
+  grd2.addColorStop(1, 'rgba(76,175,80,0.5)');
+  CTX.fillStyle = grd2;
+  CTX.fillRect(0, PLAYER_TZ_TOP, GW, TZ_H);
+  CTX.strokeStyle = 'rgba(76,175,80,0.3)';
+  for (let x = -TZ_H; x < GW; x += 15) {
+    CTX.beginPath(); CTX.moveTo(x, PLAYER_TZ_BOT); CTX.lineTo(x + TZ_H, PLAYER_TZ_TOP); CTX.stroke();
+  }
+  CTX.fillStyle = 'rgba(255,255,255,0.9)';
+  CTX.fillText('🟢 己方達陣區 🟢', GW/2, PLAYER_TZ_TOP + TZ_H/2);
+
+  // 中線 (50碼)
+  CTX.strokeStyle = '#fff';
+  CTX.lineWidth = 2;
+  CTX.setLineDash([10, 5]);
+  CTX.beginPath(); CTX.moveTo(5, FIELD_MID); CTX.lineTo(GW-5, FIELD_MID); CTX.stroke();
+  CTX.setLineDash([]);
+  CTX.fillStyle = 'rgba(255,255,255,0.7)';
+  CTX.font = 'bold 11px Arial';
+  CTX.textAlign = 'left';
+  CTX.fillText('50', 8, FIELD_MID - 6);
+  CTX.textAlign = 'right';
+  CTX.fillText('50', GW - 8, FIELD_MID - 6);
+
+  // 30碼限制線
+  CTX.strokeStyle = 'rgba(255,220,50,0.35)';
+  CTX.lineWidth = 1.5;
+  CTX.setLineDash([6, 4]);
+  CTX.beginPath(); CTX.moveTo(5, AI_30); CTX.lineTo(GW-5, AI_30); CTX.stroke();
+  CTX.beginPath(); CTX.moveTo(5, PLAYER_30); CTX.lineTo(GW-5, PLAYER_30); CTX.stroke();
+  CTX.setLineDash([]);
+  CTX.fillStyle = 'rgba(255,220,50,0.5)';
+  CTX.font = '9px Arial';
+  CTX.textAlign = 'left';
+  CTX.fillText('30', 8, AI_30 - 4);
+  CTX.fillText('30', 8, PLAYER_30 - 4);
+
+  // 外框
+  CTX.strokeStyle = 'rgba(255,255,255,0.5)';
+  CTX.lineWidth = 2;
+  CTX.strokeRect(1, FIELD_TOP, GW-2, FIELD_H);
+}
+
+function drawBuildings() {
+  for (const b of buildings) {
+    const isP = b.owner === 'player';
+    CTX.fillStyle = isP ? 'rgba(60,140,60,0.7)' : 'rgba(180,50,50,0.7)';
+    CTX.beginPath();
+    CTX.arc(b.x, b.y, b.radius, 0, Math.PI*2);
+    CTX.fill();
+    CTX.strokeStyle = isP ? '#4CAF50' : '#f44336';
+    CTX.lineWidth = 2;
+    CTX.stroke();
+
+    if (b.card.range > 0) {
+      CTX.strokeStyle = 'rgba(255,255,255,0.08)';
+      CTX.lineWidth = 1;
+      CTX.beginPath();
+      CTX.arc(b.x, b.y, b.card.range, 0, Math.PI*2);
+      CTX.stroke();
+    }
+
+    CTX.font = `${b.radius}px Arial`;
+    CTX.textAlign = 'center';
+    CTX.textBaseline = 'middle';
+    CTX.fillText(b.card.emoji, b.x, b.y);
+
+    drawHpBar(b.x, b.y - b.radius - 7, b.radius*1.8, b.hp, b.maxHp, isP);
+
+    const lr = 1 - b.lifeElapsed / b.lifetime;
+    CTX.fillStyle = 'rgba(0,0,0,0.4)';
+    CTX.fillRect(b.x - b.radius*0.8, b.y + b.radius + 3, b.radius*1.6, 3);
+    CTX.fillStyle = `hsl(${lr*120},70%,50%)`;
+    CTX.fillRect(b.x - b.radius*0.8, b.y + b.radius + 3, b.radius*1.6 * lr, 3);
+  }
+}
+
+function drawUnits() {
+  const sorted = [...units].sort((a, b) => {
+    if (a.type === 'air' && b.type !== 'air') return 1;
+    if (a.type !== 'air' && b.type === 'air') return -1;
+    return a.y - b.y;
+  });
+
+  for (const u of sorted) {
+    const isP = u.owner === 'player';
+    const isAir = u.type === 'air';
+    const uy = u.y - (isAir ? 6 : 0);
+
+    if (isAir) {
+      CTX.fillStyle = 'rgba(0,0,0,0.25)';
+      CTX.beginPath();
+      CTX.ellipse(u.x + 2, u.y + 6, u.radius * 0.7, u.radius * 0.35, 0, 0, Math.PI*2);
+      CTX.fill();
+    }
+
+    CTX.fillStyle = isP ? 'rgba(50,140,255,0.5)' : 'rgba(255,70,70,0.5)';
+    CTX.beginPath();
+    CTX.arc(u.x, uy, u.radius, 0, Math.PI*2);
+    CTX.fill();
+    CTX.strokeStyle = isP ? 'rgba(50,140,255,0.8)' : 'rgba(255,70,70,0.8)';
+    CTX.lineWidth = 1.5;
+    CTX.stroke();
+
+    if (u.freezeTimer > 0) {
+      CTX.fillStyle = 'rgba(100,200,255,0.45)';
+      CTX.beginPath();
+      CTX.arc(u.x, uy, u.radius + 3, 0, Math.PI*2);
+      CTX.fill();
+    }
+
+    if (u.rageTimer > 0) {
+      CTX.strokeStyle = 'rgba(255,0,200,0.6)';
+      CTX.lineWidth = 2;
+      CTX.beginPath();
+      CTX.arc(u.x, uy, u.radius + 4, 0, Math.PI*2);
+      CTX.stroke();
+    }
+
+    if (u.special === 'enrage_self' && u.hp < u.maxHp * 0.5) {
+      CTX.strokeStyle = `rgba(255,${Math.floor(Math.sin(Date.now()*0.01)*127+128)},0,0.7)`;
+      CTX.lineWidth = 2;
+      CTX.beginPath();
+      CTX.arc(u.x, uy, u.radius + 3, 0, Math.PI*2);
+      CTX.stroke();
+    }
+
+    CTX.font = `${Math.max(10, u.radius * 1.3)}px Arial`;
+    CTX.textAlign = 'center';
+    CTX.textBaseline = 'middle';
+    CTX.fillText(u.emoji, u.x, uy);
+
+    drawHpBar(u.x, uy - u.radius - 6, u.radius * 1.8, u.hp, u.maxHp, isP);
+
+    if (isAir) {
+      CTX.fillStyle = '#8cf';
+      CTX.font = '7px Arial';
+      CTX.fillText('✈', u.x + u.radius + 2, uy - u.radius);
+    }
+  }
+}
+
+function drawHpBar(cx, y, w, hp, maxHp, isPlayer) {
+  const r = clamp(hp / maxHp, 0, 1);
+  const x = cx - w / 2;
+  CTX.fillStyle = 'rgba(0,0,0,0.6)';
+  CTX.fillRect(x, y, w, 4);
+  const c = r > 0.6 ? (isPlayer ? '#4CAF50' : '#e53935') : (r > 0.3 ? '#FF9800' : '#f44336');
+  CTX.fillStyle = c;
+  CTX.fillRect(x, y, w * r, 4);
+  CTX.strokeStyle = 'rgba(255,255,255,0.3)';
+  CTX.lineWidth = 0.5;
+  CTX.strokeRect(x, y, w, 4);
+}
+
+function drawEffects() {
+  for (const e of effects) {
+    const a = clamp(e.life * 2, 0, 1);
+    CTX.globalAlpha = a;
+
+    switch(e.type) {
+      case 'hit':
+        CTX.fillStyle = e.color;
+        CTX.beginPath();
+        CTX.arc(e.x, e.y, 5 + (1-a)*4, 0, Math.PI*2);
+        CTX.fill();
+        break;
+      case 'splash':
+      case 'explosion':
+        CTX.strokeStyle = e.color;
+        CTX.lineWidth = 3;
+        CTX.beginPath();
+        CTX.arc(e.x, e.y, e.r * (1-a*0.5), 0, Math.PI*2);
+        CTX.stroke();
+        CTX.globalAlpha = a * 0.15;
+        CTX.fillStyle = e.color;
+        CTX.fill();
+        break;
+      case 'spawn':
+        CTX.strokeStyle = e.color;
+        CTX.lineWidth = 2;
+        CTX.beginPath();
+        CTX.arc(e.x, e.y, 25*(1-a), 0, Math.PI*2);
+        CTX.stroke();
+        break;
+      case 'touchdown':
+        CTX.globalAlpha = 1;
+        CTX.fillStyle = e.color === '#4CAF50' ? 'rgba(76,175,80,0.15)' : 'rgba(244,67,54,0.15)';
+        CTX.fillRect(0, FIELD_TOP, GW, FIELD_H);
+        CTX.fillStyle = e.color;
+        CTX.font = 'bold 22px Arial';
+        CTX.textAlign = 'center';
+        CTX.textBaseline = 'middle';
+        CTX.shadowColor = e.color;
+        CTX.shadowBlur = 20;
+        CTX.fillText(e.text, GW/2, e.y);
+        CTX.shadowBlur = 0;
+        break;
+      case 'dash':
+        CTX.fillStyle = e.color;
+        CTX.globalAlpha = a * 0.4;
+        CTX.beginPath();
+        CTX.arc(e.x, e.y, 15, 0, Math.PI*2);
+        CTX.fill();
+        break;
+      case 'meteor':
+        CTX.fillStyle = e.color;
+        CTX.globalAlpha = a * 0.35;
+        CTX.beginPath();
+        CTX.arc(e.x, e.y, e.r, 0, Math.PI*2);
+        CTX.fill();
+        CTX.strokeStyle = '#ff0';
+        CTX.lineWidth = 2;
+        CTX.globalAlpha = a * 0.6;
+        CTX.stroke();
+        break;
+      case 'freeze_area':
+        CTX.fillStyle = 'rgba(100,200,255,0.25)';
+        CTX.beginPath();
+        CTX.arc(e.x, e.y, e.r, 0, Math.PI*2);
+        CTX.fill();
+        CTX.strokeStyle = 'rgba(100,200,255,0.5)';
+        CTX.lineWidth = 2;
+        CTX.stroke();
+        break;
+      case 'log':
+        CTX.fillStyle = e.color;
+        CTX.globalAlpha = a * 0.7;
+        const logY = e.y + e.dir * (1-a) * 200;
+        CTX.fillRect(10, logY - 6, GW - 20, 12);
+        CTX.strokeStyle = '#5D3A1A';
+        CTX.lineWidth = 1;
+        CTX.strokeRect(10, logY - 6, GW - 20, 12);
+        break;
+      case 'rage_area':
+        CTX.fillStyle = 'rgba(200,0,200,0.1)';
+        CTX.strokeStyle = 'rgba(200,0,200,0.3)';
+        CTX.lineWidth = 1;
+        CTX.beginPath();
+        CTX.arc(e.x, e.y, e.r, 0, Math.PI*2);
+        CTX.fill();
+        CTX.stroke();
+        break;
+      case 'death':
+        CTX.fillStyle = e.color;
+        CTX.font = `${10 + (1-a)*8}px Arial`;
+        CTX.textAlign = 'center';
+        CTX.fillText('💥', e.x, e.y - (1-a)*15);
+        break;
+    }
+    CTX.globalAlpha = 1;
+  }
+}
+
+function drawHUD() {
+  const hg = CTX.createLinearGradient(0, 0, 0, HUD_H);
+  hg.addColorStop(0, 'rgba(20,20,40,0.95)');
+  hg.addColorStop(1, 'rgba(20,20,40,0.85)');
+  CTX.fillStyle = hg;
+  CTX.fillRect(0, 0, GW, HUD_H);
+
+  CTX.fillStyle = '#333';
+  CTX.fillRect(0, HUD_H - 1, GW, 1);
+
+  // 玩家分數 (藍/綠)
+  CTX.fillStyle = '#4CAF50';
+  CTX.font = 'bold 18px Arial';
+  CTX.textAlign = 'left';
+  CTX.textBaseline = 'middle';
+  CTX.fillText(`🟢 ${playerScore}`, 10, 16);
+
+  CTX.fillStyle = '#888';
+  CTX.font = 'bold 12px Arial';
+  CTX.textAlign = 'center';
+  CTX.fillText('VS', GW/2, 14);
+
+  CTX.fillStyle = '#f44336';
+  CTX.font = 'bold 18px Arial';
+  CTX.textAlign = 'right';
+  CTX.fillText(`${aiScore} 🔴`, GW - 10, 16);
+
+  // 時間
+  const mins = Math.floor(Math.max(0, gameTime) / 60);
+  const secs = Math.floor(Math.max(0, gameTime) % 60);
+  const tStr = `${mins}:${secs.toString().padStart(2,'0')}`;
+  CTX.font = 'bold 12px Arial';
+  CTX.textAlign = 'center';
+  if (gameState === 'suddenDeath') {
+    CTX.fillStyle = '#ff0';
+    CTX.fillText('⚡ SUDDEN DEATH ⚡', GW/2, 28);
+  } else {
+    CTX.fillStyle = gameTime < 30 ? '#f44336' : '#ffd700';
+    CTX.fillText(`⏱ ${tStr}`, GW/2, 28);
+  }
+
+  // 聖水條
+  const ey = HUD_H - 4;
+  const ew = GW - 80;
+  CTX.fillStyle = 'rgba(0,0,0,0.5)';
+  CTX.fillRect(40, ey - 5, ew, 6);
+  const eRatio = playerElixir / MAX_ELIXIR;
+  const eg = CTX.createLinearGradient(40, 0, 40 + ew * eRatio, 0);
+  eg.addColorStop(0, '#9C27B0');
+  eg.addColorStop(1, '#E040FB');
+  CTX.fillStyle = eg;
+  CTX.fillRect(40, ey - 5, ew * eRatio, 6);
+  CTX.strokeStyle = 'rgba(255,255,255,0.2)';
+  CTX.lineWidth = 0.5;
+  CTX.strokeRect(40, ey - 5, ew, 6);
+
+  CTX.fillStyle = '#E040FB';
+  CTX.font = 'bold 10px Arial';
+  CTX.textAlign = 'left';
+  CTX.fillText(`💧${Math.floor(playerElixir)}`, 6, ey - 2);
+  CTX.textAlign = 'right';
+  CTX.fillStyle = '#aaa';
+  CTX.fillText(`/${MAX_ELIXIR}`, GW - 6, ey - 2);
+}
+
+// ============ 卡牌區（4張手牌 + 下一張預覽）============
+function drawCardArea() {
+  // 背景
+  const cg = CTX.createLinearGradient(0, GH - CARD_AREA_H, 0, GH);
+  cg.addColorStop(0, 'rgba(15,15,30,0.97)');
+  cg.addColorStop(1, 'rgba(10,10,20,0.99)');
+  CTX.fillStyle = cg;
+  CTX.fillRect(0, GH - CARD_AREA_H, GW, CARD_AREA_H);
+
+  CTX.fillStyle = '#333';
+  CTX.fillRect(0, GH - CARD_AREA_H, GW, 1);
+
+  if (playerHand.length === 0) return;
+
+  // ── 下一張卡預覽（左側）──
+  const nextX = 18;
+  const nextY = GH - CARD_AREA_H + 8;
+  const nextW = 36;
+  const nextH = 44;
+
+  // "下一張" 標籤
+  CTX.fillStyle = '#888';
+  CTX.font = 'bold 7px Arial';
+  CTX.textAlign = 'center';
+  CTX.textBaseline = 'top';
+  CTX.fillText('下一張', nextX + nextW/2, nextY - 7);
+
+  if (playerNextCard) {
+    // 小卡片背景
+    CTX.fillStyle = 'rgba(30,30,55,0.95)';
+    CTX.beginPath();
+    roundRect(CTX, nextX, nextY, nextW, nextH, 4);
+    CTX.fill();
+    CTX.strokeStyle = '#555';
+    CTX.lineWidth = 1;
+    CTX.stroke();
+
+    // 費用
+    CTX.fillStyle = '#9C27B0';
+    CTX.beginPath();
+    CTX.arc(nextX + 9, nextY + 9, 7, 0, Math.PI*2);
+    CTX.fill();
+    CTX.fillStyle = '#fff';
+    CTX.font = 'bold 8px Arial';
+    CTX.textAlign = 'center';
+    CTX.textBaseline = 'middle';
+    CTX.fillText(playerNextCard.cost, nextX + 9, nextY + 9);
+
+    // Emoji
+    CTX.font = '14px Arial';
+    CTX.fillText(playerNextCard.emoji, nextX + nextW/2, nextY + 26);
+
+    // 名稱
+    CTX.fillStyle = '#aaa';
+    CTX.font = '6px Arial';
+    CTX.fillText(playerNextCard.name.slice(0,4), nextX + nextW/2, nextY + 39);
+  }
+
+  // ── 4張手牌（右側主要區域）──
+  const cardW = 62;
+  const cardH = 82;
+  const gap = 5;
+  const handCount = Math.min(playerHand.length, 4);
+  const totalW = handCount * (cardW + gap) - gap;
+  const startX = 60 + (GW - 60 - totalW) / 2;
+  const cardY = GH - CARD_AREA_H + 10;
+
+  for (let i = 0; i < handCount; i++) {
+    const card = playerHand[i];
+    const cx = startX + i * (cardW + gap);
+    const can = playerElixir >= card.cost;
+    const isSel = selectedCard === i;
+
+    // 卡背
+    if (isSel) {
+      CTX.fillStyle = 'rgba(255,215,0,0.3)';
+    } else if (can) {
+      CTX.fillStyle = 'rgba(40,40,70,0.95)';
+    } else {
+      CTX.fillStyle = 'rgba(25,25,40,0.95)';
+    }
+    CTX.beginPath();
+    roundRect(CTX, cx, cardY, cardW, cardH, 6);
+    CTX.fill();
+
+    // 邊框
+    CTX.strokeStyle = isSel ? '#ffd700' : (can ? '#666' : '#2a2a2a');
+    CTX.lineWidth = isSel ? 2.5 : 1;
+    CTX.stroke();
+
+    // 遮罩
+    if (!can) {
+      CTX.fillStyle = 'rgba(0,0,0,0.45)';
+      CTX.beginPath();
+      roundRect(CTX, cx, cardY, cardW, cardH, 6);
+      CTX.fill();
+    }
+
+    // 費用圓圈
+    const costBg = can ? '#9C27B0' : '#444';
+    CTX.fillStyle = costBg;
+    CTX.beginPath();
+    CTX.arc(cx + 12, cardY + 12, 10, 0, Math.PI * 2);
+    CTX.fill();
+    CTX.fillStyle = '#fff';
+    CTX.font = 'bold 11px Arial';
+    CTX.textAlign = 'center';
+    CTX.textBaseline = 'middle';
+    CTX.fillText(card.cost, cx + 12, cardY + 12);
+
+    // Emoji
+    CTX.font = '22px Arial';
+    CTX.fillText(card.emoji, cx + cardW/2, cardY + 34);
+
+    // 名稱
+    CTX.fillStyle = can ? '#ddd' : '#555';
+    CTX.font = 'bold 8px Arial';
+    CTX.fillText(card.name.slice(0, 4), cx + cardW/2, cardY + 54);
+
+    // 類型條
+    const tc = {ground:'#8BC34A', air:'#03A9F4', building:'#FF9800', spell:'#E040FB'};
+    const tl = {ground:'地面', air:'飛行', building:'建築', spell:'法術'};
+    CTX.fillStyle = tc[card.type] || '#888';
+    roundRect(CTX, cx + 5, cardY + cardH - 15, cardW - 10, 11, 3);
+    CTX.fill();
+    CTX.fillStyle = '#fff';
+    CTX.font = 'bold 7px Arial';
+    CTX.fillText(tl[card.type] || '', cx + cardW/2, cardY + cardH - 9.5);
+  }
+}
+
+function drawDragPreview() {
+  if (!isDragging || !dragPos || selectedCard === null) return;
+  const card = playerHand[selectedCard];
+  if (!card) return;
+
+  const isSp = card.type === 'spell';
+  const inField = dragPos.y >= FIELD_TOP && dragPos.y <= FIELD_BOT;
+  // 玩家放置區：下半場30碼線到場底 (PLAYER_30 到 FIELD_BOT)
+  const inPlayerZone = dragPos.y >= PLAYER_30 && dragPos.y <= FIELD_BOT;
+  const valid = isSp ? inField : inPlayerZone;
+
+  // 合法區域高亮
+  if (!isSp) {
+    CTX.fillStyle = 'rgba(76,175,80,0.12)';
+    CTX.fillRect(0, PLAYER_30, GW, FIELD_BOT - PLAYER_30);
+  }
+
+  // 放置圈
+  CTX.strokeStyle = valid ? 'rgba(76,175,80,0.9)' : 'rgba(244,67,54,0.9)';
+  CTX.lineWidth = 2;
+  CTX.setLineDash([5, 3]);
+  CTX.beginPath();
+  const pr = card.type === 'spell' ? (card.radius || 40) : (card.radius || 15);
+  CTX.arc(dragPos.x, dragPos.y, pr, 0, Math.PI*2);
+  CTX.stroke();
+  CTX.setLineDash([]);
+
+  CTX.globalAlpha = 0.7;
+  CTX.font = '28px Arial';
+  CTX.textAlign = 'center';
+  CTX.textBaseline = 'middle';
+  CTX.fillText(card.emoji, dragPos.x, dragPos.y);
+  CTX.globalAlpha = 1;
+
+  CTX.fillStyle = valid ? '#4CAF50' : '#f44336';
+  CTX.font = 'bold 11px Arial';
+  CTX.shadowColor = '#000';
+  CTX.shadowBlur = 4;
+  CTX.fillText(card.name, dragPos.x, dragPos.y - 30);
+  CTX.shadowBlur = 0;
+
+  if (!valid && !isSp) {
+    CTX.fillStyle = '#f44336';
+    CTX.font = 'bold 10px Arial';
+    CTX.fillText('只能放在己方半場30碼內', dragPos.x, dragPos.y + 30);
+  }
+}
+
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+
+// ============ 觸控/滑鼠事件 ============
+CVS.addEventListener('touchstart', e => { e.preventDefault(); const t=e.touches[0]; touchId=t.identifier; onDown(screenToGame(t.clientX,t.clientY)); }, {passive:false});
+CVS.addEventListener('touchmove', e => { e.preventDefault(); for(const t of e.touches){ if(t.identifier===touchId) onMove(screenToGame(t.clientX,t.clientY)); }}, {passive:false});
+CVS.addEventListener('touchend', e => { e.preventDefault(); for(const t of e.changedTouches){ if(t.identifier===touchId){ onUp(screenToGame(t.clientX,t.clientY)); touchId=null; }}}, {passive:false});
+CVS.addEventListener('mousedown', e => onDown(screenToGame(e.clientX, e.clientY)));
+CVS.addEventListener('mousemove', e => onMove(screenToGame(e.clientX, e.clientY)));
+CVS.addEventListener('mouseup', e => onUp(screenToGame(e.clientX, e.clientY)));
+
+function onDown(pos) {
+  if (gameState !== 'playing' && gameState !== 'suddenDeath') return;
+
+  // 計算4張手牌的位置（與 drawCardArea 一致）
+  const cardW = 62, cardH = 82, gap = 5;
+  const handCount = Math.min(playerHand.length, 4);
+  const totalW = handCount * (cardW + gap) - gap;
+  const startX = 60 + (GW - 60 - totalW) / 2;
+  const cardY = GH - CARD_AREA_H + 10;
+
+  for (let i = 0; i < handCount; i++) {
+    const cx = startX + i * (cardW + gap);
+    if (pos.x >= cx && pos.x <= cx + cardW && pos.y >= cardY && pos.y <= cardY + cardH) {
+      if (playerElixir >= playerHand[i].cost) {
+        selectedCard = i;
+        isDragging = true;
+        dragPos = {...pos};
+      }
+      return;
+    }
+  }
+}
+
+function onMove(pos) {
+  if (isDragging && selectedCard !== null) {
+    dragPos = {...pos};
+  }
+}
+
+function onUp(pos) {
+  if (isDragging && selectedCard !== null && dragPos) {
+    const card = playerHand[selectedCard];
+    const isSp = card.type === 'spell';
+    const inField = dragPos.y >= FIELD_TOP && dragPos.y <= FIELD_BOT;
+    // 玩家放在下半場 (PLAYER_30 ~ FIELD_BOT)
+    const inPlayerZone = dragPos.y >= PLAYER_30 && dragPos.y <= FIELD_BOT;
+    const valid = isSp ? inField : inPlayerZone;
+
+    if (valid && playerElixir >= card.cost) {
+      playerElixir -= card.cost;
+      playCardAt(card, clamp(dragPos.x, 15, GW-15), dragPos.y, 'player');
+      // 使用卡牌循環
+      const result = useCard(playerHand, playerNextCard, playerQueue, playerQueuePos, playerDeck, selectedCard);
+      playerNextCard = result.nextCard;
+      playerQueuePos = result.queuePos;
+    }
+  }
+  selectedCard = null;
+  isDragging = false;
+  dragPos = null;
+}
+
+// ============ 遊戲結束 ============
+function endGame(result) {
+  gameState = 'ended';
+  cancelAnimationFrame(animId);
+  render();
+
+  const es = document.getElementById('endScreen');
+  const rt = document.getElementById('resultText');
+  const fs = document.getElementById('finalScore');
+  es.style.display = 'flex';
+
+  if (result === 'win') {
+    rt.textContent = '🏆 勝利！ 🏆';
+    rt.style.color = '#4CAF50';
+  } else {
+    rt.textContent = '💀 失敗... 💀';
+    rt.style.color = '#f44336';
+  }
+  fs.textContent = `最終比分: ${playerScore} - ${aiScore}`;
+}
+
+// ============ 按鈕事件 ============
+document.getElementById('startBtn').addEventListener('click', () => {
+  document.getElementById('startScreen').style.display = 'none';
+  showDeckSelect();
+});
+
+document.getElementById('restartBtn').addEventListener('click', () => {
+  document.getElementById('endScreen').style.display = 'none';
+  document.getElementById('startScreen').style.display = 'flex';
+  gameState = 'start';
+});
+
+// ============ 初始渲染 ============
+CVS.width = GW;
+CVS.height = GH;
+CTX.fillStyle = '#1a3a1a';
+CTX.fillRect(0, 0, GW, GH);
+
+</script>
+</body>
+</html>

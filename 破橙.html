@@ -1,0 +1,916 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>股票模擬遊戲 - Stock Simulator</title>
+  
+  <!-- 引入 Tailwind CSS (v4) -->
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+  
+  <style>
+    /* 全局樣式設定與最低 16px 字體限制 */
+    * {
+      box-sizing: border-box;
+      font-size: 16px; /* 強制基礎字體最小 16px */
+    }
+    
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: 'PingFang TC', 'Microsoft JhengHei', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background-color: #0f172a; /* slate-900 */
+      color: #f8fafc; /* slate-50 */
+      overflow: hidden;
+      touch-action: manipulation; /* 停用雙擊放大，優化觸控體驗 */
+    }
+
+    /* 桌面版模擬手機外框 */
+    .app-wrapper {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100dvh;
+      background-color: #020617;
+      overflow: hidden;
+    }
+    
+    .app-container {
+      width: 100%;
+      height: 100%;
+      max-width: 480px;
+      min-width: 360px;
+      background-color: #020617; /* slate-950 */
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 0 30px rgba(0,0,0,0.8);
+    }
+    
+    @media (min-width: 640px) {
+      .app-container {
+        height: 850px;
+        max-height: 90vh;
+        border-radius: 24px;
+        border: 8px solid #1e293b; /* slate-800 */
+      }
+    }
+
+    /* 畫面切換與過渡動畫 */
+    .screen {
+      display: none;
+      flex-direction: column;
+      height: 100%;
+      animation: fadeIn 0.2s ease-out;
+    }
+    .screen.active {
+      display: flex;
+    }
+    
+    .content-scroll {
+      flex: 1;
+      overflow-y: auto;
+      padding-bottom: 100px; /* 留給底部導覽列的空間 */
+      -ms-overflow-style: none; 
+      scrollbar-width: none; 
+    }
+    .content-scroll::-webkit-scrollbar {
+      display: none;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(5px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* 股價閃爍動畫 */
+    @keyframes flashGreen {
+      0% { background-color: rgba(34, 197, 94, 0.4); }
+      100% { background-color: transparent; }
+    }
+    @keyframes flashRed {
+      0% { background-color: rgba(239, 68, 68, 0.4); }
+      100% { background-color: transparent; }
+    }
+    .flash-up { animation: flashGreen 0.8s ease-out; }
+    .flash-down { animation: flashRed 0.8s ease-out; }
+
+    /* 隱藏數字輸入框的上下箭頭 */
+    input[type=number]::-webkit-inner-spin-button, 
+    input[type=number]::-webkit-outer-spin-button { 
+      -webkit-appearance: none; 
+      margin: 0; 
+    }
+    
+    /* 工具類別覆寫確保文字夠大 */
+    .text-lg { font-size: 18px !important; }
+    .text-xl { font-size: 20px !important; }
+    .text-2xl { font-size: 24px !important; }
+    .text-3xl { font-size: 30px !important; }
+    .text-4xl { font-size: 36px !important; }
+  </style>
+</head>
+<body>
+
+  <!-- Toast 提示容器 -->
+  <div id="toast-container" class="fixed top-6 left-0 right-0 z-[100] flex flex-col items-center pointer-events-none gap-2"></div>
+
+  <div class="app-wrapper">
+    <div class="app-container">
+      
+      <!-- ================= 首頁 / 儀表板 ================= -->
+      <div id="dashboard" class="screen active">
+        <!-- 頂部固定區塊 -->
+        <div class="p-5 bg-slate-900 border-b border-slate-800 z-10 shrink-0 shadow-md">
+          <div class="text-[16px] text-slate-400 mb-1">總資產</div>
+          <div class="text-4xl font-bold mb-4" id="total-asset">$0</div>
+          
+          <div class="flex justify-between items-center bg-slate-800 rounded-xl p-3 mb-4">
+            <div>
+              <div class="text-[16px] text-slate-400">現金餘額</div>
+              <div class="text-xl font-bold text-white" id="cash-balance">$0</div>
+            </div>
+            <div class="text-right">
+              <div class="text-[16px] text-slate-400">今日損益</div>
+              <div class="text-xl font-bold" id="today-pnl">+$0 (0%)</div>
+            </div>
+          </div>
+          
+          <div class="flex gap-2 mb-4">
+            <button onclick="timePasses('day')" class="flex-1 bg-blue-600 hover:bg-blue-500 active:bg-blue-700 transition-colors text-white py-2 rounded-xl font-bold text-[16px] shadow-lg flex flex-col items-center justify-center leading-tight">
+              <span>一天過去</span>
+              <span class="text-[16px] font-normal text-blue-200 mt-1">波動10%</span>
+            </button>
+            <button onclick="timePasses('week')" class="flex-1 bg-purple-600 hover:bg-purple-500 active:bg-purple-700 transition-colors text-white py-2 rounded-xl font-bold text-[16px] shadow-lg flex flex-col items-center justify-center leading-tight">
+              <span>一週過去</span>
+              <span class="text-[16px] font-normal text-purple-200 mt-1">波動30%</span>
+            </button>
+            <button onclick="timePasses('month')" class="flex-1 bg-rose-600 hover:bg-rose-500 active:bg-rose-700 transition-colors text-white py-2 rounded-xl font-bold text-[16px] shadow-lg flex flex-col items-center justify-center leading-tight">
+              <span>一月過去</span>
+              <span class="text-[16px] font-normal text-rose-200 mt-1">波動50%</span>
+            </button>
+          </div>
+        </div>
+        
+        <!-- 股票列表區塊 -->
+        <div class="content-scroll p-3">
+          <div class="px-2 mb-2 text-[16px] font-bold text-slate-400">市場行情</div>
+          <div id="stock-list" class="flex flex-col gap-2">
+            <!-- JS 動態生成 -->
+          </div>
+        </div>
+      </div>
+
+
+      <!-- ================= 個股交易頁 ================= -->
+      <div id="trading" class="screen">
+        <!-- 頂部導覽 -->
+        <div class="p-4 bg-slate-900 border-b border-slate-800 z-10 shrink-0 flex items-center shadow-md">
+          <button onclick="renderScreen('dashboard')" class="p-2 -ml-2 mr-2 text-slate-400 hover:text-white transition-colors">
+            <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
+          </button>
+          <div class="flex-1">
+            <h1 class="text-2xl font-bold" id="trade-stock-name">股票名稱</h1>
+            <div class="text-[16px] text-slate-400" id="trade-stock-symbol">SYMBOL</div>
+          </div>
+        </div>
+        
+        <div class="content-scroll p-4">
+          <!-- 價格與折線圖 -->
+          <div class="mb-4">
+            <div class="text-4xl font-bold" id="trade-price">0.00</div>
+            <div class="text-xl mt-1" id="trade-change">+0.00 (+0.00%)</div>
+          </div>
+          
+          <div class="w-full h-48 bg-slate-800/50 rounded-xl mb-6 relative border border-slate-700/50 p-2">
+            <canvas id="price-chart" class="w-full h-full rounded-lg"></canvas>
+          </div>
+          
+          <!-- 部位資訊 -->
+          <div class="bg-slate-800 rounded-xl p-4 mb-6 shadow-inner border border-slate-700">
+            <h3 class="text-[16px] text-slate-400 mb-3 font-bold border-b border-slate-700 pb-2">我的部位</h3>
+            <div class="flex justify-between items-center mb-3">
+              <span class="text-[16px]">持有股數</span>
+              <span class="text-xl font-bold text-white" id="trade-shares">0</span>
+            </div>
+            <div class="flex justify-between items-center mb-3">
+              <span class="text-[16px]">平均成本</span>
+              <span class="text-lg text-white" id="trade-avg-cost">$0.00</span>
+            </div>
+            <div class="flex justify-between items-center pt-2 border-t border-slate-700/50">
+              <span class="text-[16px]">未實現損益</span>
+              <span class="text-xl font-bold" id="trade-unrealized">$0.00</span>
+            </div>
+          </div>
+          
+          <!-- 交易操作區 -->
+          <div class="bg-slate-800 rounded-xl p-4 border border-slate-700">
+            <div class="flex gap-3 mb-5">
+              <button id="btn-mode-buy" onclick="setTradeMode('buy')" class="flex-1 py-3 rounded-xl text-lg font-bold text-white bg-green-600 transition-colors">買入</button>
+              <button id="btn-mode-sell" onclick="setTradeMode('sell')" class="flex-1 py-3 rounded-xl text-lg font-bold text-white bg-slate-700 opacity-60 transition-colors">賣出</button>
+            </div>
+            
+            <div class="text-[16px] text-slate-400 mb-2">交易數量 (股)</div>
+            <div class="flex items-center gap-3 mb-5">
+              <button onclick="changeTradeAmount(-1)" class="w-14 h-14 bg-slate-700 hover:bg-slate-600 rounded-xl flex items-center justify-center text-3xl font-bold transition-colors text-white">-</button>
+              <input type="number" id="trade-amount" value="1" min="1" class="flex-1 h-14 bg-slate-900 border-2 border-slate-600 rounded-xl text-center text-2xl font-bold text-white outline-none focus:border-blue-500 transition-colors">
+              <button onclick="changeTradeAmount(1)" class="w-14 h-14 bg-slate-700 hover:bg-slate-600 rounded-xl flex items-center justify-center text-3xl font-bold transition-colors text-white">+</button>
+            </div>
+            
+            <div class="flex justify-between items-center mb-5 bg-slate-900/50 p-3 rounded-lg">
+              <div class="flex flex-col">
+                <span class="text-[16px] text-slate-400">可用現金</span>
+                <span class="text-lg text-white" id="trade-cash">$0.00</span>
+              </div>
+              <div class="flex flex-col items-end">
+                <span class="text-[16px] text-slate-400">預估總額</span>
+                <span class="text-xl text-white font-bold" id="trade-total">$0.00</span>
+              </div>
+            </div>
+            
+            <button onclick="executeTrade()" id="btn-execute-trade" class="w-full py-4 rounded-xl font-bold text-xl text-white bg-green-600 hover:bg-green-500 active:bg-green-700 shadow-lg transition-colors">確認買入</button>
+          </div>
+        </div>
+      </div>
+
+
+      <!-- ================= 資產組合頁 ================= -->
+      <div id="portfolio" class="screen">
+        <div class="p-5 bg-slate-900 border-b border-slate-800 z-10 shrink-0 shadow-md">
+          <h1 class="text-2xl font-bold">資產組合</h1>
+        </div>
+        <div class="content-scroll p-4" id="portfolio-list">
+          <!-- JS 動態生成 -->
+        </div>
+      </div>
+
+
+      <!-- ================= 交易紀錄頁 ================= -->
+      <div id="history" class="screen">
+        <div class="p-5 bg-slate-900 border-b border-slate-800 z-10 shrink-0 shadow-md flex justify-between items-center">
+          <h1 class="text-2xl font-bold">交易紀錄</h1>
+          <button onclick="resetGame()" class="text-red-400 border border-red-900 bg-red-950/30 hover:bg-red-900/50 px-4 py-2 rounded-lg text-[16px] font-bold transition-colors">重置遊戲</button>
+        </div>
+        <div class="content-scroll p-4" id="history-list">
+          <!-- JS 動態生成 -->
+        </div>
+      </div>
+
+
+      <!-- ================= 底部導覽列 ================= -->
+      <div class="h-[80px] bg-slate-900 border-t border-slate-800 flex justify-around items-center absolute bottom-0 w-full z-50 shadow-[0_-5px_15px_rgba(0,0,0,0.3)]">
+        <button onclick="renderScreen('dashboard')" class="nav-btn flex-1 flex flex-col items-center justify-center h-full text-blue-500 transition-colors" data-target="dashboard">
+          <svg class="w-7 h-7 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path></svg>
+          <span class="text-[16px] font-bold">市場</span>
+        </button>
+        <button onclick="renderScreen('portfolio')" class="nav-btn flex-1 flex flex-col items-center justify-center h-full text-slate-500 hover:text-slate-300 transition-colors" data-target="portfolio">
+          <svg class="w-7 h-7 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
+          <span class="text-[16px] font-bold">資產</span>
+        </button>
+        <button onclick="renderScreen('history')" class="nav-btn flex-1 flex flex-col items-center justify-center h-full text-slate-500 hover:text-slate-300 transition-colors" data-target="history">
+          <svg class="w-7 h-7 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"></path></svg>
+          <span class="text-[16px] font-bold">紀錄</span>
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ================= JavaScript 邏輯 ================= -->
+  <script>
+    // --- 遊戲初始設定與資料狀態 ---
+    const INITIAL_CASH = 100000;
+    const MAX_HISTORY = 30; // 折線圖顯示最近 30 期
+    
+    let cash = INITIAL_CASH;
+    let portfolio = {}; // { stockId: { shares: 0, avgCost: 0 } }
+    let historyRecords = [];
+    let highestNetWorth = INITIAL_CASH;
+    let achievedMilestones = new Set();
+    let gameInterval;
+    
+    let currentScreenId = 'dashboard';
+    let selectedStockId = null;
+    let tradeMode = 'buy'; // 'buy' or 'sell'
+
+    // 初始 10 檔股票設定 (擬真價格與波動率)
+    const initialStocks = [
+      { id: '2330', name: '台積電', symbol: '2330', price: 800, volatility: 0.02 },
+      { id: '2317', name: '鴻海', symbol: '2317', price: 150, volatility: 0.03 },
+      { id: '2454', name: '聯發科', symbol: '2454', price: 1000, volatility: 0.025 },
+      { id: '2382', name: '廣達', symbol: '2382', price: 250, volatility: 0.035 },
+      { id: '2303', name: '聯電', symbol: '2303', price: 50, volatility: 0.02 },
+      { id: 'TSLA', name: '特斯拉', symbol: 'TSLA', price: 600, volatility: 0.045 },
+      { id: 'AAPL', name: '蘋果', symbol: 'AAPL', price: 550, volatility: 0.02 },
+      { id: 'NVDA', name: 'NVIDIA', symbol: 'NVDA', price: 2800, volatility: 0.04 },
+      { id: 'BABA', name: '阿里巴巴', symbol: 'BABA', price: 250, volatility: 0.04 },
+      { id: 'BTC',  name: '比特幣', symbol: 'BTC', price: 20000, volatility: 0.06 }
+    ];
+    let stocks = [];
+
+    // --- 初始化遊戲 ---
+    function init() {
+      // 產生初始歷史走勢讓圖表有資料
+      stocks = initialStocks.map(s => {
+        let hist = [s.price];
+        let p = s.price;
+        // 往前推算 29 期的價格
+        for(let i=0; i<MAX_HISTORY-1; i++) {
+          p = p / (1 + (Math.random() - 0.5) * s.volatility);
+          hist.unshift(p);
+        }
+        
+        const change = hist[MAX_HISTORY-1] - hist[MAX_HISTORY-2];
+        const changePercent = (change / hist[MAX_HISTORY-2]) * 100;
+        
+        return {
+          ...s,
+          priceHistory: hist,
+          change,
+          changePercent
+        };
+      });
+      
+      cash = INITIAL_CASH;
+      portfolio = {};
+      historyRecords = [];
+      highestNetWorth = INITIAL_CASH;
+      achievedMilestones.clear();
+      
+      // 清空畫面上的列表避免殘留
+      document.getElementById('stock-list').innerHTML = '';
+      
+      startGameLoop();
+      renderScreen('dashboard');
+      
+      showToast("🚀 歡迎來到股票模擬遊戲！初始資金 10 萬元", 3000);
+    }
+
+    // --- 核心邏輯 ---
+    function startGameLoop() {
+      if (gameInterval) clearInterval(gameInterval);
+      // 每 4 秒自動更新一次價格
+      gameInterval = setInterval(() => {
+        updatePrices();
+      }, 4000);
+    }
+
+    function updatePrices(forcedVolatility = null) {
+      stocks.forEach(stock => {
+        let changeFactor = 1;
+
+        if (forcedVolatility !== null) {
+          // 強制大幅波動：根據設定的百分比進行波動 (例如 0.1, 0.3, 0.5)
+          changeFactor += (Math.random() - 0.5) * 2 * forcedVolatility; 
+        } else {
+          // 基本隨機漫步
+          changeFactor += (Math.random() - 0.5) * stock.volatility;
+          
+          // 偶爾發生較大波動 (突發事件)
+          if (Math.random() < 0.05) {
+            changeFactor += (Math.random() - 0.5) * stock.volatility * 3;
+          }
+        }
+        
+        let newPrice = stock.price * changeFactor;
+        newPrice = Math.max(1, newPrice); // 價格不低於 1
+        
+        stock.change = newPrice - stock.price;
+        stock.changePercent = (stock.change / stock.price) * 100;
+        
+        stock.price = newPrice;
+        stock.priceHistory.shift();
+        stock.priceHistory.push(newPrice);
+      });
+      
+      checkMilestones();
+      updateUI();
+    }
+
+    function calculateAssets() {
+      let stockValue = 0;
+      stocks.forEach(s => {
+        if (portfolio[s.id] && portfolio[s.id].shares > 0) {
+          stockValue += portfolio[s.id].shares * s.price;
+        }
+      });
+      
+      const totalAssets = cash + stockValue;
+      const totalPnl = totalAssets - INITIAL_CASH;
+      const pnlPercent = (totalPnl / INITIAL_CASH) * 100;
+      
+      return { totalAssets, stockValue, totalPnl, pnlPercent };
+    }
+
+    function checkMilestones() {
+      const assets = calculateAssets();
+      const milestones = [150000, 200000, 500000, 1000000, 5000000, 10000000];
+      
+      if (assets.totalAssets > highestNetWorth) {
+        highestNetWorth = assets.totalAssets;
+      }
+      
+      for (let m of milestones) {
+        if (assets.totalAssets >= m && !achievedMilestones.has(m)) {
+          achievedMilestones.add(m);
+          showToast(`🏆 恭喜！總資產突破 ${formatCurrency(m)}！`, 4000);
+        }
+      }
+    }
+
+    function timePasses(type) {
+      let volatility = 0.1;
+      let msg = "⏳ 一天過去了，市場波動 10%...";
+      if (type === 'week') {
+        volatility = 0.3;
+        msg = "⏳ 一週過去了，市場波動 30%...";
+      } else if (type === 'month') {
+        volatility = 0.5;
+        msg = "⏳ 一個月過去了，市場波動 50%...";
+      }
+      
+      updatePrices(volatility);
+      showToast(msg, 1500);
+    }
+
+    function resetGame() {
+      if(confirm("確定要重置遊戲嗎？所有資產與紀錄將會清空。")) {
+        init();
+      }
+    }
+
+    // --- 格式化工具 ---
+    function formatCurrency(num) {
+      if (num >= 100) return '$' + Math.floor(num).toLocaleString('en-US');
+      return '$' + num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    function formatChange(num) {
+      const prefix = num > 0 ? '+' : '';
+      return prefix + num.toFixed(2) + '%';
+    }
+
+    function showToast(message, duration = 2000) {
+      const container = document.getElementById('toast-container');
+      const toast = document.createElement('div');
+      toast.className = "bg-blue-600 text-white px-6 py-4 rounded-full shadow-2xl font-bold text-[16px] text-center mx-4 transform transition-all duration-300 translate-y-[-120%] opacity-0 border border-blue-400";
+      toast.innerText = message;
+      
+      container.appendChild(toast);
+      
+      // 動畫進入
+      requestAnimationFrame(() => {
+        setTimeout(() => {
+          toast.classList.remove('translate-y-[-120%]', 'opacity-0');
+        }, 10);
+      });
+      
+      // 動畫離開
+      setTimeout(() => {
+        toast.classList.add('translate-y-[-120%]', 'opacity-0');
+        setTimeout(() => {
+          if (container.contains(toast)) container.removeChild(toast);
+        }, 300);
+      }, duration);
+    }
+
+    // --- UI 渲染邏輯 ---
+    function renderScreen(screenId) {
+      currentScreenId = screenId;
+      document.querySelectorAll('.screen').forEach(el => el.classList.remove('active'));
+      document.getElementById(screenId).classList.add('active');
+      
+      // 視圖切換強制捲動到最上
+      document.querySelectorAll('.content-scroll').forEach(el => el.scrollTop = 0);
+      
+      updateUI();
+    }
+
+    function updateUI() {
+      // 底部導覽列狀態更新
+      document.querySelectorAll('.nav-btn').forEach(btn => {
+        // 如果在交易頁，亮起「市場」按鈕
+        const targetMatch = btn.dataset.target === currentScreenId || 
+                           (currentScreenId === 'trading' && btn.dataset.target === 'dashboard');
+        if (targetMatch) {
+          btn.classList.add('text-blue-500');
+          btn.classList.remove('text-slate-500');
+        } else {
+          btn.classList.remove('text-blue-500');
+          btn.classList.add('text-slate-500');
+        }
+      });
+
+      if (currentScreenId === 'dashboard') {
+        updateDashboard();
+      } else if (currentScreenId === 'portfolio') {
+        renderPortfolio();
+      } else if (currentScreenId === 'history') {
+        renderHistory();
+      } else if (currentScreenId === 'trading') {
+        updateTradingUI();
+      }
+    }
+
+    function updateDashboard() {
+      const assets = calculateAssets();
+      document.getElementById('total-asset').innerText = formatCurrency(assets.totalAssets);
+      document.getElementById('cash-balance').innerText = formatCurrency(cash);
+      
+      const pnlEl = document.getElementById('today-pnl');
+      const sign = assets.totalPnl > 0 ? '+' : '';
+      pnlEl.innerText = `${sign}${formatCurrency(assets.totalPnl).replace('$','')} (${formatChange(assets.pnlPercent)})`;
+      
+      if(assets.totalPnl > 0) pnlEl.className = "text-xl font-bold text-green-500";
+      else if(assets.totalPnl < 0) pnlEl.className = "text-xl font-bold text-red-500";
+      else pnlEl.className = "text-xl font-bold text-white";
+      
+      renderDashboardStocks();
+    }
+
+    function renderDashboardStocks() {
+      const container = document.getElementById('stock-list');
+      
+      stocks.forEach(stock => {
+        let el = document.getElementById(`stock-item-${stock.id}`);
+        // 首次建立 DOM 節點
+        if (!el) {
+          const div = document.createElement('div');
+          div.id = `stock-item-${stock.id}`;
+          div.className = "flex justify-between items-center p-4 bg-slate-800 rounded-2xl cursor-pointer hover:bg-slate-700 transition-colors border border-transparent hover:border-slate-600";
+          div.onclick = () => openTrading(stock.id);
+          div.innerHTML = `
+            <div class="flex flex-col">
+              <span class="font-bold text-xl">${stock.name}</span>
+              <span class="text-[16px] text-slate-400 mt-1">${stock.symbol}</span>
+            </div>
+            <div class="flex flex-col items-end">
+              <span class="font-bold text-xl mb-1" id="price-${stock.id}">$0.00</span>
+              <span class="text-[16px] font-bold px-2 py-1 rounded-lg" id="change-${stock.id}">0.00%</span>
+            </div>
+          `;
+          container.appendChild(div);
+          el = div;
+        }
+        
+        // 更新數據
+        const priceEl = document.getElementById(`price-${stock.id}`);
+        const changeEl = document.getElementById(`change-${stock.id}`);
+        
+        const formattedPrice = formatCurrency(stock.price);
+        const formattedChange = formatChange(stock.changePercent);
+        const isUp = stock.change >= 0;
+        
+        // 如果價格變動，加上閃爍特效
+        if (priceEl.innerText !== formattedPrice && priceEl.innerText !== '$0.00') {
+          const flashClass = isUp ? 'flash-up' : 'flash-down';
+          el.classList.remove('flash-up', 'flash-down');
+          void el.offsetWidth; // 觸發重繪
+          el.classList.add(flashClass);
+        }
+        
+        priceEl.innerText = formattedPrice;
+        priceEl.className = `font-bold text-xl mb-1 ${isUp ? 'text-green-400' : 'text-red-400'}`;
+        
+        changeEl.innerText = formattedChange;
+        changeEl.className = `text-[16px] font-bold px-2 py-1 rounded-lg ${isUp ? 'bg-green-900/40 text-green-400' : 'bg-red-900/40 text-red-400'}`;
+      });
+    }
+
+    // --- 交易頁面邏輯 ---
+    function openTrading(stockId) {
+      selectedStockId = stockId;
+      tradeMode = 'buy';
+      document.getElementById('trade-amount').value = 1;
+      renderScreen('trading');
+    }
+
+    function setTradeMode(mode) {
+      tradeMode = mode;
+      
+      // 切換模式時，自動將輸入數量重設為 1，並重新檢查上限
+      document.getElementById('trade-amount').value = 1;
+      updateTradingUI();
+    }
+
+    function changeTradeAmount(delta) {
+      const input = document.getElementById('trade-amount');
+      let val = parseInt(input.value) || 0;
+      val += delta;
+      
+      input.value = val;
+      updateTradingUI(); // 裡面會負責 clamp 數值
+    }
+
+    function updateTradingUI() {
+      if (currentScreenId !== 'trading' || !selectedStockId) return;
+      const stock = stocks.find(s => s.id === selectedStockId);
+      const port = portfolio[selectedStockId] || { shares: 0, avgCost: 0 };
+      
+      document.getElementById('trade-stock-name').innerText = stock.name;
+      document.getElementById('trade-stock-symbol').innerText = stock.symbol;
+      
+      const isUp = stock.change >= 0;
+      
+      const priceEl = document.getElementById('trade-price');
+      priceEl.innerText = formatCurrency(stock.price);
+      priceEl.className = `text-4xl font-bold ${isUp ? 'text-green-500' : 'text-red-500'}`;
+      
+      const changeEl = document.getElementById('trade-change');
+      const sign = isUp ? '+' : '';
+      changeEl.innerText = `${sign}${formatCurrency(stock.change).replace('$','')} (${formatChange(stock.changePercent)})`;
+      changeEl.className = `text-xl mt-1 font-bold ${isUp ? 'text-green-500' : 'text-red-500'}`;
+      
+      document.getElementById('trade-shares').innerText = port.shares.toLocaleString();
+      document.getElementById('trade-avg-cost').innerText = formatCurrency(port.avgCost);
+      
+      const unrealized = port.shares > 0 ? (stock.price - port.avgCost) * port.shares : 0;
+      const unEl = document.getElementById('trade-unrealized');
+      unEl.innerText = (unrealized > 0 ? '+' : '') + formatCurrency(unrealized);
+      
+      if(unrealized > 0) unEl.className = "text-xl font-bold text-green-500";
+      else if(unrealized < 0) unEl.className = "text-xl font-bold text-red-500";
+      else unEl.className = "text-xl font-bold text-slate-400";
+      
+      // 處理輸入框數值限制
+      const input = document.getElementById('trade-amount');
+      let amount = parseInt(input.value) || 0;
+      
+      if (tradeMode === 'buy') {
+        const maxShares = Math.floor(cash / stock.price);
+        if (amount > maxShares && maxShares >= 0) {
+          amount = maxShares > 0 ? maxShares : 1;
+          input.value = amount;
+        }
+      } else {
+        if (amount > port.shares && port.shares >= 0) {
+          amount = port.shares > 0 ? port.shares : 1;
+          input.value = amount;
+        }
+      }
+      if (amount < 1) {
+        amount = 1;
+        input.value = amount;
+      }
+      
+      const total = amount * stock.price;
+      document.getElementById('trade-total').innerText = formatCurrency(total);
+      document.getElementById('trade-cash').innerText = formatCurrency(cash);
+      
+      // 更新按鈕樣式與狀態
+      const btnBuy = document.getElementById('btn-mode-buy');
+      const btnSell = document.getElementById('btn-mode-sell');
+      const btnExecute = document.getElementById('btn-execute-trade');
+      
+      if (tradeMode === 'buy') {
+        btnBuy.className = "flex-1 py-3 rounded-xl text-lg font-bold text-white bg-green-600 shadow-[0_0_10px_rgba(22,163,74,0.5)]";
+        btnSell.className = "flex-1 py-3 rounded-xl text-lg font-bold text-slate-300 bg-slate-700 opacity-60";
+        
+        const canBuy = cash >= total && amount > 0;
+        btnExecute.className = `w-full py-4 rounded-xl font-bold text-xl text-white shadow-lg transition-colors ${canBuy ? 'bg-green-600 hover:bg-green-500 active:bg-green-700' : 'bg-slate-600 text-slate-400 cursor-not-allowed'}`;
+        btnExecute.innerText = `確認買入 ${amount} 股`;
+        btnExecute.disabled = !canBuy;
+      } else {
+        btnBuy.className = "flex-1 py-3 rounded-xl text-lg font-bold text-slate-300 bg-slate-700 opacity-60";
+        btnSell.className = "flex-1 py-3 rounded-xl text-lg font-bold text-white bg-red-600 shadow-[0_0_10px_rgba(220,38,38,0.5)]";
+        
+        const canSell = port.shares >= amount && amount > 0;
+        btnExecute.className = `w-full py-4 rounded-xl font-bold text-xl text-white shadow-lg transition-colors ${canSell ? 'bg-red-600 hover:bg-red-500 active:bg-red-700' : 'bg-slate-600 text-slate-400 cursor-not-allowed'}`;
+        btnExecute.innerText = `確認賣出 ${amount} 股`;
+        btnExecute.disabled = !canSell;
+      }
+      
+      drawChart();
+    }
+
+    function executeTrade() {
+      const amount = parseInt(document.getElementById('trade-amount').value);
+      const stock = stocks.find(s => s.id === selectedStockId);
+      const total = amount * stock.price;
+      
+      if (tradeMode === 'buy') {
+        if (cash >= total) {
+          cash -= total;
+          if (!portfolio[stock.id]) portfolio[stock.id] = { shares: 0, avgCost: 0 };
+          const port = portfolio[stock.id];
+          const totalCost = (port.shares * port.avgCost) + total;
+          port.shares += amount;
+          port.avgCost = totalCost / port.shares;
+          
+          addHistory('BUY', stock, amount, stock.price);
+          showToast(`✅ 成功買入 ${amount} 股 ${stock.name}`);
+        }
+      } else {
+        const port = portfolio[stock.id];
+        if (port && port.shares >= amount) {
+          cash += total;
+          port.shares -= amount;
+          if (port.shares === 0) port.avgCost = 0; // 清空成本
+          
+          addHistory('SELL', stock, amount, stock.price);
+          showToast(`✅ 成功賣出 ${amount} 股 ${stock.name}`);
+        }
+      }
+      
+      document.getElementById('trade-amount').value = 1;
+      updateTradingUI();
+    }
+
+    function drawChart() {
+      const canvas = document.getElementById('price-chart');
+      if (!canvas || !selectedStockId) return;
+      
+      const rect = canvas.parentElement.getBoundingClientRect();
+      // 使用 2 倍解析度繪製避免模糊
+      canvas.width = (rect.width - 16) * 2; // -16 for p-2
+      canvas.height = (rect.height - 16) * 2;
+      
+      const ctx = canvas.getContext('2d');
+      ctx.scale(2, 2);
+      const w = rect.width - 16;
+      const h = rect.height - 16;
+      
+      ctx.clearRect(0, 0, w, h);
+      
+      // 畫格線
+      ctx.strokeStyle = '#334155'; // slate-700
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      for(let i=1; i<4; i++) {
+        const y = h * (i/4);
+        ctx.moveTo(0, y);
+        ctx.lineTo(w, y);
+      }
+      ctx.stroke();
+      
+      const stock = stocks.find(s => s.id === selectedStockId);
+      const data = stock.priceHistory;
+      if (data.length < 2) return;
+      
+      const min = Math.min(...data);
+      const max = Math.max(...data);
+      const padding = (max - min) * 0.1 || stock.price * 0.01;
+      const yMin = min - padding;
+      const yMax = max + padding;
+      
+      const stepX = w / (data.length - 1);
+      const scaleY = h / (yMax - yMin);
+      
+      ctx.beginPath();
+      ctx.moveTo(0, h - (data[0] - yMin) * scaleY);
+      
+      for (let i = 1; i < data.length; i++) {
+        ctx.lineTo(i * stepX, h - (data[i] - yMin) * scaleY);
+      }
+      
+      const isUp = data[data.length-1] >= data[0];
+      ctx.strokeStyle = isUp ? '#22c55e' : '#ef4444';
+      ctx.lineWidth = 3;
+      ctx.lineJoin = 'round';
+      ctx.lineCap = 'round';
+      ctx.stroke();
+      
+      // 漸層填色
+      const gradient = ctx.createLinearGradient(0, 0, 0, h);
+      if (isUp) {
+        gradient.addColorStop(0, 'rgba(34, 197, 94, 0.3)');
+        gradient.addColorStop(1, 'rgba(34, 197, 94, 0)');
+      } else {
+        gradient.addColorStop(0, 'rgba(239, 68, 68, 0.3)');
+        gradient.addColorStop(1, 'rgba(239, 68, 68, 0)');
+      }
+      
+      ctx.lineTo(w, h);
+      ctx.lineTo(0, h);
+      ctx.fillStyle = gradient;
+      ctx.fill();
+    }
+
+    // --- 資產組合與歷史紀錄 ---
+    function renderPortfolio() {
+      const container = document.getElementById('portfolio-list');
+      let html = '';
+      const assets = calculateAssets();
+      
+      html += `
+        <div class="bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl p-5 mb-5 border border-slate-700 shadow-lg">
+          <div class="text-[16px] text-slate-400 mb-1">股票總市值</div>
+          <div class="text-3xl font-bold text-white mb-4">${formatCurrency(assets.stockValue)}</div>
+          <div class="flex justify-between items-center border-t border-slate-700/50 pt-3">
+            <span class="text-[16px] text-slate-400">目前現金</span>
+            <span class="text-xl font-bold text-white">${formatCurrency(cash)}</span>
+          </div>
+        </div>
+        <h2 class="text-xl font-bold mb-3 px-1">持有明細</h2>
+      `;
+      
+      let hasStocks = false;
+      stocks.forEach(stock => {
+        const port = portfolio[stock.id];
+        if (port && port.shares > 0) {
+          hasStocks = true;
+          const currentValue = port.shares * stock.price;
+          const totalCost = port.shares * port.avgCost;
+          const pnl = currentValue - totalCost;
+          const pnlPercent = (pnl / totalCost) * 100;
+          
+          html += `
+            <div class="bg-slate-800 rounded-2xl p-4 mb-3 cursor-pointer hover:bg-slate-700 transition-colors border border-slate-700" onclick="openTrading('${stock.id}')">
+              <div class="flex justify-between items-center mb-3">
+                <div class="font-bold text-xl">${stock.name}</div>
+                <div class="text-xl font-bold">${formatCurrency(currentValue)}</div>
+              </div>
+              <div class="flex justify-between items-end">
+                <div class="flex flex-col">
+                  <span class="text-[16px] text-white font-bold">${port.shares} 股</span>
+                  <span class="text-[16px] text-slate-400">均價 ${formatCurrency(port.avgCost)}</span>
+                </div>
+                <div class="${pnl >= 0 ? 'text-green-400' : 'text-red-400'} font-bold text-lg text-right">
+                  ${pnl >= 0 ? '+' : ''}${formatCurrency(pnl).replace('$','')} <br>
+                  <span class="text-[16px]">(${formatChange(pnlPercent)})</span>
+                </div>
+              </div>
+            </div>
+          `;
+        }
+      });
+      
+      if (!hasStocks) {
+        html += `<div class="text-center text-slate-500 py-12 text-lg">目前沒有持有任何股票<br><span class="text-[16px] mt-2 block">前往市場尋找投資標的吧！</span></div>`;
+      }
+      
+      container.innerHTML = html;
+    }
+
+    function addHistory(type, stock, shares, price) {
+      const now = new Date();
+      const timeString = `${now.getHours().toString().padStart(2,'0')}:${now.getMinutes().toString().padStart(2,'0')}:${now.getSeconds().toString().padStart(2,'0')}`;
+      historyRecords.push({
+        type,
+        stockName: stock.name,
+        shares,
+        price,
+        time: timeString
+      });
+      if (historyRecords.length > 50) historyRecords.shift(); // 保留最近 50 筆
+    }
+
+    function renderHistory() {
+      const container = document.getElementById('history-list');
+      let html = '';
+      
+      if (historyRecords.length === 0) {
+        html = `<div class="text-center text-slate-500 py-12 text-lg">尚無交易紀錄</div>`;
+      } else {
+        const reversed = [...historyRecords].reverse();
+        reversed.forEach(record => {
+          const isBuy = record.type === 'BUY';
+          html += `
+            <div class="flex justify-between items-center p-4 mb-3 bg-slate-800 rounded-2xl border border-slate-700">
+              <div class="flex items-center gap-4">
+                <div class="w-12 h-12 rounded-full flex items-center justify-center text-[16px] font-bold text-white shadow-inner ${isBuy ? 'bg-green-600' : 'bg-red-600'}">
+                  ${isBuy ? '買入' : '賣出'}
+                </div>
+                <div>
+                  <div class="font-bold text-xl">${record.stockName}</div>
+                  <div class="text-[16px] text-slate-400 mt-1">${record.time}</div>
+                </div>
+              </div>
+              <div class="text-right">
+                <div class="font-bold text-lg text-white">${record.shares} 股</div>
+                <div class="text-[16px] text-slate-400 mt-1">@ ${formatCurrency(record.price)}</div>
+              </div>
+            </div>
+          `;
+        });
+      }
+      
+      container.innerHTML = html;
+    }
+
+    // --- 事件監聽器初始化 ---
+    window.onload = () => {
+      init();
+      
+      // 防止輸入框變更時輸入非數字
+      const input = document.getElementById('trade-amount');
+      if (input) {
+        input.addEventListener('input', () => {
+          let val = parseInt(input.value);
+          if (isNaN(val)) val = 1;
+          input.value = val;
+          updateTradingUI();
+        });
+        
+        // 輸入框失焦時確保數值合法
+        input.addEventListener('blur', () => {
+          if (!input.value || parseInt(input.value) < 1) {
+            input.value = 1;
+            updateTradingUI();
+          }
+        });
+      }
+    };
+  </script>
+</body>
+</html>
