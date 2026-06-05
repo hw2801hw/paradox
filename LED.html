@@ -1,0 +1,654 @@
+<!DOCTYPE html>
+<!--
+使用說明：
+1. 直接將本檔案儲存為 index.html 後，用手機或瀏覽器開啟。
+2. 在下方控制區輸入要顯示的文字，可輸入中文。
+3. 可切換 LED 顏色、速度、單行/雙行模式，按「開始/暫停」控制播放。
+4. 按「全螢幕」可進入沉浸顯示模式，適合手持展示或現場看板用途。
+-->
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <title>LED 跑馬燈</title>
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+  <style>
+    :root {
+      --led-color: #22ff55;
+      --led-bg: #020502;
+      --border-glow: rgba(45, 255, 105, 0.45);
+    }
+
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    html,
+    body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      background: #000;
+      color: #e5e7eb;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      overflow: hidden;
+    }
+
+    .app {
+      width: 100%;
+      height: 100svh;
+      min-height: 100svh;
+      display: flex;
+      flex-direction: column;
+      background: radial-gradient(circle at center, #061006 0%, #020502 45%, #000 100%);
+      touch-action: manipulation;
+    }
+
+    .display-wrap {
+      position: relative;
+      flex: 1;
+      min-height: 0;
+      margin: 0.75rem;
+      border: 2px solid rgba(80, 255, 130, 0.25);
+      box-shadow:
+        0 0 8px rgba(80, 255, 130, 0.28),
+        0 0 28px var(--border-glow),
+        inset 0 0 30px rgba(0, 0, 0, 0.65);
+      background: var(--led-bg);
+      overflow: hidden;
+    }
+
+    .display-wrap::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      background:
+        repeating-linear-gradient(
+          to bottom,
+          rgba(255, 255, 255, 0.08) 0px,
+          rgba(255, 255, 255, 0.08) 1px,
+          rgba(0, 0, 0, 0) 2px,
+          rgba(0, 0, 0, 0) 4px
+        ),
+        radial-gradient(circle at center, rgba(255, 255, 255, 0.04) 0.8px, transparent 1px);
+      background-size: 100% 4px, 3px 3px;
+      opacity: 0.3;
+      mix-blend-mode: screen;
+    }
+
+    .display-wrap::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      background: linear-gradient(to bottom, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0));
+      opacity: 0.2;
+    }
+
+    .display {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0.5rem;
+    }
+
+    .row {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      display: flex;
+    }
+    
+    /* 水平佈局，靠左起始 */
+    .row.align-h {
+      justify-content: flex-start;
+      align-items: center;
+    }
+    
+    /* 垂直佈局，靠上起始 */
+    .row.align-v {
+      justify-content: center;
+      align-items: flex-start;
+    }
+
+    .marquee {
+      color: var(--led-color);
+      font-size: min(40vw, 40vh);
+      line-height: 1;
+      letter-spacing: 0.08em;
+      font-weight: 40;
+      text-shadow:
+        0 0 4px color-mix(in srgb, var(--led-color) 85%, #fff 15%),
+        0 0 10px var(--led-color),
+        0 0 24px var(--led-color),
+        0 0 48px color-mix(in srgb, var(--led-color) 70%, #000 30%);
+      animation-timing-function: linear;
+      animation-iteration-count: infinite;
+      will-change: transform;
+    }
+
+    .dual-line .marquee {
+      font-size: min(18vw, 18vh);
+    }
+
+    .marquee-item {
+      white-space: nowrap;
+    }
+
+    .horizontal {
+      display: inline-flex;
+      width: max-content;
+    }
+
+    .vertical {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      height: max-content;
+    }
+
+    .vertical .marquee-item {
+      white-space: pre;
+      text-align: center;
+      display: block;
+      line-height: 1.1;
+    }
+
+    .dir-left {
+      animation-name: scroll-left;
+    }
+
+    .dir-right {
+      animation-name: scroll-right;
+    }
+
+    .dir-up {
+      animation-name: scroll-up;
+    }
+
+    .dir-down {
+      animation-name: scroll-down;
+    }
+
+    .paused .marquee {
+      animation-play-state: paused;
+    }
+
+    @keyframes scroll-left {
+      from { transform: translateX(0); }
+      to { transform: translateX(-50%); }
+    }
+
+    @keyframes scroll-right {
+      from { transform: translateX(-50%); }
+      to { transform: translateX(0); }
+    }
+
+    @keyframes scroll-up {
+      from { transform: translateY(0); }
+      to { transform: translateY(-50%); }
+    }
+
+    @keyframes scroll-down {
+      from { transform: translateY(-50%); }
+      to { transform: translateY(0); }
+    }
+
+    .controls {
+      border-top: 1px solid rgba(255, 255, 255, 0.12);
+      background: rgba(0, 0, 0, 0.82);
+      backdrop-filter: blur(4px);
+      padding: 0.85rem;
+      display: grid;
+      gap: 0.7rem;
+    }
+
+    .field-label {
+      font-size: 16px;
+      color: #d1d5db;
+      margin-bottom: 0.35rem;
+      display: block;
+    }
+
+    .text-input {
+      width: 100%;
+      min-height: 52px;
+      resize: none;
+      border: 1px solid rgba(255, 255, 255, 0.25);
+      background: #050505;
+      color: #f9fafb;
+      border-radius: 8px;
+      padding: 0.6rem 0.7rem;
+      font-size: 16px;
+      line-height: 1.35;
+      font-family: inherit;
+    }
+
+    .inline-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.7rem;
+    }
+
+    .select,
+    .btn,
+    .toggle {
+      width: 100%;
+      min-height: 44px;
+      border-radius: 8px;
+      font-size: 16px;
+      font-family: inherit;
+      border: 1px solid rgba(255, 255, 255, 0.22);
+      background: #101010;
+      color: #f3f4f6;
+    }
+
+    .select {
+      padding: 0 0.55rem;
+    }
+
+    .btn {
+      cursor: pointer;
+      font-weight: 700;
+    }
+
+    .toggle {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.4rem;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .color-row {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 0.45rem;
+    }
+
+    .color-btn {
+      min-height: 42px;
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      border-radius: 8px;
+      cursor: pointer;
+      position: relative;
+    }
+
+    .color-btn.active::after {
+      content: "";
+      position: absolute;
+      inset: 7px;
+      border: 2px solid rgba(255, 255, 255, 0.9);
+      border-radius: 5px;
+    }
+
+    .footer-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.7rem;
+    }
+
+    @media (min-width: 768px) {
+      body {
+        display: grid;
+        place-items: center;
+      }
+
+      .app {
+        width: 100vw;
+        height: 100svh;
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) clamp(240px, 28vw, 320px);
+        gap: 0.6rem;
+        padding: 0.6rem;
+      }
+
+      .display-wrap {
+        margin: 0;
+      }
+
+      .controls {
+        border-top: none;
+        border-left: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 8px;
+      }
+    }
+
+    /* 原生與模擬全螢幕樣式 */
+    #app:fullscreen,
+    #app.simulated-fullscreen {
+      position: fixed !important;
+      inset: 0 !important;
+      width: 100vw !important;
+      height: 100svh !important;
+      z-index: 99999 !important;
+      background: #000 !important;
+      display: block !important;
+      padding: 0 !important;
+      gap: 0 !important;
+    }
+
+    #app:fullscreen .controls,
+    #app.simulated-fullscreen .controls {
+      display: none !important;
+    }
+
+    #app:fullscreen .display-wrap,
+    #app.simulated-fullscreen .display-wrap {
+      margin: 0 !important;
+      width: 100% !important;
+      height: 100% !important;
+      border: none !important;
+      box-shadow: inset 0 0 30px rgba(0, 0, 0, 0.85) !important;
+    }
+  </style>
+</head>
+<body>
+  <div id="app" class="app">
+    <section class="display-wrap" aria-label="LED 顯示區">
+      <button id="exitFullscreenBtn" class="absolute top-4 right-4 z-[100000] hidden bg-black/70 text-white border border-white/30 px-4 py-2 rounded-full text-sm font-bold hover:bg-black/90 active:scale-95 transition-all cursor-pointer" type="button">
+        離開全螢幕
+      </button>
+
+      <div id="display" class="display"></div>
+    </section>
+
+    <section class="controls" aria-label="控制面板">
+      <label class="field-label" for="textInput">顯示文字</label>
+      <textarea id="textInput" class="text-input" maxlength="180">歡迎使用 LED 跑馬燈，輸入任何中文或英文文字。</textarea>
+
+      <div class="inline-grid">
+        <div>
+          <label class="field-label" for="speedSelect">速度</label>
+          <select id="speedSelect" class="select">
+            <option value="150">慢</option>
+            <option value="350" selected>中</option>
+            <option value="700">快</option>
+          </select>
+        </div>
+        <div>
+          <label class="field-label" for="directionSelect">方向</label>
+          <select id="directionSelect" class="select">
+            <option value="left" selected>向左</option>
+            <option value="right">向右</option>
+            <option value="up">向上</option>
+            <option value="down">向下</option>
+          </select>
+        </div>
+      </div>
+
+      <div id="lineModeGroup">
+        <label class="field-label" for="lineModeSelect">行數模式</label>
+        <select id="lineModeSelect" class="select">
+          <option value="single" selected>單行模式</option>
+          <option value="dual">雙行模式 (上下兩行)</option>
+        </select>
+      </div>
+
+      <div>
+        <span class="field-label">LED 顏色</span>
+        <div class="color-row" id="colorRow">
+          <button class="color-btn active" data-color="#ff2e2e" title="紅" style="background:#8b0000;"></button>
+          <button class="color-btn" data-color="#22ff55" title="綠" style="background:#014b1f;"></button>
+          <button class="color-btn" data-color="#ffd331" title="黃" style="background:#7a5a00;"></button>
+          <button class="color-btn" data-color="#39a1ff" title="藍" style="background:#002f66;"></button>
+          <button class="color-btn" data-color="#f6f7fb" title="白" style="background:#5f6368;"></button>
+        </div>
+      </div>
+
+      <div class="footer-actions">
+        <button id="playPauseBtn" class="btn" type="button">暫停</button>
+        <button id="fullscreenBtn" class="btn" type="button">全螢幕</button>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    const display = document.getElementById("display");
+    const textInput = document.getElementById("textInput");
+    const speedSelect = document.getElementById("speedSelect");
+    const directionSelect = document.getElementById("directionSelect");
+    const lineModeSelect = document.getElementById("lineModeSelect");
+    const lineModeGroup = document.getElementById("lineModeGroup");
+    const playPauseBtn = document.getElementById("playPauseBtn");
+    const fullscreenBtn = document.getElementById("fullscreenBtn");
+    const exitFullscreenBtn = document.getElementById("exitFullscreenBtn");
+    const colorRow = document.getElementById("colorRow");
+    const app = document.getElementById("app");
+
+    let isPlaying = true;
+    let isSimulatedFullscreen = false;
+
+    function getLines(text) {
+      const trimmed = text.trim();
+      if (!trimmed) return ["LED 跑馬燈"];
+      return trimmed.split(/\n+/).map(line => line.trim()).filter(Boolean);
+    }
+
+    function getDirectionClass(direction) {
+      if (direction === "right") return "horizontal dir-right";
+      if (direction === "up") return "vertical dir-up";
+      if (direction === "down") return "vertical dir-down";
+      return "horizontal dir-left";
+    }
+
+    function updateAnimationSpeed() {
+      const direction = directionSelect.value;
+      const isVertical = direction === "up" || direction === "down";
+      const marquees = display.querySelectorAll('.marquee');
+      const speed = parseFloat(speedSelect.value) || 350; // 固定速度：每秒移動的像素
+      
+      marquees.forEach(mq => {
+        const distance = isVertical ? mq.offsetHeight / 2 : mq.offsetWidth / 2;
+        if (distance > 0) {
+          const duration = Math.max(0.1, distance / speed);
+          mq.style.animationDuration = `${duration}s`;
+        }
+      });
+    }
+
+    function buildRows() {
+      const direction = directionSelect.value;
+      const isVertical = direction === "up" || direction === "down";
+
+      if (isVertical) {
+        lineModeGroup.style.display = "none";
+      } else {
+        lineModeGroup.style.display = "block";
+      }
+
+      display.innerHTML = "";
+
+      const rawText = textInput.value.replace(/\r?\n/g, " ").trim() || "LED 跑馬燈";
+
+      // 產生單行無縫滾動元素的通用函式
+      function createMarqueeRow(text) {
+        const row = document.createElement("div");
+        // 嚴格依照方向將基準點定位在起點，確保不會因長度不同造成位移
+        row.className = `row flex-1 ${isVertical ? 'align-v' : 'align-h'}`;
+
+        const marquee = document.createElement("div");
+        marquee.className = `marquee ${getDirectionClass(direction)}`;
+
+        let baseText = "";
+        if (isVertical) {
+          const chars = Array.from(text);
+          baseText = chars.join("\n") + "\n\n•\n\n";
+        } else {
+          // 使用 \u00A0 確保空白字元必定被計入寬度
+          baseText = text + "\u00A0\u00A0\u00A0•\u00A0\u00A0\u00A0";
+        }
+
+        // 動態精確計算單次內容長度
+        const measureMarquee = document.createElement("div");
+        measureMarquee.className = `marquee ${getDirectionClass(direction)}`;
+        measureMarquee.style.visibility = "hidden";
+        measureMarquee.style.position = "absolute";
+        
+        const measure = document.createElement("span");
+        measure.className = "marquee-item";
+        measure.style.whiteSpace = isVertical ? "pre" : "nowrap";
+        measure.textContent = baseText;
+        
+        measureMarquee.appendChild(measure);
+        display.appendChild(measureMarquee);
+
+        const itemSize = isVertical ? measure.offsetHeight : measure.offsetWidth;
+        const viewportSize = isVertical ? window.innerHeight : window.innerWidth;
+        display.removeChild(measureMarquee);
+
+        // 如果字串過短，自動補滿至超過視窗長度，確保百分之百無縫循環沒有黑屏
+        let repeatCount = 1;
+        if (itemSize > 0 && itemSize < viewportSize) {
+          repeatCount = Math.ceil(viewportSize / itemSize) + 1;
+        }
+
+        const repeatedText = baseText.repeat(repeatCount);
+
+        const itemA = document.createElement("span");
+        itemA.className = "marquee-item";
+        itemA.textContent = repeatedText;
+
+        const itemB = document.createElement("span");
+        itemB.className = "marquee-item";
+        itemB.textContent = repeatedText;
+
+        marquee.append(itemA, itemB);
+        row.appendChild(marquee);
+        return row;
+      }
+
+      if (isVertical) {
+        display.classList.remove("dual-line");
+        display.style.flexDirection = "";
+        display.appendChild(createMarqueeRow(rawText));
+      } else {
+        const isDual = lineModeSelect.value === "dual";
+        if (isDual) {
+          display.classList.add("dual-line");
+          display.style.flexDirection = "column";
+          const lines = getLines(textInput.value);
+          const line1 = lines[0] || "LED 跑馬燈";
+          const line2 = lines[1] || line1; 
+          display.appendChild(createMarqueeRow(line1));
+          display.appendChild(createMarqueeRow(line2));
+        } else {
+          display.classList.remove("dual-line");
+          display.style.flexDirection = "";
+          const lines = getLines(textInput.value);
+          display.appendChild(createMarqueeRow(lines.join("   •   ")));
+        }
+      }
+
+      if (!isPlaying) {
+        display.classList.add("paused");
+      }
+
+      // 等待 DOM 渲染完畢後套用正確的絕對恆定速度
+      requestAnimationFrame(() => {
+        updateAnimationSpeed();
+      });
+    }
+
+    function setColor(hex) {
+      document.documentElement.style.setProperty("--led-color", hex);
+      document.documentElement.style.setProperty("--border-glow", `${hex}66`);
+    }
+
+    function toggleSimulatedFullscreen(enable) {
+      isSimulatedFullscreen = enable;
+      if (enable) {
+        app.classList.add("simulated-fullscreen");
+        exitFullscreenBtn.classList.remove("hidden");
+      } else {
+        app.classList.remove("simulated-fullscreen");
+        exitFullscreenBtn.classList.add("hidden");
+      }
+    }
+
+    textInput.addEventListener("input", buildRows);
+
+    speedSelect.addEventListener("change", updateAnimationSpeed);
+
+    directionSelect.addEventListener("change", buildRows);
+
+    lineModeSelect.addEventListener("change", buildRows);
+
+    playPauseBtn.addEventListener("click", () => {
+      isPlaying = !isPlaying;
+      display.classList.toggle("paused", !isPlaying);
+      playPauseBtn.textContent = isPlaying ? "暫停" : "開始";
+    });
+
+    colorRow.addEventListener("click", (event) => {
+      const target = event.target.closest(".color-btn");
+      if (!target) return;
+
+      colorRow.querySelectorAll(".color-btn").forEach(btn => btn.classList.remove("active"));
+      target.classList.add("active");
+      setColor(target.dataset.color);
+    });
+
+    fullscreenBtn.addEventListener("click", async () => {
+      try {
+        if (!document.fullscreenElement) {
+          await app.requestFullscreen();
+          if (screen.orientation && screen.orientation.lock) {
+            try {
+              const dir = directionSelect.value;
+              // 僅在左右方向時強制橫向，上下方向強制直向
+              if (dir === "left" || dir === "right") {
+                await screen.orientation.lock("landscape");
+              } else {
+                await screen.orientation.lock("portrait");
+              }
+            } catch (e) {
+              console.warn("螢幕方向鎖定失敗：", e);
+            }
+          }
+        } else {
+          await document.exitFullscreen();
+        }
+      } catch (error) {
+        console.warn("原生全螢幕被封鎖，將切換為模擬全螢幕模式：", error);
+        toggleSimulatedFullscreen(true);
+      }
+    });
+
+    exitFullscreenBtn.addEventListener("click", async () => {
+      if (document.fullscreenElement) {
+        try {
+          await document.exitFullscreen();
+        } catch (e) {
+          console.error(e);
+        }
+      }
+      toggleSimulatedFullscreen(false);
+    });
+
+    document.addEventListener("fullscreenchange", () => {
+      const isNativeFs = !!document.fullscreenElement;
+      fullscreenBtn.textContent = isNativeFs ? "離開全螢幕" : "全螢幕";
+      if (!isNativeFs) {
+        if (screen.orientation && screen.orientation.unlock) {
+          try {
+            screen.orientation.unlock();
+          } catch (e) {}
+        }
+        toggleSimulatedFullscreen(false);
+      }
+    });
+
+    setColor("#ff2e2e");
+    buildRows();
+  </script>
+</body>
+</html>
