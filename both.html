@@ -1,0 +1,1348 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>自動對戰遊戲</title>
+    <style>
+        /* 所有文字 font-size 永遠 ≥ 16px */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: 'Arial', sans-serif;
+            overflow: hidden;
+            font-size: 16px;
+        }
+
+        /* 完美調節到手機螢幕同步比例的 RWD 設置 */
+        #gameContainer {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            max-width: 800px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin: 0 auto;
+        }
+
+        #gameCanvas {
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(180deg, #0f0f23 0%, #1a1a3e 100%);
+            box-shadow: 0 0 30px rgba(100, 100, 255, 0.3);
+        }
+
+        /* 當螢幕較寬（如平板、桌面）時，限制高度並加上圓角邊框 */
+        @media (min-width: 800px) {
+            #gameContainer {
+                height: 90vh;
+            }
+            #gameCanvas {
+                border: 3px solid #4a4a8a;
+                border-radius: 10px;
+            }
+        }
+
+        /* 遊戲覆蓋畫面（開始、結束、圖鑑、進化選擇） */
+        #gameOverScreen, #startScreen, #galleryScreen, #runeGalleryScreen, #evolutionScreen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+        }
+
+        @media (min-width: 800px) {
+            #gameOverScreen, #startScreen, #galleryScreen, #runeGalleryScreen, #evolutionScreen {
+                border-radius: 10px;
+            }
+        }
+
+        #startScreen {
+            display: flex; /* 預設顯示開始畫面 */
+        }
+
+        #gameOverScreen h1, #startScreen h1, #galleryScreen h1, #runeGalleryScreen h1, #evolutionScreen h1 {
+            color: #fff;
+            font-size: 32px;
+            margin-bottom: 20px;
+            text-shadow: 0 0 20px rgba(255, 255, 255, 0.5);
+        }
+
+        #gameOverScreen p, #galleryScreen p, #runeGalleryScreen p, #evolutionScreen p {
+            color: #aaa;
+            font-size: 20px;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+
+        #returnLobbyBtn, #nextRoundBtn, .menu-btn {
+            background: linear-gradient(135deg, #4a4a8a 0%, #6a6aaa 100%);
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            font-size: 18px;
+            border-radius: 30px;
+            cursor: pointer;
+            margin: 5px;
+            transition: transform 0.2s, box-shadow 0.2s;
+            box-shadow: 0 5px 20px rgba(100, 100, 255, 0.4);
+        }
+
+        #returnLobbyBtn:hover, #nextRoundBtn:hover, .menu-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 8px 30px rgba(100, 100, 255, 0.6);
+        }
+
+        /* 武器與符文選擇區域 */
+        #weaponSelectBox {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 15px 25px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            color: white;
+            text-align: left;
+            overflow-y: auto;
+            max-height: 55vh;
+            width: 90%;
+            max-width: 600px;
+        }
+        
+        #weaponSelectBox p {
+            font-size: 18px;
+            margin-bottom: 10px;
+            font-weight: bold;
+            color: #ffcc00;
+        }
+
+        .weapon-columns {
+            display: flex;
+            gap: 20px;
+            justify-content: space-between;
+            margin-bottom: 15px;
+        }
+
+        .weapon-column {
+            display: flex;
+            flex-direction: column;
+            width: 48%;
+        }
+
+        .weapon-column strong {
+            color: #ffcc00;
+            margin-bottom: 8px;
+            font-size: 18px;
+            border-bottom: 1px solid rgba(255, 204, 0, 0.3);
+            padding-bottom: 5px;
+        }
+
+        #weaponSelectBox label {
+            display: block;
+            margin: 6px 0;
+            cursor: pointer;
+            font-size: 16px;
+        }
+
+        #weaponSelectBox input[type="checkbox"] {
+            transform: scale(1.2);
+            margin-right: 8px;
+        }
+
+        /* 符文簡單列表 */
+        .rune-list {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+    </style>
+</head>
+<body>
+    <div id="gameContainer">
+        <canvas id="gameCanvas"></canvas>
+
+        <div id="startScreen">
+            <h1>自動對戰遊戲</h1>
+            
+            <div id="weaponSelectBox">
+                <p>請選擇 2 種武器：</p>
+                <div class="weapon-columns">
+                    <div class="weapon-column">
+                        <strong>近戰</strong>
+                        <label><input type="checkbox" class="weapon-cb" value="melee_body" checked> 本體碰撞</label>
+                        <label><input type="checkbox" class="weapon-cb" value="melee_wall" checked> 牆壁碰撞</label>
+                        <label><input type="checkbox" class="weapon-cb" value="melee_clone"> 多重分身</label>
+                    </div>
+                    <div class="weapon-column">
+                        <strong>遠程</strong>
+                        <label><input type="checkbox" class="weapon-cb" value="ranged_bullet"> 隨機子彈</label>
+                        <label><input type="checkbox" class="weapon-cb" value="ranged_mine"> 設置地雷</label>
+                        <label><input type="checkbox" class="weapon-cb" value="ranged_magic"> 魔法術陣</label>
+                    </div>
+                </div>
+
+                <p>請選擇 2 種符文：</p>
+                <div class="rune-list">
+                    <label><input type="checkbox" class="rune-cb" value="rune_wind" checked> 風</label>
+                    <label><input type="checkbox" class="rune-cb" value="rune_thunder" checked> 雷</label>
+                    <label><input type="checkbox" class="rune-cb" value="rune_earth"> 土</label>
+                    <label><input type="checkbox" class="rune-cb" value="rune_water"> 水</label>
+                    <label><input type="checkbox" class="rune-cb" value="rune_fire"> 火</label>
+                </div>
+            </div>
+
+            <div style="display: flex; gap: 5px; flex-wrap: wrap; justify-content: center;">
+                <button id="galleryBtn" class="menu-btn">武器圖鑑</button>
+                <button id="startBtn" class="menu-btn">開始遊戲</button>
+                <button id="runeGalleryBtn" class="menu-btn">符文圖鑑</button>
+            </div>
+        </div>
+
+        <div id="galleryScreen">
+            <h1>武器圖鑑</h1>
+            <p style="text-align: left; padding: 0 20px; font-size: 15px; overflow-y: auto; max-height: 65vh; margin-bottom: 10px; line-height: 1.6; max-width: 600px;">
+                <strong style="color: #ffcc00;">【發動機制提醒】</strong><br>
+                近攻為碰撞生效，遠程為定期射出<br><br>
+                <strong style="color: #ffcc00;">【武器列表與進化形式】</strong><br>
+                1. <strong>本體碰撞 (近)</strong>：基礎傷害 5。<br>
+                &nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #00ffcc;">[進化效果]</span> 傷害提升至 10，且本體受到遠程攻擊的傷害 -1。<br>
+                2. <strong>牆壁碰撞 (近)</strong>：基礎傷害 2。<br>
+                &nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #00ffcc;">[進化效果]</span> 傷害提升至 3，且對方每碰壁 5 次，我方回復 5 點生命值。<br>
+                3. <strong>多重分身 (近)</strong>：每失去 20% 生命生成 2 個分身，分身傷害 1 (本體無碰撞傷)。<br>
+                &nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #00ffcc;">[進化效果]</span> 分身傷害 1，且觸發生成的分身數量變為雙倍 (一次生成 4 個)。<br>
+                4. <strong>隨機子彈 (遠)</strong>：基礎傷害 1。<br>
+                &nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #00ffcc;">[進化效果]</span> 傷害提升至 2，具備穿透效果，並反向發射多 1 次，反彈牆壁次數 +2。<br>
+                5. <strong>設置地雷 (遠)</strong>：基礎傷害 2。<br>
+                &nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #00ffcc;">[進化效果]</span> 每設置 10 個地雷，本體回復 5 點生命值。<br>
+                6. <strong>魔法術陣 (遠)</strong>：基礎傷害 3。<br>
+                &nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #00ffcc;">[進化效果]</span> 法陣範圍為球體直徑的 3 倍，且能同時射出 2 個。
+            </p>
+            <button id="backBtn" class="menu-btn">返回</button>
+        </div>
+
+        <div id="runeGalleryScreen">
+            <h1>符文圖鑑</h1>
+            <p style="text-align: left; padding: 0 20px; font-size: 16px; overflow-y: auto; max-height: 65vh; margin-bottom: 10px; line-height: 1.6; max-width: 600px;">
+                <strong style="color: #ffcc00;">【符文效果】</strong><br><br>
+                <strong style="color: #ffcc00;">風：</strong>所有遠程武器攻速為 0.5 秒。<br>
+                <strong style="color: #ffcc00;">雷：</strong>所有近攻武器攻擊加 1 傷。<br>
+                <strong style="color: #ffcc00;">土：</strong>開局立即獲得 20 點護盾。<br>
+                <strong style="color: #ffcc00;">水：</strong>每 5 秒恢復 2 點生命值。<br>
+                <strong style="color: #ffcc00;">火：</strong>每 4 秒自動扣除對方 1 血。
+            </p>
+            <button id="runeBackBtn" class="menu-btn">返回</button>
+        </div>
+
+        <!-- 武器進化選擇遮罩 -->
+        <div id="evolutionScreen">
+            <h1 style="color: #ffcc00; text-align: center;">第 2 局：武器進化選擇</h1>
+            <p style="color: #aaa; font-size: 16px; margin-bottom: 20px; text-align: center; padding: 0 20px;">
+                請從您裝備的武器中選擇一種進行進化：
+            </p>
+            <div id="evolutionOptions" style="display: flex; flex-direction: column; gap: 10px; width: 85%; max-width: 500px; max-height: 60vh; overflow-y: auto; margin-bottom: 20px;">
+                <!-- 動態注入進化按鈕 -->
+            </div>
+        </div>
+
+        <div id="gameOverScreen">
+            <h1 id="gameOverText">遊戲結束</h1>
+            <p id="winnerText"></p>
+            <p id="matchScoreText" style="color: #ffcc00; font-size: 18px; margin-bottom: 15px; font-weight: bold;"></p>
+            <!-- 3局2勝按鈕控制 -->
+            <button id="nextRoundBtn" class="menu-btn" style="display: none;">進入下一局</button>
+            <button id="returnLobbyBtn" class="menu-btn">返回大廳</button>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const gameOverScreen = document.getElementById('gameOverScreen');
+        const gameOverText = document.getElementById('gameOverText');
+        const winnerText = document.getElementById('winnerText');
+        const returnLobbyBtn = document.getElementById('returnLobbyBtn');
+        const nextRoundBtn = document.getElementById('nextRoundBtn');
+        const startScreen = document.getElementById('startScreen');
+        const galleryScreen = document.getElementById('galleryScreen');
+        const runeGalleryScreen = document.getElementById('runeGalleryScreen');
+        const evolutionScreen = document.getElementById('evolutionScreen');
+        const startBtn = document.getElementById('startBtn');
+        const galleryBtn = document.getElementById('galleryBtn');
+        const runeGalleryBtn = document.getElementById('runeGalleryBtn');
+        const backBtn = document.getElementById('backBtn');
+        const runeBackBtn = document.getElementById('runeBackBtn');
+        const weaponCbs = document.querySelectorAll('.weapon-cb');
+        const runeCbs = document.querySelectorAll('.rune-cb');
+
+        // 3局2勝制全域變數
+        let playerWins = 0;
+        let aiWins = 0;
+        let currentRound = 1;
+        let selectedEvolvedWeapon = ""; // 玩家選擇進化的武器
+        let aiEvolvedWeapon = "";       // AI 進化的武器
+        let matchAiWeapons = [];        // 儲存當前整場比賽 AI 的固定武器
+        let matchAiRunes = [];          // 儲存當前整場比賽 AI 的固定符文
+
+        // 更新開始按鈕狀態：必須剛好選擇 2 種武器和 2 種符文
+        function updateStartBtnState() {
+            const weaponsCount = document.querySelectorAll('.weapon-cb:checked').length;
+            const runesCount = document.querySelectorAll('.rune-cb:checked').length;
+            if (weaponsCount === 2 && runesCount === 2) {
+                startBtn.disabled = false;
+                startBtn.style.opacity = '1';
+                startBtn.style.cursor = 'pointer';
+            } else {
+                startBtn.disabled = true;
+                startBtn.style.opacity = '0.5';
+                startBtn.style.cursor = 'not-allowed';
+            }
+        }
+
+        // 限制只能選擇兩個武器
+        weaponCbs.forEach(cb => {
+            cb.addEventListener('change', () => {
+                const checkedCount = document.querySelectorAll('.weapon-cb:checked').length;
+                if (checkedCount >= 2) {
+                    weaponCbs.forEach(box => {
+                        if (!box.checked) box.disabled = true;
+                    });
+                } else {
+                    weaponCbs.forEach(box => box.disabled = false);
+                }
+                updateStartBtnState();
+            });
+        });
+
+        // 限制只能選擇兩個符文
+        runeCbs.forEach(cb => {
+            cb.addEventListener('change', () => {
+                const checkedCount = document.querySelectorAll('.rune-cb:checked').length;
+                if (checkedCount >= 2) {
+                    runeCbs.forEach(box => {
+                        if (!box.checked) box.disabled = true;
+                    });
+                } else {
+                    runeCbs.forEach(box => box.disabled = false);
+                }
+                updateStartBtnState();
+            });
+        });
+
+        updateStartBtnState();
+
+        // RWD 畫布調整
+        function resizeCanvas() {
+            const container = document.getElementById('gameContainer');
+            canvas.width = container.clientWidth;
+            canvas.height = container.clientHeight;
+        }
+
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
+
+        // 遊戲常數
+        const BALL_SPEED = 200; // 固定移速
+        const BALL_RADIUS = 25;
+        const INITIAL_HP = 100;
+        const KNIFE_DAMAGE = 5;
+        const WALL_DAMAGE = 2;
+        const MINE_DAMAGE = 2;
+        const GUN_DAMAGE = 1;
+        const BULLET_SPEED = 300;
+        const BULLET_RADIUS = 5;
+
+        // 遊戲狀態
+        let gameRunning = false;
+        let lastTime = 0;
+
+        // 傷害計算 (包含護盾機制 & 本體碰撞進化減傷)
+        function applyDamage(target, amount, damageType = 'other') {
+            let actualDamage = amount;
+            
+            // 遠程減傷限制：本體碰撞進化後受到遠程武器傷害-1
+            if (damageType === 'ranged' && target.evolvedWeapon === 'melee_body' && !target.isClone) {
+                actualDamage = Math.max(0, actualDamage - 1);
+            }
+
+            if (target.shield > 0) {
+                if (target.shield >= actualDamage) {
+                    target.shield -= actualDamage;
+                    actualDamage = 0;
+                } else {
+                    actualDamage -= target.shield;
+                    target.shield = 0;
+                }
+            }
+            target.hp -= actualDamage;
+        }
+
+        // 魔法陣類別
+        class MagicCircle {
+            constructor(x, y, ownerType, radius = BALL_RADIUS * 2) {
+                this.x = x;
+                this.y = y;
+                this.ownerType = ownerType;
+                this.radius = radius; 
+                this.lifeTime = 500; // 顯示0.5秒
+                this.active = true;
+            }
+
+            update(dt) {
+                this.lifeTime -= dt * 1000;
+                if (this.lifeTime <= 0) this.active = false;
+            }
+
+            draw() {
+                if (!this.active) return;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fillStyle = this.ownerType === 'player' ? 'rgba(0, 170, 255, 0.2)' : 'rgba(255, 68, 68, 0.2)';
+                ctx.fill();
+                
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.moveTo(this.x - this.radius, this.y);
+                ctx.lineTo(this.x + this.radius, this.y);
+                ctx.moveTo(this.x, this.y - this.radius);
+                ctx.lineTo(this.x, this.y + this.radius);
+                ctx.strokeStyle = this.ownerType === 'player' ? 'rgba(0, 170, 255, 0.6)' : 'rgba(255, 68, 68, 0.6)';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+            }
+        }
+
+        // 分身類別
+        class Clone {
+            constructor(x, y, color, type, owner, damage = 1) {
+                this.x = x;
+                this.y = y;
+                const angle = Math.random() * Math.PI * 2;
+                this.vx = Math.cos(angle) * BALL_SPEED;
+                this.vy = Math.sin(angle) * BALL_SPEED;
+                this.color = color;
+                this.type = type;
+                this.owner = owner;
+                this.radius = BALL_RADIUS;
+                this.isClone = true;
+                this.hp = 20; 
+                this.shield = 0; 
+                this.damage = damage; 
+                this.meleeBonus = owner.meleeBonus; 
+            }
+
+            update(dt) {
+                if (this.hp <= 0 || this.owner.hp <= 0) return;
+                
+                this.x += this.vx * dt;
+                this.y += this.vy * dt;
+
+                // 邊界反彈
+                if (this.x - this.radius < 0) {
+                    this.x = this.radius;
+                    this.vx = Math.abs(this.vx);
+                    this.vy += (Math.random() - 0.5) * 50;
+                } else if (this.x + this.radius > canvas.width) {
+                    this.x = canvas.width - this.radius;
+                    this.vx = -Math.abs(this.vx);
+                    this.vy += (Math.random() - 0.5) * 50;
+                }
+
+                if (this.y - this.radius < 0) {
+                    this.y = this.radius;
+                    this.vy = Math.abs(this.vy);
+                    this.vx += (Math.random() - 0.5) * 50;
+                } else if (this.y + this.radius > canvas.height) {
+                    this.y = canvas.height - this.radius;
+                    this.vy = -Math.abs(this.vy);
+                    this.vx += (Math.random() - 0.5) * 50;
+                }
+
+                // 強制保持固定移速
+                const speed = Math.sqrt(this.vx * this.vx + this.vy * this.vy) || 1;
+                this.vx = (this.vx / speed) * BALL_SPEED;
+                this.vy = (this.vy / speed) * BALL_SPEED;
+            }
+
+            draw() {
+                if (this.hp <= 0 || this.owner.hp <= 0) return;
+                
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fillStyle = this.color;
+                ctx.globalAlpha = 0.5; // 分身半透明
+                ctx.fill();
+                ctx.globalAlpha = 1.0;
+                ctx.strokeStyle = '#fff';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+
+                // HP 背景
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, 18, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+                ctx.fill();
+
+                ctx.fillStyle = '#fff';
+                ctx.font = 'bold 16px Arial';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(Math.floor(this.hp), this.x, this.y - 6);
+                
+                ctx.font = '10px Arial';
+                ctx.fillText('分身', this.x, this.y + 8);
+            }
+        }
+
+        // 地雷類別
+        class Mine {
+            constructor(x, y, owner) {
+                this.x = x;
+                this.y = y;
+                this.owner = owner;
+                this.active = true;
+                this.radius = 8;
+            }
+
+            draw() {
+                if (!this.active) return;
+                ctx.beginPath();
+                ctx.rect(this.x - this.radius, this.y - this.radius, this.radius * 2, this.radius * 2);
+                ctx.fillStyle = this.owner === 'player' ? '#00aaff' : '#ff4444';
+                ctx.fill();
+                ctx.strokeStyle = '#fff';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+            }
+        }
+
+        // 子彈類別
+        class Bullet {
+            constructor(x, y, vx, vy, owner, damage = GUN_DAMAGE, maxBounces = 1, penetrate = false) {
+                this.x = x;
+                this.y = y;
+                this.vx = vx;
+                this.vy = vy;
+                this.owner = owner;
+                this.damage = damage;
+                this.bounces = 0;
+                this.maxBounces = maxBounces;
+                this.penetrate = penetrate;
+                this.hitTargets = new Set(); // 記錄穿透擊中目標
+                this.active = true;
+            }
+
+            update(dt) {
+                if (!this.active) return;
+
+                this.x += this.vx * dt;
+                this.y += this.vy * dt;
+
+                // 檢查邊界碰撞
+                if (this.x - BULLET_RADIUS < 0) {
+                    this.x = BULLET_RADIUS;
+                    this.vx = -this.vx;
+                    this.bounces++;
+                } else if (this.x + BULLET_RADIUS > canvas.width) {
+                    this.x = canvas.width - BULLET_RADIUS;
+                    this.vx = -this.vx;
+                    this.bounces++;
+                }
+
+                if (this.y - BULLET_RADIUS < 0) {
+                    this.y = BULLET_RADIUS;
+                    this.vy = -this.vy;
+                    this.bounces++;
+                } else if (this.y + BULLET_RADIUS > canvas.height) {
+                    this.y = canvas.height - BULLET_RADIUS;
+                    this.vy = -this.vy;
+                    this.bounces++;
+                }
+
+                if (this.bounces > this.maxBounces) {
+                    this.active = false;
+                }
+            }
+
+            draw() {
+                if (!this.active) return;
+
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, BULLET_RADIUS, 0, Math.PI * 2);
+                ctx.fillStyle = this.owner === 'player' ? '#00aaff' : '#ff4444';
+                ctx.fill();
+                ctx.strokeStyle = '#fff';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+
+                // 子彈尾跡
+                ctx.beginPath();
+                ctx.moveTo(this.x, this.y);
+                ctx.lineTo(this.x - this.vx * 0.05, this.y - this.vy * 0.05);
+                ctx.strokeStyle = this.owner === 'player' ? 'rgba(0, 170, 255, 0.5)' : 'rgba(255, 68, 68, 0.5)';
+                ctx.lineWidth = 3;
+                ctx.stroke();
+            }
+        }
+
+        // 球體類別
+        class Ball {
+            constructor(x, y, color, name, type, weapons, runes) {
+                this.x = x;
+                this.y = y;
+                const angle = Math.random() * Math.PI * 2;
+                this.vx = Math.cos(angle) * BALL_SPEED;
+                this.vy = Math.sin(angle) * BALL_SPEED;
+                this.color = color;
+                this.name = name;
+                this.type = type;
+                this.weapons = weapons || [];
+                this.runes = runes || [];
+                
+                // 第 2 和 3 局雙方血量增加至 500HP
+                this.maxHp = (currentRound >= 2) ? 500 : INITIAL_HP;
+                this.hp = this.maxHp;
+                
+                this.radius = BALL_RADIUS;
+                this.isClone = false;
+                this.evolvedWeapon = ""; 
+
+                // 符文初始化
+                this.shield = this.runes.includes('rune_earth') ? 20 : 0;
+                this.fireInterval = this.runes.includes('rune_wind') ? 500 : 1000;
+                this.meleeBonus = this.runes.includes('rune_thunder') ? 1 : 0;
+                
+                // 各種計時器與進階追蹤
+                this.lastGunFire = 0;
+                this.lastWaterHeal = 0;
+                this.lastFireAttack = 0;
+                this.opponentWallHits = 0;
+                this.minesSet = 0;
+
+                // 多重分身下調為每失去 20% 生命觸發
+                this.cloneThresholdStep = this.maxHp * 0.2;
+                this.nextCloneThreshold = this.maxHp - this.cloneThresholdStep;
+            }
+
+            update(dt, currentTime) {
+                if (this.hp <= 0) return;
+
+                // 水符文：每 5 秒回 2 血
+                if (this.runes.includes('rune_water') && currentTime - this.lastWaterHeal >= 5000) {
+                    this.hp = Math.min(this.maxHp, this.hp + 2);
+                    this.lastWaterHeal = currentTime;
+                }
+
+                // 火符文：每 4 秒扣除敵方 1 血
+                if (this.runes.includes('rune_fire') && currentTime - this.lastFireAttack >= 4000) {
+                    const opponent = this.type === 'player' ? aiBall : playerBall;
+                    if (opponent && opponent.hp > 0) {
+                        applyDamage(opponent, 1);
+                        checkGameOver();
+                    }
+                    this.lastFireAttack = currentTime;
+                }
+
+                // 多重分身檢查
+                if (this.weapons.includes('melee_clone')) {
+                    const isEvolved = this.evolvedWeapon === 'melee_clone';
+                    const spawnCount = isEvolved ? 4 : 2;
+                    while (this.hp <= this.nextCloneThreshold && this.nextCloneThreshold > 0) {
+                        for (let i = 0; i < spawnCount; i++) {
+                            clones.push(new Clone(this.x, this.y, this.color, this.type, this, 1));
+                        }
+                        this.nextCloneThreshold -= this.cloneThresholdStep;
+                    }
+                }
+
+                // 移動
+                this.x += this.vx * dt;
+                this.y += this.vy * dt;
+
+                let hitWall = false;
+
+                // 邊界碰撞
+                if (this.x - this.radius < 0) {
+                    this.x = this.radius;
+                    this.vx = Math.abs(this.vx);
+                    this.vy += (Math.random() - 0.5) * 50;
+                    hitWall = true;
+                } else if (this.x + this.radius > canvas.width) {
+                    this.x = canvas.width - this.radius;
+                    this.vx = -Math.abs(this.vx);
+                    this.vy += (Math.random() - 0.5) * 50;
+                    hitWall = true;
+                }
+
+                if (this.y - this.radius < 0) {
+                    this.y = this.radius;
+                    this.vy = Math.abs(this.vy);
+                    this.vx += (Math.random() - 0.5) * 50;
+                    hitWall = true;
+                } else if (this.y + this.radius > canvas.height) {
+                    this.y = canvas.height - this.radius;
+                    this.vy = -Math.abs(this.vy);
+                    this.vx += (Math.random() - 0.5) * 50;
+                    hitWall = true;
+                }
+
+                // 當碰壁時檢查對手能力
+                if (hitWall) {
+                    const opponent = this.type === 'player' ? aiBall : playerBall;
+                    if (opponent && opponent.hp > 0) {
+                        if (opponent.weapons.includes('melee_wall')) {
+                            const isEvolved = opponent.evolvedWeapon === 'melee_wall';
+                            const wallDmg = isEvolved ? 3 : WALL_DAMAGE;
+                            applyDamage(this, wallDmg + opponent.meleeBonus);
+                            checkGameOver();
+                        }
+                        
+                        // 牆壁碰撞進化額外效果
+                        if (opponent.evolvedWeapon === 'melee_wall') {
+                            opponent.opponentWallHits++;
+                            if (opponent.opponentWallHits >= 5) {
+                                opponent.hp = Math.min(opponent.maxHp, opponent.hp + 5);
+                                opponent.opponentWallHits = 0;
+                            }
+                        }
+                    }
+                }
+
+                // 強制保持固定移速
+                const speed = Math.sqrt(this.vx * this.vx + this.vy * this.vy) || 1;
+                this.vx = (this.vx / speed) * BALL_SPEED;
+                this.vy = (this.vy / speed) * BALL_SPEED;
+
+                // 射擊/設置地雷
+                if (currentTime - this.lastGunFire >= this.fireInterval) {
+                    this.fireRanged();
+                    this.lastGunFire = currentTime;
+                }
+            }
+
+            fireRanged() {
+                // 隨機子彈
+                if (this.weapons.includes('ranged_bullet')) {
+                    const isEvolved = this.evolvedWeapon === 'ranged_bullet';
+                    const randomAngle = Math.random() * Math.PI * 2;
+                    const vx = Math.cos(randomAngle) * BULLET_SPEED;
+                    const vy = Math.sin(randomAngle) * BULLET_SPEED;
+                    
+                    const dmg = isEvolved ? 2 : 1;
+                    const maxBounces = isEvolved ? 3 : 1;
+                    const penetrate = isEvolved;
+
+                    bullets.push(new Bullet(this.x, this.y, vx, vy, this.type, dmg, maxBounces, penetrate));
+
+                    // 進化：反向多發一發
+                    if (isEvolved) {
+                        const vx2 = Math.cos(randomAngle + Math.PI) * BULLET_SPEED;
+                        const vy2 = Math.sin(randomAngle + Math.PI) * BULLET_SPEED;
+                        bullets.push(new Bullet(this.x, this.y, vx2, vy2, this.type, dmg, maxBounces, penetrate));
+                    }
+                }
+
+                // 設置地雷
+                if (this.weapons.includes('ranged_mine')) {
+                    mines.push(new Mine(this.x, this.y, this.type));
+                    
+                    // 地雷進化效果：每設置 10 個回復 5 HP
+                    if (this.evolvedWeapon === 'ranged_mine') {
+                        this.minesSet++;
+                        if (this.minesSet >= 10) {
+                            this.hp = Math.min(this.maxHp, this.hp + 5);
+                            this.minesSet = 0;
+                        }
+                    }
+                }
+
+                // 魔法術陣
+                if (this.weapons.includes('ranged_magic')) {
+                    const isEvolved = this.evolvedWeapon === 'ranged_magic';
+                    // 進化：法陣範圍為球體直徑(50)的 3 倍，即半徑擴展為 150 (BALL_RADIUS * 6)
+                    const radius = isEvolved ? BALL_RADIUS * 6 : BALL_RADIUS * 2;
+                    const count = isEvolved ? 2 : 1;
+
+                    for (let i = 0; i < count; i++) {
+                        const mx = Math.random() * canvas.width;
+                        const my = Math.random() * canvas.height;
+                        magicCircles.push(new MagicCircle(mx, my, this.type, radius));
+                        
+                        const opponentMain = this.type === 'player' ? aiBall : playerBall;
+                        const opponentClones = clones.filter(c => c.type !== this.type && c.hp > 0);
+                        const targets = [opponentMain, ...opponentClones];
+
+                        for (let target of targets) {
+                            if (target.hp <= 0) continue;
+                            const dx = mx - target.x;
+                            const dy = my - target.y;
+                            const dist = Math.sqrt(dx * dx + dy * dy);
+                            if (dist < radius + target.radius) {
+                                applyDamage(target, 3, 'ranged');
+                                checkGameOver();
+                            }
+                        }
+                    }
+                }
+            }
+
+            draw() {
+                if (this.hp <= 0) return;
+
+                // 陰影
+                ctx.beginPath();
+                ctx.arc(this.x + 3, this.y + 3, this.radius, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+                ctx.fill();
+
+                // 球體
+                const gradient = ctx.createRadialGradient(
+                    this.x - 8, this.y - 8, 0,
+                    this.x, this.y, this.radius
+                );
+                gradient.addColorStop(0, this.color);
+                gradient.addColorStop(1, this.type === 'player' ? '#003366' : '#660000');
+                
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fillStyle = gradient;
+                ctx.fill();
+                ctx.strokeStyle = this.color;
+                ctx.lineWidth = 3;
+                ctx.stroke();
+
+                // HP 背景
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, 22, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+                ctx.fill();
+
+                // 繪製 HP 與護盾
+                ctx.fillStyle = '#fff';
+                ctx.font = 'bold 16px Arial';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(Math.floor(this.hp), this.x, this.y - (this.shield > 0 ? 6 : 0));
+
+                if (this.shield > 0) {
+                    ctx.fillStyle = '#ffcc00';
+                    ctx.font = 'bold 12px Arial';
+                    ctx.fillText(`+${Math.floor(this.shield)}`, this.x, this.y + 8);
+                }
+            }
+        }
+
+        // 初始化遊戲物件
+        let playerBall, aiBall, bullets, mines, clones, magicCircles;
+
+        // 3局2勝大局初始化
+        function initGame() {
+            const playerWeapons = Array.from(document.querySelectorAll('.weapon-cb:checked')).map(cb => cb.value);
+            const playerRunes = Array.from(document.querySelectorAll('.rune-cb:checked')).map(cb => cb.value);
+            
+            if (playerWeapons.length !== 2 || playerRunes.length !== 2) return;
+
+            const allWeapons = ['melee_body', 'melee_wall', 'melee_clone', 'ranged_bullet', 'ranged_mine', 'ranged_magic'];
+            matchAiWeapons = allWeapons.sort(() => 0.5 - Math.random()).slice(0, 2);
+            const allRunes = ['rune_wind', 'rune_thunder', 'rune_earth', 'rune_water', 'rune_fire'];
+            matchAiRunes = allRunes.sort(() => 0.5 - Math.random()).slice(0, 2);
+
+            playerWins = 0;
+            aiWins = 0;
+            currentRound = 1;
+            selectedEvolvedWeapon = "";
+            aiEvolvedWeapon = "";
+
+            startScreen.style.display = 'none';
+            startNextRoundBattle();
+        }
+
+        // 開啟第2局武器進化選擇 UI
+        function showEvolutionScreen() {
+            const evolutionOptions = document.getElementById('evolutionOptions');
+            evolutionOptions.innerHTML = ''; 
+
+            const playerWeapons = Array.from(document.querySelectorAll('.weapon-cb:checked')).map(cb => cb.value);
+            let hasEvolvable = false;
+
+            playerWeapons.forEach(wp => {
+                const btn = document.createElement('button');
+                btn.className = 'menu-btn';
+                btn.style.width = '100%';
+                btn.style.margin = '5px 0';
+                btn.style.textAlign = 'left';
+
+                let wpName = "";
+                let wpDesc = "";
+                let evolvable = true;
+
+                if (wp === 'melee_body') {
+                    wpName = "本體碰撞";
+                    wpDesc = "進化效果：傷害提升至 10，且受到遠程傷害 -1";
+                } else if (wp === 'melee_wall') {
+                    wpName = "牆壁碰撞";
+                    wpDesc = "進化效果：傷害提升至 3，且對方每碰壁 5 次，我方恢復 5 生命";
+                } else if (wp === 'melee_clone') {
+                    wpName = "多重分身";
+                    wpDesc = "進化效果：生成分身數量變為雙倍 (一次生成 4 個分身)";
+                } else if (wp === 'ranged_bullet') {
+                    wpName = "隨機子彈";
+                    wpDesc = "進化效果：傷害提升至 2，具備穿透效果，反向發射多 1 次，彈壁次數 +2";
+                } else if (wp === 'ranged_mine') {
+                    wpName = "設置地雷";
+                    wpDesc = "進化效果：每設置 10 個地雷，本體回復 5 點生命值";
+                } else if (wp === 'ranged_magic') {
+                    wpName = "魔法術陣";
+                    wpDesc = "進化效果：法陣範圍擴大為 3 倍，且能同時射出 2 個";
+                }
+
+                btn.innerHTML = `<strong>${wpName}</strong><br><span style="font-size:14px; color:#ddd;">${wpDesc}</span>`;
+
+                hasEvolvable = true;
+                btn.addEventListener('click', () => {
+                    selectedEvolvedWeapon = wp;
+                    evolutionScreen.style.display = 'none';
+                    startNextRoundBattle();
+                });
+                evolutionOptions.appendChild(btn);
+            });
+
+            if (!hasEvolvable) {
+                const btn = document.createElement('button');
+                btn.className = 'menu-btn';
+                btn.style.width = '100%';
+                btn.textContent = "直接開始";
+                btn.addEventListener('click', () => {
+                    selectedEvolvedWeapon = "";
+                    evolutionScreen.style.display = 'none';
+                    startNextRoundBattle();
+                });
+                evolutionOptions.appendChild(btn);
+            }
+
+            evolutionScreen.style.display = 'flex';
+        }
+
+        // AI 武器進化機制 (自動選擇它擁有的第一個武器進化)
+        function evolveAIWeapon() {
+            if (matchAiWeapons.length > 0) {
+                aiEvolvedWeapon = matchAiWeapons[0];
+            } else {
+                aiEvolvedWeapon = "";
+            }
+        }
+
+        // 開始下一單局
+        function startNextRoundBattle() {
+            const playerWeapons = Array.from(document.querySelectorAll('.weapon-cb:checked')).map(cb => cb.value);
+            const playerRunes = Array.from(document.querySelectorAll('.rune-cb:checked')).map(cb => cb.value);
+
+            playerBall = new Ball(
+                canvas.width * 0.25,
+                canvas.height * 0.5,
+                '#4a9eff',
+                '玩家',
+                'player',
+                playerWeapons,
+                playerRunes
+            );
+            playerBall.evolvedWeapon = selectedEvolvedWeapon; 
+
+            aiBall = new Ball(
+                canvas.width * 0.75,
+                canvas.height * 0.5,
+                '#ff4a4a',
+                'AI',
+                'ai',
+                matchAiWeapons,
+                matchAiRunes
+            );
+
+            // 第2局起觸發 AI 進化
+            if (currentRound >= 2 && !aiEvolvedWeapon) {
+                evolveAIWeapon();
+            }
+            aiBall.evolvedWeapon = aiEvolvedWeapon;
+
+            bullets = [];
+            mines = [];
+            clones = [];
+            magicCircles = [];
+
+            const startT = performance.now();
+            playerBall.lastWaterHeal = startT;
+            playerBall.lastFireAttack = startT;
+            aiBall.lastWaterHeal = startT;
+            aiBall.lastFireAttack = startT;
+
+            gameRunning = true;
+            gameOverScreen.style.display = 'none';
+        }
+
+        // 檢查碰撞
+        function checkCollisions() {
+            if (!gameRunning) return;
+
+            // 1. 子彈擊中 (主體及所有分身)
+            for (let bullet of bullets) {
+                if (!bullet.active) continue;
+
+                const opponentMain = bullet.owner === 'player' ? aiBall : playerBall;
+                const opponentClones = clones.filter(c => c.type !== bullet.owner && c.hp > 0);
+                const targets = [opponentMain, ...opponentClones];
+
+                for (let target of targets) {
+                    if (target.hp <= 0) continue;
+                    if (bullet.hitTargets.has(target)) continue; // 避免穿透時重複擊中同一目標
+
+                    const dx = bullet.x - target.x;
+                    const dy = bullet.y - target.y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+
+                    if (dist < target.radius + BULLET_RADIUS) {
+                        applyDamage(target, bullet.damage, 'ranged');
+                        bullet.hitTargets.add(target);
+                        
+                        if (!bullet.penetrate) {
+                            bullet.active = false;
+                            checkGameOver();
+                            break;
+                        }
+                        checkGameOver();
+                    }
+                }
+            }
+
+            // 2. 地雷踩踏 (主體及所有分身)
+            for (let mine of mines) {
+                if (!mine.active) continue;
+
+                const opponentMain = mine.owner === 'player' ? aiBall : playerBall;
+                const opponentClones = clones.filter(c => c.type !== mine.owner && c.hp > 0);
+                const targets = [opponentMain, ...opponentClones];
+
+                for (let target of targets) {
+                    if (target.hp <= 0) continue;
+                    const dx = mine.x - target.x;
+                    const dy = mine.y - target.y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+
+                    if (dist < target.radius + mine.radius) {
+                        applyDamage(target, MINE_DAMAGE, 'ranged');
+                        mine.active = false;
+                        checkGameOver();
+                        break;
+                    }
+                }
+            }
+
+            // 3. 跨陣營與同陣營的近戰碰撞
+            const playerEntities = [];
+            if (playerBall.hp > 0) playerEntities.push(playerBall);
+            for (let c of clones) {
+                if (c.type === 'player' && c.hp > 0) playerEntities.push(c);
+            }
+
+            const aiEntities = [];
+            if (aiBall.hp > 0) aiEntities.push(aiBall);
+            for (let c of clones) {
+                if (c.type === 'ai' && c.hp > 0) aiEntities.push(c);
+            }
+
+            for (let pEnt of playerEntities) {
+                for (let aEnt of aiEntities) {
+                    checkBallCollision(pEnt, aEnt);
+                }
+            }
+
+            for (let i = 0; i < playerEntities.length; i++) {
+                for (let j = i + 1; j < playerEntities.length; j++) {
+                    checkBallCollision(playerEntities[i], playerEntities[j]);
+                }
+            }
+            for (let i = 0; i < aiEntities.length; i++) {
+                for (let j = i + 1; j < aiEntities.length; j++) {
+                    checkBallCollision(aiEntities[i], aiEntities[j]);
+                }
+            }
+        }
+
+        function checkBallCollision(b1, b2) {
+            if (b1.hp <= 0 || b2.hp <= 0) return;
+
+            const dx = b2.x - b1.x;
+            const dy = b2.y - b1.y;
+            const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+            const minDist = b1.radius + b2.radius;
+
+            if (dist < minDist) {
+                let damageDealt = false;
+                
+                if (b1.type !== b2.type) {
+                    let b1ToB2Dmg = 0;
+                    if (!b1.isClone) {
+                        if (b1.weapons.includes('melee_body')) {
+                            const isEvolved = b1.evolvedWeapon === 'melee_body';
+                            b1ToB2Dmg += (isEvolved ? 10 : KNIFE_DAMAGE) + b1.meleeBonus;
+                        }
+                    } else {
+                        b1ToB2Dmg += b1.damage + b1.meleeBonus;
+                    }
+
+                    let b2ToB1Dmg = 0;
+                    if (!b2.isClone) {
+                        if (b2.weapons.includes('melee_body')) {
+                            const isEvolved = b2.evolvedWeapon === 'melee_body';
+                            b2ToB1Dmg += (isEvolved ? 10 : KNIFE_DAMAGE) + b2.meleeBonus;
+                        }
+                    } else {
+                        b2ToB1Dmg += b2.damage + b2.meleeBonus;
+                    }
+
+                    if (b1ToB2Dmg > 0) {
+                        applyDamage(b2, b1ToB2Dmg);
+                        damageDealt = true;
+                    }
+                    if (b2ToB1Dmg > 0) {
+                        applyDamage(b1, b2ToB1Dmg);
+                        damageDealt = true;
+                    }
+
+                    if (damageDealt) {
+                        checkGameOver();
+                    }
+                }
+
+                if (b1.hp <= 0 || b2.hp <= 0) return; 
+
+                const overlap = minDist - dist;
+                const nx = dx / dist;
+                const ny = dy / dist;
+                
+                b1.x -= nx * overlap / 2;
+                b1.y -= ny * overlap / 2;
+                b2.x += nx * overlap / 2;
+                b2.y += ny * overlap / 2;
+
+                const v1n = b1.vx * nx + b1.vy * ny;
+                const v2n = b2.vx * nx + b2.vy * ny;
+                
+                const v1t = -b1.vx * ny + b1.vy * nx;
+                const v2t = -b2.vx * ny + b2.vy * nx;
+                
+                const v1nAfter = v2n;
+                const v2nAfter = v1n;
+                
+                b1.vx = v1nAfter * nx - v1t * ny;
+                b1.vy = v1nAfter * ny + v1t * nx;
+                b2.vx = v2nAfter * nx - v2t * ny;
+                b2.vy = v2nAfter * ny + v2t * nx;
+                
+                const s1 = Math.sqrt(b1.vx * b1.vx + b1.vy * b1.vy) || 1;
+                b1.vx = (b1.vx / s1) * BALL_SPEED;
+                b1.vy = (b1.vy / s1) * BALL_SPEED;
+
+                const s2 = Math.sqrt(b2.vx * b2.vx + b2.vy * b2.vy) || 1;
+                b2.vx = (b2.vx / s2) * BALL_SPEED;
+                b2.vy = (b2.vy / s2) * BALL_SPEED;
+            }
+        }
+
+        function checkGameOver() {
+            if (playerBall.hp <= 0 || aiBall.hp <= 0) {
+                gameRunning = false;
+                gameOverScreen.style.display = 'flex';
+                
+                if (playerBall.hp <= 0 && aiBall.hp <= 0) {
+                    gameOverText.textContent = `第 ${currentRound} 局：平手！`;
+                    winnerText.textContent = '雙方同時倒下';
+                } else if (playerBall.hp <= 0) {
+                    gameOverText.textContent = `第 ${currentRound} 局：AI 獲勝！`;
+                    winnerText.textContent = 'AI 贏得了本局';
+                    aiWins++;
+                } else {
+                    gameOverText.textContent = `第 ${currentRound} 局：玩家獲勝！`;
+                    winnerText.textContent = '玩家贏得了本局';
+                    playerWins++;
+                }
+
+                document.getElementById('matchScoreText').textContent = `大比分 [ 玩家 ${playerWins} : ${aiWins} AI ]`;
+
+                if (playerWins >= 2 || aiWins >= 2) {
+                    if (playerWins >= 2) {
+                        gameOverText.textContent = '遊戲結束：玩家奪得總冠軍！';
+                    } else {
+                        gameOverText.textContent = '遊戲結束：AI 奪得總冠軍！';
+                    }
+                    winnerText.textContent = `最終戰績 [ 玩家 ${playerWins} : ${aiWins} AI ]`;
+                    nextRoundBtn.style.display = 'none';
+                    returnLobbyBtn.style.display = 'inline-block';
+                } else {
+                    nextRoundBtn.style.display = 'inline-block';
+                    returnLobbyBtn.style.display = 'none';
+                }
+            }
+        }
+
+        function drawBackground() {
+            ctx.strokeStyle = 'rgba(100, 100, 150, 0.1)';
+            ctx.lineWidth = 1;
+            const gridSize = 40;
+            
+            for (let x = 0; x < canvas.width; x += gridSize) {
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, canvas.height);
+                ctx.stroke();
+            }
+            
+            for (let y = 0; y < canvas.height; y += gridSize) {
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(canvas.width, y);
+                ctx.stroke();
+            }
+        }
+
+        function drawRoundAndScore() {
+            if (!gameRunning) return;
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+            ctx.font = 'bold 16px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText(`第 ${currentRound} 局 — 玩家 ${playerWins} : ${aiWins} AI`, canvas.width / 2, 25);
+
+            if (playerBall && playerBall.evolvedWeapon) {
+                ctx.fillStyle = '#00ffcc';
+                ctx.font = '12px Arial';
+                ctx.fillText('進化', playerBall.x, playerBall.y - playerBall.radius - 12);
+            }
+            if (aiBall && aiBall.evolvedWeapon) {
+                ctx.fillStyle = '#00ffcc';
+                ctx.font = '12px Arial';
+                ctx.fillText('進化', aiBall.x, aiBall.y - aiBall.radius - 12);
+            }
+        }
+
+        function gameLoop(currentTime) {
+            const dt = (currentTime - lastTime) / 1000;
+            lastTime = currentTime;
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawBackground();
+
+            if (gameRunning) {
+                playerBall.update(dt, currentTime);
+                aiBall.update(dt, currentTime);
+
+                for (let clone of clones) {
+                    clone.update(dt);
+                }
+
+                for (let bullet of bullets) {
+                    bullet.update(dt);
+                }
+
+                for (let mc of magicCircles) {
+                    mc.update(dt);
+                }
+
+                bullets = bullets.filter(b => b.active);
+                mines = mines.filter(m => m.active);
+                magicCircles = magicCircles.filter(m => m.active);
+                clones = clones.filter(c => c.hp > 0 && c.owner.hp > 0);
+
+                checkCollisions();
+            }
+
+            for (let mc of magicCircles) {
+                mc.draw();
+            }
+
+            for (let mine of mines) {
+                mine.draw();
+            }
+
+            for (let clone of clones) {
+                clone.draw();
+            }
+
+            playerBall.draw();
+            aiBall.draw();
+
+            for (let bullet of bullets) {
+                bullet.draw();
+            }
+
+            drawRoundAndScore();
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        startBtn.addEventListener('click', () => {
+            if (document.querySelectorAll('.weapon-cb:checked').length === 2 && 
+                document.querySelectorAll('.rune-cb:checked').length === 2) {
+                initGame();
+            }
+        });
+
+        galleryBtn.addEventListener('click', () => {
+            startScreen.style.display = 'none';
+            galleryScreen.style.display = 'flex';
+        });
+
+        runeGalleryBtn.addEventListener('click', () => {
+            startScreen.style.display = 'none';
+            runeGalleryScreen.style.display = 'flex';
+        });
+
+        backBtn.addEventListener('click', () => {
+            galleryScreen.style.display = 'none';
+            startScreen.style.display = 'flex';
+        });
+
+        runeBackBtn.addEventListener('click', () => {
+            runeGalleryScreen.style.display = 'none';
+            startScreen.style.display = 'flex';
+        });
+
+        nextRoundBtn.addEventListener('click', () => {
+            gameOverScreen.style.display = 'none';
+            currentRound++;
+            
+            if (currentRound === 2) {
+                showEvolutionScreen();
+            } else {
+                startNextRoundBattle();
+            }
+        });
+
+        returnLobbyBtn.addEventListener('click', () => {
+            gameOverScreen.style.display = 'none';
+            startScreen.style.display = 'flex';
+        });
+
+        playerBall = new Ball(canvas.width * 0.25, canvas.height * 0.5, '#4a9eff', '玩家', 'player');
+        aiBall = new Ball(canvas.width * 0.75, canvas.height * 0.5, '#ff4a4a', 'AI', 'ai');
+        bullets = [];
+        mines = [];
+        clones = [];
+        magicCircles = [];
+        requestAnimationFrame(gameLoop);
+    </script>
+</body>
+</html>
