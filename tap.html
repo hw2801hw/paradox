@@ -1,0 +1,1457 @@
+<!DOCTYPE html>
+<html lang="zh-Hant" class="h-full">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>怪物狂擊 - Monster Click Frenzy</title>
+  <!-- Tailwind CSS v4 Browser CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+  <!-- Firebase SDK (v8) -->
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+  <!-- Google Fonts for stylized gaming feel -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=ZCOOL+KuaiLe&family=Noto+Sans+TC:wght@400;700;900&display=swap" rel="stylesheet">
+  <style>
+    /* Prevent default text selection and callouts on mobile */
+    * {
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-touch-callout: none;
+      -webkit-tap-highlight-color: transparent;
+      outline: none;
+    }
+    body {
+      font-family: 'Noto Sans TC', sans-serif;
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      background-color: #03000a;
+    }
+    .font-gaming {
+      font-family: 'Orbitron', 'ZCOOL KuaiLe', sans-serif;
+    }
+    /* Responsive Viewport Wrapper */
+    .game-wrapper {
+      width: 100svw;
+      height: 100svh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      overflow: hidden;
+      background-color: #020105;
+      background-image: radial-gradient(circle at center, #11082c 0%, #020105 100%);
+    }
+    .game-viewport {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      max-width: 500px;
+      max-height: 888px;
+      aspect-ratio: 9/16;
+      background: radial-gradient(circle at center, #1b103e 0%, #070313 100%);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 0 50px rgba(139, 92, 246, 0.35);
+      border: 1px solid rgba(139, 92, 246, 0.2);
+    }
+    @media (max-aspect-ratio: 9/16) {
+      .game-viewport {
+        width: 100%;
+        height: auto;
+        aspect-ratio: 9/16;
+      }
+    }
+    @media (min-aspect-ratio: 9/16) {
+      .game-viewport {
+        height: 100%;
+        width: auto;
+        aspect-ratio: 9/16;
+      }
+    }
+    /* Screen Transitions */
+    .game-screen {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      padding: 1rem sm:padding-1.5rem;
+      z-index: 10;
+      transition: opacity 0.3s ease, transform 0.3s ease;
+    }
+    .screen-hidden {
+      opacity: 0;
+      pointer-events: none;
+      transform: scale(0.95);
+    }
+    /* Glassmorphism components */
+    .glass-panel {
+      background: rgba(15, 12, 30, 0.65);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(139, 92, 246, 0.25);
+      box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+    }
+    .glass-btn {
+      background: linear-gradient(135deg, rgba(139, 92, 246, 0.4) 0%, rgba(99, 102, 241, 0.4) 100%);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      box-shadow: 0 4px 15px rgba(139, 92, 246, 0.3);
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .glass-btn:active:not(:disabled) {
+      transform: scale(0.95);
+      background: linear-gradient(135deg, rgba(139, 92, 246, 0.6) 0%, rgba(99, 102, 241, 0.6) 100%);
+      box-shadow: 0 2px 8px rgba(139, 92, 246, 0.4);
+    }
+    /* Monster Animations */
+    @keyframes slimeBounce { 0%, 100% { transform: scale(1, 1); } 50% { transform: scale(1.08, 0.92); } }
+    .animate-slime-bounce { animation: slimeBounce 2s infinite ease-in-out; }
+    @keyframes faceMove { 0%, 100% { transform: translate(0, 0); } 50% { transform: translate(0, 4px); } }
+    .animate-face-move { animation: faceMove 2s infinite ease-in-out; }
+    @keyframes fireFloat { 0%, 100% { transform: translateY(0) scale(1); } 50% { transform: translateY(-8px) scale(0.96, 1.04); } }
+    .animate-fire-float { animation: fireFloat 1.8s infinite ease-in-out; }
+    @keyframes wingsFlap { 0%, 100% { transform: rotate(0deg); } 50% { transform: rotate(15deg); } }
+    .animate-wings-flap { animation: wingsFlap 0.25s infinite ease-in-out; }
+    @keyframes impIdle { 0%, 100% { transform: translateY(0) rotate(0deg); } 50% { transform: translateY(-5px) rotate(2deg); } }
+    .animate-imp-idle { animation: impIdle 2.2s infinite ease-in-out; }
+    @keyframes mushIdle { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.05, 0.95); } }
+    .animate-mush-idle { animation: mushIdle 2.4s infinite ease-in-out; }
+    @keyframes goblinIdle { 0%, 100% { transform: translateY(0) rotate(0deg); } 50% { transform: translateY(-4px) rotate(-1.5deg); } }
+    .animate-goblin-idle { animation: goblinIdle 2.1s infinite ease-in-out; }
+    /* Monster Feedback */
+    .monster-container { transition: filter 0.08s ease, transform 0.08s ease; }
+    .monster-hit { animation: monsterHitAnim 0.08s ease-out; }
+    @keyframes monsterHitAnim {
+      0% { transform: scale(0.85) translateY(4px) rotate(-3deg); filter: brightness(1.4) saturate(1.2); }
+      50% { transform: scale(0.92) translateY(-2px) rotate(3deg); filter: brightness(1.2); }
+      100% { transform: scale(1) translateY(0) rotate(0deg); filter: none; }
+    }
+    .monster-spawn { animation: monsterSpawnAnim 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; }
+    @keyframes monsterSpawnAnim { 0% { transform: scale(0) rotate(-10deg); opacity: 0; } 100% { transform: scale(1) rotate(0deg); opacity: 1; } }
+    .monster-death { animation: monsterDeathAnim 0.35s ease-in forwards; }
+    @keyframes monsterDeathAnim {
+      0% { transform: scale(1) rotate(0); opacity: 1; filter: brightness(2); }
+      100% { transform: scale(0) rotate(45deg); opacity: 0; filter: brightness(5) contrast(2); }
+    }
+    /* Custom Scrollbar */
+    .custom-scroll::-webkit-scrollbar { width: 4px; }
+    .custom-scroll::-webkit-scrollbar-track { background: rgba(255, 255, 255, 0.05); border-radius: 4px; }
+    .custom-scroll::-webkit-scrollbar-thumb { background: rgba(139, 92, 246, 0.4); border-radius: 4px; }
+    .custom-scroll::-webkit-scrollbar-thumb:hover { background: rgba(139, 92, 246, 0.6); }
+  </style>
+</head>
+<body class="flex items-center justify-center min-h-screen">
+  <div class="game-wrapper select-none">
+    <div class="game-viewport">
+      <canvas id="fx-canvas" class="absolute inset-0 w-full h-full pointer-events-none z-0"></canvas>
+      
+      <!-- ==============================================
+           1. START SCREEN
+           ============================================== -->
+      <div id="screen-start" class="game-screen justify-between z-10 px-4 py-4 sm:p-6">
+        <div class="flex flex-col items-center mt-2 sm:mt-6 text-center">
+          <div class="inline-block px-3 py-1 text-xs sm:text-base uppercase tracking-widest text-indigo-300 font-gaming glass-panel rounded-full mb-2">
+            ARCADE CLICKER GAME
+          </div>
+          <h1 class="text-3xl sm:text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-red-500 via-purple-400 to-indigo-500 font-gaming drop-shadow-[0_4px_10px_rgba(139,92,246,0.5)] tracking-wider">
+            怪物狂擊
+          </h1>
+          <p class="text-xs sm:text-base tracking-widest text-indigo-200/80 font-gaming mt-1">
+            MONSTER CLICK FRENZY
+          </p>
+        </div>
+        
+        <div class="relative w-full flex items-center justify-center h-32 sm:h-44 my-1">
+          <div id="start-monster-preview" class="w-24 h-24 sm:w-32 sm:h-32 flex items-center justify-center transition-all duration-500 transform hover:scale-105"></div>
+          <div class="absolute w-16 h-16 sm:w-20 sm:h-20 bg-purple-500/10 rounded-full filter blur-xl animate-pulse"></div>
+        </div>
+
+        <div class="glass-panel p-3 sm:p-4 rounded-2xl mx-1 flex flex-col gap-2.5">
+          <h3 class="text-indigo-300 font-bold text-center border-b border-indigo-500/20 pb-2 flex items-center justify-center gap-2 text-sm sm:text-[17px]">
+            📜 冒險者任務守則
+          </h3>
+          <ul class="text-indigo-200/90 text-xs sm:text-[16px] space-y-2">
+            <li class="flex items-start gap-2">
+              <span class="text-purple-400 mt-0.5">⏱️</span>
+              <span><strong>60秒挑戰：</strong> 在限制時間內擊退盡可能多的怪物。</span>
+            </li>
+            <li class="flex items-start gap-2">
+              <span class="text-green-400 mt-0.5">👾</span>
+              <span><strong>初始100次點擊：</strong> 每一隻初始怪物承受 100 次點擊退治。</span>
+            </li>
+            <li class="flex items-start gap-2">
+              <span class="text-red-400 mt-0.5">💀</span>
+              <span><strong>難度成長：</strong> 擊敗1隻怪物後，下1隻怪物的血量將增加 10 點！</span>
+            </li>
+          </ul>
+        </div>
+
+        <div class="flex flex-col gap-3 mb-2 sm:mb-4">
+          <div class="flex justify-around items-center glass-panel px-3 py-2 rounded-xl text-indigo-200 text-xs sm:text-[16px]">
+            <div class="flex items-center gap-1 sm:gap-2">
+              <button id="btn-toggle-bgm" class="p-1 sm:p-2 hover:text-white transition-colors flex items-center gap-1.5 focus:outline-none">
+                <span id="bgm-icon">🎵</span>
+                <span>音樂: <strong id="bgm-status" class="text-indigo-300">開</strong></span>
+              </button>
+            </div>
+            <div class="h-4 w-[1px] bg-slate-700/50"></div>
+            <div class="flex items-center gap-1 sm:gap-2">
+              <button id="btn-toggle-sfx" class="p-1 sm:p-2 hover:text-white transition-colors flex items-center gap-1.5 focus:outline-none">
+                <span id="sfx-icon">🔊</span>
+                <span>音效: <strong id="sfx-status" class="text-indigo-300">開</strong></span>
+              </button>
+            </div>
+          </div>
+          
+          <div class="grid grid-cols-6 gap-2">
+            <button id="btn-open-char-catalog" class="col-span-2 py-2 sm:py-3.5 text-xs sm:text-[15px] font-bold text-teal-200 rounded-xl sm:rounded-2xl glass-btn bg-gradient-to-r from-teal-600/30 to-emerald-600/30 border border-teal-500/30 hover:shadow-[0_0_15px_rgba(20,184,166,0.3)] active:scale-95 flex items-center justify-center gap-1 whitespace-nowrap overflow-hidden">
+              👤 圖鑑
+            </button>
+            <button id="btn-start-game" class="col-span-2 py-2 sm:py-3.5 text-sm sm:text-lg font-bold font-gaming text-white rounded-xl sm:rounded-2xl glass-btn bg-gradient-to-r from-violet-600 to-indigo-600 border border-violet-400/30 hover:shadow-[0_0_25px_rgba(139,92,246,0.6)] animate-pulse active:scale-95 flex items-center justify-center gap-1">
+              ⚔️ 開始
+            </button>
+            <button id="btn-open-title-catalog" class="col-span-2 py-2 sm:py-3.5 text-xs sm:text-[15px] font-bold text-amber-200 rounded-xl sm:rounded-2xl glass-btn bg-gradient-to-r from-amber-600/30 to-yellow-600/30 border border-amber-500/30 hover:shadow-[0_0_15px_rgba(245,158,11,0.3)] active:scale-95 flex items-center justify-center gap-1 whitespace-nowrap overflow-hidden">
+              📖 稱號
+            </button>
+          </div>
+          
+          <div id="start-best-score" class="text-center text-indigo-300/80 text-xs sm:text-[16px] font-gaming">
+            最高擊退紀錄: <span class="text-amber-400 font-bold">0</span> 隻
+          </div>
+        </div>
+
+        <!-- Mode Select Modal -->
+        <div id="mode-select-modal" class="absolute inset-2 sm:inset-6 bg-slate-950/95 z-50 flex flex-col items-center justify-center p-6 screen-hidden transition-all duration-300 rounded-3xl border border-indigo-500/30 max-w-[95vw] mx-auto">
+          <h3 class="text-2xl sm:text-3xl font-bold text-indigo-300 font-gaming mb-8">選擇模式</h3>
+          <button id="btn-mode-single" class="w-full max-w-xs py-3 sm:py-4 mb-4 text-lg sm:text-xl font-bold text-white rounded-2xl glass-btn bg-gradient-to-r from-emerald-600 to-teal-600 border border-emerald-400/30 active:scale-95">⚔️ 單人挑戰</button>
+          <button id="btn-mode-multi" class="w-full max-w-xs py-3 sm:py-4 mb-8 text-lg sm:text-xl font-bold text-white rounded-2xl glass-btn bg-gradient-to-r from-purple-600 to-indigo-600 border border-purple-400/30 active:scale-95">👥 雙人對戰</button>
+          <button id="btn-close-mode-select" class="text-slate-400 hover:text-white text-sm sm:text-lg underline font-gaming">返回主畫面</button>
+        </div>
+
+        <!-- Char Catalog Modal -->
+        <div id="char-catalog-modal" class="absolute inset-2 sm:inset-6 bg-slate-950/95 z-50 flex flex-col p-4 sm:p-6 screen-hidden transition-all duration-300 rounded-3xl border border-teal-500/30 max-w-[95vw] max-h-[90vh] mx-auto">
+          <div class="flex justify-between items-center border-b border-teal-500/30 pb-3 mb-3">
+            <h3 class="text-lg sm:text-xl font-bold text-teal-300 font-gaming flex items-center gap-2">👤 雙人對戰專屬角色</h3>
+            <button id="btn-close-char-catalog" class="text-slate-400 hover:text-white text-2xl sm:text-3xl font-bold px-2 focus:outline-none">&times;</button>
+          </div>
+          <div class="flex-1 overflow-y-auto custom-scroll space-y-3 pr-1 text-xs sm:text-[15px]">
+            <div class="glass-panel p-3 sm:p-4 rounded-xl border-blue-500/30">
+              <span class="text-blue-400 font-black block text-base sm:text-xl font-gaming mb-1">角色1：時空旅者</span>
+              <p class="text-slate-300 mt-1"><strong class="text-blue-300">特質1：時空重擊</strong><br>點擊傷害+1/2/5</p>
+              <p class="text-slate-300"><strong class="text-blue-300">特質2：時空加速</strong><br>每10秒持續2/3/5秒點擊傷x2</p>
+              <p class="text-slate-300 mt-1"><strong class="text-amber-300">被動1：重整信號</strong><br>每1秒使對方怪物回復5/10/30HP</p>
+              <p class="text-slate-300"><strong class="text-amber-300">被動2：量子干涉</strong><br>對方每擊退1隻怪，下隻怪額外加5/10/20HP</p>
+            </div>
+            <div class="glass-panel p-3 sm:p-4 rounded-xl border-red-500/30">
+              <span class="text-red-400 font-black block text-base sm:text-xl font-gaming mb-1">角色2：混沌術士</span>
+              <p class="text-slate-300 mt-1"><strong class="text-red-300">特質1：混沌爆發</strong><br>每關開始時怪物直接 -1/2/50%HP</p>
+              <p class="text-slate-300"><strong class="text-red-300">特質2：魔力泉源</strong><br>每擊敗 3/2/1 隻怪物，點擊傷 +1 (每局重置)</p>
+              <p class="text-slate-300 mt-1"><strong class="text-purple-300">被動1：時空停滯</strong><br>每 10/6/5 秒禁止對方點擊 1 秒</p>
+              <p class="text-slate-300"><strong class="text-purple-300">被動2：深淵詛咒</strong><br>對方第1關怪免疫首1/2/10秒，但第5關點擊傷+1</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Multiplayer Lobby Modal -->
+        <div id="multi-lobby-modal" class="absolute inset-2 sm:inset-6 bg-slate-950/95 z-50 flex flex-col p-4 sm:p-6 screen-hidden transition-all duration-300 rounded-3xl border border-purple-500/30 overflow-y-auto custom-scroll max-w-[95vw] max-h-[90vh] mx-auto">
+          <h3 class="text-xl sm:text-2xl font-bold text-purple-300 font-gaming text-center mb-3 border-b border-purple-500/30 pb-3">雙人對戰大廳</h3>
+          <div class="flex-1 flex flex-col gap-4 mt-1">
+            <div class="flex flex-col gap-1.5">
+              <label class="text-slate-300 text-sm sm:text-[16px] font-gaming">創建 / 加入 4位數房間：</label>
+              <div class="flex gap-2">
+                <input type="text" id="room-id-input" maxlength="4" class="flex-1 px-3 py-2 sm:py-3 rounded-xl bg-slate-800 text-white border border-slate-600 focus:border-purple-500 outline-none text-center text-xl sm:text-2xl tracking-widest font-mono" placeholder="1234">
+                <button id="btn-join-room" class="px-4 py-2 sm:py-3 bg-purple-600 hover:bg-purple-500 text-white rounded-xl font-bold whitespace-nowrap active:scale-95 transition-all text-sm sm:text-base">進入</button>
+              </div>
+            </div>
+            
+            <div id="room-status-area" class="hidden flex-col gap-3 border-t border-slate-700/50 pt-3 mt-1">
+              <div class="glass-panel p-2.5 rounded-xl text-center">
+                <p class="text-amber-400 font-bold text-sm sm:text-lg animate-pulse" id="room-status-text">等待玩家中...</p>
+              </div>
+              
+              <div class="flex flex-col gap-1.5">
+                <label class="text-slate-300 text-sm sm:text-[15px] font-gaming">👤 選擇角色：</label>
+                <select id="role-select" class="bg-slate-800 text-white p-2.5 rounded-xl border border-slate-600 focus:border-purple-400 outline-none text-sm sm:text-[16px]">
+                  <option value="1">角色1：時空旅者</option>
+                  <option value="2">角色2：混沌術士</option>
+                </select>
+              </div>
+
+              <!-- Refactored Skill Checkbox Configuration -->
+              <div class="flex flex-col gap-1.5">
+                <label class="text-slate-300 text-sm sm:text-[15px] font-gaming flex justify-between items-center">
+                  <span>⚙️ 選擇配置 (自選2項)：</span>
+                  <span class="text-xs text-amber-400 bg-amber-900/40 px-2 py-0.5 rounded" id="config-warning">已選 0/2</span>
+                </label>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 bg-slate-900/60 p-2 sm:p-3 rounded-xl border border-purple-500/20">
+                  <label class="flex items-start gap-2 cursor-pointer bg-slate-800/50 p-2 rounded-lg border border-slate-700 hover:border-purple-500/50 transition-colors w-full">
+                    <input type="checkbox" value="t1" class="skill-checkbox mt-0.5 accent-purple-500 shrink-0">
+                    <div id="label-cb-t1" class="text-xs sm:text-sm text-slate-300 leading-tight"></div>
+                  </label>
+                  <label class="flex items-start gap-2 cursor-pointer bg-slate-800/50 p-2 rounded-lg border border-slate-700 hover:border-purple-500/50 transition-colors w-full">
+                    <input type="checkbox" value="t2" class="skill-checkbox mt-0.5 accent-purple-500 shrink-0">
+                    <div id="label-cb-t2" class="text-xs sm:text-sm text-slate-300 leading-tight"></div>
+                  </label>
+                  <label class="flex items-start gap-2 cursor-pointer bg-slate-800/50 p-2 rounded-lg border border-slate-700 hover:border-purple-500/50 transition-colors w-full">
+                    <input type="checkbox" value="p1" class="skill-checkbox mt-0.5 accent-purple-500 shrink-0">
+                    <div id="label-cb-p1" class="text-xs sm:text-sm text-slate-300 leading-tight"></div>
+                  </label>
+                  <label class="flex items-start gap-2 cursor-pointer bg-slate-800/50 p-2 rounded-lg border border-slate-700 hover:border-purple-500/50 transition-colors w-full">
+                    <input type="checkbox" value="p2" class="skill-checkbox mt-0.5 accent-purple-500 shrink-0">
+                    <div id="label-cb-p2" class="text-xs sm:text-sm text-slate-300 leading-tight"></div>
+                  </label>
+                </div>
+              </div>
+              
+              <button id="btn-ready" class="w-full py-3 mt-1 bg-gradient-to-r from-emerald-600 to-teal-600 hover:shadow-[0_0_15px_rgba(16,185,129,0.4)] text-white rounded-xl font-bold text-lg active:scale-95 transition-all opacity-50" disabled>準備就緒</button>
+            </div>
+          </div>
+          <button id="btn-close-lobby" class="mt-3 text-slate-400 hover:text-white underline pb-1 font-gaming text-sm">退出大廳</button>
+        </div>
+
+        <!-- Title Catalog Modal -->
+        <div id="title-catalog-modal" class="absolute inset-2 sm:inset-6 bg-slate-950/95 z-50 flex flex-col p-4 sm:p-6 screen-hidden transition-all duration-300 rounded-3xl border border-indigo-500/30 max-w-[95vw] max-h-[90vh] mx-auto">
+          <div class="flex justify-between items-center border-b border-indigo-500/30 pb-3 mb-3">
+            <h3 class="text-lg sm:text-xl font-bold text-indigo-300 font-gaming flex items-center gap-2">📖 冒險者稱號圖鑑</h3>
+            <button id="btn-close-title-catalog" class="text-slate-400 hover:text-white text-2xl sm:text-3xl font-bold px-2 focus:outline-none">&times;</button>
+          </div>
+          <div class="flex-1 overflow-y-auto custom-scroll space-y-2.5 pr-1 text-sm sm:text-[16px]">
+            <div class="glass-panel p-3 rounded-xl border-amber-500/30">
+              <span class="text-amber-400 font-black block text-base sm:text-lg font-gaming">🔥 狂暴破壞之神 🔥</span>
+              <p class="text-slate-300 mt-1 text-xs sm:text-sm">單局擊退 <strong class="text-amber-400">12 隻</strong> 以上怪物</p>
+            </div>
+            <div class="glass-panel p-3 rounded-xl border-purple-500/30">
+              <span class="text-purple-400 font-black block text-base sm:text-lg font-gaming">⚡ 幻影無雙神魔手 ⚡</span>
+              <p class="text-slate-300 mt-1 text-xs sm:text-sm">單局擊退 <strong class="text-purple-400">8 隻</strong> 以上怪物</p>
+            </div>
+            <div class="glass-panel p-3 rounded-xl border-indigo-500/30">
+              <span class="text-indigo-400 font-black block text-base sm:text-lg font-gaming">⚔️ 迅捷魔物獵人 ⚔️</span>
+              <p class="text-slate-300 mt-1 text-xs sm:text-sm">單局擊退 <strong class="text-indigo-400">4 隻</strong> 以上怪物</p>
+            </div>
+            <div class="glass-panel p-3 rounded-xl border-teal-500/30">
+              <span class="text-teal-400 font-black block text-base sm:text-lg font-gaming">🛡️ 狂擊學徒 🛡️</span>
+              <p class="text-slate-300 mt-1 text-xs sm:text-sm">單局擊退 <strong class="text-teal-400">2 隻</strong> 以上怪物</p>
+            </div>
+            <div class="glass-panel p-3 rounded-xl border-slate-500/30">
+              <span class="text-slate-400 font-black block text-base sm:text-lg font-gaming">🥚 點擊菜鳥 🥚</span>
+              <p class="text-slate-300 mt-1 text-xs sm:text-sm">單局擊退 <strong class="text-slate-400">少於 2 隻</strong> 怪物</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ==============================================
+           2. GAMEPLAY SCREEN
+           ============================================== -->
+      <div id="screen-game" class="game-screen justify-between screen-hidden z-10 px-3 sm:px-6 py-4">
+        <div class="flex flex-col gap-2.5 sm:gap-3">
+          <div class="flex justify-between items-center gap-2 sm:gap-3">
+            <div class="glass-panel flex-1 px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-xl flex items-center gap-2">
+              <span class="text-lg sm:text-xl">⏱️</span>
+              <div class="flex flex-col">
+                <span class="text-[10px] sm:text-[16px] text-slate-400 uppercase font-gaming leading-none">TIME</span>
+                <span id="time-txt" class="text-lg sm:text-xl font-bold font-gaming text-red-400 leading-none mt-1">60.0s</span>
+              </div>
+            </div>
+            <div class="glass-panel flex-1 px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-xl flex items-center justify-end gap-2 text-right">
+              <div class="flex flex-col items-end gap-0.5">
+                <div class="flex items-center gap-1.5">
+                  <span class="text-[10px] sm:text-[14px] text-slate-400 uppercase font-gaming leading-none">DEFEATED</span>
+                  <span id="kill-count-hud" class="text-base sm:text-lg font-bold font-gaming text-emerald-400 leading-none">0</span>
+                </div>
+                <div id="opponent-hud" class="flex items-center gap-1.5 hidden">
+                  <span class="text-[8px] sm:text-[10px] text-red-400/80 uppercase font-gaming leading-none">OPPONENT</span>
+                  <span id="opp-kill-count-hud" class="text-xs sm:text-sm font-bold font-gaming text-red-400 leading-none">0</span>
+                </div>
+              </div>
+              <span class="text-lg sm:text-xl">👾</span>
+            </div>
+          </div>
+          <div class="w-full bg-slate-950/80 h-2.5 rounded-full overflow-hidden border border-slate-800">
+            <div id="time-progress" class="h-full bg-gradient-to-r from-red-500 via-indigo-500 to-emerald-500 transition-all duration-100" style="width: 100%"></div>
+          </div>
+        </div>
+
+        <div class="flex justify-between items-center px-1 sm:px-2 mt-2 sm:mt-0">
+          <div class="flex items-center gap-1 sm:gap-2 bg-slate-900/40 px-2 sm:px-3 py-1 sm:py-1.5 rounded-xl border border-slate-700/30">
+            <span class="text-base sm:text-lg">👾</span>
+            <span class="text-xs sm:text-[16px] text-indigo-200">擊退: <strong id="kill-count" class="text-indigo-400 text-sm sm:text-lg font-gaming">0</strong> 隻</span>
+          </div>
+          <div class="flex items-center gap-1.5 text-slate-400 text-xs sm:text-[16px]">
+            <span>⚡ CPS:</span>
+            <span id="cps-txt" class="font-gaming text-indigo-300 font-bold">0.0</span>
+          </div>
+        </div>
+
+        <div class="relative flex-1 flex flex-col justify-center items-center my-2 sm:my-4">
+          <div class="w-full max-w-[240px] sm:max-w-[280px] flex flex-col items-center gap-1.5 mb-4 sm:mb-6 z-10">
+            <span id="monster-name-txt" class="text-sm sm:text-[17px] font-bold text-indigo-100 font-gaming drop-shadow-md tracking-wider">
+              綠晶史萊姆
+            </span>
+            <div class="w-full relative h-5 sm:h-7 bg-slate-950/80 rounded-xl overflow-hidden border border-purple-500/30 shadow-[inset_0_2px_4px_rgba(0,0,0,0.6)]">
+              <div id="hp-bar-fill" class="h-full bg-gradient-to-r from-emerald-600 to-teal-400 transition-all duration-75" style="width: 100%"></div>
+              <div class="absolute inset-0 flex items-center justify-center">
+                <span id="hp-bar-text" class="text-xs sm:text-[16px] font-black font-gaming text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)]">
+                  100 / 100
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div id="monster-click-zone" class="relative w-48 h-48 sm:w-64 sm:h-64 flex items-center justify-center cursor-pointer select-none touch-none z-10">
+            <div id="monster-graphic-wrapper" class="monster-container w-40 h-40 sm:w-52 sm:h-52 flex items-center justify-center monster-spawn">
+              <!-- SVG -->
+            </div>
+          </div>
+          
+          <div class="absolute bottom-0 text-slate-500 text-xs sm:text-[16px] flex items-center gap-1">
+            <span>👆 連續猛擊怪物的核心部位！</span>
+          </div>
+        </div>
+
+        <div class="flex justify-between items-center px-3 py-2 sm:py-2.5 glass-panel rounded-xl">
+          <div class="flex items-center gap-1.5 sm:gap-2">
+            <span class="text-slate-400 text-xs sm:text-[16px]">總點擊:</span>
+            <span id="total-clicks-txt" class="font-gaming text-indigo-300 font-bold text-sm sm:text-[17px]">0</span>
+          </div>
+          <div class="flex gap-1.5 sm:gap-2">
+            <button id="game-bgm-mute" class="w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center rounded-lg bg-slate-800/80 border border-slate-700 text-sm sm:text-[17px] active:scale-90 hover:bg-slate-700 transition-all">🎵</button>
+            <button id="game-sfx-mute" class="w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center rounded-lg bg-slate-800/80 border border-slate-700 text-sm sm:text-[17px] active:scale-90 hover:bg-slate-700 transition-all">🔊</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ==============================================
+           3. RESULT SCREEN
+           ============================================== -->
+      <div id="screen-gameover" class="game-screen justify-between screen-hidden z-10 px-4 py-6">
+        <div class="text-center mt-4 sm:mt-6">
+          <div class="inline-block px-3 py-1 text-xs sm:text-base uppercase tracking-widest text-red-300 font-gaming glass-panel rounded-full mb-2 sm:mb-3">
+            CHALLENGE COMPLETED
+          </div>
+          <h2 class="text-3xl sm:text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-red-500 to-amber-500 font-gaming drop-shadow-[0_4px_10px_rgba(239,68,68,0.5)]">
+            時間到！
+          </h2>
+          <p class="text-xs sm:text-base tracking-wider text-slate-400/90 font-gaming mt-1">
+            TIME'S UP! GAME OVER
+          </p>
+        </div>
+
+        <div class="glass-panel p-4 sm:p-6 rounded-2xl mx-1 flex flex-col gap-4 sm:gap-5 my-auto">
+          <div class="text-center border-b border-slate-700/50 pb-3 sm:pb-4">
+            <span id="result-title-label" class="text-slate-400 text-sm sm:text-[16px] block mb-1">本次榮獲稱號</span>
+            <span id="result-title" class="text-xl sm:text-2xl font-black text-amber-400 tracking-wide font-gaming">
+              點擊新手
+            </span>
+          </div>
+          <div class="grid grid-cols-1 gap-3 sm:gap-4">
+            <div class="bg-slate-900/50 border border-slate-800 p-3 sm:p-4 rounded-xl text-center">
+              <span class="text-slate-400 text-xs sm:text-[16px] block mb-1">已擊退怪物</span>
+              <span id="result-kills" class="text-2xl sm:text-3xl font-black font-gaming text-indigo-400">
+                0 隻
+              </span>
+            </div>
+            <div class="bg-slate-900/50 border border-slate-800 p-3 sm:p-4 rounded-xl text-center">
+              <span class="text-slate-400 text-xs sm:text-[16px] block mb-1">平均每秒點擊 (CPS)</span>
+              <span id="result-avg-cps" class="text-2xl sm:text-3xl font-black font-gaming text-purple-400">
+                0.0
+              </span>
+            </div>
+          </div>
+          <div class="text-center text-slate-400 text-xs sm:text-[16px] border-t border-slate-700/50 pt-2 sm:pt-3">
+            <span>累積總點擊: <strong id="result-total-clicks" class="text-slate-200 font-gaming">0</strong> 次</span>
+          </div>
+        </div>
+
+        <div class="flex flex-col gap-2 sm:gap-3 mb-2 sm:mb-6">
+          <button id="btn-replay" class="w-full py-3 sm:py-3.5 text-base sm:text-lg font-bold font-gaming text-white rounded-xl sm:rounded-2xl glass-btn bg-gradient-to-r from-emerald-600 to-indigo-600 border border-emerald-400/30 hover:shadow-[0_0_20px_rgba(52,211,153,0.5)] active:scale-95 flex items-center justify-center gap-2">
+            🔄 再玩一次
+          </button>
+          <button id="btn-go-home" class="w-full py-2.5 sm:py-3 text-base sm:text-lg font-semibold text-slate-300 rounded-xl sm:rounded-2xl bg-slate-900/60 border border-slate-700/40 hover:bg-slate-800/80 active:scale-95 transition-all text-center">
+            返回主選單
+          </button>
+        </div>
+      </div>
+
+      <!-- ==============================================
+           4. UPGRADE SCREEN
+           ============================================== -->
+      <div id="screen-upgrade" class="game-screen justify-between screen-hidden z-20 px-4 py-6">
+        <div class="text-center mt-4 sm:mt-6">
+          <div class="inline-block px-3 py-1 text-xs sm:text-base uppercase tracking-widest text-teal-300 font-gaming glass-panel rounded-full mb-2 sm:mb-3">
+            ROUND COMPLETED
+          </div>
+          <h2 class="text-2xl sm:text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-teal-400 to-emerald-400 font-gaming drop-shadow-[0_4px_10px_rgba(20,184,166,0.5)]" id="upgrade-round-title">
+            局數結算
+          </h2>
+          <p class="text-xs sm:text-sm tracking-wider text-slate-400 font-gaming mt-1" id="upgrade-round-score">
+            你: 0 勝 | 對手: 0 勝
+          </p>
+        </div>
+
+        <div class="glass-panel p-4 sm:p-5 rounded-2xl mx-1 flex flex-col gap-3 sm:gap-4 my-auto max-h-[55vh] overflow-y-auto custom-scroll">
+          <div class="text-center border-b border-slate-700/50 pb-2 sm:pb-3 sticky top-0 bg-[#0f0c1e] z-10 rounded-t-xl">
+            <span class="text-amber-400 font-black text-base sm:text-lg">✨ 局間升級階段 ✨</span>
+            <p class="text-slate-400 text-[10px] sm:text-xs mt-1">請分配 <strong class="text-emerald-400 font-gaming text-xs sm:text-sm" id="upgrade-points-txt">2</strong> 點升級點數</p>
+            <p class="text-red-400 text-[10px] sm:text-xs mt-0.5 font-bold">⚠️ 同一局內不可重複升級同一個技能</p>
+          </div>
+          <div class="flex flex-col gap-3" id="upgrade-skills-list"></div>
+        </div>
+
+        <div class="flex flex-col gap-2 sm:gap-3 mb-2 sm:mb-6">
+          <button id="btn-confirm-upgrade" class="w-full py-3 sm:py-3.5 text-base sm:text-lg font-bold font-gaming text-white rounded-xl sm:rounded-2xl glass-btn bg-gradient-to-r from-teal-600 to-indigo-600 border border-teal-400/30 hover:shadow-[0_0_20px_rgba(20,184,166,0.5)] active:scale-95 flex items-center justify-center gap-2" disabled>
+            ⏳ 確認升級並就緒
+          </button>
+          <div class="text-center text-slate-400 text-[10px] sm:text-xs" id="upgrade-wait-msg">
+            點選後將等待另一名玩家完成升級...
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // --- FIREBASE INITIALIZATION ---
+    const firebaseConfig = {
+      apiKey: "AIzaSyACjxWEkXkPUBv6xiWtVWZdsFvxeKURJ1Q",
+      authDomain: "time-f681a.firebaseapp.com",
+      databaseURL: "https://time-f681a-default-rtdb.firebaseio.com",
+      projectId: "time-f681a",
+      storageBucket: "time-f681a.firebasestorage.app",
+      messagingSenderId: "486171948384",
+      appId: "1:486171948384:web:715043928d3a0a0cd39a05"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+    
+    // --- MONSTER DATABASE ---
+    const MONSTERS = [
+      {
+        name: "綠晶果凍史萊姆", color: "#10B981", accent: "#34D399", particles: ["#6EE7B7", "#34D399", "#059669", "#A7F3D0"],
+        svg: `<svg viewBox="0 0 200 200" class="w-full h-full drop-shadow-[0_10px_20px_rgba(16,185,129,0.45)]">
+          <ellipse cx="100" cy="175" rx="70" ry="12" fill="rgba(0,0,0,0.3)" />
+          <path d="M 30,150 C 20,120 40,60 100,60 C 160,60 180,120 170,150 C 160,175 140,180 100,180 C 60,180 40,175 30,150 Z" fill="url(#slimeGrad)" class="animate-slime-bounce origin-bottom" />
+          <g class="animate-face-move">
+            <ellipse cx="75" cy="120" rx="8" ry="12" fill="#111827" /> <circle cx="73" cy="116" r="3" fill="#FFFFFF" />
+            <ellipse cx="125" cy="120" rx="8" ry="12" fill="#111827" /> <circle cx="123" cy="116" r="3" fill="#FFFFFF" />
+            <ellipse cx="63" cy="130" rx="8" ry="4" fill="#F87171" opacity="0.6" /> <ellipse cx="137" cy="130" rx="8" ry="4" fill="#F87171" opacity="0.6" />
+            <path d="M 94,131 Q 100,137 106,131" stroke="#111827" stroke-width="3.5" stroke-linecap="round" fill="none" />
+          </g>
+          <defs><radialGradient id="slimeGrad" cx="50%" cy="50%" r="50%" fx="30%" fy="30%"><stop offset="0%" stop-color="#34D399" /><stop offset="70%" stop-color="#10B981" /><stop offset="100%" stop-color="#047857" /></radialGradient></defs>
+        </svg>`
+      },
+      {
+        name: "爆炎地核火精靈", color: "#EF4444", accent: "#F59E0B", particles: ["#FCD34D", "#F59E0B", "#EF4444", "#F59E0B"],
+        svg: `<svg viewBox="0 0 200 200" class="w-full h-full drop-shadow-[0_10px_20px_rgba(239,68,68,0.55)]">
+          <ellipse cx="100" cy="180" rx="60" ry="10" fill="rgba(0,0,0,0.35)" />
+          <g class="animate-fire-float origin-bottom">
+            <path d="M 60,160 C 30,120 40,60 70,80 C 85,60 115,60 130,80 C 160,60 170,120 140,160 Z" fill="url(#flameGrad)" opacity="0.85" />
+            <path d="M 50,165 C 30,130 50,90 85,110 C 100,70 120,90 135,110 C 170,90 170,140 150,165 C 130,185 70,185 50,165 Z" fill="url(#fireGrad)" />
+            <g transform="translate(0, 5)">
+              <path d="M 64,115 L 85,123 L 80,128 Z" fill="#111827" /> <path d="M 136,115 L 115,123 L 120,128 Z" fill="#111827" />
+              <ellipse cx="76" cy="128" rx="8" ry="10" fill="#111827" /> <ellipse cx="124" cy="128" rx="8" ry="10" fill="#111827" />
+              <circle cx="78" cy="126" r="3" fill="#FFF" /> <circle cx="122" cy="126" r="3" fill="#FFF" />
+              <path d="M 91,143 Q 100,151 109,143" stroke="#111827" stroke-width="3.5" stroke-linecap="round" fill="none" />
+            </g>
+          </g>
+          <defs><radialGradient id="fireGrad" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#FFD034" /><stop offset="60%" stop-color="#F59E0B" /><stop offset="100%" stop-color="#EF4444" /></radialGradient><linearGradient id="flameGrad" x1="0%" y1="100%" x2="0%" y2="0%"><stop offset="0%" stop-color="#EF4444" /><stop offset="70%" stop-color="#F59E0B" /><stop offset="100%" stop-color="#FCD34D" /></linearGradient></defs>
+        </svg>`
+      },
+      {
+        name: "紫夜飛行小惡魔", color: "#8B5CF6", accent: "#C4B5FD", particles: ["#C4B5FD", "#A78BFA", "#8B5CF6", "#6D28D9"],
+        svg: `<svg viewBox="0 0 200 200" class="w-full h-full drop-shadow-[0_10px_20px_rgba(139,92,246,0.45)]">
+          <ellipse cx="100" cy="180" rx="55" ry="8" fill="rgba(0,0,0,0.3)" />
+          <g class="animate-wings-flap origin-center">
+            <path d="M 60,110 C 20,80 10,120 40,140 C 50,130 55,120 60,110 Z" fill="#4C1D95" /> <path d="M 140,110 C 180,80 190,120 160,140 C 150,130 145,120 140,110 Z" fill="#4C1D95" />
+          </g>
+          <path d="M 130,165 Q 160,175 165,150 T 180,145" stroke="#6D28D9" stroke-width="6" fill="none" stroke-linecap="round" />
+          <path d="M 180,140 L 190,145 L 180,152 Z" fill="#EF4444" />
+          <g class="animate-imp-idle origin-bottom">
+            <path d="M 68,70 Q 52,38 42,48 Q 52,58 68,72 Z" fill="#EF4444" /> <path d="M 132,70 Q 148,38 158,48 Q 148,58 132,72 Z" fill="#EF4444" />
+            <rect x="55" y="65" width="90" height="100" rx="45" fill="url(#impGrad)" />
+            <ellipse cx="80" cy="105" rx="8" ry="12" fill="#111827" /> <circle cx="78" cy="101" r="3" fill="#FFFFFF" />
+            <ellipse cx="120" cy="105" rx="8" ry="12" fill="#111827" /> <circle cx="118" cy="101" r="3" fill="#FFFFFF" />
+            <path d="M 88,122 Q 100,133 112,122" stroke="#111827" stroke-width="3" stroke-linecap="round" fill="none" />
+            <polygon points="92,122 96,129 100,122" fill="#FFFFFF" /> <polygon points="108,122 104,129 100,122" fill="#FFFFFF" />
+          </g>
+          <defs><radialGradient id="impGrad" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#A78BFA" /><stop offset="70%" stop-color="#8B5CF6" /><stop offset="100%" stop-color="#6D28D9" /></radialGradient></defs>
+        </svg>`
+      },
+      {
+        name: "劇毒森林小蘑菇", color: "#F43F5E", accent: "#FDA4AF", particles: ["#FECACA", "#FCA5A5", "#EF4444", "#BE123C"],
+        svg: `<svg viewBox="0 0 200 200" class="w-full h-full drop-shadow-[0_10px_20px_rgba(244,63,94,0.45)]">
+          <ellipse cx="100" cy="180" rx="50" ry="8" fill="rgba(0,0,0,0.25)" />
+          <g class="animate-mush-idle origin-bottom">
+            <path d="M 70,130 C 60,150 65,175 100,175 C 135,175 140,150 130,130 Z" fill="url(#mushStem)" />
+            <path d="M 30,120 C 30,50 170,50 170,120 C 145,130 55,130 30,120 Z" fill="url(#mushCap)" />
+            <circle cx="65" cy="80" r="10" fill="#FFFFFF" opacity="0.9" /> <circle cx="100" cy="65" r="12" fill="#FFFFFF" opacity="0.9" /> <circle cx="135" cy="85" r="8" fill="#FFFFFF" opacity="0.9" /> <circle cx="105" cy="100" r="6" fill="#FFFFFF" opacity="0.7" />
+            <g transform="translate(0, 15)">
+              <circle cx="85" cy="130" r="6" fill="#111827" /> <circle cx="115" cy="130" r="6" fill="#111827" />
+              <path d="M 95,138 Q 100,143 105,138" stroke="#111827" stroke-width="3" fill="none" stroke-linecap="round" />
+              <ellipse cx="77" cy="134" rx="5" ry="2.5" fill="#F87171" opacity="0.6" /> <ellipse cx="123" cy="134" rx="5" ry="2.5" fill="#F87171" opacity="0.6" />
+            </g>
+          </g>
+          <defs><radialGradient id="mushCap" cx="50%" cy="40%" r="50%"><stop offset="0%" stop-color="#FCA5A5" /><stop offset="60%" stop-color="#F43F5E" /><stop offset="100%" stop-color="#BE123C" /></radialGradient><linearGradient id="mushStem" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#FFFBEB" /><stop offset="100%" stop-color="#F59E0B" /></linearGradient></defs>
+        </svg>`
+      },
+      {
+        name: "地底寶藏哥布林", color: "#22C55E", accent: "#F59E0B", particles: ["#86EFAC", "#4ADE80", "#22C55E", "#166534"],
+        svg: `<svg viewBox="0 0 200 200" class="w-full h-full drop-shadow-[0_10px_20px_rgba(34,197,94,0.45)]">
+          <ellipse cx="100" cy="180" rx="55" ry="8" fill="rgba(0,0,0,0.3)" />
+          <g class="animate-goblin-idle origin-bottom">
+            <path d="M 60,95 C 20,80 15,100 55,115 Z" fill="#14532D" transform="rotate(-8 60 95)" /> <path d="M 140,95 C 180,80 185,100 145,115 Z" fill="#14532D" transform="rotate(8 140 95)" />
+            <path d="M 70,140 L 60,175 L 140,175 L 130,140 Z" fill="#78350F" /> <polygon points="100,148 80,140 120,140" fill="#F59E0B" />
+            <circle cx="100" cy="115" r="42" fill="url(#goblinGrad)" />
+            <ellipse cx="82" cy="110" rx="8" ry="10" fill="#FEF08A" /> <circle cx="82" cy="110" r="4.5" fill="#1E293B" /> <circle cx="84" cy="108" r="1.5" fill="#FFFFFF" />
+            <ellipse cx="118" cy="110" rx="8" ry="10" fill="#FEF08A" /> <circle cx="118" cy="110" r="4.5" fill="#1E293B" /> <circle cx="116" cy="108" r="1.5" fill="#FFFFFF" />
+            <polygon points="100,110 94,124 106,124" fill="#166534" />
+            <path d="M 78,131 Q 100,146 122,131" stroke="#111827" stroke-width="3.5" stroke-linecap="round" fill="none" /> <path d="M 74,129 Q 76,133 74,135" stroke="#111827" stroke-width="2" fill="none" /> <path d="M 126,129 Q 124,133 126,135" stroke="#111827" stroke-width="2" fill="none" />
+          </g>
+          <defs><radialGradient id="goblinGrad" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#4ADE80" /><stop offset="70%" stop-color="#22C55E" /><stop offset="100%" stop-color="#15803D" /></radialGradient></defs>
+        </svg>`
+      },
+      {
+        name: "粉紅幻境獨眼獸", color: "#EC4899", accent: "#F472B6", particles: ["#FBCFE8", "#F472B6", "#EC4899", "#9D174D"],
+        svg: `<svg viewBox="0 0 200 200" class="w-full h-full drop-shadow-[0_10px_20px_rgba(236,72,153,0.45)]">
+          <ellipse cx="100" cy="180" rx="45" ry="7" fill="rgba(0,0,0,0.25)" />
+          <g class="animate-wings-flap origin-center">
+            <path d="M 50,100 C 10,80 15,130 45,115 Z" fill="#9D174D" /> <path d="M 150,100 C 190,80 185,130 155,115 Z" fill="#9D174D" />
+          </g>
+          <g class="animate-fire-float origin-center">
+            <circle cx="100" cy="100" r="45" fill="url(#eyeBody)" /> <circle cx="100" cy="100" r="28" fill="#FFFFFF" /> <circle cx="102" cy="102" r="16" fill="url(#eyeIris)" /> <circle cx="104" cy="104" r="8" fill="#111827" /> <circle cx="98" cy="94" r="4" fill="#FFFFFF" opacity="0.95" /> <circle cx="107" cy="107" r="2.5" fill="#FFFFFF" opacity="0.8" />
+            <g transform="translate(100, 52) scale(0.85)"><circle cx="0" cy="0" r="6" fill="#F43F5E" /> <polygon points="0,0 -15,-10 -15,10" fill="#F43F5E" /> <polygon points="0,0 15,-10 15,10" fill="#F43F5E" /></g>
+          </g>
+          <defs><radialGradient id="eyeBody" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#F472B6" /><stop offset="70%" stop-color="#EC4899" /><stop offset="100%" stop-color="#BE185D" /></radialGradient><radialGradient id="eyeIris" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#60A5FA" /><stop offset="60%" stop-color="#2563EB" /><stop offset="100%" stop-color="#1E3A8A" /></radialGradient></defs>
+        </svg>`
+      }
+    ];
+
+    // --- SKILLS DATABASE ---
+    const SKILLS_DB = {
+      "1": {
+        t1: { name: "時空重擊", desc: (lv) => `【特質】Lv.${lv} 點擊傷害 +${lv === 1 ? '1' : lv === 2 ? '2' : '5'}` },
+        t2: { name: "時空加速", desc: (lv) => `【特質】Lv.${lv} 每10秒持續${lv === 1 ? '2' : lv === 2 ? '3' : '5'}秒點擊傷 x2` },
+        p1: { name: "重整信號", desc: (lv) => `【被動】Lv.${lv} 每1秒使對方怪物回復 ${lv === 1 ? '5' : lv === 2 ? '10' : '30'}HP` },
+        p2: { name: "量子干涉", desc: (lv) => `【被動】Lv.${lv} 對方每擊退1隻怪，其下關怪額外加 ${lv === 1 ? '5' : lv === 2 ? '10' : '20'}HP` }
+      },
+      "2": {
+        t1: { name: "混沌爆發", desc: (lv) => `【特質】Lv.${lv} 每關開始時怪物直接 -${lv === 1 ? '1' : lv === 2 ? '2' : '50'}% HP` },
+        t2: { name: "魔力泉源", desc: (lv) => `【特質】Lv.${lv} 每擊敗 ${lv === 1 ? 3 : lv === 2 ? 2 : 1} 隻怪物點擊傷 +1 (每局重置)` },
+        p1: { name: "時空停滯", desc: (lv) => `【被動】Lv.${lv} 每 ${lv === 1 ? 10 : lv === 2 ? 6 : 5} 秒禁止對方點擊 1 秒` },
+        p2: { name: "深淵詛咒", desc: (lv) => `【被動】Lv.${lv} 使對方第 1 關怪物免疫首 ${lv === 1 ? 1 : lv === 2 ? 10 : 10} 秒，且在第 5 關時點擊傷 +1` } // Adjust text for lv desc
+      }
+    };
+
+    // --- GAME ENGINE STATE ---
+    let gameState = "start"; 
+    let gameTime = 60.0;
+    let timeLeft = 60.0;
+    let timeTimer = null;
+    let statsTimer = null;
+    let kills = 0;
+    let totalClicks = 0;
+    let recentClicks = [];
+    let cps = 0.0;
+    let currentMonsterIdx = 0;
+    let monsterHp = 100;
+    
+    // Multiplayer Variables
+    let isMultiplayer = false;
+    let myRoomId = null;
+    let myPlayerIdx = null; 
+    let myUid = Math.random().toString(36).substring(2, 9);
+    let roomRef = null;
+    let opponentData = null; 
+    let myRole = "1";
+    let myConfig = ""; // e.g., "t1,p2"
+    let myDamage = 1;
+    let myDmgMult = 1;
+    let canClick = true;
+    let skillIntervals = [];
+    let monsterImmuneUntil = 0; // Role2 P2 Immunity Tracker
+
+    // Best of Three & Upgrade State
+    let currentRound = 1;
+    let myRoundWins = 0;
+    let oppRoundWins = 0;
+    let upgradePoints = 2;
+    let mySkillLevels = { t1: 1, t2: 1, p1: 1, p2: 1 };
+    let upgradedThisRound = { t1: false, t2: false, p1: false, p2: false };
+    let initialSkillLevelsThisRound = {};
+
+    // Audio Settings
+    let audioCtx = null;
+    let bgmMuted = false;
+    let sfxMuted = false;
+    let bgmInterval = null;
+    let currentBgmStep = 0;
+
+    // Canvas
+    const canvas = document.getElementById("fx-canvas");
+    const ctx = canvas.getContext("2d");
+    let particles = [];
+    let backgroundDust = [];
+    let floatingTexts = [];
+    let animationId = null;
+
+    // --- DOM REFERENCES ---
+    const screens = {
+      start: document.getElementById("screen-start"),
+      game: document.getElementById("screen-game"),
+      gameover: document.getElementById("screen-gameover"),
+      upgrade: document.getElementById("screen-upgrade")
+    };
+    const startMonsterPreview = document.getElementById("start-monster-preview");
+    const btnStartGame = document.getElementById("btn-start-game");
+    const btnReplay = document.getElementById("btn-replay");
+    const btnGoHome = document.getElementById("btn-go-home");
+    const startBestScoreText = document.getElementById("start-best-score");
+    const btnOpenTitleCatalog = document.getElementById("btn-open-title-catalog");
+    const btnCloseTitleCatalog = document.getElementById("btn-close-title-catalog");
+    const titleCatalogModal = document.getElementById("title-catalog-modal");
+    const btnToggleBgm = document.getElementById("btn-toggle-bgm");
+    const btnToggleSfx = document.getElementById("btn-toggle-sfx");
+    const bgmStatusTxt = document.getElementById("bgm-status");
+    const sfxStatusTxt = document.getElementById("sfx-status");
+    const bgmIcon = document.getElementById("bgm-icon");
+    const sfxIcon = document.getElementById("sfx-icon");
+    const gameBgmMuteBtn = document.getElementById("game-bgm-mute");
+    const gameSfxMuteBtn = document.getElementById("game-sfx-mute");
+    const timeTxt = document.getElementById("time-txt");
+    const timeProgress = document.getElementById("time-progress");
+    const killCount = document.getElementById("kill-count");
+    const killCountHud = document.getElementById("kill-count-hud");
+    const cpsTxt = document.getElementById("cps-txt");
+    const totalClicksTxt = document.getElementById("total-clicks-txt");
+    const opponentHud = document.getElementById("opponent-hud");
+    const oppKillCountHud = document.getElementById("opp-kill-count-hud");
+    const monsterNameTxt = document.getElementById("monster-name-txt");
+    const hpBarFill = document.getElementById("hp-bar-fill");
+    const hpBarText = document.getElementById("hp-bar-text");
+    const monsterClickZone = document.getElementById("monster-click-zone");
+    const monsterGraphicWrapper = document.getElementById("monster-graphic-wrapper");
+    const resultTitleLabel = document.getElementById("result-title-label");
+    const resultTitle = document.getElementById("result-title");
+    const resultKills = document.getElementById("result-kills");
+    const resultAvgCps = document.getElementById("result-avg-cps");
+    const resultTotalClicks = document.getElementById("result-total-clicks");
+
+    // --- CANVAS SIZING & PARTICLES ---
+    function resizeCanvas() {
+      const rect = canvas.getBoundingClientRect();
+      const scale = window.devicePixelRatio || 1;
+      canvas.width = rect.width * scale;
+      canvas.height = rect.height * scale;
+      ctx.scale(scale, scale);
+    }
+    window.addEventListener("resize", resizeCanvas);
+    setTimeout(resizeCanvas, 100);
+
+    class Particle {
+      constructor(x, y, color) {
+        this.x = x; this.y = y;
+        const angle = Math.random() * Math.PI * 2;
+        const speed = Math.random() * 5 + 2;
+        this.vx = Math.cos(angle) * speed;
+        this.vy = Math.sin(angle) * speed - 1.5;
+        this.radius = Math.random() * 4 + 2;
+        this.color = color;
+        this.alpha = 1;
+        this.decay = Math.random() * 0.03 + 0.02;
+        this.gravity = 0.12;
+      }
+      update() { this.x += this.vx; this.y += this.vy; this.vy += this.gravity; this.alpha -= this.decay; }
+      draw(c) {
+        c.save(); c.globalAlpha = this.alpha; c.fillStyle = this.color; c.shadowBlur = 8; c.shadowColor = this.color;
+        c.beginPath(); c.arc(this.x, this.y, this.radius, 0, Math.PI * 2); c.fill(); c.restore();
+      }
+    }
+    class FloatingText {
+      constructor(text, x, y, color, size = "bold 20px Orbitron") {
+        this.text = text; this.x = x; this.y = y; this.color = color; this.size = size; this.alpha = 1;
+        this.vx = (Math.random() - 0.5) * 1.5; this.vy = -Math.random() * 3 - 2; this.rotation = (Math.random() - 0.5) * 0.3;
+      }
+      update() { this.x += this.vx; this.y += this.vy; this.alpha -= 0.025; }
+      draw(c) {
+        if (this.alpha <= 0) return;
+        c.save(); c.globalAlpha = this.alpha; c.translate(this.x, this.y); c.rotate(this.rotation);
+        c.textAlign = "center"; c.textBaseline = "middle"; c.fillStyle = this.color; c.font = this.size;
+        c.shadowBlur = 5; c.shadowColor = "rgba(0,0,0,0.8)"; c.fillText(this.text, 0, 0); c.restore();
+      }
+    }
+    function createBgDust() {
+      backgroundDust = [];
+      const rect = canvas.getBoundingClientRect();
+      for (let i = 0; i < 25; i++) {
+        backgroundDust.push({
+          x: Math.random() * rect.width, y: Math.random() * rect.height,
+          vx: (Math.random() - 0.5) * 0.4, vy: -Math.random() * 0.6 - 0.2,
+          radius: Math.random() * 2.5 + 0.5, alpha: Math.random() * 0.4 + 0.1
+        });
+      }
+    }
+    function spawnSparks(x, y, colorPalette) {
+      const count = Math.min(Math.max(Math.floor(Math.random() * 6) + 6, 8), 15);
+      for (let i = 0; i < count; i++) particles.push(new Particle(x, y, colorPalette[Math.floor(Math.random() * colorPalette.length)]));
+    }
+    function spawnDeathExplosion(x, y, colorPalette) {
+      for (let i = 0; i < 35; i++) {
+        const p = new Particle(x, y, colorPalette[Math.floor(Math.random() * colorPalette.length)]);
+        const angle = Math.random() * Math.PI * 2;
+        const speed = Math.random() * 7 + 3;
+        p.vx = Math.cos(angle) * speed; p.vy = Math.sin(angle) * speed - 1.5;
+        p.radius = Math.random() * 5 + 3; p.decay = Math.random() * 0.015 + 0.01; p.gravity = 0.15;
+        particles.push(p);
+      }
+    }
+    function animate() {
+      if (!ctx) return;
+      const rect = canvas.getBoundingClientRect();
+      ctx.clearRect(0, 0, rect.width, rect.height);
+      backgroundDust.forEach(dust => {
+        dust.x += dust.vx; dust.y += dust.vy;
+        if (dust.y < -10) { dust.y = rect.height + 5; dust.x = Math.random() * rect.width; }
+        if (dust.x < -10) dust.x = rect.width + 5;
+        if (dust.x > rect.width + 10) dust.x = -5;
+        ctx.save(); ctx.fillStyle = "rgba(139, 92, 246, " + dust.alpha + ")";
+        ctx.beginPath(); ctx.arc(dust.x, dust.y, dust.radius, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+      });
+      particles = particles.filter(p => p.alpha > 0.01); particles.forEach(p => { p.update(); p.draw(ctx); });
+      floatingTexts = floatingTexts.filter(t => t.alpha > 0.01); floatingTexts.forEach(t => { t.update(); t.draw(ctx); });
+      animationId = requestAnimationFrame(animate);
+    }
+
+    // --- AUDIO CONTROLLER ---
+    function initAudio() {
+      if (audioCtx) return;
+      try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {}
+    }
+    function resumeAudioContext() {
+      initAudio(); if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+    }
+    function playSynthTone(freq, type, volume, duration) {
+      if (!audioCtx || bgmMuted || gameState !== "game") return;
+      try {
+        const osc = audioCtx.createOscillator(); const gainNode = audioCtx.createGain();
+        osc.type = type; osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+        gainNode.gain.setValueAtTime(volume, audioCtx.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + duration);
+        osc.connect(gainNode); gainNode.connect(audioCtx.destination);
+        osc.start(); osc.stop(audioCtx.currentTime + duration);
+      } catch(e) {}
+    }
+    const bassFreqs = [55.00, 43.65, 65.41, 49.00];
+    const melodies = [[110.00, 130.81, 164.81, 220.00], [87.31, 110.00, 130.81, 174.61], [130.81, 164.81, 196.00, 261.63], [98.00, 123.47, 146.83, 196.00]];
+    const melodyPattern = [0, 1, 2, 3, 2, 1, 0, 2];
+    function playBgmStep() {
+      if (!audioCtx || bgmMuted) return;
+      const chordIdx = Math.floor(currentBgmStep / 8) % 4; const noteIdx = currentBgmStep % 8;
+      if (noteIdx === 0 || noteIdx === 4) playSynthTone(bassFreqs[chordIdx], "triangle", 0.05, 0.45);
+      playSynthTone(melodies[chordIdx][melodyPattern[noteIdx]] * 2, "sine", 0.015, 0.2);
+      currentBgmStep++;
+    }
+    function startBgm() { stopBgm(); currentBgmStep = 0; bgmInterval = setInterval(playBgmStep, 230); }
+    function stopBgm() { if (bgmInterval) { clearInterval(bgmInterval); bgmInterval = null; } }
+    function playClickSfx() {
+      if (!audioCtx || sfxMuted) return;
+      try {
+        const now = audioCtx.currentTime;
+        const snapOsc = audioCtx.createOscillator(); const snapGain = audioCtx.createGain();
+        snapOsc.type = 'sine'; snapOsc.frequency.setValueAtTime(1400, now); snapOsc.frequency.exponentialRampToValueAtTime(500, now + 0.02);
+        snapGain.gain.setValueAtTime(0.12, now); snapGain.gain.exponentialRampToValueAtTime(0.001, now + 0.025);
+        snapOsc.connect(snapGain); snapGain.connect(audioCtx.destination); snapOsc.start(); snapOsc.stop(now + 0.03);
+        const bodyOsc = audioCtx.createOscillator(); const bodyGain = audioCtx.createGain();
+        bodyOsc.type = 'triangle'; bodyOsc.frequency.setValueAtTime(280, now); bodyOsc.frequency.exponentialRampToValueAtTime(420, now + 0.02); bodyOsc.frequency.exponentialRampToValueAtTime(70, now + 0.09);
+        bodyGain.gain.setValueAtTime(0.2, now); bodyGain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+        bodyOsc.connect(bodyGain); bodyGain.connect(audioCtx.destination); bodyOsc.start(); bodyOsc.stop(now + 0.12);
+      } catch (e) {}
+    }
+    function playDeathSfx() {
+      if (!audioCtx || sfxMuted) return;
+      try {
+        const now = audioCtx.currentTime;
+        const lowOsc = audioCtx.createOscillator(); const lowGain = audioCtx.createGain(); const filter = audioCtx.createBiquadFilter();
+        lowOsc.type = 'sawtooth'; lowOsc.frequency.setValueAtTime(160, now); lowOsc.frequency.linearRampToValueAtTime(30, now + 0.35);
+        filter.type = 'lowpass'; filter.frequency.setValueAtTime(250, now); filter.frequency.exponentialRampToValueAtTime(50, now + 0.35);
+        lowGain.gain.setValueAtTime(0.3, now); lowGain.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+        lowOsc.connect(filter); filter.connect(lowGain); lowGain.connect(audioCtx.destination); lowOsc.start(); lowOsc.stop(now + 0.45);
+      } catch (e) {}
+    }
+    function playGameOverSfx() {
+      if (!audioCtx || sfxMuted) return;
+      try {
+        const now = audioCtx.currentTime;
+        [147.0, 196.0, 220.0].forEach((freq, idx) => {
+          const osc = audioCtx.createOscillator(); const gainNode = audioCtx.createGain();
+          osc.type = 'sawtooth'; osc.frequency.setValueAtTime(freq, now + idx * 0.15); osc.frequency.linearRampToValueAtTime(freq / 2, now + idx * 0.15 + 0.4);
+          gainNode.gain.setValueAtTime(0.08, now + idx * 0.15); gainNode.gain.linearRampToValueAtTime(0.0001, now + idx * 0.15 + 0.45);
+          osc.connect(gainNode); gainNode.connect(audioCtx.destination); osc.start(now + idx * 0.15); osc.stop(now + idx * 0.15 + 0.5);
+        });
+      } catch(e) {}
+    }
+    function triggerHapticVibrate(ms = 15) { if (navigator.vibrate) { try { navigator.vibrate(ms); } catch(e) {} } }
+
+    // --- SCREEN TRANSITION ---
+    function showScreen(screenId) {
+      Object.keys(screens).forEach(key => screens[key].classList.add("screen-hidden"));
+      screens[screenId].classList.remove("screen-hidden");
+      gameState = screenId;
+    }
+
+    // --- MULTIPLAYER & SKILLS LOBBY ---
+    function hasSkill(configString, skillKey) {
+      if (!configString) return false;
+      return configString.split(',').includes(skillKey);
+    }
+    
+    function updateConfigDescriptions() {
+      const role = document.getElementById("role-select").value;
+      const db_role = SKILLS_DB[role];
+      document.getElementById("label-cb-t1").innerHTML = `<strong>特質1：</strong><br><span class="text-[10px] sm:text-xs text-slate-400 block">${db_role.t1.desc(1)}</span>`;
+      document.getElementById("label-cb-t2").innerHTML = `<strong>特質2：</strong><br><span class="text-[10px] sm:text-xs text-slate-400 block">${db_role.t2.desc(1)}</span>`;
+      document.getElementById("label-cb-p1").innerHTML = `<strong>被動1：</strong><br><span class="text-[10px] sm:text-xs text-slate-400 block">${db_role.p1.desc(1)}</span>`;
+      document.getElementById("label-cb-p2").innerHTML = `<strong>被動2：</strong><br><span class="text-[10px] sm:text-xs text-slate-400 block">${db_role.p2.desc(1)}</span>`;
+    }
+
+    function handleConfigSelection() {
+      const checkedBoxes = document.querySelectorAll('.skill-checkbox:checked');
+      if (checkedBoxes.length > 2) {
+        this.checked = false; // block 3rd click
+        return;
+      }
+      const readyBtn = document.getElementById('btn-ready');
+      document.getElementById('config-warning').textContent = `已選 ${checkedBoxes.length}/2`;
+      if (checkedBoxes.length === 2) {
+        readyBtn.disabled = false;
+        readyBtn.classList.remove('opacity-50');
+      } else {
+        readyBtn.disabled = true;
+        readyBtn.classList.add('opacity-50');
+      }
+    }
+
+    function openModeSelect() {
+      resumeAudioContext();
+      document.getElementById("mode-select-modal").classList.remove("screen-hidden");
+    }
+    function startSinglePlayer() {
+      isMultiplayer = false; currentRound = 1; mySkillLevels = { t1: 1, t2: 1, p1: 1, p2: 1 };
+      document.getElementById("mode-select-modal").classList.add("screen-hidden");
+      startGame();
+    }
+    function openMultiLobby() {
+      document.getElementById("mode-select-modal").classList.add("screen-hidden");
+      document.getElementById("multi-lobby-modal").classList.remove("screen-hidden");
+      document.getElementById("room-status-area").classList.add("hidden");
+      document.getElementById("room-status-area").classList.remove("flex");
+      document.getElementById("btn-ready").disabled = true;
+      document.getElementById("btn-ready").textContent = "準備就緒";
+      document.getElementById("btn-ready").classList.add("opacity-50");
+      myRoomId = null; myPlayerIdx = null; currentRound = 1; myRoundWins = 0; oppRoundWins = 0;
+      mySkillLevels = { t1: 1, t2: 1, p1: 1, p2: 1 };
+      if(roomRef) roomRef.off();
+      updateConfigDescriptions();
+      
+      // Default reset checkboxes
+      document.querySelectorAll('.skill-checkbox').forEach((cb, i) => { cb.checked = false; });
+      document.getElementById('config-warning').textContent = `已選 0/2`;
+    }
+    function joinRoom() {
+      const code = document.getElementById("room-id-input").value;
+      if (code.length !== 4) return alert("請輸入 4 位數字房號");
+      myRoomId = code; roomRef = db.ref('rooms/' + myRoomId);
+      roomRef.once('value', (snap) => {
+        const data = snap.val();
+        if (!data) { myPlayerIdx = 'p1'; roomRef.set({ state: 'waiting', p1: { uid: myUid, ready: false } }); enterLobbyWaiting(); }
+        else if (!data.p2) { myPlayerIdx = 'p2'; roomRef.child('p2').set({ uid: myUid, ready: false }); enterLobbyWaiting(); }
+        else {
+          if (data.p1.uid === myUid) { myPlayerIdx = 'p1'; enterLobbyWaiting(); }
+          else if (data.p2.uid === myUid) { myPlayerIdx = 'p2'; enterLobbyWaiting(); }
+          else alert("房間已滿！");
+        }
+      });
+    }
+    function enterLobbyWaiting() {
+      document.getElementById("room-status-area").classList.remove("hidden");
+      document.getElementById("room-status-area").classList.add("flex");
+      roomRef.on('value', (snap) => {
+        const data = snap.val(); if (!data) return;
+        const p1Ready = data.p1 && data.p1.ready; const p2Ready = data.p2 && data.p2.ready;
+        if (data.p2) document.getElementById("room-status-text").textContent = `就緒狀態： (玩家1:${p1Ready?'⭕':'❌'} / 玩家2:${p2Ready?'⭕':'❌'})`;
+        else document.getElementById("room-status-text").textContent = `等待對手加入... (房號: ${myRoomId})`;
+        if (myPlayerIdx === 'p1' && data.p1 && data.p2 && p1Ready && p2Ready && data.state === 'waiting') {
+          roomRef.update({ state: 'playing', round: 1 });
+        }
+        if (data.state === 'playing') {
+          roomRef.off('value');
+          const oppIdx = myPlayerIdx === 'p1' ? 'p2' : 'p1';
+          opponentData = data[oppIdx] || { kills:0, role:"1", config:"" };
+          myRole = document.getElementById("role-select").value;
+          myConfig = Array.from(document.querySelectorAll('.skill-checkbox:checked')).map(cb => cb.value).join(',');
+          isMultiplayer = true;
+          document.getElementById("multi-lobby-modal").classList.add("screen-hidden");
+          db.ref(`rooms/${myRoomId}/${oppIdx}/kills`).on('value', (s) => {
+             const k = s.val(); if (k !== null) { oppKillCountHud.textContent = k; opponentData.kills = k; }
+          });
+          startGame();
+        }
+      });
+    }
+    function setReady() {
+      if (!myPlayerIdx) return;
+      const role = document.getElementById("role-select").value;
+      const finalConfig = Array.from(document.querySelectorAll('.skill-checkbox:checked')).map(cb => cb.value).join(',');
+      roomRef.child(myPlayerIdx).update({ ready: true, role: role, config: finalConfig, kills: 0 });
+      document.getElementById("btn-ready").disabled = true;
+      document.getElementById("btn-ready").textContent = "已準備";
+      document.getElementById("btn-ready").classList.add("opacity-50");
+    }
+
+    // --- HIGH SCORES ---
+    function getHighScores() { try { const data = localStorage.getItem("monster_click_scores"); return data ? JSON.parse(data) : []; } catch(e) { return []; } }
+    function saveHighScore(killsVal) {
+      try {
+        const scores = getHighScores(); const date = new Date();
+        const dateStr = `${date.getMonth() + 1}/${date.getDate()} ${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
+        scores.push({ kills: killsVal, date: dateStr }); scores.sort((a, b) => b.kills - a.kills);
+        const topScores = scores.slice(0, 5); localStorage.setItem("monster_click_scores", JSON.stringify(topScores));
+        return topScores[0].kills === killsVal;
+      } catch(e) { return false; }
+    }
+    function updateStartScreenBest() {
+      const scores = getHighScores();
+      const bestKills = scores.length > 0 ? Math.max(...scores.map(s => s.kills), 0) : 0;
+      startBestScoreText.innerHTML = `最高擊退紀錄: <span class="text-amber-400 font-bold font-gaming text-lg">${bestKills}</span> 隻`;
+    }
+
+    // --- GAMEPLAY SKILLS & HP ---
+    function getActiveSkillKeys() { return myConfig ? myConfig.split(',') : []; }
+    function clearSkills() {
+      skillIntervals.forEach(clearInterval); skillIntervals = [];
+      myDamage = 1; myDmgMult = 1; canClick = true; monsterClickZone.style.filter = "none";
+    }
+    function applySkills() {
+      clearSkills();
+      if (!isMultiplayer) return;
+      const myKeys = getActiveSkillKeys();
+      const oppKeys = opponentData && opponentData.config ? opponentData.config.split(',') : [];
+
+      // Own Role 1
+      if (myRole === "1") {
+        if (myKeys.includes("t1")) {
+          const lv = mySkillLevels.t1;
+          myDamage = lv === 1 ? 2 : (lv === 2 ? 3 : 6);
+        }
+        if (myKeys.includes("t2")) {
+          let lv = mySkillLevels.t2;
+          let duration = lv === 1 ? 2000 : (lv === 2 ? 3000 : 5000);
+          skillIntervals.push(setInterval(() => {
+            myDmgMult = 2;
+            floatingTexts.push(new FloatingText("時空加速!", canvas.width/2, canvas.height/2 + 50, "#F59E0B", "bold 20px Orbitron"));
+            setTimeout(() => myDmgMult = 1, duration);
+          }, 10000));
+        }
+      } 
+      // Own Role 2
+      else if (myRole === "2") {
+        if (myKeys.includes("t2")) {
+          let lv = mySkillLevels.t2;
+          let reqKills = lv === 1 ? 3 : (lv === 2 ? 2 : 1);
+          myDamage = 1 + Math.floor(kills / reqKills); // Round reset handled as kills = 0
+        }
+      }
+
+      // Opponent Passives
+      if (opponentData) {
+        const oppRole = opponentData.role;
+        if (oppRole === "1" && oppKeys.includes("p1")) {
+          let lv = opponentData.skillLevels ? opponentData.skillLevels.p1 : 1;
+          let heal = lv === 1 ? 5 : (lv === 2 ? 10 : 30);
+          skillIntervals.push(setInterval(() => {
+            if (monsterHp > 0) {
+              monsterHp = Math.min(getMonsterMaxHp(), monsterHp + heal); updateHpBar();
+              floatingTexts.push(new FloatingText(`+${heal}`, canvas.width/2 + 60, canvas.height/2 - 60, "#34D399", "bold 16px Orbitron"));
+            }
+          }, 1000));
+        } 
+        else if (oppRole === "2" && oppKeys.includes("p1")) {
+          let lv = opponentData.skillLevels ? opponentData.skillLevels.p1 : 1;
+          let interval = lv === 1 ? 10000 : (lv === 2 ? 6000 : 5000);
+          skillIntervals.push(setInterval(() => {
+            canClick = false; monsterClickZone.style.filter = "grayscale(1) brightness(0.6)";
+            floatingTexts.push(new FloatingText("被冰凍!", canvas.width/2, canvas.height/2, "#60A5FA", "bold 24px Orbitron"));
+            setTimeout(() => { canClick = true; monsterClickZone.style.filter = "none"; }, 1000);
+          }, interval));
+        }
+      }
+    }
+
+    function getMonsterMaxHp() {
+      let baseHp = 100; let scaling = 10;
+      if (isMultiplayer) {
+        if (currentRound === 1) { baseHp = 100; scaling = 10; }
+        else if (currentRound === 2) { baseHp = 200; scaling = 20; }
+        else if (currentRound === 3) { baseHp = 500; scaling = 50; }
+      }
+      let finalMaxHp = baseHp + kills * scaling;
+      if (isMultiplayer && opponentData) {
+        const oppKeys = opponentData.config ? opponentData.config.split(',') : [];
+        if (opponentData.role === "1" && oppKeys.includes("p2")) {
+          let lv = opponentData.skillLevels ? opponentData.skillLevels.p2 : 1;
+          let p2Amount = lv === 1 ? 5 : (lv === 2 ? 10 : 20);
+          finalMaxHp += p2Amount * ((kills * (kills + 1)) / 2);
+        }
+      }
+      return finalMaxHp;
+    }
+
+    function spawnMonster(animateIn = true) {
+      let nextIdx = currentMonsterIdx;
+      if (MONSTERS.length > 1) { while (nextIdx === currentMonsterIdx) nextIdx = Math.floor(Math.random() * MONSTERS.length); } 
+      else { nextIdx = 0; }
+      currentMonsterIdx = nextIdx;
+      const monsterData = MONSTERS[currentMonsterIdx];
+      monsterHp = getMonsterMaxHp();
+      
+      // 角色 2 特質 1：混沌爆發
+      if (isMultiplayer && myRole === "2") {
+        const myKeys = getActiveSkillKeys();
+        if (myKeys.includes("t1")) {
+          let lv = mySkillLevels.t1;
+          let pct = lv === 1 ? 0.01 : (lv === 2 ? 0.02 : 0.50);
+          monsterHp = Math.max(1, monsterHp - (monsterHp * pct));
+        }
+      }
+
+      monsterNameTxt.textContent = `${monsterData.name} Lv.${kills + 1}`;
+      monsterGraphicWrapper.innerHTML = monsterData.svg;
+      const element = monsterGraphicWrapper.querySelector("svg");
+      if (element) {
+        if (animateIn) element.classList.add("monster-spawn");
+        hpBarFill.style.background = `linear-gradient(90deg, ${monsterData.color} 0%, ${monsterData.accent} 100%)`;
+      }
+      updateHpBar();
+    }
+    function updateHpBar() {
+      const maxHp = getMonsterMaxHp();
+      hpBarFill.style.width = `${Math.max(0, (monsterHp / maxHp) * 100)}%`;
+      hpBarText.textContent = `${Math.floor(monsterHp)} / ${Math.floor(maxHp)}`;
+      const bar = hpBarFill;
+      if (monsterHp > maxHp * 0.5) bar.style.filter = "none";
+      else if (monsterHp <= maxHp * 0.5 && monsterHp > maxHp * 0.2) bar.style.filter = "hue-rotate(-30deg) saturate(1.2)";
+      else bar.style.filter = "hue-rotate(-60deg) saturate(1.5) brightness(1.2)";
+    }
+
+    function trackClickRate() {
+      const now = performance.now(); recentClicks.push(now);
+      recentClicks = recentClicks.filter(t => now - t < 1000);
+      cps = recentClicks.length; cpsTxt.textContent = cps.toFixed(1);
+    }
+    function runStatsTimer() {
+      statsTimer = setInterval(() => {
+        const now = performance.now(); recentClicks = recentClicks.filter(t => now - t < 1000);
+        cps = recentClicks.length; cpsTxt.textContent = cps.toFixed(1);
+      }, 200);
+    }
+    function runTimer() {
+      const startTime = performance.now(); const duration = gameTime * 1000;
+      timeTimer = setInterval(() => {
+        timeLeft = Math.max(0, (duration - (performance.now() - startTime)) / 1000);
+        timeTxt.textContent = `${timeLeft.toFixed(1)}s`;
+        timeProgress.style.width = `${(timeLeft / gameTime) * 100}%`;
+        if (timeLeft <= 10.0) {
+          timeTxt.classList.add("text-red-500", "animate-pulse");
+          timeProgress.classList.remove("bg-gradient-to-r", "from-red-500", "via-indigo-500", "to-emerald-500");
+          timeProgress.style.backgroundColor = "#EF4444";
+          if (timeLeft - Math.floor(timeLeft) < 0.1) playSynthTone(800, "sine", 0.05, 0.05);
+        }
+        if (timeLeft <= 0) endGame();
+      }, 50);
+    }
+
+    function handleMonsterTap(e) {
+      if (gameState !== "game" || monsterHp <= 0 || !canClick) return;
+      e.preventDefault(); resumeAudioContext();
+      const canvasRect = canvas.getBoundingClientRect();
+      let clickX = (e.touches && e.touches.length > 0) ? e.touches[0].clientX - canvasRect.left : e.clientX - canvasRect.left;
+      let clickY = (e.touches && e.touches.length > 0) ? e.touches[0].clientY - canvasRect.top : e.clientY - canvasRect.top;
+
+      // 深淵詛咒: 免疫機制 (第1關)
+      if (kills === 0 && monsterImmuneUntil && performance.now() < monsterImmuneUntil) {
+         floatingTexts.push(new FloatingText("免疫!", clickX, clickY, "#9CA3AF", "bold 20px Orbitron"));
+         return; 
+      }
+
+      totalClicks++; totalClicksTxt.textContent = totalClicks; trackClickRate();
+      
+      let currentDmg = myDamage;
+      // 深淵詛咒: 第5關時點擊傷+1
+      if (isMultiplayer && opponentData && kills === 4) {
+        let oppKeys = opponentData.config ? opponentData.config.split(',') : [];
+        if (opponentData.role === "2" && oppKeys.includes("p2")) {
+          currentDmg += 1;
+        }
+      }
+
+      const finalDamage = currentDmg * myDmgMult;
+      monsterHp -= finalDamage; updateHpBar();
+      
+      const monsterSVG = monsterGraphicWrapper.querySelector("svg");
+      if (monsterSVG) { monsterSVG.classList.remove("monster-hit"); void monsterSVG.offsetWidth; monsterSVG.classList.add("monster-hit"); }
+      triggerHapticVibrate(15); playClickSfx();
+      
+      floatingTexts.push(new FloatingText(`-${finalDamage}`, clickX, clickY, MONSTERS[currentMonsterIdx].color, "bold 24px Orbitron"));
+      spawnSparks(clickX, clickY, MONSTERS[currentMonsterIdx].particles);
+      if (monsterHp <= 0) handleMonsterDeath(canvasRect.width / 2, canvasRect.height / 2);
+    }
+
+    function handleMonsterDeath(centerX, centerY) {
+      kills++; killCount.textContent = kills; killCountHud.textContent = kills;
+      if (isMultiplayer && myRoomId && myPlayerIdx) db.ref(`rooms/${myRoomId}/${myPlayerIdx}/kills`).set(kills);
+      
+      // 角色2 特質2：魔力泉源
+      if (isMultiplayer && myRole === "2") {
+        const myKeys = getActiveSkillKeys();
+        if (myKeys.includes("t2")) {
+          let lv = mySkillLevels.t2;
+          let reqKills = lv === 1 ? 3 : (lv === 2 ? 2 : 1);
+          myDamage = 1 + Math.floor(kills / reqKills);
+        }
+      }
+
+      playDeathSfx(); triggerHapticVibrate(100);
+      spawnDeathExplosion(centerX, centerY, MONSTERS[currentMonsterIdx].particles);
+      floatingTexts.push(new FloatingText("DEFEATED!", centerX, centerY + 30, "#10B981", "bold 22px Orbitron"));
+      const monsterSVG = monsterGraphicWrapper.querySelector("svg");
+      if (monsterSVG) monsterSVG.className = "monster-death";
+      setTimeout(() => { if (gameState === "game") spawnMonster(true); }, 300);
+    }
+
+    // --- UPGRADE SCREEN ---
+    function openUpgradeScreen() {
+      upgradePoints = 2; upgradedThisRound = { t1: false, t2: false, p1: false, p2: false };
+      initialSkillLevelsThisRound = { ...mySkillLevels };
+      document.getElementById("upgrade-round-title").textContent = `第 ${currentRound} 局結束`;
+      document.getElementById("upgrade-round-score").textContent = `你: ${myRoundWins} 勝 | 對手: ${oppRoundWins} 勝`;
+      const confirmBtn = document.getElementById("btn-confirm-upgrade");
+      confirmBtn.disabled = true; confirmBtn.textContent = "⏳ 確認升級並就緒"; confirmBtn.classList.add("opacity-50");
+      renderUpgradeSkills(); showScreen("upgrade");
+      roomRef.child('state').on('value', handleMultiRoundSync);
+    }
+    function renderUpgradeSkills() {
+      const listEl = document.getElementById("upgrade-skills-list"); listEl.innerHTML = "";
+      const activeKeys = getActiveSkillKeys(); const db_role = SKILLS_DB[myRole];
+      document.getElementById("upgrade-points-txt").textContent = upgradePoints;
+      
+      let canUpgradeMore = false;
+      activeKeys.forEach(k => { if (mySkillLevels[k] < 3 && !upgradedThisRound[k]) canUpgradeMore = true; });
+      const confirmBtn = document.getElementById("btn-confirm-upgrade");
+      if (upgradePoints === 0 || !canUpgradeMore) { confirmBtn.disabled = false; confirmBtn.classList.remove("opacity-50"); } 
+      else { confirmBtn.disabled = true; confirmBtn.classList.add("opacity-50"); }
+      
+      activeKeys.forEach(key => {
+        const skill = db_role[key]; const currentLv = mySkillLevels[key];
+        const isUpgraded = upgradedThisRound[key]; const isMax = currentLv >= 3;
+        
+        const skillDiv = document.createElement("div");
+        skillDiv.className = "flex justify-between items-center bg-slate-900/40 p-2 sm:p-3 rounded-xl border border-slate-700/30";
+        const infoDiv = document.createElement("div");
+        infoDiv.className = "flex flex-col flex-1 pr-2 text-xs sm:text-sm";
+        infoDiv.innerHTML = `<span class="text-indigo-300 font-bold font-gaming">${skill.name} <span class="text-emerald-400 font-mono">Lv.${currentLv}</span></span>
+          <span class="text-slate-400 text-[10px] sm:text-xs mt-1 leading-relaxed">${skill.desc(currentLv)}</span>`;
+        
+        const actionDiv = document.createElement("div"); actionDiv.className = "flex items-center gap-2";
+        const plusBtn = document.createElement("button");
+        plusBtn.className = "w-8 h-8 sm:w-10 sm:h-10 flex items-center justify-center rounded-lg bg-teal-600 font-bold text-white hover:bg-teal-500 disabled:opacity-30 disabled:pointer-events-none active:scale-95 transition-all text-base sm:text-lg";
+        plusBtn.textContent = "+";
+        plusBtn.disabled = (upgradePoints === 0 || isUpgraded || isMax);
+        plusBtn.onclick = () => { upgradePoints--; mySkillLevels[key]++; upgradedThisRound[key] = true; renderUpgradeSkills(); };
+        
+        actionDiv.appendChild(plusBtn); skillDiv.appendChild(infoDiv); skillDiv.appendChild(actionDiv); listEl.appendChild(skillDiv);
+      });
+      if (upgradePoints < 2) {
+        const resetBtn = document.createElement("button");
+        resetBtn.className = "w-full py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-semibold active:scale-95 transition-all mt-1";
+        resetBtn.textContent = "重設本次升級點數";
+        resetBtn.onclick = () => { upgradePoints = 2; mySkillLevels = { ...initialSkillLevelsThisRound }; upgradedThisRound = { t1: false, t2: false, p1: false, p2: false }; renderUpgradeSkills(); };
+        listEl.appendChild(resetBtn);
+      }
+    }
+    function handleMultiRoundSync(snap) {
+      if (snap.val() === 'playingNextRound') {
+        roomRef.child('state').off('value', handleMultiRoundSync); currentRound++;
+        roomRef.child(`${myPlayerIdx}/round${currentRound}Kills`).set(null);
+        roomRef.once('value', (fullSnap) => {
+          const data = fullSnap.val();
+          if (data) opponentData = data[myPlayerIdx === 'p1' ? 'p2' : 'p1'] || opponentData;
+          if (myPlayerIdx === 'p1') setTimeout(() => { roomRef.update({ state: 'playing' }); }, 500);
+          startGame();
+        });
+      }
+    }
+
+    // --- GAME LIFECYCLE ---
+    function startGame() {
+      resumeAudioContext();
+      timeLeft = gameTime; kills = 0; totalClicks = 0; recentClicks = []; cps = 0.0;
+      timeTxt.textContent = `${gameTime.toFixed(1)}s`; timeTxt.classList.remove("text-red-500", "animate-pulse");
+      timeProgress.style.width = "100%"; timeProgress.className = "h-full bg-gradient-to-r from-red-500 via-indigo-500 to-emerald-500 transition-all duration-100";
+      killCount.textContent = "0"; killCountHud.textContent = "0"; cpsTxt.textContent = "0.0"; totalClicksTxt.textContent = "0";
+      
+      monsterImmuneUntil = 0;
+      if (isMultiplayer) {
+        opponentHud.classList.remove("hidden"); oppKillCountHud.textContent = "0";
+        // 深淵詛咒：首關免疫計時
+        if (opponentData) {
+           let oppKeys = opponentData.config ? opponentData.config.split(',') : [];
+           if (opponentData.role === "2" && oppKeys.includes("p2")) {
+             let lv = opponentData.skillLevels ? opponentData.skillLevels.p2 : 1;
+             let immuneMs = lv === 1 ? 1000 : (lv === 2 ? 2000 : 10000);
+             monsterImmuneUntil = performance.now() + immuneMs;
+           }
+        }
+      } else { opponentHud.classList.add("hidden"); }
+      
+      clearInterval(timeTimer); clearInterval(statsTimer);
+      applySkills(); spawnMonster(true);
+      particles = []; floatingTexts = []; createBgDust();
+      showScreen("game"); runTimer(); runStatsTimer();
+      if (!bgmMuted) startBgm();
+    }
+    function endGame() {
+      gameState = "gameover";
+      clearInterval(timeTimer); clearInterval(statsTimer); clearSkills(); stopBgm(); playGameOverSfx(); triggerHapticVibrate(250);
+      
+      if (isMultiplayer) {
+        roomRef.child(`${myPlayerIdx}/round${currentRound}Kills`).set(kills);
+        resultTitleLabel.textContent = `第 ${currentRound} 局結束`; resultTitle.textContent = "等待對手同步局數結果...";
+        resultTitle.className = "text-lg sm:text-xl font-bold text-amber-400 font-gaming animate-pulse";
+        showScreen("gameover");
+        
+        const syncListener = db.ref(`rooms/${myRoomId}`).on('value', (snap) => {
+          const data = snap.val(); if (!data) return;
+          const p1Kills = data.p1[`round${currentRound}Kills`]; const p2Kills = data.p2[`round${currentRound}Kills`];
+          if (p1Kills !== undefined && p2Kills !== undefined) {
+            db.ref(`rooms/${myRoomId}`).off('value', syncListener);
+            let roundWinner = null;
+            if (p1Kills > p2Kills) roundWinner = 'p1'; else if (p2Kills > p1Kills) roundWinner = 'p2';
+            if (roundWinner === myPlayerIdx) myRoundWins++; else if (roundWinner) oppRoundWins++;
+            
+            if (myRoundWins === 2 || oppRoundWins === 2 || currentRound === 3) {
+              resultTitleLabel.textContent = "三局兩勝 最終對戰結果";
+              if (myRoundWins > oppRoundWins) {
+                resultTitle.textContent = `🏆 最終勝利 (${myRoundWins} 勝 對 ${oppRoundWins} 勝) 🏆`;
+                resultTitle.className = "text-xl sm:text-2xl font-black text-emerald-400 tracking-wide font-gaming";
+                saveHighScore(kills);
+              } else if (oppRoundWins > myRoundWins) {
+                resultTitle.textContent = `💀 最終失敗 (${myRoundWins} 勝 對 ${oppRoundWins} 勝) 💀`;
+                resultTitle.className = "text-xl sm:text-2xl font-black text-red-500 tracking-wide font-gaming";
+              } else {
+                resultTitle.textContent = `🤝 平手合局 (${myRoundWins} 勝 對 ${oppRoundWins} 勝) 🤝`;
+                resultTitle.className = "text-xl sm:text-2xl font-black text-amber-400 tracking-wide font-gaming";
+              }
+              resultKills.textContent = `總擊退: ${kills} 隻`; resultAvgCps.textContent = (totalClicks / gameTime).toFixed(1); resultTotalClicks.textContent = totalClicks.toLocaleString();
+              btnReplay.innerHTML = "🔄 返回大廳並重新挑戰"; btnGoHome.classList.remove("hidden");
+              btnReplay.onclick = () => { btnReplay.onclick = null; btnReplay.innerHTML = "🔄 再玩一次"; showScreen("start"); openMultiLobby(); };
+            } else {
+              resultTitle.textContent = `第 ${currentRound} 局：你 ${kills} 隻 | 對手 ${myPlayerIdx === 'p1' ? p2Kills : p1Kills} 隻`;
+              resultTitle.className = "text-sm sm:text-base font-bold text-slate-300 font-gaming";
+              btnReplay.innerHTML = "✨ 進入局間升級階段 ⚔️"; btnGoHome.classList.add("hidden");
+              btnReplay.onclick = () => { btnReplay.onclick = null; btnReplay.innerHTML = "🔄 再玩一次"; openUpgradeScreen(); };
+            }
+          }
+        });
+      } else {
+        saveHighScore(kills);
+        resultTitleLabel.textContent = "本次榮獲稱號";
+        resultTitle.textContent = (kills >= 12) ? "🔥 狂暴破壞之神 🔥" : (kills >= 8) ? "⚡ 幻影無雙神魔手 ⚡" : (kills >= 4) ? "⚔️ 迅捷魔物獵人 ⚔️" : (kills >= 2) ? "🛡️ 狂擊學徒 🛡️" : "🥚 點擊菜鳥 🥚";
+        resultTitle.className = "text-xl sm:text-2xl font-black text-amber-400 tracking-wide font-gaming";
+        resultKills.textContent = `${kills} 隻`; resultAvgCps.textContent = (totalClicks / gameTime).toFixed(1); resultTotalClicks.textContent = totalClicks.toLocaleString();
+        btnReplay.classList.remove("hidden"); btnGoHome.classList.remove("hidden"); btnReplay.onclick = () => { startGame(); };
+      }
+    }
+    function goHome() {
+      stopBgm(); clearInterval(timeTimer); clearInterval(statsTimer); clearSkills();
+      if (isMultiplayer && roomRef && myPlayerIdx) {
+        roomRef.child(myPlayerIdx).update({ ready: false, readyForNextRound: false });
+        db.ref(`rooms/${myRoomId}/${myPlayerIdx === 'p1' ? 'p2' : 'p1'}/kills`).off();
+      }
+      updateStartScreenBest();
+      startMonsterPreview.innerHTML = MONSTERS[Math.floor(Math.random() * MONSTERS.length)].svg;
+      showScreen("start");
+    }
+
+    // --- AUDIO & UI BINDINGS ---
+    function updateAudioButtonsUI() {
+      if (bgmMuted) {
+        bgmStatusTxt.textContent = "關"; bgmStatusTxt.className = "text-red-400"; bgmIcon.textContent = "🔇";
+        gameBgmMuteBtn.textContent = "🔇"; gameBgmMuteBtn.classList.add("bg-red-950/40", "border-red-900/60", "text-red-400"); stopBgm();
+      } else {
+        bgmStatusTxt.textContent = "開"; bgmStatusTxt.className = "text-emerald-400"; bgmIcon.textContent = "🎵";
+        gameBgmMuteBtn.textContent = "🎵"; gameBgmMuteBtn.classList.remove("bg-red-950/40", "border-red-900/60", "text-red-400");
+        if (gameState === "game") startBgm();
+      }
+      if (sfxMuted) {
+        sfxStatusTxt.textContent = "關"; sfxStatusTxt.className = "text-red-400"; sfxIcon.textContent = "🔇";
+        gameSfxMuteBtn.textContent = "🔇"; gameSfxMuteBtn.classList.add("bg-red-950/40", "border-red-900/60", "text-red-400");
+      } else {
+        sfxStatusTxt.textContent = "開"; sfxStatusTxt.className = "text-emerald-400"; sfxIcon.textContent = "🔊";
+        gameSfxMuteBtn.textContent = "🔊"; gameSfxMuteBtn.classList.remove("bg-red-950/40", "border-red-900/60", "text-red-400");
+      }
+      localStorage.setItem("monster_click_bgmMuted", bgmMuted); localStorage.setItem("monster_click_sfxMuted", sfxMuted);
+    }
+    function toggleBgm() { resumeAudioContext(); bgmMuted = !bgmMuted; updateAudioButtonsUI(); }
+    function toggleSfx() { resumeAudioContext(); sfxMuted = !sfxMuted; updateAudioButtonsUI(); }
+
+    function bindInputEvents() {
+      monsterClickZone.addEventListener("pointerdown", handleMonsterTap, { passive: false });
+      btnStartGame.addEventListener("click", openModeSelect);
+      btnGoHome.addEventListener("click", goHome);
+      btnToggleBgm.addEventListener("click", toggleBgm); btnToggleSfx.addEventListener("click", toggleSfx);
+      gameBgmMuteBtn.addEventListener("click", toggleBgm); gameSfxMuteBtn.addEventListener("click", toggleSfx);
+      
+      btnOpenTitleCatalog.addEventListener("click", () => { resumeAudioContext(); titleCatalogModal.classList.remove("screen-hidden"); });
+      btnCloseTitleCatalog.addEventListener("click", () => titleCatalogModal.classList.add("screen-hidden"));
+      document.getElementById("btn-open-char-catalog").addEventListener("click", () => { resumeAudioContext(); document.getElementById("char-catalog-modal").classList.remove("screen-hidden"); });
+      document.getElementById("btn-close-char-catalog").addEventListener("click", () => { document.getElementById("char-catalog-modal").classList.add("screen-hidden"); });
+      
+      document.getElementById("btn-close-mode-select").addEventListener("click", () => { document.getElementById("mode-select-modal").classList.add("screen-hidden"); });
+      document.getElementById("btn-mode-single").addEventListener("click", startSinglePlayer);
+      document.getElementById("btn-mode-multi").addEventListener("click", openMultiLobby);
+      
+      document.getElementById("btn-close-lobby").addEventListener("click", () => { document.getElementById("multi-lobby-modal").classList.add("screen-hidden"); goHome(); });
+      document.getElementById("btn-join-room").addEventListener("click", joinRoom);
+      document.getElementById("btn-ready").addEventListener("click", setReady);
+      document.getElementById("role-select").addEventListener("change", updateConfigDescriptions);
+      
+      // Bind Skill Checkboxes
+      document.querySelectorAll('.skill-checkbox').forEach(cb => { cb.addEventListener('change', handleConfigSelection); });
+
+      document.getElementById("btn-confirm-upgrade").addEventListener("click", () => {
+        document.getElementById("btn-confirm-upgrade").disabled = true; document.getElementById("btn-confirm-upgrade").textContent = "等待對手完成升級..."; document.getElementById("btn-confirm-upgrade").classList.add("opacity-50");
+        roomRef.child(myPlayerIdx).update({ readyForNextRound: true, skillLevels: mySkillLevels });
+        roomRef.on('value', (snap) => {
+          const data = snap.val(); if (!data) return;
+          if (data.p1 && data.p2 && data.p1.readyForNextRound && data.p2.readyForNextRound) {
+            roomRef.off('value');
+            if (myPlayerIdx === 'p1') roomRef.update({ state: 'playingNextRound', 'p1/readyForNextRound': false, 'p2/readyForNextRound': false });
+          }
+        });
+      });
+    }
+
+    function initApp() {
+      const storedBgm = localStorage.getItem("monster_click_bgmMuted"); const storedSfx = localStorage.getItem("monster_click_sfxMuted");
+      if (storedBgm !== null) bgmMuted = (storedBgm === "true"); if (storedSfx !== null) sfxMuted = (storedSfx === "true");
+      updateAudioButtonsUI(); updateStartScreenBest();
+      startMonsterPreview.innerHTML = MONSTERS[Math.floor(Math.random() * MONSTERS.length)].svg;
+      createBgDust(); bindInputEvents(); animate(); showScreen("start");
+    }
+    initApp();
+  </script>
+</body>
+</html>
