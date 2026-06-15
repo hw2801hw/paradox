@@ -227,11 +227,11 @@
                 3. <strong>多重分身 (近)</strong>：每失去 20% 生命生成 2 個分身，分身傷害 1 (本體無碰撞傷)。<br>
                 &nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #00ffcc;">[進化效果]</span> 分身傷害 1，且觸發生成的分身數量變為雙倍 (一次生成 4 個)。<br>
                 4. <strong>隨機子彈 (遠)</strong>：基礎傷害 1。<br>
-                &nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #00ffcc;">[進化效果]</span> 傷害提升至 2，具備穿透效果，並反向發射多 1 次，反彈牆壁次數 +2。<br>
+                &nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #00ffcc;">[進化效果]</span> 傷害提升至 2，且子彈變為 4 道穿透的雷射光束，光束範圍為球體 2 倍的大小，但不再反彈牆壁。<br>
                 5. <strong>設置地雷 (遠)</strong>：基礎傷害 2。<br>
                 &nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #00ffcc;">[進化效果]</span> 每設置 10 個地雷，本體回復 5 點生命值。<br>
                 6. <strong>魔法術陣 (遠)</strong>：基礎傷害 3。<br>
-                &nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #00ffcc;">[進化效果]</span> 法陣範圍為球體直徑的 3 倍，且能同時射出 2 個。
+                &nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #00ffcc;">[進化效果]</span> 法陣範圍為球體的 3 倍，且能同時射出 2 個。
             </p>
             <button id="backBtn" class="menu-btn">返回</button>
         </div>
@@ -533,7 +533,7 @@
 
         // 子彈類別
         class Bullet {
-            constructor(x, y, vx, vy, owner, damage = GUN_DAMAGE, maxBounces = 1, penetrate = false) {
+            constructor(x, y, vx, vy, owner, damage = GUN_DAMAGE, maxBounces = 1, penetrate = false, radius = BULLET_RADIUS, isLaser = false) {
                 this.x = x;
                 this.y = y;
                 this.vx = vx;
@@ -545,6 +545,8 @@
                 this.penetrate = penetrate;
                 this.hitTargets = new Set(); // 記錄穿透擊中目標
                 this.active = true;
+                this.radius = radius;
+                this.isLaser = isLaser;
             }
 
             update(dt) {
@@ -554,22 +556,22 @@
                 this.y += this.vy * dt;
 
                 // 檢查邊界碰撞
-                if (this.x - BULLET_RADIUS < 0) {
-                    this.x = BULLET_RADIUS;
+                if (this.x - this.radius < 0) {
+                    this.x = this.radius;
                     this.vx = -this.vx;
                     this.bounces++;
-                } else if (this.x + BULLET_RADIUS > canvas.width) {
-                    this.x = canvas.width - BULLET_RADIUS;
+                } else if (this.x + this.radius > canvas.width) {
+                    this.x = canvas.width - this.radius;
                     this.vx = -this.vx;
                     this.bounces++;
                 }
 
-                if (this.y - BULLET_RADIUS < 0) {
-                    this.y = BULLET_RADIUS;
+                if (this.y - this.radius < 0) {
+                    this.y = this.radius;
                     this.vy = -this.vy;
                     this.bounces++;
-                } else if (this.y + BULLET_RADIUS > canvas.height) {
-                    this.y = canvas.height - BULLET_RADIUS;
+                } else if (this.y + this.radius > canvas.height) {
+                    this.y = canvas.height - this.radius;
                     this.vy = -this.vy;
                     this.bounces++;
                 }
@@ -582,21 +584,37 @@
             draw() {
                 if (!this.active) return;
 
-                ctx.beginPath();
-                ctx.arc(this.x, this.y, BULLET_RADIUS, 0, Math.PI * 2);
-                ctx.fillStyle = this.owner === 'player' ? '#00aaff' : '#ff4444';
-                ctx.fill();
-                ctx.strokeStyle = '#fff';
-                ctx.lineWidth = 2;
-                ctx.stroke();
+                if (this.isLaser) {
+                    ctx.beginPath();
+                    ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                    ctx.fillStyle = this.owner === 'player' ? 'rgba(0, 170, 255, 0.4)' : 'rgba(255, 68, 68, 0.4)';
+                    ctx.fill();
+                    ctx.strokeStyle = '#fff';
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
 
-                // 子彈尾跡
-                ctx.beginPath();
-                ctx.moveTo(this.x, this.y);
-                ctx.lineTo(this.x - this.vx * 0.05, this.y - this.vy * 0.05);
-                ctx.strokeStyle = this.owner === 'player' ? 'rgba(0, 170, 255, 0.5)' : 'rgba(255, 68, 68, 0.5)';
-                ctx.lineWidth = 3;
-                ctx.stroke();
+                    // 雷射中心亮點
+                    ctx.beginPath();
+                    ctx.arc(this.x, this.y, this.radius * 0.3, 0, Math.PI * 2);
+                    ctx.fillStyle = '#fff';
+                    ctx.fill();
+                } else {
+                    ctx.beginPath();
+                    ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                    ctx.fillStyle = this.owner === 'player' ? '#00aaff' : '#ff4444';
+                    ctx.fill();
+                    ctx.strokeStyle = '#fff';
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+
+                    // 子彈尾跡
+                    ctx.beginPath();
+                    ctx.moveTo(this.x, this.y);
+                    ctx.lineTo(this.x - this.vx * 0.05, this.y - this.vy * 0.05);
+                    ctx.strokeStyle = this.owner === 'player' ? 'rgba(0, 170, 255, 0.5)' : 'rgba(255, 68, 68, 0.5)';
+                    ctx.lineWidth = 3;
+                    ctx.stroke();
+                }
             }
         }
 
@@ -614,8 +632,8 @@
                 this.weapons = weapons || [];
                 this.runes = runes || [];
                 
-                // 第 2 和 3 局雙方血量增加至 500HP
-                this.maxHp = (currentRound >= 2) ? 500 : INITIAL_HP;
+                // 第 2 和 3 局雙方血量增加至 300HP
+                this.maxHp = (currentRound >= 2) ? 300 : INITIAL_HP;
                 this.hp = this.maxHp;
                 
                 this.radius = BALL_RADIUS;
@@ -740,20 +758,25 @@
                 if (this.weapons.includes('ranged_bullet')) {
                     const isEvolved = this.evolvedWeapon === 'ranged_bullet';
                     const randomAngle = Math.random() * Math.PI * 2;
-                    const vx = Math.cos(randomAngle) * BULLET_SPEED;
-                    const vy = Math.sin(randomAngle) * BULLET_SPEED;
                     
-                    const dmg = isEvolved ? 2 : 1;
-                    const maxBounces = isEvolved ? 3 : 1;
-                    const penetrate = isEvolved;
-
-                    bullets.push(new Bullet(this.x, this.y, vx, vy, this.type, dmg, maxBounces, penetrate));
-
-                    // 進化：反向多發一發
                     if (isEvolved) {
-                        const vx2 = Math.cos(randomAngle + Math.PI) * BULLET_SPEED;
-                        const vy2 = Math.sin(randomAngle + Math.PI) * BULLET_SPEED;
-                        bullets.push(new Bullet(this.x, this.y, vx2, vy2, this.type, dmg, maxBounces, penetrate));
+                        const dmg = 2;
+                        const maxBounces = 0;
+                        const penetrate = true;
+                        // 進化：4 道穿透的雷射光束，範圍為球體 2 倍，不再反彈
+                        for (let i = 0; i < 4; i++) {
+                            const angle = randomAngle + i * (Math.PI / 2);
+                            const vx = Math.cos(angle) * BULLET_SPEED;
+                            const vy = Math.sin(angle) * BULLET_SPEED;
+                            bullets.push(new Bullet(this.x, this.y, vx, vy, this.type, dmg, maxBounces, penetrate, BALL_RADIUS * 2, true));
+                        }
+                    } else {
+                        const vx = Math.cos(randomAngle) * BULLET_SPEED;
+                        const vy = Math.sin(randomAngle) * BULLET_SPEED;
+                        const dmg = 1;
+                        const maxBounces = 1;
+                        const penetrate = false;
+                        bullets.push(new Bullet(this.x, this.y, vx, vy, this.type, dmg, maxBounces, penetrate, BULLET_RADIUS, false));
                     }
                 }
 
@@ -774,8 +797,8 @@
                 // 魔法術陣
                 if (this.weapons.includes('ranged_magic')) {
                     const isEvolved = this.evolvedWeapon === 'ranged_magic';
-                    // 進化：法陣範圍為球體直徑(50)的 3 倍，即半徑擴展為 150 (BALL_RADIUS * 6)
-                    const radius = isEvolved ? BALL_RADIUS * 6 : BALL_RADIUS * 2;
+                    // 進化：法陣範圍為球體的 3 倍 (BALL_RADIUS * 3)，原為 BALL_RADIUS * 2
+                    const radius = isEvolved ? BALL_RADIUS * 3 : BALL_RADIUS * 2;
                     const count = isEvolved ? 2 : 1;
 
                     for (let i = 0; i < count; i++) {
@@ -902,13 +925,13 @@
                     wpDesc = "進化效果：生成分身數量變為雙倍 (一次生成 4 個分身)";
                 } else if (wp === 'ranged_bullet') {
                     wpName = "隨機子彈";
-                    wpDesc = "進化效果：傷害提升至 2，具備穿透效果，反向發射多 1 次，彈壁次數 +2";
+                    wpDesc = "進化效果：傷害提升至 2，且變為 4 道穿透雷射光束，範圍為球體 2 倍，不反彈";
                 } else if (wp === 'ranged_mine') {
                     wpName = "設置地雷";
                     wpDesc = "進化效果：每設置 10 個地雷，本體回復 5 點生命值";
                 } else if (wp === 'ranged_magic') {
                     wpName = "魔法術陣";
-                    wpDesc = "進化效果：法陣範圍擴大為 3 倍，且能同時射出 2 個";
+                    wpDesc = "進化效果：法陣範圍為球體的 3 倍，且能同時射出 2 個";
                 }
 
                 btn.innerHTML = `<strong>${wpName}</strong><br><span style="font-size:14px; color:#ddd;">${wpDesc}</span>`;
@@ -1014,7 +1037,7 @@
                     const dy = bullet.y - target.y;
                     const dist = Math.sqrt(dx * dx + dy * dy);
 
-                    if (dist < target.radius + BULLET_RADIUS) {
+                    if (dist < target.radius + bullet.radius) {
                         applyDamage(target, bullet.damage, 'ranged');
                         bullet.hitTargets.add(target);
                         
