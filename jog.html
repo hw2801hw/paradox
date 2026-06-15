@@ -1149,7 +1149,9 @@ const BADGES = [
     { id: '666_km', name: '666 Km', image: 'https://i.ibb.co/tPYsr26z/666KM.png' },
     { id: '777_km', name: '777 Km', image: 'https://i.ibb.co/vCCfvJRq/777KM.png' },
     { id: '1000_km', name: '1000 Km', image: 'https://i.ibb.co/rRWjp85f/1000KM.png' },
-    { id: '1314_km', name: '1314 Km', image: 'https://i.ibb.co/tpkT8nJK/1314KM.png' }
+    { id: '1314_km', name: '1314 Km', image: 'https://i.ibb.co/tpkT8nJK/1314KM.png' },
+    { id: '2222_km', name: '2222 Km', image: 'https://i.ibb.co/rf5N6R0w/2222KM.png' },
+    { id: '4321_km', name: '4321 Km', image: 'https://i.ibb.co/Kp0Sp3NY/4321KM.png' }
 ];
 
 const TITLES = [
@@ -1318,6 +1320,16 @@ function getFlatRecords(uid) {
     return flatList;
 }
 
+// Helper to get total all-time distance for a user (used for the 2222km avatar feature)
+function getUserTotalDistance(uid) {
+    const records = getFlatRecords(uid);
+    let total = 0;
+    for (const r of records) {
+        total += (r.distance || 0);
+    }
+    return total;
+}
+
 function escapeHtml(str) {
     const div = document.createElement('div');
     div.appendChild(document.createTextNode(str));
@@ -1360,6 +1372,8 @@ function checkUserBadgeCount(recordEntries) {
         if (totalDist >= 777) earnedBadges.add('777_km');
         if (totalDist >= 1000) earnedBadges.add('1000_km');
         if (totalDist >= 1314) earnedBadges.add('1314_km');
+        if (totalDist >= 2222) earnedBadges.add('2222_km');
+        if (totalDist >= 4321) earnedBadges.add('4321_km');
         
         // Return as soon as 10 badges are achieved, keeping the date of achievement
         if (earnedBadges.size >= 10) {
@@ -1504,6 +1518,14 @@ function renderUserList() {
         } else if (user.activeTitle === 'ultra_marathon' && hasTitle(uid, 'ultra_marathon')) {
             cardSpotlightClass = ' bg-spotlight';
         }
+        
+        // Dynamic Avatar Generation (If user has 2222KM badge, use that badge image instead of initials)
+        let avatarInner = getInitial(user.name);
+        let avatarBg = `background:${color}`;
+        if (totalDist >= 2222) {
+            avatarInner = `<img src="https://i.ibb.co/rf5N6R0w/2222KM.png" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`;
+            avatarBg = `background:transparent`;
+        }
 
         // Check if user has an active title and it's a valid title
         if (user.activeTitle && hasTitle(uid, user.activeTitle)) {
@@ -1515,7 +1537,7 @@ function renderUserList() {
                 html += `
                 <div class="user-card animate-in${cardSpotlightClass}" style="${bgStyle}" onclick="openProfile('${uid}')" title="${escapeHtml(user.name)}">
                     <div class="user-card-left">
-                        <div class="user-avatar${avatarClass}" style="background:${color}; box-shadow: 0 2px 8px rgba(0,0,0,0.6); border: 2px solid #fff;">${getInitial(user.name)}</div>
+                        <div class="user-avatar${avatarClass}" style="${avatarBg}; box-shadow: 0 2px 8px rgba(0,0,0,0.6); border: 2px solid #fff;">${avatarInner}</div>
                         <div style="text-shadow: 0 2px 4px rgba(0,0,0,0.8);">
                             <div class="user-name" style="color: #ffffff;">${escapeHtml(user.name)}</div>
                             <div class="user-stats" style="color: #e2e8f0;">${runCount} run${runCount !== 1 ? 's' : ''} · ${walkCount} walk${walkCount !== 1 ? 's' : ''} · ${totalDist.toFixed(1)} km</div>
@@ -1534,7 +1556,7 @@ function renderUserList() {
         html += `
         <div class="user-card animate-in${cardSpotlightClass}" onclick="openProfile('${uid}')">
             <div class="user-card-left">
-                <div class="user-avatar${avatarClass}" style="background:${color}">${getInitial(user.name)}</div>
+                <div class="user-avatar${avatarClass}" style="${avatarBg}">${avatarInner}</div>
                 <div>
                     <div class="user-name">${escapeHtml(user.name)}</div>
                     <div class="user-stats">${runCount} run${runCount !== 1 ? 's' : ''} · ${walkCount} walk${walkCount !== 1 ? 's' : ''} · ${totalDist.toFixed(1)} km</div>
@@ -1635,9 +1657,16 @@ function renderProfileHeader() {
         }
     });
     
+    let avatarInner = getInitial(user.name);
+    let avatarBg = `background:${color}`;
+    if (totalDist >= 2222) {
+        avatarInner = `<img src="https://i.ibb.co/rf5N6R0w/2222KM.png" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`;
+        avatarBg = `background:transparent`;
+    }
+    
     const bioText = user.bio ? escapeHtml(user.bio) : 'Add a short bio...';
     container.innerHTML = `
-        <div class="avatar-large${avatarClass}" style="background:${color}">${getInitial(user.name)}</div>
+        <div class="avatar-large${avatarClass}" style="${avatarBg}">${avatarInner}</div>
         <div class="profile-name">${escapeHtml(user.name)}</div>
         <div class="profile-bio" style="margin-top: 8px; font-size: 14px; color: var(--text-secondary); display: flex; align-items: center; justify-content: center; gap: 8px; cursor:pointer;" onclick="showEditBioModal()">
             <span>${bioText}</span>
@@ -1937,6 +1966,8 @@ function getBadgeAchievers(badgeId) {
                 if (badgeId === '777_km' && totalDist >= 777) { achievedDate = r.date; break; }
                 if (badgeId === '1000_km' && totalDist >= 1000) { achievedDate = r.date; break; }
                 if (badgeId === '1314_km' && totalDist >= 1314) { achievedDate = r.date; break; }
+                if (badgeId === '2222_km' && totalDist >= 2222) { achievedDate = r.date; break; }
+                if (badgeId === '4321_km' && totalDist >= 4321) { achievedDate = r.date; break; }
             }
             if (achievedDate) achievers.push({ uid: uid, name: user.name, dateAchieved: achievedDate });
         }
@@ -2136,9 +2167,17 @@ function openAchievementDetail(itemId, type) {
                 actionBtn = `<button class="btn btn-small btn-secondary" style="padding: 6px 12px; font-size: 13px; height: auto;" onclick="promptToggleTitle('${achiever.uid}', '${itemId}', ${isEquipped})">${isEquipped ? 'Hide' : 'Show'}</button>`;
             }
             
+            const userTotalDist = getUserTotalDistance(achiever.uid);
+            let avatarInner = getInitial(achiever.name);
+            let avatarBg = `background:${color}`;
+            if (userTotalDist >= 2222) {
+                avatarInner = `<img src="https://i.ibb.co/rf5N6R0w/2222KM.png" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`;
+                avatarBg = `background:transparent`;
+            }
+            
             html += `
             <div class="ranking-card" style="margin-bottom: 8px;">
-                <div class="user-avatar${avatarClass}" style="background:${color};width:40px;height:40px;font-size:16px;">${getInitial(achiever.name)}</div>
+                <div class="user-avatar${avatarClass}" style="${avatarBg};width:40px;height:40px;font-size:16px;">${avatarInner}</div>
                 <div class="rank-info">
                     <div class="rank-name">${escapeHtml(achiever.name)}</div>
                     <div class="rank-detail">Achieved on ${formatDate(achiever.dateAchieved)}</div>
@@ -2252,10 +2291,17 @@ function renderTotalRankings() {
             detail = item.bestPaceDate ? formatDate(item.bestPaceDate) : '';
         }
 
+        let avatarInner = getInitial(item.name);
+        let avatarBg = `background:${color}`;
+        if (item.totalDist >= 2222) {
+            avatarInner = `<img src="https://i.ibb.co/rf5N6R0w/2222KM.png" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`;
+            avatarBg = `background:transparent`;
+        }
+
         html += `
         <div class="ranking-card animate-in">
             <div class="rank-num ${rankClass}">${rank}</div>
-            <div class="user-avatar${avatarClass}" style="background:${color};width:40px;height:40px;font-size:16px;">${getInitial(item.name)}</div>
+            <div class="user-avatar${avatarClass}" style="${avatarBg};width:40px;height:40px;font-size:16px;">${avatarInner}</div>
             <div class="rank-info">
                 <div class="rank-name">${escapeHtml(item.name)}</div>
                 <div class="rank-detail">${detail}</div>
@@ -2323,11 +2369,19 @@ function renderDailyRankings() {
             value = paceStr;
             detail = `${item.totalDist.toFixed(2)} km · ${formatDuration(item.totalTime)}`;
         }
+        
+        const allTimeDist = getUserTotalDistance(item.uid);
+        let avatarInner = getInitial(item.name);
+        let avatarBg = `background:${color}`;
+        if (allTimeDist >= 2222) {
+            avatarInner = `<img src="https://i.ibb.co/rf5N6R0w/2222KM.png" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`;
+            avatarBg = `background:transparent`;
+        }
 
         html += `
         <div class="ranking-card animate-in">
             <div class="rank-num ${rankClass}">${rank}</div>
-            <div class="user-avatar${avatarClass}" style="background:${color};width:40px;height:40px;font-size:16px;">${getInitial(item.name)}</div>
+            <div class="user-avatar${avatarClass}" style="${avatarBg};width:40px;height:40px;font-size:16px;">${avatarInner}</div>
             <div class="rank-info">
                 <div class="rank-name">${escapeHtml(item.name)}</div>
                 <div class="rank-detail">${detail}</div>
