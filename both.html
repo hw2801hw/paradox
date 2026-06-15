@@ -15,6 +15,7 @@
         body {
             background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
             min-height: 100vh;
+            min-height: 100dvh; /* 防止手機導航列遮擋 */
             display: flex;
             justify-content: center;
             align-items: center;
@@ -28,6 +29,7 @@
             position: relative;
             width: 100vw;
             height: 100vh;
+            height: 100dvh; /* 防止手機導航列遮擋 */
             max-width: 800px;
             display: flex;
             justify-content: center;
@@ -46,6 +48,7 @@
         @media (min-width: 800px) {
             #gameContainer {
                 height: 90vh;
+                height: 90dvh;
             }
             #gameCanvas {
                 border: 3px solid #4a4a8a;
@@ -53,7 +56,7 @@
             }
         }
 
-        /* 遊戲覆蓋畫面（開始、結束、圖鑑、進化選擇） */
+        /* 遊戲覆蓋畫面（開始、結束、圖記、進化選擇） */
         #gameOverScreen, #startScreen, #galleryScreen, #runeGalleryScreen, #evolutionScreen {
             position: absolute;
             top: 0;
@@ -221,17 +224,17 @@
                 近攻為碰撞生效，遠程為定期射出<br><br>
                 <strong style="color: #ffcc00;">【武器列表與進化形式】</strong><br>
                 1. <strong>本體碰撞 (近)</strong>：基礎傷害 5。<br>
-                &nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #00ffcc;">[進化效果]</span> 傷害提升至 10，且本體受到遠程攻擊的傷害 -1。<br>
+                &nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #00ffcc;">[進化效果]</span> 傷害提升至 20，且本體受到遠程攻擊的傷害 -1。<br>
                 2. <strong>牆壁碰撞 (近)</strong>：基礎傷害 2。<br>
-                &nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #00ffcc;">[進化效果]</span> 傷害提升至 3，且對方每碰壁 5 次，我方回復 5 點生命值。<br>
+                &nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #00ffcc;">[進化效果]</span> 傷害提升至 3，且對方每碰壁 5 次，我方恢復 5 點生命值。<br>
                 3. <strong>多重分身 (近)</strong>：每失去 20% 生命生成 2 個分身，分身傷害 1 (本體無碰撞傷)。<br>
                 &nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #00ffcc;">[進化效果]</span> 分身傷害 1，且觸發生成的分身數量變為雙倍 (一次生成 4 個)。<br>
                 4. <strong>隨機子彈 (遠)</strong>：基礎傷害 1。<br>
-                &nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #00ffcc;">[進化效果]</span> 傷害提升至 2，且子彈變為 4 道穿透的雷射光束，光束範圍為球體 2 倍的大小，但不再反彈牆壁。<br>
+                &nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #00ffcc;">[進化效果]</span> 傷害提升至 2，且子彈變為 4 道穿透的雷射光束，光束闊度為球體直徑 2 倍，長度延伸至牆壁且緊貼本體移動，但不再反彈牆壁。<br>
                 5. <strong>設置地雷 (遠)</strong>：基礎傷害 2。<br>
-                &nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #00ffcc;">[進化效果]</span> 每設置 10 個地雷，本體回復 5 點生命值。<br>
+                &nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #00ffcc;">[進化效果]</span> 每設置 50 個地雷，本體回復 5 點生命值。<br>
                 6. <strong>魔法術陣 (遠)</strong>：基礎傷害 3。<br>
-                &nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #00ffcc;">[進化效果]</span> 法陣範圍為球體的 3 倍，且能同時射出 2 個。
+                &nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #00ffcc;">[進化效果]</span> 法陣範圍為球體的 3 倍，且能同時射出 3 個。
             </p>
             <button id="backBtn" class="menu-btn">返回</button>
         </div>
@@ -241,9 +244,9 @@
             <p style="text-align: left; padding: 0 20px; font-size: 16px; overflow-y: auto; max-height: 65vh; margin-bottom: 10px; line-height: 1.6; max-width: 600px;">
                 <strong style="color: #ffcc00;">【符文效果】</strong><br><br>
                 <strong style="color: #ffcc00;">風：</strong>所有遠程武器攻速為 0.5 秒。<br>
-                <strong style="color: #ffcc00;">雷：</strong>所有近攻武器攻擊加 1 傷。<br>
+                <strong style="color: #ffcc00;">雷：</strong>所有近戰武器攻擊加 2 傷。<br>
                 <strong style="color: #ffcc00;">土：</strong>開局立即獲得 20 點護盾。<br>
-                <strong style="color: #ffcc00;">水：</strong>每 5 秒恢復 2 點生命值。<br>
+                <strong style="color: #ffcc00;">水：</strong>每 10 秒恢復 2 點生命值。<br>
                 <strong style="color: #ffcc00;">火：</strong>每 4 秒自動扣除對方 1 血。
             </p>
             <button id="runeBackBtn" class="menu-btn">返回</button>
@@ -294,8 +297,8 @@
         let playerWins = 0;
         let aiWins = 0;
         let currentRound = 1;
-        let selectedEvolvedWeapon = ""; // 玩家選擇進化的武器
-        let aiEvolvedWeapon = "";       // AI 進化的武器
+        let playerEvolvedWeapons = []; // 玩家已進化的武器列表
+        let aiEvolvedWeapons = [];     // AI 已進化的武器列表
         let matchAiWeapons = [];        // 儲存當前整場比賽 AI 的固定武器
         let matchAiRunes = [];          // 儲存當前整場比賽 AI 的固定符文
 
@@ -371,12 +374,64 @@
         let gameRunning = false;
         let lastTime = 0;
 
+        // 計算射線與畫布邊界的交點（用於雷射光束向外無限延伸至牆壁）
+        function getRayIntersection(x, y, angle) {
+            const cos = Math.cos(angle);
+            const sin = Math.sin(angle);
+            let tMin = Infinity;
+            
+            // 檢查左邊界 x = 0
+            if (cos < 0) {
+                const t = -x / cos;
+                if (t > 0 && t < tMin) tMin = t;
+            }
+            // 檢查右邊界 x = canvas.width
+            if (cos > 0) {
+                const t = (canvas.width - x) / cos;
+                if (t > 0 && t < tMin) tMin = t;
+            }
+            // 檢查上邊界 y = 0
+            if (sin < 0) {
+                const t = -y / sin;
+                if (t > 0 && t < tMin) tMin = t;
+            }
+            // 檢查下邊界 y = canvas.height
+            if (sin > 0) {
+                const t = (canvas.height - y) / sin;
+                if (t > 0 && t < tMin) tMin = t;
+            }
+            
+            if (tMin === Infinity) tMin = 1000; // 防呆預設值
+            return {
+                x: x + cos * tMin,
+                y: y + sin * tMin,
+                length: tMin
+            };
+        }
+
+        // 計算點到線段的最短距離（用於雷射寬光束與圓球的碰撞偵測）
+        function getPointToSegmentDistance(px, py, ax, ay, bx, by) {
+            const dx = bx - ax;
+            const dy = by - ay;
+            const lenSq = dx * dx + dy * dy;
+            if (lenSq === 0) return Math.sqrt((px - ax) * (px - ax) + (py - ay) * (py - ay));
+            
+            let t = ((px - ax) * dx + (py - ay) * dy) / lenSq;
+            t = Math.max(0, Math.min(1, t));
+            
+            const projX = ax + t * dx;
+            const projY = ay + t * dy;
+            const diffX = px - projX;
+            const diffY = py - projY;
+            return Math.sqrt(diffX * diffX + diffY * diffY);
+        }
+
         // 傷害計算 (包含護盾機制 & 本體碰撞進化減傷)
         function applyDamage(target, amount, damageType = 'other') {
             let actualDamage = amount;
             
             // 遠程減傷限制：本體碰撞進化後受到遠程武器傷害-1
-            if (damageType === 'ranged' && target.evolvedWeapon === 'melee_body' && !target.isClone) {
+            if (damageType === 'ranged' && target.evolvedWeapons && target.evolvedWeapons.includes('melee_body') && !target.isClone) {
                 actualDamage = Math.max(0, actualDamage - 1);
             }
 
@@ -440,7 +495,7 @@
                 this.owner = owner;
                 this.radius = BALL_RADIUS;
                 this.isClone = true;
-                this.hp = 20; 
+                this.hp = owner.maxHp * 0.2; // 分身的生命值為最大生命值的 20%
                 this.shield = 0; 
                 this.damage = damage; 
                 this.meleeBonus = owner.meleeBonus; 
@@ -547,37 +602,58 @@
                 this.active = true;
                 this.radius = radius;
                 this.isLaser = isLaser;
+                if (this.isLaser) {
+                    this.lifeTime = 400; // 雷射持續 0.4 秒
+                    this.angle = Math.atan2(vy, vx);
+                }
             }
 
             update(dt) {
                 if (!this.active) return;
 
-                this.x += this.vx * dt;
-                this.y += this.vy * dt;
+                if (this.isLaser) {
+                    this.lifeTime -= dt * 1000;
+                    if (this.lifeTime <= 0) {
+                        this.active = false;
+                        return;
+                    }
+                    // 緊貼本體：位置隨時與發射者（本體球）同步
+                    const ownerBall = this.owner === 'player' ? playerBall : aiBall;
+                    if (ownerBall && ownerBall.hp > 0) {
+                        this.x = ownerBall.x;
+                        this.y = ownerBall.y;
+                    } else {
+                        this.active = false;
+                        return;
+                    }
+                } else {
+                    this.x += this.vx * dt;
+                    this.y += this.vy * dt;
 
-                // 檢查邊界碰撞
-                if (this.x - this.radius < 0) {
-                    this.x = this.radius;
-                    this.vx = -this.vx;
-                    this.bounces++;
-                } else if (this.x + this.radius > canvas.width) {
-                    this.x = canvas.width - this.radius;
-                    this.vx = -this.vx;
-                    this.bounces++;
-                }
+                    // 檢查邊界碰撞
+                    if (this.x - this.radius < 0) {
+                        this.x = this.radius;
+                        this.vx = -this.vx;
+                        this.bounces++;
+                    } else if (this.x + this.radius > canvas.width) {
+                        this.x = canvas.width - this.radius;
+                        this.vx = -this.vx;
+                        this.bounces++;
+                    }
 
-                if (this.y - this.radius < 0) {
-                    this.y = this.radius;
-                    this.vy = -this.vy;
-                    this.bounces++;
-                } else if (this.y + this.radius > canvas.height) {
-                    this.y = canvas.height - this.radius;
-                    this.vy = -this.vy;
-                    this.bounces++;
-                }
+                    if (this.y - this.radius < 0) {
+                        this.y = this.radius;
+                        this.vy = -this.vy;
+                        this.bounces++;
+                    } else if (this.y + this.radius > canvas.height) {
+                        this.y = canvas.height - this.radius;
+                        this.vy = -this.vy;
+                        this.bounces++;
+                    }
 
-                if (this.bounces > this.maxBounces) {
-                    this.active = false;
+                    if (this.bounces > this.maxBounces) {
+                        this.active = false;
+                    }
                 }
             }
 
@@ -585,19 +661,34 @@
                 if (!this.active) return;
 
                 if (this.isLaser) {
+                    const dest = getRayIntersection(this.x, this.y, this.angle);
+                    // 闊度是球體直徑的 2 倍 (BALL_RADIUS * 4 = 100)
+                    const laserWidth = BALL_RADIUS * 4;
+
+                    // 外層半透明大光束
                     ctx.beginPath();
-                    ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
-                    ctx.fillStyle = this.owner === 'player' ? 'rgba(0, 170, 255, 0.4)' : 'rgba(255, 68, 68, 0.4)';
-                    ctx.fill();
-                    ctx.strokeStyle = '#fff';
-                    ctx.lineWidth = 2;
+                    ctx.moveTo(this.x, this.y);
+                    ctx.lineTo(dest.x, dest.y);
+                    ctx.strokeStyle = this.owner === 'player' ? 'rgba(0, 170, 255, 0.35)' : 'rgba(255, 68, 68, 0.35)';
+                    ctx.lineWidth = laserWidth;
+                    ctx.lineCap = 'butt';
                     ctx.stroke();
 
-                    // 雷射中心亮點
+                    // 內層中核心
                     ctx.beginPath();
-                    ctx.arc(this.x, this.y, this.radius * 0.3, 0, Math.PI * 2);
-                    ctx.fillStyle = '#fff';
-                    ctx.fill();
+                    ctx.moveTo(this.x, this.y);
+                    ctx.lineTo(dest.x, dest.y);
+                    ctx.strokeStyle = this.owner === 'player' ? 'rgba(150, 220, 255, 0.7)' : 'rgba(255, 150, 150, 0.7)';
+                    ctx.lineWidth = laserWidth * 0.4;
+                    ctx.stroke();
+
+                    // 最中心純白亮線
+                    ctx.beginPath();
+                    ctx.moveTo(this.x, this.y);
+                    ctx.lineTo(dest.x, dest.y);
+                    ctx.strokeStyle = '#fff';
+                    ctx.lineWidth = laserWidth * 0.15;
+                    ctx.stroke();
                 } else {
                     ctx.beginPath();
                     ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
@@ -632,18 +723,18 @@
                 this.weapons = weapons || [];
                 this.runes = runes || [];
                 
-                // 第 2 和 3 局雙方血量增加至 300HP
-                this.maxHp = (currentRound >= 2) ? 300 : INITIAL_HP;
+                // 第 2 和 3 局雙方血量增加至 200HP
+                this.maxHp = (currentRound >= 2) ? 200 : INITIAL_HP;
                 this.hp = this.maxHp;
                 
                 this.radius = BALL_RADIUS;
                 this.isClone = false;
-                this.evolvedWeapon = ""; 
+                this.evolvedWeapons = []; 
 
                 // 符文初始化
                 this.shield = this.runes.includes('rune_earth') ? 20 : 0;
                 this.fireInterval = this.runes.includes('rune_wind') ? 500 : 1000;
-                this.meleeBonus = this.runes.includes('rune_thunder') ? 1 : 0;
+                this.meleeBonus = this.runes.includes('rune_thunder') ? 2 : 0; // 雷符文加 2 傷
                 
                 // 各種計時器與進階追蹤
                 this.lastGunFire = 0;
@@ -660,8 +751,8 @@
             update(dt, currentTime) {
                 if (this.hp <= 0) return;
 
-                // 水符文：每 5 秒回 2 血
-                if (this.runes.includes('rune_water') && currentTime - this.lastWaterHeal >= 5000) {
+                // 水符文：每 10 秒回 2 血
+                if (this.runes.includes('rune_water') && currentTime - this.lastWaterHeal >= 10000) {
                     this.hp = Math.min(this.maxHp, this.hp + 2);
                     this.lastWaterHeal = currentTime;
                 }
@@ -678,7 +769,7 @@
 
                 // 多重分身檢查
                 if (this.weapons.includes('melee_clone')) {
-                    const isEvolved = this.evolvedWeapon === 'melee_clone';
+                    const isEvolved = this.evolvedWeapons.includes('melee_clone');
                     const spawnCount = isEvolved ? 4 : 2;
                     while (this.hp <= this.nextCloneThreshold && this.nextCloneThreshold > 0) {
                         for (let i = 0; i < spawnCount; i++) {
@@ -724,14 +815,14 @@
                     const opponent = this.type === 'player' ? aiBall : playerBall;
                     if (opponent && opponent.hp > 0) {
                         if (opponent.weapons.includes('melee_wall')) {
-                            const isEvolved = opponent.evolvedWeapon === 'melee_wall';
+                            const isEvolved = opponent.evolvedWeapons.includes('melee_wall');
                             const wallDmg = isEvolved ? 3 : WALL_DAMAGE;
                             applyDamage(this, wallDmg + opponent.meleeBonus);
                             checkGameOver();
                         }
                         
                         // 牆壁碰撞進化額外效果
-                        if (opponent.evolvedWeapon === 'melee_wall') {
+                        if (opponent.evolvedWeapons.includes('melee_wall')) {
                             opponent.opponentWallHits++;
                             if (opponent.opponentWallHits >= 5) {
                                 opponent.hp = Math.min(opponent.maxHp, opponent.hp + 5);
@@ -756,14 +847,14 @@
             fireRanged() {
                 // 隨機子彈
                 if (this.weapons.includes('ranged_bullet')) {
-                    const isEvolved = this.evolvedWeapon === 'ranged_bullet';
+                    const isEvolved = this.evolvedWeapons.includes('ranged_bullet');
                     const randomAngle = Math.random() * Math.PI * 2;
                     
                     if (isEvolved) {
                         const dmg = 2;
                         const maxBounces = 0;
                         const penetrate = true;
-                        // 進化：4 道穿透的雷射光束，範圍為球體 2 倍，不再反彈
+                        // 進化：4 道穿透的雷射光束，不反彈（生命時間由 Bullet 內部定時處理）
                         for (let i = 0; i < 4; i++) {
                             const angle = randomAngle + i * (Math.PI / 2);
                             const vx = Math.cos(angle) * BULLET_SPEED;
@@ -784,10 +875,10 @@
                 if (this.weapons.includes('ranged_mine')) {
                     mines.push(new Mine(this.x, this.y, this.type));
                     
-                    // 地雷進化效果：每設置 10 個回復 5 HP
-                    if (this.evolvedWeapon === 'ranged_mine') {
+                    // 地雷進化效果：每設置 50 個回復 5 HP
+                    if (this.evolvedWeapons.includes('ranged_mine')) {
                         this.minesSet++;
-                        if (this.minesSet >= 10) {
+                        if (this.minesSet >= 50) {
                             this.hp = Math.min(this.maxHp, this.hp + 5);
                             this.minesSet = 0;
                         }
@@ -796,10 +887,10 @@
 
                 // 魔法術陣
                 if (this.weapons.includes('ranged_magic')) {
-                    const isEvolved = this.evolvedWeapon === 'ranged_magic';
+                    const isEvolved = this.evolvedWeapons.includes('ranged_magic');
                     // 進化：法陣範圍為球體的 3 倍 (BALL_RADIUS * 3)，原為 BALL_RADIUS * 2
                     const radius = isEvolved ? BALL_RADIUS * 3 : BALL_RADIUS * 2;
-                    const count = isEvolved ? 2 : 1;
+                    const count = isEvolved ? 3 : 1;
 
                     for (let i = 0; i < count; i++) {
                         const mx = Math.random() * canvas.width;
@@ -888,15 +979,21 @@
             playerWins = 0;
             aiWins = 0;
             currentRound = 1;
-            selectedEvolvedWeapon = "";
-            aiEvolvedWeapon = "";
+            playerEvolvedWeapons = [];
+            aiEvolvedWeapons = [];
 
             startScreen.style.display = 'none';
             startNextRoundBattle();
         }
 
-        // 開啟第2局武器進化選擇 UI
+        // 開啟武器進化選擇 UI
         function showEvolutionScreen() {
+            // 動態更新標題局數
+            const evoTitle = evolutionScreen.querySelector('h1');
+            if (evoTitle) {
+                evoTitle.textContent = `第 ${currentRound} 局：武器進化選擇`;
+            }
+
             const evolutionOptions = document.getElementById('evolutionOptions');
             evolutionOptions.innerHTML = ''; 
 
@@ -904,6 +1001,9 @@
             let hasEvolvable = false;
 
             playerWeapons.forEach(wp => {
+                // 已進化的武器不應再次出現或可點擊進化
+                if (playerEvolvedWeapons.includes(wp)) return;
+
                 const btn = document.createElement('button');
                 btn.className = 'menu-btn';
                 btn.style.width = '100%';
@@ -912,11 +1012,10 @@
 
                 let wpName = "";
                 let wpDesc = "";
-                let evolvable = true;
 
                 if (wp === 'melee_body') {
                     wpName = "本體碰撞";
-                    wpDesc = "進化效果：傷害提升至 10，且受到遠程傷害 -1";
+                    wpDesc = "進化效果：傷害提升至 20，且受到遠程傷害 -1";
                 } else if (wp === 'melee_wall') {
                     wpName = "牆壁碰撞";
                     wpDesc = "進化效果：傷害提升至 3，且對方每碰壁 5 次，我方恢復 5 生命";
@@ -925,20 +1024,20 @@
                     wpDesc = "進化效果：生成分身數量變為雙倍 (一次生成 4 個分身)";
                 } else if (wp === 'ranged_bullet') {
                     wpName = "隨機子彈";
-                    wpDesc = "進化效果：傷害提升至 2，且變為 4 道穿透雷射光束，範圍為球體 2 倍，不反彈";
+                    wpDesc = "進化效果：傷害提升至 2，且變為 4 道穿透雷射光束，闊度為球體直徑 2 倍，長度延伸至牆壁且緊貼本體，不反彈";
                 } else if (wp === 'ranged_mine') {
                     wpName = "設置地雷";
-                    wpDesc = "進化效果：每設置 10 個地雷，本體回復 5 點生命值";
+                    wpDesc = "進化效果：每設置 50 個地雷，本體回復 5 點生命值";
                 } else if (wp === 'ranged_magic') {
                     wpName = "魔法術陣";
-                    wpDesc = "進化效果：法陣範圍為球體的 3 倍，且能同時射出 2 個";
+                    wpDesc = "進化效果：法陣範圍為球體的 3 倍，且能同時射出 3 個";
                 }
 
                 btn.innerHTML = `<strong>${wpName}</strong><br><span style="font-size:14px; color:#ddd;">${wpDesc}</span>`;
 
                 hasEvolvable = true;
                 btn.addEventListener('click', () => {
-                    selectedEvolvedWeapon = wp;
+                    playerEvolvedWeapons.push(wp); // 將此武器存入已進化列表
                     evolutionScreen.style.display = 'none';
                     startNextRoundBattle();
                 });
@@ -951,7 +1050,6 @@
                 btn.style.width = '100%';
                 btn.textContent = "直接開始";
                 btn.addEventListener('click', () => {
-                    selectedEvolvedWeapon = "";
                     evolutionScreen.style.display = 'none';
                     startNextRoundBattle();
                 });
@@ -961,12 +1059,11 @@
             evolutionScreen.style.display = 'flex';
         }
 
-        // AI 武器進化機制 (自動選擇它擁有的第一個武器進化)
+        // AI 武器進化機制（智慧尋找尚未進化的武器）
         function evolveAIWeapon() {
-            if (matchAiWeapons.length > 0) {
-                aiEvolvedWeapon = matchAiWeapons[0];
-            } else {
-                aiEvolvedWeapon = "";
+            const unevolved = matchAiWeapons.find(wp => !aiEvolvedWeapons.includes(wp));
+            if (unevolved) {
+                aiEvolvedWeapons.push(unevolved);
             }
         }
 
@@ -984,7 +1081,7 @@
                 playerWeapons,
                 playerRunes
             );
-            playerBall.evolvedWeapon = selectedEvolvedWeapon; 
+            playerBall.evolvedWeapons = [...playerEvolvedWeapons]; 
 
             aiBall = new Ball(
                 canvas.width * 0.75,
@@ -997,10 +1094,10 @@
             );
 
             // 第2局起觸發 AI 進化
-            if (currentRound >= 2 && !aiEvolvedWeapon) {
+            if (currentRound >= 2) {
                 evolveAIWeapon();
             }
-            aiBall.evolvedWeapon = aiEvolvedWeapon;
+            aiBall.evolvedWeapons = [...aiEvolvedWeapons];
 
             bullets = [];
             mines = [];
@@ -1021,7 +1118,7 @@
         function checkCollisions() {
             if (!gameRunning) return;
 
-            // 1. 子彈擊中 (主體及所有分身)
+            // 1. 子彈與雷射擊中偵測 (主體及所有分身)
             for (let bullet of bullets) {
                 if (!bullet.active) continue;
 
@@ -1033,20 +1130,33 @@
                     if (target.hp <= 0) continue;
                     if (bullet.hitTargets.has(target)) continue; // 避免穿透時重複擊中同一目標
 
-                    const dx = bullet.x - target.x;
-                    const dy = bullet.y - target.y;
-                    const dist = Math.sqrt(dx * dx + dy * dy);
-
-                    if (dist < target.radius + bullet.radius) {
-                        applyDamage(target, bullet.damage, 'ranged');
-                        bullet.hitTargets.add(target);
+                    if (bullet.isLaser) {
+                        const dest = getRayIntersection(bullet.x, bullet.y, bullet.angle);
+                        const dist = getPointToSegmentDistance(target.x, target.y, bullet.x, bullet.y, dest.x, dest.y);
+                        const laserHalfWidth = (BALL_RADIUS * 4) / 2; // 雷射寬度100的一半 = 50 像素
                         
-                        if (!bullet.penetrate) {
-                            bullet.active = false;
+                        // 碰撞半徑 = 目標半徑 + 雷射寬度的一半
+                        if (dist < target.radius + laserHalfWidth) {
+                            applyDamage(target, bullet.damage, 'ranged');
+                            bullet.hitTargets.add(target);
                             checkGameOver();
-                            break;
                         }
-                        checkGameOver();
+                    } else {
+                        const dx = bullet.x - target.x;
+                        const dy = bullet.y - target.y;
+                        const dist = Math.sqrt(dx * dx + dy * dy);
+
+                        if (dist < target.radius + bullet.radius) {
+                            applyDamage(target, bullet.damage, 'ranged');
+                            bullet.hitTargets.add(target);
+                            
+                            if (!bullet.penetrate) {
+                                bullet.active = false;
+                                checkGameOver();
+                                break;
+                            }
+                            checkGameOver();
+                        }
                     }
                 }
             }
@@ -1120,8 +1230,8 @@
                     let b1ToB2Dmg = 0;
                     if (!b1.isClone) {
                         if (b1.weapons.includes('melee_body')) {
-                            const isEvolved = b1.evolvedWeapon === 'melee_body';
-                            b1ToB2Dmg += (isEvolved ? 10 : KNIFE_DAMAGE) + b1.meleeBonus;
+                            const isEvolved = b1.evolvedWeapons.includes('melee_body');
+                            b1ToB2Dmg += (isEvolved ? 20 : KNIFE_DAMAGE) + b1.meleeBonus;
                         }
                     } else {
                         b1ToB2Dmg += b1.damage + b1.meleeBonus;
@@ -1130,8 +1240,8 @@
                     let b2ToB1Dmg = 0;
                     if (!b2.isClone) {
                         if (b2.weapons.includes('melee_body')) {
-                            const isEvolved = b2.evolvedWeapon === 'melee_body';
-                            b2ToB1Dmg += (isEvolved ? 10 : KNIFE_DAMAGE) + b2.meleeBonus;
+                            const isEvolved = b2.evolvedWeapons.includes('melee_body');
+                            b2ToB1Dmg += (isEvolved ? 20 : KNIFE_DAMAGE) + b2.meleeBonus;
                         }
                     } else {
                         b2ToB1Dmg += b2.damage + b2.meleeBonus;
@@ -1249,12 +1359,12 @@
             ctx.textAlign = 'center';
             ctx.fillText(`第 ${currentRound} 局 — 玩家 ${playerWins} : ${aiWins} AI`, canvas.width / 2, 25);
 
-            if (playerBall && playerBall.evolvedWeapon) {
+            if (playerBall && playerBall.evolvedWeapons && playerBall.evolvedWeapons.length > 0) {
                 ctx.fillStyle = '#00ffcc';
                 ctx.font = '12px Arial';
                 ctx.fillText('進化', playerBall.x, playerBall.y - playerBall.radius - 12);
             }
-            if (aiBall && aiBall.evolvedWeapon) {
+            if (aiBall && aiBall.evolvedWeapons && aiBall.evolvedWeapons.length > 0) {
                 ctx.fillStyle = '#00ffcc';
                 ctx.font = '12px Arial';
                 ctx.fillText('進化', aiBall.x, aiBall.y - aiBall.radius - 12);
@@ -1347,7 +1457,8 @@
             gameOverScreen.style.display = 'none';
             currentRound++;
             
-            if (currentRound === 2) {
+            // 進入第二、三局時都觸發進化選擇
+            if (currentRound === 2 || currentRound === 3) {
                 showEvolutionScreen();
             } else {
                 startNextRoundBattle();
