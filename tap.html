@@ -251,7 +251,7 @@
               <p class="text-slate-300 mt-1"><strong class="text-red-300">特質1：混沌爆發</strong><br>每關開始時怪物直接 -1/2/50%HP</p>
               <p class="text-slate-300"><strong class="text-red-300">特質2：魔力泉源</strong><br>每擊敗 3/2/1 隻怪物，點擊傷 +1 (每局重置)</p>
               <p class="text-slate-300 mt-1"><strong class="text-purple-300">被動1：時空停滯</strong><br>每 10/6/5 秒禁止對方點擊 1 秒</p>
-              <p class="text-slate-300"><strong class="text-purple-300">被動2：深淵詛咒</strong><br>對方第1關怪免疫首1/2/10秒，但第5關點擊傷+1</p>
+              <p class="text-slate-300 mt-1"><strong class="text-purple-300">被動2：深淵詛咒</strong><br>對方第1關怪免疫首1/2/10秒，但第5關點擊傷+1</p>
             </div>
           </div>
         </div>
@@ -409,7 +409,7 @@
           </div>
           
           <div class="absolute bottom-0 text-slate-500 text-xs sm:text-[16px] flex items-center gap-1">
-            <span>👆 連續猛擊怪物的核心部位！</span>
+            <span>👆 連連續猛擊怪物的核心部位！</span>
           </div>
         </div>
 
@@ -443,7 +443,7 @@
 
         <div class="glass-panel p-4 sm:p-6 rounded-2xl mx-1 flex flex-col gap-4 sm:gap-5 my-auto">
           <div class="text-center border-b border-slate-700/50 pb-3 sm:pb-4">
-            <span id="result-title-label" class="text-slate-400 text-sm sm:text-[16px] block mb-1">本次榮獲稱號</span>
+            <span id="result-title-label" class="text-slate-400 text-xs sm:text-[16px] block mb-1">本次榮獲稱號</span>
             <span id="result-title" class="text-xl sm:text-2xl font-black text-amber-400 tracking-wide font-gaming">
               點擊新手
             </span>
@@ -642,7 +642,7 @@
         t1: { name: "混沌爆發", desc: (lv) => `【特質】Lv.${lv} 每關開始時怪物直接 -${lv === 1 ? '1' : lv === 2 ? '2' : '50'}% HP` },
         t2: { name: "魔力泉源", desc: (lv) => `【特質】Lv.${lv} 每擊敗 ${lv === 1 ? 3 : lv === 2 ? 2 : 1} 隻怪物點擊傷 +1 (每局重置)` },
         p1: { name: "時空停滯", desc: (lv) => `【被動】Lv.${lv} 每 ${lv === 1 ? 10 : lv === 2 ? 6 : 5} 秒禁止對方點擊 1 秒` },
-        p2: { name: "深淵詛咒", desc: (lv) => `【被動】Lv.${lv} 使對方第 1 關怪物免疫首 ${lv === 1 ? 1 : lv === 2 ? 10 : 10} 秒，且在第 5 關時點擊傷 +1` } // Adjust text for lv desc
+        p2: { name: "深淵詛咒", desc: (lv) => `【被動】Lv.${lv} 使對方第 1 關怪物免疫首 ${lv === 1 ? 1 : lv === 2 ? 2 : 10} 秒，且在第 5 關時點擊傷 +1` }
       }
     };
 
@@ -1264,7 +1264,7 @@
         infoDiv.innerHTML = `<span class="text-indigo-300 font-bold font-gaming">${skill.name} <span class="text-emerald-400 font-mono">Lv.${currentLv}</span></span>
           <span class="text-slate-400 text-[10px] sm:text-xs mt-1 leading-relaxed">${skill.desc(currentLv)}</span>`;
         
-        const actionDiv = document.createElement("div"); actionDiv.className = "flex items-center gap-2";
+        const actionDiv = document.className = "flex items-center gap-2";
         const plusBtn = document.createElement("button");
         plusBtn.className = "w-8 h-8 sm:w-10 sm:h-10 flex items-center justify-center rounded-lg bg-teal-600 font-bold text-white hover:bg-teal-500 disabled:opacity-30 disabled:pointer-events-none active:scale-95 transition-all text-base sm:text-lg";
         plusBtn.textContent = "+";
@@ -1372,6 +1372,9 @@
         resultTitle.className = "text-xl sm:text-2xl font-black text-amber-400 tracking-wide font-gaming";
         resultKills.textContent = `${kills} 隻`; resultAvgCps.textContent = (totalClicks / gameTime).toFixed(1); resultTotalClicks.textContent = totalClicks.toLocaleString();
         btnReplay.classList.remove("hidden"); btnGoHome.classList.remove("hidden"); btnReplay.onclick = () => { startGame(); };
+        
+        // 【修復核心點】單人模式結束時，補上切換至遊戲結束畫面的指令
+        showScreen("gameover");
       }
     }
     function goHome() {
