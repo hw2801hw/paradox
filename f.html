@@ -1,0 +1,977 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>打野戰 - 奇幻神獸對決</title>
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+  <style>
+    /* 字體大小永不小於16px */
+    html, body, button, div, span, p, h1, h2, h3, h4, h5, h6 {
+      font-size: 16px; user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent;
+    }
+    body { background-color: #0f172a; overflow: hidden; margin: 0; padding: 0; }
+    .safe-bottom { padding-bottom: env(safe-area-inset-bottom, 16px); }
+    .btn-cartoon { transform: translateY(0); transition: all 0.15s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+    .btn-cartoon:active { transform: translateY(4px); filter: brightness(0.9); }
+    @keyframes flame {
+      0%, 100% { transform: scaleY(1) scaleX(1); opacity: 0.8; }
+      50% { transform: scaleY(1.1) scaleX(0.95); opacity: 1; }
+    }
+    .mana-flame { animation: flame 0.8s ease-in-out infinite; }
+    .screen-fade { animation: fadeIn 0.3s ease-out forwards; }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: scale(0.95); }
+      to { opacity: 1; transform: scale(1); }
+    }
+  </style>
+</head>
+<body class="flex items-center justify-center min-h-screen text-slate-100 font-sans select-none">
+  <!-- 遊戲縱向 9:16 主容器 -->
+  <div id="game-container" class="relative w-full max-w-[450px] h-[100dvh] bg-slate-900 overflow-hidden shadow-2xl flex flex-col justify-between border-x-4 border-amber-400">
+    <!-- 背景音樂開關 & 靜音 -->
+    <button id="mute-btn" class="absolute top-4 left-4 z-50 p-3 bg-slate-800/80 border-2 border-slate-600 text-2xl rounded-full btn-cartoon shadow-lg flex items-center justify-center">🔊</button>
+
+    <!-- ==================== 1. 主選單畫面 ==================== -->
+    <div id="screen-menu" class="screen-fade absolute inset-0 flex flex-col justify-between p-6 bg-gradient-to-b from-sky-400 via-emerald-500 to-emerald-700 z-30">
+      <div class="flex flex-col items-center mt-12">
+        <div class="relative">
+          <div class="absolute -left-12 top-0 text-4xl animate-bounce">✨</div>
+          <div class="absolute -right-12 top-0 text-4xl animate-bounce delay-100">✨</div>
+          <h1 class="text-4xl md:text-5xl font-extrabold text-amber-300 drop-shadow-[0_4px_0_rgba(0,0,0,0.8)] tracking-wide text-center animate-pulse">🐾 打野戰 🐾</h1>
+        </div>
+        <p class="text-lg md:text-xl text-white font-bold drop-shadow-[0_2px_0_rgba(0,0,0,0.6)] mt-2 text-center">奇幻神獸的卡通對決！</p>
+      </div>
+      <!-- 中間裝飾插圖 -->
+      <div class="flex-1 flex flex-col items-center justify-center my-4">
+        <div class="w-48 h-48 bg-white/20 rounded-full border-4 border-white/40 flex items-center justify-center shadow-inner relative overflow-hidden animate-wiggle">
+          <span class="text-7xl drop-shadow-lg">🦊</span>
+          <span class="absolute bottom-4 right-4 text-4xl">🐢</span>
+          <span class="absolute top-4 left-4 text-4xl">🐱</span>
+        </div>
+      </div>
+      <!-- 下方按鈕群 -->
+      <div class="flex flex-col space-y-4 mb-8 safe-bottom">
+        <button id="btn-start-game" class="btn-cartoon w-full py-4 bg-amber-400 border-b-4 border-amber-600 text-slate-900 font-extrabold text-xl md:text-2xl rounded-2xl shadow-lg tracking-wider">⚔️ 開始遊戲 ⚔️</button>
+        <div class="grid grid-cols-3 gap-2">
+          <button id="btn-beast-book" class="btn-cartoon py-4 bg-purple-500 border-b-4 border-purple-700 text-white font-extrabold text-base md:text-lg rounded-2xl shadow-lg">📖 神獸</button>
+          <button id="btn-tower-book" class="btn-cartoon py-4 bg-sky-500 border-b-4 border-sky-700 text-white font-extrabold text-base md:text-lg rounded-2xl shadow-lg">🛡️ 炮台</button>
+          <button id="btn-wall-book" class="btn-cartoon py-4 bg-amber-600 border-b-4 border-amber-800 text-white font-extrabold text-base md:text-lg rounded-2xl shadow-lg">🧱 城牆</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== 2. 炮台選擇畫面 ==================== -->
+    <div id="screen-tower-select" class="screen-fade absolute inset-0 flex flex-col justify-between p-6 bg-gradient-to-b from-slate-800 to-slate-950 z-25 hidden">
+      <div class="mt-8 text-center">
+        <h2 class="text-2xl md:text-3xl font-extrabold text-amber-300 drop-shadow-[0_2px_0_rgba(0,0,0,0.8)]">🛡️ 選擇你的出戰炮台</h2>
+        <p class="text-base text-slate-300 mt-2">炮台將守護你的城牆，點擊卡片選擇其一</p>
+      </div>
+      <div class="flex-1 flex flex-col justify-center space-y-4 my-4">
+        <div data-tower-type="A" class="tower-card cursor-pointer flex items-center p-4 bg-slate-800 border-2 border-slate-600 rounded-2xl transition-all duration-200 hover:border-amber-400 active:scale-[0.98] shadow-md">
+          <div class="w-16 h-16 bg-rose-500/20 border-2 border-rose-500 rounded-xl flex items-center justify-center text-4xl mr-4">🔥</div>
+          <div class="flex-1">
+            <div class="flex justify-between items-center">
+              <h3 class="text-lg font-bold text-rose-400">龍息鋼砲</h3><span class="px-2 py-0.5 bg-rose-500 text-white text-base rounded-full">重裝砲擊</span>
+            </div>
+            <p class="text-base text-slate-300 mt-1">攻擊力: 10 | 攻速: 每 2 秒 1 發</p>
+            <p class="text-base text-slate-400 mt-1">特殊：發射高破壞重力鐵球，造成小範圍爆炸。</p>
+          </div>
+        </div>
+        <div data-tower-type="B" class="tower-card cursor-pointer flex items-center p-4 bg-slate-800 border-2 border-slate-600 rounded-2xl transition-all duration-200 hover:border-amber-400 active:scale-[0.98] shadow-md">
+          <div class="w-16 h-16 bg-emerald-500/20 border-2 border-emerald-500 rounded-xl flex items-center justify-center text-4xl mr-4">🍃</div>
+          <div class="flex-1">
+            <div class="flex justify-between items-center">
+              <h3 class="text-lg font-bold text-emerald-400">暴風千擊砲</h3><span class="px-2 py-0.5 bg-emerald-500 text-white text-base rounded-full">散射清兵</span>
+            </div>
+            <p class="text-base text-slate-300 mt-1">攻擊力: 2 | 攻速: 每 2 秒 10 粒</p>
+            <p class="text-base text-slate-400 mt-1">特殊：大範圍發射 10 粒小風彈，完美克制群聚脆皮。</p>
+          </div>
+        </div>
+        <div data-tower-type="C" class="tower-card cursor-pointer flex items-center p-4 bg-slate-800 border-2 border-slate-600 rounded-2xl transition-all duration-200 hover:border-amber-400 active:scale-[0.98] shadow-md">
+          <div class="w-16 h-16 bg-purple-500/20 border-2 border-purple-500 rounded-xl flex items-center justify-center text-4xl mr-4">⚡</div>
+          <div class="flex-1">
+            <div class="flex justify-between items-center">
+              <h3 class="text-lg font-bold text-purple-400">幻星雷射砲</h3><span class="px-2 py-0.5 bg-purple-500 text-white text-base rounded-full">貫穿射線</span>
+            </div>
+            <p class="text-base text-slate-300 mt-1">攻擊力: 40 | 攻速: 每 5 秒 1 道</p>
+            <p class="text-base text-slate-400 mt-1">特殊：凝聚宇宙星光，射出一條穿透所有敵人的強力射線。</p>
+          </div>
+        </div>
+      </div>
+      <div class="flex space-x-4 mb-6 safe-bottom">
+        <button id="btn-select-back" class="btn-cartoon w-1/3 py-4 bg-slate-700 border-b-4 border-slate-950 text-white font-extrabold text-base md:text-lg rounded-2xl shadow-lg">返回</button>
+        <button id="btn-select-next" class="btn-cartoon w-2/3 py-4 bg-amber-400 border-b-4 border-amber-600 text-slate-900 font-extrabold text-base md:text-lg rounded-2xl shadow-lg">下一步: 選擇城牆 ➔</button>
+      </div>
+    </div>
+
+    <!-- ==================== 2.5 城牆選擇畫面 ==================== -->
+    <div id="screen-wall-select" class="screen-fade absolute inset-0 flex flex-col justify-between p-6 bg-gradient-to-b from-slate-800 to-slate-950 z-25 hidden">
+      <div class="mt-8 text-center">
+        <h2 class="text-2xl md:text-3xl font-extrabold text-amber-300 drop-shadow-[0_2px_0_rgba(0,0,0,0.8)]">🧱 選擇你的防守城牆</h2>
+        <p class="text-base text-slate-300 mt-2">城牆特技將在開局發揮核心作用，點擊選擇其一</p>
+      </div>
+      <div class="flex-1 flex flex-col justify-center space-y-4 my-4">
+        <div data-wall-type="A" class="wall-card cursor-pointer flex items-center p-4 bg-slate-800 border-2 border-slate-600 rounded-2xl transition-all duration-200 hover:border-amber-400 active:scale-[0.98] shadow-md">
+          <div class="w-16 h-16 bg-amber-500/20 border-2 border-amber-500 rounded-xl flex items-center justify-center text-4xl mr-4">🔥</div>
+          <div class="flex-1">
+            <div class="flex justify-between items-center">
+              <h3 class="text-lg font-bold text-amber-400">先鋒要塞</h3><span class="px-2 py-0.5 bg-amber-500 text-white text-base rounded-full">聖火充能</span>
+            </div>
+            <p class="text-base text-slate-300 mt-1">HP: 10000</p>
+            <p class="text-base text-slate-400 mt-1">特殊：開局立即獲得 5 🔥 聖火，且城牆血量低於 50% 時再次獲得 5 🔥 聖火！</p>
+          </div>
+        </div>
+        <div data-wall-type="B" class="wall-card cursor-pointer flex items-center p-4 bg-slate-800 border-2 border-slate-600 rounded-2xl transition-all duration-200 hover:border-amber-400 active:scale-[0.98] shadow-md">
+          <div class="w-16 h-16 bg-sky-500/20 border-2 border-sky-500 rounded-xl flex items-center justify-center text-4xl mr-4">🛡️</div>
+          <div class="flex-1">
+            <div class="flex justify-between items-center">
+              <h3 class="text-lg font-bold text-sky-400">重裝拒馬</h3><span class="px-2 py-0.5 bg-sky-500 text-white text-base rounded-full">急速反震</span>
+            </div>
+            <p class="text-base text-slate-300 mt-1">HP: 10000</p>
+            <p class="text-base text-slate-400 mt-1">特殊：砲台裝填速度快 2 倍，且砲擊時有 25% 機率擊退敵人 3 格 (120px)！</p>
+          </div>
+        </div>
+        <div data-wall-type="C" class="wall-card cursor-pointer flex items-center p-4 bg-slate-800 border-2 border-slate-600 rounded-2xl transition-all duration-200 hover:border-amber-400 active:scale-[0.98] shadow-md">
+          <div class="w-16 h-16 bg-emerald-500/20 border-2 border-emerald-500 rounded-xl flex items-center justify-center text-4xl mr-4">💚</div>
+          <div class="flex-1">
+            <div class="flex justify-between items-center">
+              <h3 class="text-lg font-bold text-emerald-400">生機之壁</h3><span class="px-2 py-0.5 bg-emerald-500 text-white text-base rounded-full">生生不息</span>
+            </div>
+            <p class="text-base text-slate-300 mt-1">HP: 10000</p>
+            <p class="text-base text-slate-400 mt-1">特殊：防線擁有自動活化再生纖維，每 5 秒自動修復城牆 50 HP。</p>
+          </div>
+        </div>
+      </div>
+      <div class="flex space-x-4 mb-6 safe-bottom">
+        <button id="btn-wall-back" class="btn-cartoon w-1/3 py-4 bg-slate-700 border-b-4 border-slate-950 text-white font-extrabold text-base md:text-lg rounded-2xl shadow-lg">上一步</button>
+        <button id="btn-wall-confirm" class="btn-cartoon w-2/3 py-4 bg-amber-400 border-b-4 border-amber-600 text-slate-900 font-extrabold text-base md:text-lg rounded-2xl shadow-lg">確認選擇並開戰 ⚔️</button>
+      </div>
+    </div>
+
+    <!-- ==================== 3. 戰鬥畫面 ==================== -->
+    <div id="screen-battle" class="screen-fade absolute inset-0 z-20 hidden flex flex-col justify-between bg-slate-900">
+      <div class="absolute top-4 left-0 right-0 px-4 flex justify-between items-center z-10 pointer-events-none">
+        <div class="flex items-center space-x-2 bg-slate-900/80 border-2 border-red-500 rounded-full px-3 py-1.5 shadow-md">
+          <span class="text-xl">😈</span>
+          <div class="flex flex-col">
+            <span class="text-base text-red-400 font-bold leading-none">魔王 AI</span>
+            <div class="w-24 h-3 bg-slate-700 rounded-full overflow-hidden mt-1 border border-slate-600"><div id="ai-hp-bar" class="w-full h-full bg-red-500 transition-all duration-100"></div></div>
+            <span id="ai-hp-text" class="text-base text-slate-200 font-mono font-bold leading-none mt-1">10000/10000</span>
+          </div>
+        </div>
+        <div class="bg-slate-900/95 border-2 border-amber-400 rounded-full px-4 py-2 shadow-lg flex items-center space-x-1.5">
+          <span class="text-lg text-amber-400 animate-pulse">⏱️</span><span id="timer-text" class="text-lg font-mono font-bold text-amber-300">03:00</span>
+        </div>
+      </div>
+      <canvas id="game-canvas" class="w-full h-full block"></canvas>
+      <div class="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-slate-950 via-slate-950/90 to-transparent z-10 safe-bottom">
+        <div class="text-center mb-1 pointer-events-none">
+          <span class="text-base text-slate-400 bg-slate-900/70 px-2 py-0.5 rounded-full border border-slate-700/50">👈 拖曳螢幕下半部可手動調整炮台方向 👉</span>
+        </div>
+        <div class="flex items-center justify-between mb-3">
+          <div class="flex items-center space-x-2 bg-slate-900/80 border-2 border-sky-500 rounded-full px-3 py-1.5 shadow-md pointer-events-none">
+            <span class="text-xl">🛡️</span>
+            <div class="flex flex-col">
+              <span class="text-base text-sky-400 font-bold leading-none">我的城牆</span>
+              <div class="w-24 h-3 bg-slate-700 rounded-full overflow-hidden mt-1 border border-slate-600"><div id="player-hp-bar" class="w-full h-full bg-sky-500 transition-all duration-100"></div></div>
+              <span id="player-hp-text" class="text-base text-slate-200 font-mono font-bold leading-none mt-1">10000/10000</span>
+            </div>
+          </div>
+          <div class="flex items-center space-x-2 bg-amber-500/10 border-2 border-amber-400 rounded-2xl px-3 py-1.5 shadow-lg relative overflow-hidden">
+            <div class="absolute inset-0 bg-amber-500/5 animate-pulse"></div>
+            <span class="text-xl mana-flame">🔥</span>
+            <div class="flex flex-col">
+              <span class="text-base text-amber-300 font-bold leading-none">聖火費用</span>
+              <div class="flex items-center mt-1 space-x-1">
+                <div class="w-20 h-4 bg-slate-800 rounded-full overflow-hidden border border-amber-500/50 relative"><div id="mana-bar" class="h-full bg-gradient-to-r from-amber-500 to-orange-500 transition-all duration-75" style="width: 0%"></div></div>
+                <span id="mana-text" class="text-lg font-extrabold text-amber-300 font-mono">0/10</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="grid grid-cols-4 gap-2">
+          <button id="summon-1" class="summon-btn flex flex-col items-center justify-between p-2 bg-slate-800 border-2 border-slate-600 rounded-xl transition-all disabled:opacity-40 disabled:scale-95 disabled:border-slate-800" disabled>
+            <div class="relative flex items-center justify-center"><span class="text-3xl">🐱</span><span class="absolute -top-1.5 -right-1.5 px-1.5 py-0.5 bg-slate-900 border border-amber-400 text-base text-amber-300 font-extrabold rounded-full font-mono">x5</span></div>
+            <span class="text-base font-bold text-slate-200 mt-1 truncate max-w-full">影刃小靈貓</span><span class="w-full mt-1.5 bg-amber-500/20 border border-amber-500 text-amber-300 text-base font-extrabold py-0.5 rounded-md text-center font-mono">🔥 2</span>
+          </button>
+          <button id="summon-2" class="summon-btn flex flex-col items-center justify-between p-2 bg-slate-800 border-2 border-slate-600 rounded-xl transition-all disabled:opacity-40 disabled:scale-95 disabled:border-slate-800" disabled>
+            <div class="relative flex items-center justify-center"><span class="text-3xl">🐢</span><span class="absolute -top-1.5 -right-1.5 px-1.5 py-0.5 bg-slate-900 border border-amber-400 text-base text-amber-300 font-extrabold rounded-full font-mono">x2</span></div>
+            <span class="text-base font-bold text-slate-200 mt-1 truncate max-w-full">岩甲陸行龜</span><span class="w-full mt-1.5 bg-amber-500/20 border border-amber-500 text-amber-300 text-base font-extrabold py-0.5 rounded-md text-center font-mono">🔥 5</span>
+          </button>
+          <button id="summon-3" class="summon-btn flex flex-col items-center justify-between p-2 bg-slate-800 border-2 border-slate-600 rounded-xl transition-all disabled:opacity-40 disabled:scale-95 disabled:border-slate-800" disabled>
+            <div class="relative flex items-center justify-center"><span class="text-3xl">🐦</span><span class="absolute -top-1.5 -right-1.5 px-1.5 py-0.5 bg-slate-900 border border-amber-400 text-base text-amber-300 font-extrabold rounded-full font-mono">x3</span></div>
+            <span class="text-base font-bold text-slate-200 mt-1 truncate max-w-full">精靈風行雀</span><span class="w-full mt-1.5 bg-amber-500/20 border border-amber-500 text-amber-300 text-base font-extrabold py-0.5 rounded-md text-center font-mono">🔥 3</span>
+          </button>
+          <button id="summon-4" class="summon-btn flex flex-col items-center justify-between p-2 bg-slate-800 border-2 border-slate-600 rounded-xl transition-all disabled:opacity-40 disabled:scale-95 disabled:border-slate-800" disabled>
+            <div class="relative flex items-center justify-center"><span class="text-3xl">🦊</span><span class="absolute -top-1.5 -right-1.5 px-1.5 py-0.5 bg-slate-900 border border-amber-400 text-base text-amber-300 font-extrabold rounded-full font-mono">x2</span></div>
+            <span class="text-base font-bold text-slate-200 mt-1 truncate max-w-full">星火小九尾</span><span class="w-full mt-1.5 bg-amber-500/20 border border-amber-500 text-amber-300 text-base font-extrabold py-0.5 rounded-md text-center font-mono">🔥 4</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== 4. 神獸圖鑑畫面 ==================== -->
+    <div id="screen-beast-book" class="screen-fade absolute inset-0 p-6 bg-slate-950/95 z-40 hidden flex flex-col justify-between overflow-y-auto">
+      <div class="mt-4 flex justify-between items-center border-b-2 border-slate-700 pb-3">
+        <h2 class="text-2xl font-extrabold text-purple-400">📖 遠古神獸秘典</h2><button class="btn-close-book p-2 text-slate-400 hover:text-white text-xl">✖</button>
+      </div>
+      <div class="flex-1 my-4 space-y-6 overflow-y-auto pr-1">
+        <div class="bg-slate-900 border border-purple-500/40 rounded-2xl p-4 shadow-md">
+          <div class="flex items-center space-x-3 mb-2">
+            <span class="text-4xl p-2 bg-purple-500/20 rounded-xl border border-purple-500">🐱</span>
+            <div><h3 class="text-lg font-bold text-purple-300">影刃小靈貓</h3><span class="px-2 py-0.5 bg-purple-600 text-white text-base rounded-full">召喚數量: 5 | 費用: 2</span></div>
+          </div>
+          <div class="grid grid-cols-3 gap-2 text-base text-slate-300 my-2 bg-slate-950/50 p-2 rounded-lg">
+            <div>🩸 生命值: <strong class="text-emerald-400 font-mono">100</strong></div><div>⚔️ 攻擊力: <strong class="text-red-400 font-mono">5</strong></div><div>⚡ DPS: <strong class="text-amber-400 font-mono">10</strong></div>
+            <div>🏃 移速: <strong class="text-sky-400 font-mono">2</strong></div><div>🎯 目標: <strong class="text-slate-400">單體</strong></div><div>🕒 間隔: <strong class="text-slate-400 font-mono">0.5s</strong></div>
+          </div>
+          <p class="text-base text-slate-300"><span class="text-amber-400 font-bold">🌟 神獸特技【暗影奇襲】：</span>當牠成功擊殺任何敵方單位時，會<strong class="text-purple-400">立即進入隱形狀態</strong>（無法被敵方砲塔及神獸鎖定），並獲得<strong class="text-sky-400">2倍移動速度</strong>，瘋狂向前衝向敵方城牆！(攻擊城牆後破除隱身)</p>
+        </div>
+        <div class="bg-slate-900 border border-emerald-500/40 rounded-2xl p-4 shadow-md">
+          <div class="flex items-center space-x-3 mb-2">
+            <span class="text-4xl p-2 bg-emerald-500/20 rounded-xl border border-emerald-500">🐢</span>
+            <div><h3 class="text-lg font-bold text-emerald-300">岩甲陸行龜</h3><span class="px-2 py-0.5 bg-emerald-600 text-white text-base rounded-full">召喚數量: 2 | 費用: 5</span></div>
+          </div>
+          <div class="grid grid-cols-3 gap-2 text-base text-slate-300 my-2 bg-slate-950/50 p-2 rounded-lg">
+            <div>🩸 生命值: <strong class="text-emerald-400 font-mono">500</strong></div><div>⚔️ 攻擊力: <strong class="text-red-400 font-mono">5</strong></div><div>⚡ DPS: <strong class="text-amber-400 font-mono">5</strong></div>
+            <div>🏃 移速: <strong class="text-sky-400 font-mono">0.5</strong></div><div>🎯 目標: <strong class="text-emerald-400 font-bold">群體 (AoE)</strong></div><div>🕒 間隔: <strong class="text-slate-400 font-mono">1.0s</strong></div>
+          </div>
+          <p class="text-base text-slate-300"><span class="text-amber-400 font-bold">🌟 神獸特技【大地重裝 & 大地践踏】：</span>凝聚岩石的護盾，出場即帶有防護力場，可<strong class="text-cyan-400">免疫前 50 次受到的任何傷害</strong>。並且牠的攻擊為**群體攻擊**，每次拍擊都會對目標周圍 100px 的所有敵方單位造成大範圍濺射傷害！</p>
+        </div>
+        <div class="bg-slate-900 border border-sky-500/40 rounded-2xl p-4 shadow-md">
+          <div class="flex items-center space-x-3 mb-2">
+            <span class="text-4xl p-2 bg-sky-500/20 rounded-xl border border-sky-500">🐦</span>
+            <div><h3 class="text-lg font-bold text-sky-300">精靈風行雀</h3><span class="px-2 py-0.5 bg-sky-600 text-white text-base rounded-full">召喚數量: 3 | 費用: 3</span></div>
+          </div>
+          <div class="grid grid-cols-3 gap-2 text-base text-slate-300 my-2 bg-slate-950/50 p-2 rounded-lg">
+            <div>🩸 生命值: <strong class="text-emerald-400 font-mono">50</strong></div><div>⚔️ 攻擊力: <strong class="text-red-400 font-mono">20</strong></div><div>⚡ DPS: <strong class="text-amber-400 font-mono">20</strong></div>
+            <div>🏃 移速: <strong class="text-sky-400 font-mono">1</strong></div><div>🎯 射程: <strong class="text-slate-400 font-mono">5格 (200px)</strong></div><div>🕒 間隔: <strong class="text-slate-400 font-mono">1.0s</strong></div>
+          </div>
+          <p class="text-base text-slate-300"><span class="text-amber-400 font-bold">🌟 神獸特技【暴風狂襲】：</span>在空中拉開風之弓箭，在每次發動攻擊時，都有 <strong class="text-sky-400">20% 的機率觸散射</strong>，同時朝前方的扇形方向射出 <strong class="text-sky-300">3 發風暴箭</strong>，橫掃防線！</p>
+        </div>
+        <div class="bg-slate-900 border border-orange-500/40 rounded-2xl p-4 shadow-md">
+          <div class="flex items-center space-x-3 mb-2">
+            <span class="text-4xl p-2 bg-orange-500/20 rounded-xl border border-orange-500">🦊</span>
+            <div><h3 class="text-lg font-bold text-orange-300">星火小九尾</h3><span class="px-2 py-0.5 bg-orange-600 text-white text-base rounded-full">召喚數量: 2 | 費用: 4</span></div>
+          </div>
+          <div class="grid grid-cols-3 gap-2 text-base text-slate-300 my-2 bg-slate-950/50 p-2 rounded-lg">
+            <div>🩸 生命值: <strong class="text-emerald-400 font-mono">70</strong></div><div>⚔️ 攻擊力: <strong class="text-red-400 font-mono">20</strong></div><div>⚡ DPS: <strong class="text-amber-400 font-mono">10</strong></div>
+            <div>🏃 移速: <strong class="text-sky-400 font-mono">1</strong></div><div>🎯 射程: <strong class="text-slate-400 font-mono">3格 (120px)</strong></div><div>🕒 間隔: <strong class="text-slate-400 font-mono">2.0s</strong></div>
+          </div>
+          <p class="text-base text-slate-300"><span class="text-amber-400 font-bold">🌟 神獸特技【九尾靈療 & 濺射】：</span>牠噴吐的星火火球會對落點周圍造成<strong class="text-orange-400">範圍爆炸傷害 (AoE)</strong>。並且，當牠每次發動法術攻擊時，都會釋放純淨靈氣，<strong class="text-emerald-400">治療戰場上所有己方神獸 2 HP</strong>！</p>
+        </div>
+      </div>
+      <button class="btn-close-book btn-cartoon w-full py-4 bg-purple-600 border-b-4 border-purple-800 text-white font-extrabold text-lg rounded-2xl shadow-lg safe-bottom">返回主選單</button>
+    </div>
+
+    <!-- ==================== 5. 炮台圖鑑畫面 ==================== -->
+    <div id="screen-tower-book" class="screen-fade absolute inset-0 p-6 bg-slate-950/95 z-40 hidden flex flex-col justify-between overflow-y-auto">
+      <div class="mt-4 flex justify-between items-center border-b-2 border-slate-700 pb-3">
+        <h2 class="text-2xl font-extrabold text-sky-400">🛡️ 皇家精銳武裝圖鑑</h2><button class="btn-close-book p-2 text-slate-400 hover:text-white text-xl">✖</button>
+      </div>
+      <div class="flex-1 my-4 space-y-6 overflow-y-auto pr-1">
+        <div class="bg-slate-900 border border-rose-500/40 rounded-2xl p-4 shadow-md">
+          <div class="flex items-center space-x-3 mb-2">
+            <span class="text-4xl p-2 bg-rose-500/20 rounded-xl border border-rose-500">🔥</span>
+            <div><h3 class="text-lg font-bold text-rose-300">龍息鋼砲</h3><span class="px-2 py-0.5 bg-rose-600 text-white text-base rounded-full">重裝砲擊型</span></div>
+          </div>
+          <p class="text-base text-slate-300 my-2">⚙️ <strong>武器設定：</strong> 以地心熔岩鐵石打造的重型大砲，能夠調整射角，朝敵人砸下威力強大的熔岩重力彈。</p>
+          <div class="bg-slate-950/50 p-3 rounded-lg space-y-1 text-base text-slate-300">
+            <div class="flex justify-between"><span>💥 單發傷害:</span> <strong class="text-rose-400 font-mono">10</strong></div>
+            <div class="flex justify-between"><span>⏳ 裝填速度:</span> <strong class="text-amber-400 font-mono">2.0 秒</strong></div>
+            <div class="flex justify-between"><span>🌐 傷害範圍:</span> <strong class="text-sky-400 font-mono">圓半徑 100px (溅射傷害)</strong></div>
+          </div>
+        </div>
+        <div class="bg-slate-900 border border-emerald-500/40 rounded-2xl p-4 shadow-md">
+          <div class="flex items-center space-x-3 mb-2">
+            <span class="text-4xl p-2 bg-emerald-500/20 rounded-xl border border-emerald-500">🍃</span>
+            <div><h3 class="text-lg font-bold text-emerald-300">暴風千擊砲</h3><span class="px-2 py-0.5 bg-emerald-600 text-white text-base rounded-full">散射狂風型</span></div>
+          </div>
+          <p class="text-base text-slate-300 my-2">⚙️ <strong>武器設定：</strong> 安裝了精靈風石的魔能機關炮，每次開火都會呈扇形噴射出密密麻麻的小風彈，對鋪天蓋地的敵人群非常有效。</p>
+          <div class="bg-slate-950/50 p-3 rounded-lg space-y-1 text-base text-slate-300">
+            <div class="flex justify-between"><span>💥 單顆傷害:</span> <strong class="text-emerald-400 font-mono">2 (總計 10)</strong></div>
+            <div class="flex justify-between"><span>⏳ 裝填速度:</span> <strong class="text-amber-400 font-mono">2.0 秒</strong></div>
+            <div class="flex justify-between"><span>🌐 彈道數量:</span> <strong class="text-sky-400 font-mono">10 發扇形擴散</strong></div>
+          </div>
+        </div>
+        <div class="bg-slate-900 border border-purple-500/40 rounded-2xl p-4 shadow-md">
+          <div class="flex items-center space-x-3 mb-2">
+            <span class="text-4xl p-2 bg-purple-500/20 rounded-xl border border-purple-500">⚡</span>
+            <div><h3 class="text-lg font-bold text-purple-300">幻星雷射砲</h3><span class="px-2 py-0.5 bg-purple-600 text-white text-base rounded-full">穿透雷射型</span></div>
+          </div>
+          <p class="text-base text-slate-300 my-2">⚙️ <strong>武器設定：</strong> 高耸的神聖星辰水晶塔，在頂部高度凝聚奧術射線，釋放出能夠瞬間貫穿整條直線、消滅一切阻礙的毀滅脈衝。</p>
+          <div class="bg-slate-950/50 p-3 rounded-lg space-y-1 text-base text-slate-300">
+            <div class="flex justify-between"><span>💥 貫穿傷害:</span> <strong class="text-purple-400 font-mono">40 (穿透沿途所有單位)</strong></div>
+            <div class="flex justify-between"><span>⏳ 裝填速度:</span> <strong class="text-amber-400 font-mono">5.0 秒</strong></div>
+            <div class="flex justify-between"><span>🛡️ 城牆克制:</span> <strong class="text-red-400 font-mono">可直接穿透直擊敵方大本營！</strong></div>
+          </div>
+        </div>
+      </div>
+      <button class="btn-close-book btn-cartoon w-full py-4 bg-sky-600 border-b-4 border-sky-800 text-white font-extrabold text-lg rounded-2xl shadow-lg safe-bottom">返回主選單</button>
+    </div>
+
+    <!-- ==================== 5.5 城牆圖鑑畫面 ==================== -->
+    <div id="screen-wall-book" class="screen-fade absolute inset-0 p-6 bg-slate-950/95 z-40 hidden flex flex-col justify-between overflow-y-auto">
+      <div class="mt-4 flex justify-between items-center border-b-2 border-slate-700 pb-3">
+        <h2 class="text-2xl font-extrabold text-amber-500">🧱 遠古防線城牆秘錄</h2><button class="btn-close-book p-2 text-slate-400 hover:text-white text-xl">✖</button>
+      </div>
+      <div class="flex-1 my-4 space-y-6 overflow-y-auto pr-1">
+        <div class="bg-slate-900 border border-amber-500/40 rounded-2xl p-4 shadow-md">
+          <div class="flex items-center space-x-3 mb-2">
+            <span class="text-4xl p-2 bg-amber-500/20 rounded-xl border border-amber-500">🔥</span>
+            <div><h3 class="text-lg font-bold text-amber-300">先鋒要塞</h3><span class="px-2 py-0.5 bg-amber-600 text-white text-base rounded-full">聖火充能型</span></div>
+          </div>
+          <p class="text-base text-slate-300 my-2">⚙️ <strong>城牆設定：</strong> 蘊含了太古地脈火能的戰略要地，開局即可為守城軍隊引導強大的聖火能量。</p>
+          <div class="bg-slate-950/50 p-3 rounded-lg space-y-1 text-base text-slate-300">
+            <div class="flex justify-between"><span>🛡️ 城牆血量:</span> <strong class="text-emerald-400 font-mono">10000</strong></div>
+            <div class="flex justify-between"><span>🌟 核心特技:</span> <strong class="text-amber-400 font-mono">開局及血量低於50%時各獲得5 🔥 聖火</strong></div>
+            <div class="flex justify-between"><span>🚀 戰術優勢:</span> <strong class="text-sky-400 font-mono">起手立即召喚高費用神獸碾壓。</strong></div>
+          </div>
+        </div>
+        <div class="bg-slate-900 border border-sky-500/40 rounded-2xl p-4 shadow-md">
+          <div class="flex items-center space-x-3 mb-2">
+            <span class="text-4xl p-2 bg-sky-500/20 rounded-xl border border-sky-500">🛡️</span>
+            <div><h3 class="text-lg font-bold text-sky-300">重裝拒馬</h3><span class="px-2 py-0.5 bg-sky-600 text-white text-base rounded-full">急速反震型</span></div>
+          </div>
+          <p class="text-base text-slate-300 my-2">⚙️ <strong>城牆設定：</strong> 安裝有強大斥力反震法陣的重裝裝甲城牆，能與城頭的炮台形成共鳴，加快射擊並震退來敵。</p>
+          <div class="bg-slate-950/50 p-3 rounded-lg space-y-1 text-base text-slate-300">
+            <div class="flex justify-between"><span>🛡️ 城牆血量:</span> <strong class="text-emerald-400 font-mono">10000</strong></div>
+            <div class="flex justify-between"><span>⚡ 射速強化:</span> <strong class="text-sky-400 font-mono">砲台裝填冷卻速度快 2 倍</strong></div>
+            <div class="flex justify-between"><span>💫 機率反擊:</span> <strong class="text-amber-400 font-mono">砲彈有 25% 機率擊退敵人 3 格</strong></div>
+          </div>
+        </div>
+        <div class="bg-slate-900 border border-emerald-500/40 rounded-2xl p-4 shadow-md">
+          <div class="flex items-center space-x-3 mb-2">
+            <span class="text-4xl p-2 bg-emerald-500/20 rounded-xl border border-emerald-500">💚</span>
+            <div><h3 class="text-lg font-bold text-emerald-300">生機之壁</h3><span class="px-2 py-0.5 bg-emerald-600 text-white text-base rounded-full">生生不息型</span></div>
+          </div>
+          <p class="text-base text-slate-300 my-2">⚙️ <strong>城牆設定：</strong> 嵌滿了生命母樹古木之源的奇蹟城牆，即使遭受重創，內部植物纖維也會不斷編織修復傷口。</p>
+          <div class="bg-slate-950/50 p-3 rounded-lg space-y-1 text-base text-slate-300">
+            <div class="flex justify-between"><span>🛡️ 城牆血量:</span> <strong class="text-emerald-400 font-mono">10000</strong></div>
+            <div class="flex justify-between"><span>🌿 自動再生:</span> <strong class="text-emerald-400 font-mono">每 5 秒自動修補城牆 50 HP</strong></div>
+            <div class="flex justify-between"><span>⏳ 修復上限:</span> <strong class="text-sky-400 font-mono">最大修補至 10000 HP 滿血</strong></div>
+          </div>
+        </div>
+      </div>
+      <button class="btn-close-book btn-cartoon w-full py-4 bg-amber-600 border-b-4 border-amber-800 text-white font-extrabold text-lg rounded-2xl shadow-lg safe-bottom">返回主選單</button>
+    </div>
+
+    <!-- ==================== 6. 勝負結算畫面 ==================== -->
+    <div id="screen-gameover" class="screen-fade absolute inset-0 p-6 bg-slate-950/95 z-50 hidden flex flex-col justify-between items-center text-center">
+      <div class="mt-24 flex flex-col items-center">
+        <div id="result-emoji" class="text-8xl mb-4 animate-bounce">🏆</div>
+        <h2 id="result-title" class="text-4xl md:text-5xl font-extrabold text-amber-300 drop-shadow-[0_4px_0_rgba(0,0,0,0.8)]">🎉 獲得勝利 🎉</h2>
+        <p id="result-subtitle" class="text-lg text-slate-300 mt-2">你完美守護了城牆，擊潰了魔王 AI！</p>
+      </div>
+      <button id="btn-back-to-menu" class="btn-cartoon w-full py-4 bg-amber-400 border-b-4 border-amber-600 text-slate-900 font-extrabold text-xl rounded-2xl shadow-lg tracking-wider mb-8 safe-bottom">🔄 返回主選單</button>
+    </div>
+  </div>
+
+  <script>
+    // --- 音效管理器 (Web Audio API) ---
+    class SoundManager {
+      constructor() { this.ctx = null; this.bgmNode = null; this.isMuted = false; this.bgmInterval = null; }
+      init() {
+        if (!this.ctx) { try { this.ctx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return; } }
+        if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume();
+      }
+      toggleMute() { this.isMuted = !this.isMuted; this.isMuted ? this.stopBGM() : this.playBGM(); return this.isMuted; }
+      playBGM() {
+        this.init(); if (this.isMuted || !this.ctx || this.bgmInterval) return;
+        let notes = [261.63, 329.63, 392.00, 523.25, 493.88, 392.00, 329.63, 293.66], index = 0;
+        let playNote = () => {
+          if (this.isMuted || !this.ctx) return;
+          let now = this.ctx.currentTime, osc = this.ctx.createOscillator(), gain = this.ctx.createGain();
+          osc.connect(gain); gain.connect(this.ctx.destination);
+          osc.type = 'triangle'; osc.frequency.setValueAtTime(notes[index], now);
+          gain.gain.setValueAtTime(0.04, now); gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.35);
+          osc.start(now); osc.stop(now + 0.4); index = (index + 1) % notes.length;
+        };
+        this.bgmInterval = setInterval(playNote, 400); playNote();
+      }
+      stopBGM() { if (this.bgmInterval) { clearInterval(this.bgmInterval); this.bgmInterval = null; } }
+      playClick() {
+        this.init(); if (this.isMuted || !this.ctx) return;
+        let now = this.ctx.currentTime, osc = this.ctx.createOscillator(), gain = this.ctx.createGain();
+        osc.connect(gain); gain.connect(this.ctx.destination);
+        osc.type = 'sine'; osc.frequency.setValueAtTime(400, now); osc.frequency.exponentialRampToValueAtTime(200, now + 0.15);
+        gain.gain.setValueAtTime(0.05, now); gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.15);
+        osc.start(now); osc.stop(now + 0.15);
+      }
+      playSummon() {
+        this.init(); if (this.isMuted || !this.ctx) return;
+        let now = this.ctx.currentTime, osc = this.ctx.createOscillator(), gain = this.ctx.createGain();
+        osc.connect(gain); gain.connect(this.ctx.destination);
+        osc.type = 'sine'; osc.frequency.setValueAtTime(200, now); osc.frequency.exponentialRampToValueAtTime(800, now + 0.25);
+        gain.gain.setValueAtTime(0.08, now); gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.25);
+        osc.start(now); osc.stop(now + 0.25);
+      }
+      playShoot(type) {
+        this.init(); if (this.isMuted || !this.ctx) return;
+        let now = this.ctx.currentTime, osc = this.ctx.createOscillator(), gain = this.ctx.createGain();
+        osc.connect(gain); gain.connect(this.ctx.destination);
+        if (type === 'A') {
+          osc.type = 'sawtooth'; osc.frequency.setValueAtTime(120, now); osc.frequency.exponentialRampToValueAtTime(30, now + 0.35);
+          gain.gain.setValueAtTime(0.12, now); gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.35);
+          osc.start(now); osc.stop(now + 0.35);
+        } else if (type === 'B') {
+          osc.type = 'triangle'; osc.frequency.setValueAtTime(350, now); osc.frequency.exponentialRampToValueAtTime(100, now + 0.1);
+          gain.gain.setValueAtTime(0.06, now); gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.1);
+          osc.start(now); osc.stop(now + 0.1);
+        } else if (type === 'C') {
+          osc.type = 'sine'; osc.frequency.setValueAtTime(500, now); osc.frequency.exponentialRampToValueAtTime(900, now + 0.4);
+          gain.gain.setValueAtTime(0.08, now); gain.gain.exponentialRampToValueAtTime(0.04, now + 0.4);
+          osc.start(now); osc.stop(now + 0.4);
+          setTimeout(() => {
+            if (this.isMuted || !this.ctx) return;
+            let oscB = this.ctx.createOscillator(), gainB = this.ctx.createGain();
+            oscB.connect(gainB); gainB.connect(this.ctx.destination);
+            oscB.type = 'sawtooth'; oscB.frequency.setValueAtTime(900, this.ctx.currentTime); oscB.frequency.linearRampToValueAtTime(150, this.ctx.currentTime + 0.3);
+            gainB.gain.setValueAtTime(0.12, this.ctx.currentTime); gainB.gain.exponentialRampToValueAtTime(0.0001, this.ctx.currentTime + 0.3);
+            oscB.start(this.ctx.currentTime); oscB.stop(this.ctx.currentTime + 0.3);
+          }, 400);
+        }
+      }
+      playHit() {
+        this.init(); if (this.isMuted || !this.ctx) return;
+        let now = this.ctx.currentTime, osc = this.ctx.createOscillator(), gain = this.ctx.createGain();
+        osc.connect(gain); gain.connect(this.ctx.destination);
+        osc.type = 'triangle'; osc.frequency.setValueAtTime(90, now);
+        gain.gain.setValueAtTime(0.08, now); gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.08);
+        osc.start(now); osc.stop(now + 0.08);
+      }
+      playHeal() {
+        this.init(); if (this.isMuted || !this.ctx) return;
+        let now = this.ctx.currentTime, osc = this.ctx.createOscillator(), gain = this.ctx.createGain();
+        osc.connect(gain); gain.connect(this.ctx.destination);
+        osc.type = 'sine'; osc.frequency.setValueAtTime(440, now); osc.frequency.linearRampToValueAtTime(880, now + 0.25);
+        gain.gain.setValueAtTime(0.06, now); gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.25);
+        osc.start(now); osc.stop(now + 0.25);
+      }
+      playVictory() {
+        this.init(); if (this.isMuted || !this.ctx) return; this.stopBGM();
+        let now = this.ctx.currentTime, arpeggio = [261.63, 329.63, 392.00, 523.25, 659.25, 783.99, 1046.50];
+        arpeggio.forEach((f, i) => {
+          let osc = this.ctx.createOscillator(), gain = this.ctx.createGain();
+          osc.connect(gain); gain.connect(this.ctx.destination);
+          osc.type = 'square'; osc.frequency.setValueAtTime(f, now + i * 0.1);
+          gain.gain.setValueAtTime(0.05, now + i * 0.1); gain.gain.exponentialRampToValueAtTime(0.0001, now + i * 0.1 + 0.4);
+          osc.start(now + i * 0.1); osc.stop(now + i * 0.1 + 0.5);
+        });
+      }
+      playDefeat() {
+        this.init(); if (this.isMuted || !this.ctx) return; this.stopBGM();
+        let now = this.ctx.currentTime, notes = [392.00, 311.13, 277.18, 220.00];
+        notes.forEach((f, i) => {
+          let osc = this.ctx.createOscillator(), gain = this.ctx.createGain();
+          osc.connect(gain); gain.connect(this.ctx.destination);
+          osc.type = 'sawtooth'; osc.frequency.setValueAtTime(f, now + i * 0.25);
+          gain.gain.setValueAtTime(0.06, now + i * 0.25); gain.gain.exponentialRampToValueAtTime(0.0001, now + i * 0.25 + 0.5);
+          osc.start(now + i * 0.25); osc.stop(now + i * 0.25 + 0.6);
+        });
+      }
+    }
+    const sound = new SoundManager();
+
+    // --- HTML UI 畫面導覽控制 ---
+    const screenMenu = document.getElementById('screen-menu'), screenTowerSelect = document.getElementById('screen-tower-select');
+    const screenWallSelect = document.getElementById('screen-wall-select'), screenBattle = document.getElementById('screen-battle');
+    const screenBeastBook = document.getElementById('screen-beast-book'), screenTowerBook = document.getElementById('screen-tower-book');
+    const screenWallBook = document.getElementById('screen-wall-book'), screenGameOver = document.getElementById('screen-gameover');
+
+    document.getElementById('mute-btn').addEventListener('click', (e) => {
+      e.target.innerText = sound.toggleMute() ? "🔇" : "🔊"; sound.playClick();
+    });
+    ['beast', 'tower', 'wall'].forEach(type => {
+      document.getElementById(`btn-${type}-book`).addEventListener('click', () => {
+        sound.playClick(); document.getElementById(`screen-${type}-book`).classList.remove('hidden');
+      });
+    });
+    document.querySelectorAll('.btn-close-book').forEach(btn => btn.addEventListener('click', () => {
+      sound.playClick(); screenBeastBook.classList.add('hidden'); screenTowerBook.classList.add('hidden'); screenWallBook.classList.add('hidden');
+    }));
+
+    // --- 選擇邏輯 ---
+    let selectedTowerType = 'A', selectedWallType = 'A';
+    const towerCards = document.querySelectorAll('.tower-card'), wallCards = document.querySelectorAll('.wall-card');
+    
+    function updateSelection(cards, selectedType, attr) {
+      cards.forEach(card => {
+        if (card.getAttribute(attr) === selectedType) {
+          card.classList.remove('bg-slate-800', 'border-slate-600'); card.classList.add('bg-slate-800/40', 'border-amber-400', 'ring-2', 'ring-amber-400/50');
+        } else {
+          card.classList.remove('bg-slate-800/40', 'border-amber-400', 'ring-2', 'ring-amber-400/50'); card.classList.add('bg-slate-800', 'border-slate-600');
+        }
+      });
+    }
+    towerCards.forEach(card => card.addEventListener('click', () => { sound.playClick(); selectedTowerType = card.getAttribute('data-tower-type'); updateSelection(towerCards, selectedTowerType, 'data-tower-type'); }));
+    wallCards.forEach(card => card.addEventListener('click', () => { sound.playClick(); selectedWallType = card.getAttribute('data-wall-type'); updateSelection(wallCards, selectedWallType, 'data-wall-type'); }));
+    updateSelection(towerCards, selectedTowerType, 'data-tower-type'); updateSelection(wallCards, selectedWallType, 'data-wall-type');
+
+    document.getElementById('btn-start-game').addEventListener('click', () => { sound.playClick(); sound.playBGM(); screenMenu.classList.add('hidden'); screenTowerSelect.classList.remove('hidden'); });
+    document.getElementById('btn-select-back').addEventListener('click', () => { sound.playClick(); screenTowerSelect.classList.add('hidden'); screenMenu.classList.remove('hidden'); });
+    document.getElementById('btn-select-next').addEventListener('click', () => { sound.playClick(); screenTowerSelect.classList.add('hidden'); screenWallSelect.classList.remove('hidden'); });
+    document.getElementById('btn-wall-back').addEventListener('click', () => { sound.playClick(); screenWallSelect.classList.add('hidden'); screenTowerSelect.classList.remove('hidden'); });
+    document.getElementById('btn-wall-confirm').addEventListener('click', () => { sound.playClick(); screenWallSelect.classList.add('hidden'); screenBattle.classList.remove('hidden'); initBattle(selectedTowerType, selectedWallType); });
+    document.getElementById('btn-back-to-menu').addEventListener('click', () => { sound.playClick(); screenGameOver.classList.add('hidden'); screenMenu.classList.remove('hidden'); sound.playBGM(); });
+
+    // ==================== 核心遊戲物理與繪圖 ====================
+    const canvas = document.getElementById('game-canvas'), ctx = canvas.getContext('2d');
+    const V_WIDTH = 540, V_HEIGHT = 960, PLAYER_WALL_Y = 700, AI_WALL_Y = 160, MAX_WALL_HP = 10000;
+    function resizeCanvas() { canvas.width = V_WIDTH; canvas.height = V_HEIGHT; }
+    window.addEventListener('resize', resizeCanvas); resizeCanvas();
+
+    let gameActive = false, timerInterval = null, timeRemaining = 180, mana = 0, lastManaRegenTime = 0;
+    let playerWallHP = 10000, aiWallHP = 10000, playerWallType = 'A', aiWallType = 'A', lastWallRegenTime = 0;
+    let playerWallA_Triggered = false, aiWallA_Triggered = false;
+    let statBeastSummoned = 0, statFiredShots = 0;
+    let playerBeasts = [], aiBeasts = [], playerProjectiles = [], aiProjectiles = [], particles = [], floatingTexts = [];
+    let isDragging = false;
+    let aiMana = 0, aiLastSummonTime = 0, aiDecisionCooldown = 0;
+
+    let playerTower = { x: 270, y: 710, angle: -Math.PI / 2, type: 'A', cooldown: 0, maxCooldown: 2000, lastFireTime: 0, laserCharging: 0 };
+    let aiTower = { x: 270, y: 150, angle: Math.PI / 2, type: 'A', cooldown: 0, maxCooldown: 2000, lastFireTime: 0, targetAngle: Math.PI / 2, laserCharging: 0 };
+
+    // --- 觸控/滑鼠瞄準操作 ---
+    function getCanvasTouchPos(e) {
+      const rect = canvas.getBoundingClientRect();
+      let clientX = e.touches && e.touches.length > 0 ? e.touches[0].clientX : e.clientX;
+      let clientY = e.touches && e.touches.length > 0 ? e.touches[0].clientY : e.clientY;
+      return { x: ((clientX - rect.left) / rect.width) * V_WIDTH, y: ((clientY - rect.top) / rect.height) * V_HEIGHT };
+    }
+    function handleAimStart(e) { if (!gameActive) return; const pos = getCanvasTouchPos(e); if (pos.y > V_HEIGHT / 2) { isDragging = true; updateAim(pos.x, pos.y); } }
+    function handleAimMove(e) { if (!gameActive || !isDragging) return; const pos = getCanvasTouchPos(e); updateAim(pos.x, pos.y); }
+    function handleAimEnd() { isDragging = false; }
+    function updateAim(targetX, targetY) {
+      let angle = Math.atan2(targetY - playerTower.y, targetX - playerTower.x);
+      const minAngle = -170 * Math.PI / 180, maxAngle = -10 * Math.PI / 180;
+      angle = angle > 0 ? (targetX - playerTower.x > 0 ? maxAngle : minAngle) : Math.max(minAngle, Math.min(maxAngle, angle));
+      playerTower.angle = angle;
+    }
+    canvas.addEventListener('mousedown', handleAimStart); canvas.addEventListener('mousemove', handleAimMove); window.addEventListener('mouseup', handleAimEnd);
+    canvas.addEventListener('touchstart', (e) => { handleAimStart(e); if (e.target === canvas) e.preventDefault(); }, { passive: false });
+    canvas.addEventListener('touchmove', (e) => { handleAimMove(e); if (e.target === canvas) e.preventDefault(); }, { passive: false });
+    window.addEventListener('touchend', handleAimEnd);
+
+    // --- 召喚按鈕邏輯 ---
+    const summonConfigs = {
+      1: { name: "影刃小靈貓", cost: 2, count: 5, type: 'assassin' },
+      2: { name: "岩甲陸行龜", cost: 5, count: 2, type: 'tank' },
+      3: { name: "精靈風行雀", cost: 3, count: 3, type: 'archer' },
+      4: { name: "星火小九尾", cost: 4, count: 2, type: 'mage' }
+    };
+    for (let i = 1; i <= 4; i++) {
+      document.getElementById(`summon-${i}`).addEventListener('click', (e) => { e.stopPropagation(); if (gameActive) summonBeastGroup(i, true); });
+    }
+    function summonBeastGroup(id, isPlayer) {
+      const config = summonConfigs[id]; if (!config) return;
+      if (isPlayer) { if (mana < config.cost) return; mana -= config.cost; statBeastSummoned += config.count; sound.playSummon(); }
+      else { if (aiMana < config.cost) return; aiMana -= config.cost; }
+      const count = config.count, spacing = 40, startX = V_WIDTH / 2 - ((count - 1) * spacing) / 2, spawnY = isPlayer ? PLAYER_WALL_Y - 50 : AI_WALL_Y + 50;
+      for (let index = 0; index < count; index++) {
+        let beast = createBeast(config.type, startX + index * spacing, spawnY, isPlayer);
+        isPlayer ? playerBeasts.push(beast) : aiBeasts.push(beast);
+      }
+      createSpawnParticle(V_WIDTH / 2, spawnY, isPlayer ? '#60a5fa' : '#f87171');
+    }
+
+    function createBeast(type, x, y, isPlayer) {
+      let beast = { type: type, x: x, y: y, isPlayer: isPlayer, id: Math.random().toString(36).substr(2, 9), target: null, targetIsWall: false, lockedOnWall: false, lastAttackTime: 0, speedMultiplier: 1.0, isInvisible: false, shieldCharges: 0, visualScale: 1.0 };
+      if (type === 'assassin') { beast.maxHp = 100; beast.atk = 5; beast.interval = 500; beast.speed = 2; beast.range = 30; beast.radius = 16; beast.name = "影刃小靈貓"; } 
+      else if (type === 'tank') { beast.maxHp = 500; beast.atk = 5; beast.interval = 1000; beast.speed = 0.5; beast.range = 30; beast.radius = 22; beast.shieldCharges = 50; beast.name = "岩甲陸行龜"; } 
+      else if (type === 'archer') { beast.maxHp = 50; beast.atk = 20; beast.interval = 1000; beast.speed = 1; beast.range = 200; beast.radius = 16; beast.name = "精靈風行雀"; } 
+      else if (type === 'mage') { beast.maxHp = 70; beast.atk = 20; beast.interval = 2000; beast.speed = 1; beast.range = 120; beast.radius = 18; beast.name = "星火小九尾"; }
+      beast.hp = beast.maxHp; return beast;
+    }
+
+    function initBattle(playerChoice, wallChoice) {
+      gameActive = true; timeRemaining = 180; playerWallHP = 10000; aiWallHP = 10000;
+      playerWallA_Triggered = false; aiWallA_Triggered = false; playerWallType = wallChoice || 'A';
+      aiWallType = ['A', 'B', 'C'][Math.floor(Math.random() * 3)];
+      mana = (playerWallType === 'A') ? 5 : 0; aiMana = (aiWallType === 'A') ? 5 : 0;
+      battleStartTime = Date.now(); statBeastSummoned = 0; statFiredShots = 0;
+      playerBeasts = []; aiBeasts = []; playerProjectiles = []; aiProjectiles = []; particles = []; floatingTexts = [];
+
+      let playerCooldownMultiplier = (playerWallType === 'B') ? 0.5 : 1.0; playerTower.type = playerChoice;
+      playerTower.maxCooldown = (playerChoice === 'C' ? 5000 : 2000) * playerCooldownMultiplier;
+      playerTower.angle = -Math.PI / 2; playerTower.laserCharging = 0; playerTower.lastFireTime = 0;
+
+      let aiCooldownMultiplier = (aiWallType === 'B') ? 0.5 : 1.0; aiTower.type = ['A', 'B', 'C'][Math.floor(Math.random() * 3)];
+      aiTower.maxCooldown = (aiTower.type === 'C' ? 5000 : 2000) * aiCooldownMultiplier;
+      aiTower.angle = Math.PI / 2; aiTower.targetAngle = Math.PI / 2; aiTower.laserCharging = 0; aiTower.lastFireTime = 0;
+
+      lastManaRegenTime = Date.now(); aiLastSummonTime = Date.now(); lastWallRegenTime = Date.now();
+      updateUI();
+      if (timerInterval) clearInterval(timerInterval);
+      timerInterval = setInterval(() => { if (gameActive) { timeRemaining--; if (timeRemaining <= 0) endGame(false, "時間到！雙方握手言和！"); updateUI(); } }, 1000);
+      requestAnimationFrame(gameLoop);
+    }
+
+    function updateUI() {
+      document.getElementById('timer-text').innerText = `${Math.floor(timeRemaining / 60).toString().padStart(2, '0')}:${(timeRemaining % 60).toString().padStart(2, '0')}`;
+      document.getElementById('player-hp-bar').style.width = `${(playerWallHP / MAX_WALL_HP) * 100}%`; document.getElementById('player-hp-text').innerText = `${playerWallHP}/${MAX_WALL_HP}`;
+      document.getElementById('ai-hp-bar').style.width = `${(aiWallHP / MAX_WALL_HP) * 100}%`; document.getElementById('ai-hp-text').innerText = `${aiWallHP}/${MAX_WALL_HP}`;
+      document.getElementById('mana-text').innerText = `${mana}/10`; document.getElementById('mana-bar').style.width = `${(mana / 10) * 100}%`;
+      for (let i = 1; i <= 4; i++) {
+        const btn = document.getElementById(`summon-${i}`);
+        if (mana >= summonConfigs[i].cost) {
+          btn.removeAttribute('disabled'); btn.classList.remove('bg-slate-800', 'border-slate-600'); btn.classList.add('bg-amber-500/20', 'border-amber-400', 'scale-100', 'shadow-[0_0_8px_rgba(245,158,11,0.4)]');
+        } else {
+          btn.setAttribute('disabled', 'true'); btn.classList.remove('bg-amber-500/20', 'border-amber-400', 'scale-100', 'shadow-[0_0_8px_rgba(245,158,11,0.4)]'); btn.classList.add('bg-slate-800', 'border-slate-600');
+        }
+      }
+    }
+
+    function gameLoop() {
+      if (!gameActive) return;
+      updatePhysics(); drawGame(); requestAnimationFrame(gameLoop);
+    }
+
+    function updatePhysics() {
+      const now = Date.now();
+      if (now - lastManaRegenTime >= 2000) { if (mana < 10) { mana = Math.min(10, mana + 1); updateUI(); } if (aiMana < 10) aiMana = Math.min(10, aiMana + 1); lastManaRegenTime = now; }
+      if (now - lastWallRegenTime >= 5000) {
+        if (playerWallType === 'C' && playerWallHP < MAX_WALL_HP) { playerWallHP = Math.min(MAX_WALL_HP, playerWallHP + 50); createFloatingText(V_WIDTH / 2, PLAYER_WALL_Y - 20, "+50 修復", '#10b981'); createHealSparkle(V_WIDTH / 2, PLAYER_WALL_Y); updateUI(); }
+        if (aiWallType === 'C' && aiWallHP < MAX_WALL_HP) { aiWallHP = Math.min(MAX_WALL_HP, aiWallHP + 50); createFloatingText(V_WIDTH / 2, AI_WALL_Y + 20, "+50 修復", '#10b981'); createHealSparkle(V_WIDTH / 2, AI_WALL_Y); updateUI(); }
+        lastWallRegenTime = now;
+      }
+      if (playerWallType === 'A' && !playerWallA_Triggered && playerWallHP < MAX_WALL_HP / 2) { playerWallA_Triggered = true; mana = Math.min(10, mana + 5); createFloatingText(V_WIDTH / 2, PLAYER_WALL_Y - 20, "+5 🔥 聖火爆發！", '#f59e0b'); updateUI(); }
+      if (aiWallType === 'A' && !aiWallA_Triggered && aiWallHP < MAX_WALL_HP / 2) { aiWallA_Triggered = true; aiMana = Math.min(10, aiMana + 5); createFloatingText(V_WIDTH / 2, AI_WALL_Y + 20, "+5 🔥 聖火爆發！", '#f59e0b'); }
+
+      // 玩家砲台自動射擊邏輯
+      if (now - playerTower.lastFireTime >= playerTower.maxCooldown) { fireTower(playerTower, true); playerTower.lastFireTime = now; }
+      else if (playerTower.type === 'C') { const timeToFire = playerTower.maxCooldown - (now - playerTower.lastFireTime); playerTower.laserCharging = timeToFire <= 400 ? (400 - timeToFire) / 400 : 0; }
+
+      // AI 邏輯
+      updateAiTowerTarget(now);
+      if (now - aiTower.lastFireTime >= aiTower.maxCooldown) { fireTower(aiTower, false); aiTower.lastFireTime = now; }
+      else if (aiTower.type === 'C') { const timeToFire = aiTower.maxCooldown - (now - aiTower.lastFireTime); aiTower.laserCharging = timeToFire <= 400 ? (400 - timeToFire) / 400 : 0; }
+      updateAiSummon(now);
+
+      updateBeasts(playerBeasts, aiBeasts, true); updateBeasts(aiBeasts, playerBeasts, false);
+      updateProjectiles(); updateParticles(); updateFloatingTexts();
+
+      if (playerWallHP <= 0) endGame(false, "城牆被攻陷了！魔王 AI 獲得勝利！"); else if (aiWallHP <= 0) endGame(true, "太棒了！你成功摧毀了敵方的城牆！");
+    }
+
+    function updateAiTowerTarget(now) {
+      let closestBeast = null, minDist = 999999;
+      playerBeasts.forEach(beast => { if (beast.isInvisible) return; const dist = (beast.x - aiTower.x) ** 2 + (beast.y - aiTower.y) ** 2; if (dist < minDist) { minDist = dist; closestBeast = beast; } });
+      aiTower.targetAngle = closestBeast ? Math.atan2(closestBeast.y - aiTower.y, closestBeast.x - aiTower.x) : Math.atan2(playerTower.y - aiTower.y, playerTower.x - aiTower.x);
+      aiTower.angle += Math.max(-0.05, Math.min(0.05, aiTower.targetAngle - aiTower.angle));
+    }
+
+    function updateAiSummon(now) {
+      if (now < aiDecisionCooldown) return;
+      aiDecisionCooldown = now + 1000 + Math.random() * 1500;
+      let enemyTypes = { assassin: 0, tank: 0, archer: 0, mage: 0 }; playerBeasts.forEach(b => enemyTypes[b.type]++);
+      if (aiMana >= 2) {
+        let summonId = 1;
+        if (enemyTypes.assassin > 3) summonId = aiMana >= 4 ? 4 : 2;
+        else if (enemyTypes.tank > 0) summonId = aiMana >= 3 ? 3 : 1;
+        else if (enemyTypes.archer > 2 || enemyTypes.mage > 1) summonId = 1;
+        else { let availableIds = []; for (let id = 1; id <= 4; id++) if (aiMana >= summonConfigs[id].cost) availableIds.push(id); if (availableIds.length > 0) summonId = availableIds[Math.floor(Math.random() * availableIds.length)]; else return; }
+        if (aiMana >= summonConfigs[summonId].cost) summonBeastGroup(summonId, false);
+      }
+    }
+
+    function fireTower(tower, isPlayer) {
+      const startX = tower.x + Math.cos(tower.angle) * 40, startY = tower.y + Math.sin(tower.angle) * 40; statFiredShots++;
+      if (tower.type === 'A') { sound.playShoot('A'); createProjectile(startX, startY, tower.angle, 6, 10, 'heavy', isPlayer); } 
+      else if (tower.type === 'B') {
+        sound.playShoot('B'); const spread = 0.4;
+        for (let i = 0; i < 10; i++) createProjectile(startX, startY, tower.angle - spread / 2 + (spread / 9) * i, 8, 2, 'light', isPlayer);
+      } 
+      else if (tower.type === 'C') {
+        sound.playShoot('C'); const endX = startX + Math.cos(tower.angle) * 1000, endY = startY + Math.sin(tower.angle) * 1000;
+        createLaserBeamParticle(startX, startY, endX, endY, isPlayer ? '#d946ef' : '#f43f5e');
+        (isPlayer ? aiBeasts : playerBeasts).forEach(b => { if (distToSegment({ x: b.x, y: b.y }, { x: startX, y: startY }, { x: endX, y: endY }) <= b.radius + 15) dealDamage(b, 40, isPlayer); });
+        const sinA = Math.sin(tower.angle);
+        if (sinA !== 0) {
+          const t = ((isPlayer ? AI_WALL_Y : PLAYER_WALL_Y) - startY) / sinA;
+          if (t > 0) { const hitX = startX + t * Math.cos(tower.angle); if (hitX >= 0 && hitX <= V_WIDTH) damageWall(!isPlayer, 40); }
+        }
+      }
+    }
+
+    function createProjectile(x, y, angle, speed, atk, style, isPlayer) {
+      const p = { x: x, y: y, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed, atk: atk, style: style, isPlayer: isPlayer, radius: style === 'heavy' ? 8 : (style === 'arrow' ? 3 : (style === 'fireball' ? 6 : 4)), timer: 0 };
+      isPlayer ? playerProjectiles.push(p) : aiProjectiles.push(p);
+    }
+
+    function distToSegment(p, v, w) {
+      const l2 = (v.x - w.x) ** 2 + (v.y - w.y) ** 2; if (l2 === 0) return Math.hypot(p.x - v.x, p.y - v.y);
+      return Math.hypot(p.x - (v.x + Math.max(0, Math.min(1, ((p.x - v.x) * (w.x - v.x) + (p.y - v.y) * (w.y - v.y)) / l2)) * (w.x - v.x)), p.y - (v.y + Math.max(0, Math.min(1, ((p.x - v.x) * (w.x - v.x) + (p.y - v.y) * (w.y - v.y)) / l2)) * (w.y - v.y)));
+    }
+
+    function updateBeasts(myBeasts, enemyBeasts, isPlayer) {
+      const now = Date.now();
+      for (let i = myBeasts.length - 1; i >= 0; i--) {
+        const b = myBeasts[i];
+        if (b.lockedOnWall) { b.target = { x: b.x, y: isPlayer ? AI_WALL_Y : PLAYER_WALL_Y, isWall: true }; b.targetIsWall = true; } 
+        else {
+          let closestEnemy = null, minDist = 999999;
+          enemyBeasts.forEach(enemy => { if (enemy.isInvisible) return; const dist = Math.hypot(enemy.x - b.x, enemy.y - b.y); if (dist < minDist) { minDist = dist; closestEnemy = enemy; } });
+          if (closestEnemy) { b.target = closestEnemy; b.targetIsWall = false; } else { b.target = { x: b.x, y: isPlayer ? AI_WALL_Y : PLAYER_WALL_Y, isWall: true }; b.targetIsWall = true; }
+        }
+        if (b.target) {
+          const checkDist = b.targetIsWall ? Math.abs(b.y - b.target.y) : Math.hypot(b.target.x - b.x, b.target.y - b.y);
+          if (checkDist > (b.targetIsWall ? Math.max(35, b.range) : b.range)) {
+            const moveAngle = Math.atan2(b.target.y - b.y, b.target.x - b.x), currentSpeed = b.speed * b.speedMultiplier;
+            if (b.type === 'assassin' && b.speedMultiplier > 1.1) createSpeedTrailParticle(b.x, b.y, '#c084fc');
+            b.x += Math.cos(moveAngle) * currentSpeed; b.y += Math.sin(moveAngle) * currentSpeed;
+          } else if (now - b.lastAttackTime >= b.interval) { executeBeastAttack(b, b.target, isPlayer, now); b.lastAttackTime = now; }
+        }
+        if (b.hp > b.maxHp) b.hp = b.maxHp;
+        if (b.hp <= 0) { createDeathParticle(b.x, b.y, isPlayer ? '#3b82f6' : '#ef4444'); myBeasts.splice(i, 1); }
+      }
+    }
+
+    function executeBeastAttack(attacker, target, isPlayer, now) {
+      if (attacker.targetIsWall) {
+        attacker.lockedOnWall = true;
+        if (attacker.type === 'assassin' && attacker.isInvisible) { attacker.isInvisible = false; attacker.speedMultiplier = 1.0; createFloatingText(attacker.x, attacker.y - 25, "🔮 顯形！", '#c084fc'); }
+        damageWall(!isPlayer, attacker.atk); createImpactParticle(attacker.x, isPlayer ? AI_WALL_Y : PLAYER_WALL_Y, '#f59e0b'); sound.playHit();
+      } else {
+        if (attacker.type === 'assassin') { dealDamage(target, attacker.atk, isPlayer, attacker); sound.playHit(); createImpactParticle(target.x, target.y, '#c084fc'); } 
+        else if (attacker.type === 'tank') {
+          (isPlayer ? aiBeasts : playerBeasts).forEach(enemy => { if (Math.hypot(enemy.x - target.x, enemy.y - target.y) <= 100) dealDamage(enemy, attacker.atk, isPlayer, attacker); });
+          sound.playHit(); createImpactParticle(target.x, target.y, '#10b981'); createExplosionParticle(target.x, target.y, '#10b981');
+        } 
+        else if (attacker.type === 'archer') {
+          const angle = Math.atan2(target.y - attacker.y, target.x - attacker.x);
+          if (Math.random() < 0.20) {
+            sound.playShoot('B'); createProjectile(attacker.x, attacker.y, angle, 6, attacker.atk, 'arrow', isPlayer); createProjectile(attacker.x, attacker.y, angle - 0.2, 6, attacker.atk, 'arrow', isPlayer); createProjectile(attacker.x, attacker.y, angle + 0.2, 6, attacker.atk, 'arrow', isPlayer); createFloatingText(attacker.x, attacker.y - 15, "💥 散射！", '#38bdf8');
+          } else createProjectile(attacker.x, attacker.y, angle, 6, attacker.atk, 'arrow', isPlayer);
+        } 
+        else if (attacker.type === 'mage') {
+          createProjectile(attacker.x, attacker.y, Math.atan2(target.y - attacker.y, target.x - attacker.x), 5, attacker.atk, 'fireball', isPlayer); sound.playHeal();
+          (isPlayer ? playerBeasts : aiBeasts).forEach(ally => { if (ally.hp < ally.maxHp) { ally.hp += 2; createFloatingText(ally.x, ally.y - 20, "+2", '#10b981'); createHealSparkle(ally.x, ally.y); } });
+        }
+      }
+      attacker.visualScale = 1.25;
+    }
+
+    function dealDamage(target, amount, isAttackerPlayer, attackerEntity = null) {
+      if (target.type === 'tank' && target.shieldCharges > 0) { target.shieldCharges--; createFloatingText(target.x, target.y - 25, "🛡️ 免疫", '#22d3ee'); createShieldBreakParticle(target.x, target.y); sound.playHit(); return; }
+      target.hp -= amount; createFloatingText(target.x, target.y - 15, `-${amount}`, '#f43f5e');
+      if (target.hp <= 0 && attackerEntity && attackerEntity.type === 'assassin') { attackerEntity.isInvisible = true; attackerEntity.speedMultiplier = 2.0; attackerEntity.lockedOnWall = true; createFloatingText(attackerEntity.x, attackerEntity.y - 25, "🔮 隱身衝鋒！", '#c084fc'); }
+    }
+
+    function damageWall(isPlayerWall, amount) { isPlayerWall ? playerWallHP = Math.max(0, playerWallHP - amount) : aiWallHP = Math.max(0, aiWallHP - amount); updateUI(); }
+
+    function updateProjectiles() {
+      for (let i = playerProjectiles.length - 1; i >= 0; i--) {
+        const p = playerProjectiles[i]; p.x += p.vx; p.y += p.vy;
+        if (p.x < -50 || p.x > V_WIDTH + 50 || p.y < -50 || p.y > V_HEIGHT + 50) { playerProjectiles.splice(i, 1); continue; }
+        let hit = false;
+        for (let j = 0; j < aiBeasts.length; j++) {
+          const enemy = aiBeasts[j]; if (enemy.isInvisible) continue;
+          if (Math.hypot(enemy.x - p.x, enemy.y - p.y) <= enemy.radius + p.radius) { executeProjectileHit(p, enemy, true); hit = true; break; }
+        }
+        if (!hit && p.y <= AI_WALL_Y) { executeProjectileWallHit(p, false); hit = true; }
+        if (hit) playerProjectiles.splice(i, 1);
+      }
+      for (let i = aiProjectiles.length - 1; i >= 0; i--) {
+        const p = aiProjectiles[i]; p.x += p.vx; p.y += p.vy;
+        if (p.x < -50 || p.x > V_WIDTH + 50 || p.y < -50 || p.y > V_HEIGHT + 50) { aiProjectiles.splice(i, 1); continue; }
+        let hit = false;
+        for (let j = 0; j < playerBeasts.length; j++) {
+          const enemy = playerBeasts[j]; if (enemy.isInvisible) continue;
+          if (Math.hypot(enemy.x - p.x, enemy.y - p.y) <= enemy.radius + p.radius) { executeProjectileHit(p, enemy, false); hit = true; break; }
+        }
+        if (!hit && p.y >= PLAYER_WALL_Y) { executeProjectileWallHit(p, true); hit = true; }
+        if (hit) aiProjectiles.splice(i, 1);
+      }
+    }
+
+    function executeProjectileHit(proj, target, isPlayerAttack) {
+      sound.playHit();
+      if ((isPlayerAttack && playerWallType === 'B' && Math.random() < 0.25) || (!isPlayerAttack && aiWallType === 'B' && Math.random() < 0.25)) {
+        target.y = isPlayerAttack ? Math.max(AI_WALL_Y + 40, target.y - 120) : Math.min(PLAYER_WALL_Y - 40, target.y + 120);
+        createFloatingText(target.x, target.y - 25, "💫 擊退！", '#38bdf8'); createExplosionParticle(target.x, target.y, '#38bdf8');
+      }
+      if (proj.style === 'heavy') {
+        createExplosionParticle(proj.x, proj.y, '#f59e0b');
+        (isPlayerAttack ? aiBeasts : playerBeasts).forEach(enemy => { if (Math.hypot(enemy.x - proj.x, enemy.y - proj.y) <= 100) dealDamage(enemy, proj.atk, isPlayerAttack); });
+      } else if (proj.style === 'fireball') {
+        createExplosionParticle(proj.x, proj.y, '#f97316');
+        (isPlayerAttack ? aiBeasts : playerBeasts).forEach(enemy => { if (Math.hypot(enemy.x - proj.x, enemy.y - proj.y) <= 35) dealDamage(enemy, proj.atk, isPlayerAttack); });
+      } else { dealDamage(target, proj.atk, isPlayerAttack); createImpactParticle(proj.x, proj.y, isPlayerAttack ? '#38bdf8' : '#f87171'); }
+    }
+
+    function executeProjectileWallHit(proj, isPlayerWallHit) {
+      sound.playHit(); createExplosionParticle(proj.x, proj.y, '#ef4444'); damageWall(isPlayerWallHit, proj.atk); createImpactParticle(proj.x, proj.y, proj.style === 'heavy' ? '#f59e0b' : '#ef4444');
+    }
+
+    // --- 粒子特效與飄字 ---
+    function createFloatingText(x, y, text, color) { floatingTexts.push({ x: x, y: y, text: text, color: color, alpha: 1.0, vy: -0.8, life: 50 }); }
+    function updateFloatingTexts() { for (let i = floatingTexts.length - 1; i >= 0; i--) { const ft = floatingTexts[i]; ft.y += ft.vy; ft.alpha -= 0.02; ft.life--; if (ft.life <= 0) floatingTexts.splice(i, 1); } }
+    function updateParticles() { for (let i = particles.length - 1; i >= 0; i--) { const p = particles[i]; p.x += p.vx || 0; p.y += p.vy || 0; if (p.alpha !== undefined) p.alpha -= p.decay || 0.02; p.life--; if (p.life <= 0 || p.alpha <= 0) particles.splice(i, 1); } }
+    
+    function createSpawnParticle(x, y, color) { particles.push({ type: 'spawn', x: x, y: y, color: color, radius: 1, maxRadius: 60, alpha: 0.8, life: 20 }); }
+    function createExplosionParticle(x, y, color) {
+      particles.push({ type: 'ring', x: x, y: y, color: color, radius: 5, maxRadius: 35, alpha: 1.0, life: 15 });
+      for (let i = 0; i < 12; i++) { const angle = Math.random() * Math.PI * 2, speed = 1.5 + Math.random() * 2.5; particles.push({ type: 'spark', x: x, y: y, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed, color: color, size: 3 + Math.random() * 3, alpha: 1.0, decay: 0.03, life: 30 }); }
+    }
+    function createImpactParticle(x, y, color) { for (let i = 0; i < 5; i++) { const angle = Math.random() * Math.PI * 2, speed = 1.0 + Math.random() * 1.5; particles.push({ type: 'spark', x: x, y: y, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed, color: color, size: 2 + Math.random() * 2, alpha: 0.9, decay: 0.05, life: 15 }); } }
+    function createHealSparkle(x, y) { for (let i = 0; i < 3; i++) particles.push({ type: 'cross', x: x + (Math.random() - 0.5) * 25, y: y + (Math.random() - 0.5) * 25, vy: -0.5 - Math.random() * 0.5, color: '#34d399', size: 5 + Math.random() * 4, alpha: 1.0, decay: 0.04, life: 25 }); }
+    function createLaserBeamParticle(sx, sy, ex, ey, color) { particles.push({ type: 'laser', sx: sx, sy: sy, ex: ex, ey: ey, color: color, width: 15, alpha: 1.0, life: 18 }); }
+    function createShieldBreakParticle(x, y) { for (let i = 0; i < 8; i++) { const angle = Math.random() * Math.PI * 2, speed = 2.0 + Math.random() * 2.0; particles.push({ type: 'spark', x: x, y: y, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed, color: '#22d3ee', size: 4 + Math.random() * 3, alpha: 1.0, decay: 0.04, life: 25 }); } }
+    function createSpeedTrailParticle(x, y, color) { particles.push({ type: 'trail', x: x, y: y, color: color, radius: 12, alpha: 0.5, decay: 0.05, life: 10 }); }
+    function createDeathParticle(x, y, color) { for (let i = 0; i < 8; i++) { const angle = Math.random() * Math.PI * 2, speed = 0.8 + Math.random() * 1.2; particles.push({ type: 'spark', x: x, y: y, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed, color: color, size: 4 + Math.random() * 4, alpha: 0.9, decay: 0.03, life: 30 }); } }
+
+    function drawGame() {
+      ctx.fillStyle = '#1e3a1e'; ctx.fillRect(0, 0, V_WIDTH, V_HEIGHT);
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.03)'; ctx.lineWidth = 2;
+      for (let y = 200; y < 800; y += 80) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(V_WIDTH, y); ctx.stroke(); }
+      ctx.strokeStyle = 'rgba(255, 215, 0, 0.1)'; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(0, V_HEIGHT / 2); ctx.lineTo(V_WIDTH, V_HEIGHT / 2); ctx.stroke();
+
+      ctx.fillStyle = '#3b82f6'; ctx.fillRect(0, PLAYER_WALL_Y, V_WIDTH, 20); ctx.fillStyle = '#1d4ed8'; for (let x = 0; x < V_WIDTH; x += 40) ctx.fillRect(x, PLAYER_WALL_Y, 4, 20);
+      ctx.fillStyle = '#ef4444'; ctx.fillRect(0, AI_WALL_Y, V_WIDTH, 20); ctx.fillStyle = '#b91c1c'; for (let x = 0; x < V_WIDTH; x += 40) ctx.fillRect(x, AI_WALL_Y, 4, 20);
+
+      drawTowerEntity(playerTower, true); drawTowerEntity(aiTower, false);
+      if (isDragging && playerTower.type !== 'C') drawAimingGuide();
+
+      playerBeasts.forEach(beast => drawBeastEntity(beast)); aiBeasts.forEach(beast => drawBeastEntity(beast));
+      playerProjectiles.forEach(p => drawProjectileEntity(p)); aiProjectiles.forEach(p => drawProjectileEntity(p));
+
+      drawParticles(); drawFloatingTexts();
+    }
+
+    function drawTowerEntity(tower, isPlayer) {
+      ctx.save(); ctx.translate(tower.x, tower.y);
+      ctx.fillStyle = isPlayer ? '#2563eb' : '#dc2626'; ctx.strokeStyle = '#f59e0b'; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.arc(0, 0, 30, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)'; ctx.beginPath(); ctx.arc(0, 0, 20, 0, Math.PI * 2); ctx.stroke();
+      ctx.rotate(tower.angle);
+      if (tower.type === 'A') {
+        ctx.fillStyle = '#475569'; ctx.strokeStyle = '#f59e0b'; ctx.lineWidth = 2; ctx.fillRect(0, -12, 45, 24); ctx.strokeRect(0, -12, 45, 24); ctx.fillStyle = '#f59e0b'; ctx.fillRect(40, -14, 8, 28);
+      } else if (tower.type === 'B') {
+        ctx.fillStyle = '#10b981'; ctx.strokeStyle = '#a7f3d0'; ctx.lineWidth = 2;
+        ctx.fillRect(0, -14, 40, 7); ctx.strokeRect(0, -14, 40, 7); ctx.fillRect(0, -3, 43, 7); ctx.strokeRect(0, -3, 43, 7); ctx.fillRect(0, 8, 40, 7); ctx.strokeRect(0, 8, 40, 7);
+      } else if (tower.type === 'C') {
+        ctx.fillStyle = '#c084fc'; ctx.strokeStyle = '#e9d5ff'; ctx.lineWidth = 2; ctx.fillStyle = '#475569'; ctx.fillRect(0, -5, 20, 10);
+        ctx.save(); ctx.translate(28, 0); ctx.rotate(Date.now() * 0.005); ctx.fillStyle = '#a855f7';
+        ctx.beginPath(); ctx.moveTo(0, -14); ctx.lineTo(10, 0); ctx.lineTo(0, 14); ctx.lineTo(-10, 0); ctx.closePath(); ctx.fill(); ctx.stroke(); ctx.restore();
+        if (tower.laserCharging > 0) {
+          ctx.strokeStyle = '#d946ef'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(28, 0, 15 * (1 - tower.laserCharging), 0, Math.PI * 2); ctx.stroke();
+          ctx.fillStyle = `rgba(217, 70, 239, ${tower.laserCharging * 0.4})`; ctx.beginPath(); ctx.arc(28, 0, 10 + tower.laserCharging * 10, 0, Math.PI * 2); ctx.fill();
+        }
+      }
+      ctx.restore();
+    }
+
+    function drawAimingGuide() {
+      ctx.save(); ctx.strokeStyle = 'rgba(251, 191, 36, 0.4)'; ctx.lineWidth = 3; ctx.setLineDash([8, 8]);
+      ctx.beginPath(); ctx.moveTo(playerTower.x, playerTower.y); ctx.lineTo(playerTower.x + Math.cos(playerTower.angle) * 600, playerTower.y + Math.sin(playerTower.angle) * 600); ctx.stroke(); ctx.restore();
+    }
+
+    function drawBeastEntity(beast) {
+      ctx.save();
+      if (beast.visualScale > 1.0) beast.visualScale -= 0.02;
+      ctx.translate(beast.x, beast.y); ctx.scale(beast.visualScale, beast.visualScale);
+      if (beast.isInvisible) { ctx.globalAlpha = 0.35; ctx.strokeStyle = 'rgba(192, 132, 252, 0.4)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(0, 0, beast.radius + 3, 0, Math.PI * 2); ctx.stroke(); }
+      
+      if (beast.type === 'assassin') {
+        ctx.fillStyle = '#6b21a8'; ctx.beginPath(); ctx.moveTo(-12, -8); ctx.lineTo(-16, -22); ctx.lineTo(-4, -14); ctx.closePath(); ctx.fill();
+        ctx.beginPath(); ctx.moveTo(12, -8); ctx.lineTo(16, -22); ctx.lineTo(4, -14); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = '#8b5cf6'; ctx.beginPath(); ctx.arc(0, 0, beast.radius, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#6d28d9'; ctx.fillRect(-16, -4, 4, 3); ctx.fillRect(12, -4, 4, 3);
+        ctx.fillStyle = '#22d3ee'; ctx.beginPath(); ctx.arc(-6, -3, 3, 0, Math.PI * 2); ctx.arc(6, -3, 3, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = '#e9d5ff'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(-12, 3); ctx.lineTo(-20, 1); ctx.moveTo(-12, 5); ctx.lineTo(-20, 6); ctx.moveTo(12, 3); ctx.lineTo(20, 1); ctx.moveTo(12, 5); ctx.lineTo(20, 6); ctx.stroke();
+      } else if (beast.type === 'tank') {
+        ctx.fillStyle = '#065f46'; ctx.beginPath(); ctx.arc(0, 0, beast.radius, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = '#34d399'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(0, 0, beast.radius - 6, 0, Math.PI * 2); ctx.stroke();
+        for (let a = 0; a < Math.PI * 2; a += Math.PI / 3) { ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(Math.cos(a) * beast.radius, Math.sin(a) * beast.radius); ctx.stroke(); }
+        const headY = beast.isPlayer ? -20 : 20; ctx.fillStyle = '#10b981'; ctx.beginPath(); ctx.arc(0, headY, 8, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#ffffff'; ctx.beginPath(); ctx.arc(-3, headY - 1, 2, 0, Math.PI * 2); ctx.arc(3, headY - 1, 2, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#000000'; ctx.beginPath(); ctx.arc(-3, headY - 1, 1, 0, Math.PI * 2); ctx.arc(3, headY - 1, 1, 0, Math.PI * 2); ctx.fill();
+        if (beast.shieldCharges > 0) {
+          ctx.strokeStyle = `rgba(34, 211, 238, ${0.4 + Math.sin(Date.now() * 0.01) * 0.2})`; ctx.lineWidth = 3; ctx.beginPath();
+          for (let i = 0; i <= 6; i++) { const angle = (i * Math.PI) / 3, rx = Math.cos(angle) * (beast.radius + 6), ry = Math.sin(angle) * (beast.radius + 6); i === 0 ? ctx.moveTo(rx, ry) : ctx.lineTo(rx, ry); }
+          ctx.closePath(); ctx.stroke(); ctx.fillStyle = 'rgba(34, 211, 238, 0.08)'; ctx.fill();
+          ctx.fillStyle = '#22d3ee'; ctx.font = "bold 16px sans-serif"; ctx.textAlign = 'center'; ctx.fillText(beast.shieldCharges, 0, 5);
+        }
+      } else if (beast.type === 'archer') {
+        const wingFlap = Math.sin(Date.now() * 0.02) * 8; ctx.fillStyle = '#0284c7';
+        ctx.beginPath(); ctx.ellipse(-14, 0, 8, 14 + wingFlap, Math.PI / 6, 0, Math.PI * 2); ctx.fill(); ctx.beginPath(); ctx.ellipse(14, 0, 8, 14 + wingFlap, -Math.PI / 6, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#38bdf8'; ctx.beginPath(); ctx.arc(0, 0, beast.radius, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#ffffff'; ctx.beginPath(); ctx.ellipse(0, 6, 10, 8, 0, 0, Math.PI * 2); ctx.fill();
+        const beakY = beast.isPlayer ? -15 : 15; ctx.fillStyle = '#fbbf24'; ctx.beginPath(); ctx.moveTo(-5, beakY / 2); ctx.lineTo(0, beakY); ctx.lineTo(5, beakY / 2); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = '#ffffff'; ctx.beginPath(); ctx.arc(-5, -4, 3, 0, Math.PI * 2); ctx.arc(5, -4, 3, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#0f172a'; ctx.beginPath(); ctx.arc(-5, -4, 1.5, 0, Math.PI * 2); ctx.arc(5, -4, 1.5, 0, Math.PI * 2); ctx.fill();
+      } else if (beast.type === 'mage') {
+        ctx.save(); const tailTime = Date.now() * 0.008; ctx.fillStyle = '#f97316';
+        for (let t = 0; t < 7; t++) { ctx.save(); ctx.rotate((Math.PI / 6) * (t - 3) + Math.sin(tailTime + t) * 0.15 + (beast.isPlayer ? Math.PI / 2 : -Math.PI / 2)); ctx.beginPath(); ctx.ellipse(0, beast.isPlayer ? 18 : -18, 5, 14, 0, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = '#facc15'; ctx.beginPath(); ctx.ellipse(0, beast.isPlayer ? 15 : -15, 3, 9, 0, 0, Math.PI * 2); ctx.fill(); ctx.restore(); }
+        ctx.restore();
+        ctx.fillStyle = '#ea580c'; ctx.beginPath(); ctx.arc(0, 0, beast.radius, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#fffbeb'; ctx.beginPath(); ctx.arc(-12, 4, 6, 0, Math.PI * 2); ctx.arc(12, 4, 6, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#ea580c'; ctx.beginPath(); ctx.arc(0, 0, beast.radius - 2, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = '#fffbeb'; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.moveTo(-9, -4); ctx.lineTo(-4, -2); ctx.moveTo(9, -4); ctx.lineTo(4, -2); ctx.stroke();
+        ctx.fillStyle = '#e11d48'; ctx.beginPath(); ctx.arc(0, -6, 2.5, 0, Math.PI * 2); ctx.fill();
+      }
+      
+      const hpPct = beast.hp / beast.maxHp, barW = beast.radius * 2, barH = 5, barY = -beast.radius - 12;
+      ctx.fillStyle = 'rgba(15, 23, 42, 0.7)'; ctx.fillRect(-barW / 2, barY, barW, barH);
+      ctx.fillStyle = beast.isPlayer ? '#3b82f6' : '#ef4444'; ctx.fillRect(-barW / 2, barY, barW * hpPct, barH);
+      ctx.strokeStyle = '#0f172a'; ctx.lineWidth = 1; ctx.strokeRect(-barW / 2, barY, barW, barH);
+      ctx.restore();
+    }
+
+    function drawProjectileEntity(p) {
+      ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(Math.atan2(p.vy, p.vx));
+      if (p.style === 'heavy') {
+        ctx.fillStyle = '#334155'; ctx.strokeStyle = '#f97316'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(0, 0, p.radius, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); ctx.fillStyle = '#f97316'; ctx.fillRect(-3, -1, 6, 2);
+      } else if (p.style === 'light') {
+        ctx.fillStyle = 'rgba(167, 243, 208, 0.8)'; ctx.strokeStyle = '#10b981'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(0, 0, p.radius, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      } else if (p.style === 'arrow') {
+        ctx.fillStyle = '#38bdf8'; ctx.beginPath(); ctx.moveTo(6, 0); ctx.lineTo(-6, -3); ctx.lineTo(-4, 0); ctx.lineTo(-6, 3); ctx.closePath(); ctx.fill();
+      } else if (p.style === 'fireball') {
+        ctx.fillStyle = '#facc15'; ctx.strokeStyle = '#ea580c'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(0, 0, p.radius, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = '#ea580c'; ctx.beginPath(); ctx.moveTo(-p.radius, 0); ctx.lineTo(-p.radius - 8, -4); ctx.lineTo(-p.radius - 6, 0); ctx.lineTo(-p.radius - 8, 4); ctx.closePath(); ctx.fill();
+      }
+      ctx.restore();
+    }
+
+    function drawParticles() {
+      particles.forEach(p => {
+        ctx.save(); ctx.globalAlpha = p.alpha;
+        if (p.type === 'spawn') {
+          ctx.strokeStyle = p.color; ctx.lineWidth = 3; ctx.beginPath(); p.radius += (p.maxRadius - p.radius) * 0.1; ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2); ctx.stroke();
+          ctx.fillStyle = p.color; ctx.globalAlpha = p.alpha * 0.2; ctx.fillRect(p.x - p.radius, p.y - 150, p.radius * 2, 150);
+        } else if (p.type === 'ring') {
+          ctx.strokeStyle = p.color; ctx.lineWidth = 4; ctx.beginPath(); p.radius += (p.maxRadius - p.radius) * 0.15; ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2); ctx.stroke();
+        } else if (p.type === 'spark') {
+          ctx.fillStyle = p.color; ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2); ctx.fill();
+        } else if (p.type === 'cross') {
+          ctx.strokeStyle = p.color; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(p.x - p.size/2, p.y); ctx.lineTo(p.x + p.size/2, p.y); ctx.moveTo(p.x, p.y - p.size/2); ctx.lineTo(p.x, p.y + p.size/2); ctx.stroke();
+        } else if (p.type === 'laser') {
+          ctx.strokeStyle = p.color; ctx.lineWidth = p.width * p.alpha; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(p.sx, p.sy); ctx.lineTo(p.ex, p.ey); ctx.stroke();
+          ctx.strokeStyle = '#ffffff'; ctx.lineWidth = (p.width / 2.5) * p.alpha; ctx.beginPath(); ctx.moveTo(p.sx, p.sy); ctx.lineTo(p.ex, p.ey); ctx.stroke();
+        } else if (p.type === 'trail') {
+          ctx.fillStyle = p.color; ctx.beginPath(); ctx.arc(p.x, p.y, p.radius * p.alpha, 0, Math.PI * 2); ctx.fill();
+        }
+        ctx.restore();
+      });
+    }
+
+    function drawFloatingTexts() {
+      ctx.save(); ctx.font = "bold 18px Arial"; ctx.textAlign = 'center';
+      floatingTexts.forEach(ft => { ctx.globalAlpha = ft.alpha; ctx.strokeStyle = '#000000'; ctx.lineWidth = 3; ctx.strokeText(ft.text, ft.x, ft.y); ctx.fillStyle = ft.color; ctx.fillText(ft.text, ft.x, ft.y); });
+      ctx.restore();
+    }
+
+    function endGame(isVictory, reasonText) {
+      gameActive = false; if (timerInterval) clearInterval(timerInterval);
+      isVictory ? sound.playVictory() : sound.playDefeat();
+      document.getElementById('result-emoji').innerText = isVictory ? "🏆" : "💀";
+      document.getElementById('result-title').innerText = isVictory ? "🎉 獲得勝利 🎉" : "☠️ 敗北戰死 ☠️";
+      document.getElementById('result-title').className = isVictory ? "text-4xl md:text-5xl font-extrabold text-amber-300 drop-shadow-[0_4px_0_rgba(0,0,0,0.8)]" : "text-4xl md:text-5xl font-extrabold text-rose-500 drop-shadow-[0_4px_0_rgba(0,0,0,0.8)]";
+      document.getElementById('result-subtitle').innerText = reasonText;
+      screenBattle.classList.add('hidden'); screenGameOver.classList.remove('hidden');
+    }
+  </script>
+</body>
+</html>
