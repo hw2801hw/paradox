@@ -1,0 +1,1270 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0a0708">
+  <title>時辰小測驗</title>
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+  <style>
+    /*
+      時辰小測驗 - 單一檔案手機遊戲 Web App
+      --------------------------------------------------
+      1. 本檔案為純原生 HTML + CSS + JavaScript，沒有使用 React、Vue 或任何前端框架。
+      2. 這是一個手機優先的 9:16 豎版遊戲介面，已加入 safe-area inset 與 viewport-fit=cover。
+      3. 最重要規則：所有文字尺寸都不得低於 16px，請後續修改者絕對遵守。
+         本檔案所有字級皆以 1rem(=16px) 為下限，並使用 clamp() 進行彈性縮放。
+      4. 介面採現代中式深色風格，並加入少量動畫、陰影與觸感回饋。
+    */
+
+    :root {
+      --bg-0: #070506;
+      --bg-1: #100809;
+      --panel: rgba(20, 12, 12, 0.78);
+      --panel-strong: rgba(26, 15, 14, 0.92);
+      --line: rgba(221, 178, 102, 0.18);
+      --line-strong: rgba(221, 178, 102, 0.32);
+      --gold: #d9b15e;
+      --gold-2: #f4d78a;
+      --red: #8f1f24;
+      --red-2: #c23731;
+      --text: #f7ead0;
+      --muted: rgba(247, 234, 208, 0.72);
+      --danger: #ff8080;
+      --success: #8bffb0;
+      --shadow: 0 18px 45px rgba(0, 0, 0, 0.42);
+      --shadow-soft: 0 10px 24px rgba(0, 0, 0, 0.22);
+      --radius-xl: 28px;
+      --radius-lg: 22px;
+      --radius-md: 16px;
+      --radius-sm: 14px;
+      --pad-x: clamp(16px, 4vw, 24px);
+      --pad-y: clamp(14px, 3.2vw, 20px);
+      --fs-base: clamp(1rem, 0.96rem + 0.22vw, 1.125rem);
+      --fs-sm: clamp(1rem, 0.98rem + 0.16vw, 1.0625rem);
+      --fs-md: clamp(1.0625rem, 1rem + 0.35vw, 1.1875rem);
+      --fs-lg: clamp(1.1875rem, 1.07rem + 0.9vw, 1.5rem);
+      --fs-xl: clamp(1.5rem, 1.28rem + 2vw, 2.1rem);
+      --fs-2xl: clamp(2rem, 1.6rem + 4vw, 3.35rem);
+      --ring-size: clamp(160px, 29vh, 250px);
+      --key-size: clamp(56px, 9.2vw, 72px);
+    }
+
+    html {
+      font-size: 16px;
+      height: 100%;
+      background: var(--bg-0);
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      min-height: 100dvh;
+      overflow: hidden;
+      background:
+        radial-gradient(circle at 20% 12%, rgba(179, 32, 38, 0.20), transparent 28%),
+        radial-gradient(circle at 82% 16%, rgba(221, 178, 102, 0.14), transparent 24%),
+        radial-gradient(circle at 50% 82%, rgba(141, 29, 34, 0.14), transparent 30%),
+        linear-gradient(180deg, #040304 0%, #0b0708 44%, #060405 100%);
+      color: var(--text);
+      font-family: Inter, "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", system-ui, -apple-system, sans-serif;
+      touch-action: manipulation;
+      -webkit-font-smoothing: antialiased;
+      text-rendering: geometricPrecision;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    button,
+    input {
+      font: inherit;
+    }
+
+    #app {
+      position: relative;
+      width: min(100vw, 520px);
+      width: min(100vw, 56.25dvh, 520px);
+      height: 100vh;
+      height: 100dvh;
+      margin: 0 auto;
+      overflow: hidden;
+      isolation: isolate;
+      background:
+        linear-gradient(180deg, rgba(24, 14, 14, 0.72), rgba(7, 5, 6, 0.94)),
+        linear-gradient(135deg, rgba(165, 34, 39, 0.08), transparent 35%);
+      box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.03), var(--shadow);
+    }
+
+    /* 中式氛圍背景層，保持低干擾但有呼吸感。 */
+    #app::before,
+    #app::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+    }
+
+    #app::before {
+      background:
+        radial-gradient(circle at 50% 18%, rgba(244, 215, 138, 0.16), transparent 0 12%, transparent 14%),
+        radial-gradient(circle at 50% 50%, rgba(217, 177, 94, 0.06), transparent 48%),
+        radial-gradient(circle at 50% 50%, transparent 0 61%, rgba(217, 177, 94, 0.11) 63%, transparent 64%),
+        radial-gradient(circle at 50% 50%, transparent 0 72%, rgba(217, 177, 94, 0.08) 74%, transparent 75%);
+      opacity: 0.9;
+      animation: haloPulse 12s ease-in-out infinite;
+    }
+
+    #app::after {
+      background:
+        linear-gradient(90deg, transparent 0 18%, rgba(255, 255, 255, 0.02) 18.5% 19%, transparent 19.5% 38%, rgba(255, 255, 255, 0.02) 38.5% 39%, transparent 39.5% 60%, rgba(255, 255, 255, 0.02) 60.5% 61%, transparent 61.5% 100%),
+        linear-gradient(0deg, transparent 0 22%, rgba(255, 255, 255, 0.015) 22.5% 23%, transparent 23.5% 52%, rgba(255, 255, 255, 0.015) 52.5% 53%, transparent 53.5% 100%);
+      opacity: 0.42;
+      mix-blend-mode: screen;
+      transform: translateZ(0);
+      animation: gridDrift 20s linear infinite;
+    }
+
+    .screen {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      padding:
+        calc(var(--pad-y) + env(safe-area-inset-top))
+        calc(var(--pad-x) + env(safe-area-inset-right))
+        calc(var(--pad-y) + env(safe-area-inset-bottom))
+        calc(var(--pad-x) + env(safe-area-inset-left));
+      opacity: 0;
+      pointer-events: none;
+      transform: translateY(10px) scale(0.985);
+      transition: opacity 0.36s ease, transform 0.36s ease;
+      z-index: 1;
+    }
+
+    .screen.active {
+      opacity: 1;
+      pointer-events: auto;
+      transform: translateY(0) scale(1);
+    }
+
+    .hero {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: stretch;
+      gap: clamp(18px, 3vw, 28px);
+    }
+
+    .brand-wrap {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      align-items: flex-start;
+    }
+
+    .brand-mark {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      color: var(--gold-2);
+      font-size: var(--fs-sm);
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      opacity: 0.88;
+    }
+
+    .brand-mark::before {
+      content: "";
+      width: 28px;
+      height: 28px;
+      border-radius: 999px;
+      border: 1px solid rgba(244, 215, 138, 0.28);
+      background:
+        radial-gradient(circle at 50% 50%, rgba(244, 215, 138, 0.55), transparent 38%),
+        radial-gradient(circle at 50% 50%, transparent 0 50%, rgba(217, 177, 94, 0.18) 51% 54%, transparent 55%);
+      box-shadow: 0 0 20px rgba(244, 215, 138, 0.12);
+      animation: sealSpin 18s linear infinite;
+    }
+
+    .title {
+      margin: 0;
+      font-family: "Times New Roman", "Songti TC", "Noto Serif TC", serif;
+      font-size: var(--fs-2xl);
+      line-height: 0.95;
+      letter-spacing: 0.06em;
+      color: #fff1cf;
+      text-shadow: 0 0 18px rgba(216, 177, 94, 0.16), 0 8px 28px rgba(0, 0, 0, 0.35);
+      animation: titleGlow 6s ease-in-out infinite;
+    }
+
+    .subtitle {
+      margin: 0;
+      max-width: 18rem;
+      color: var(--muted);
+      font-size: var(--fs-md);
+      line-height: 1.55;
+    }
+
+    .rules {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      padding-top: 4px;
+    }
+
+    .rule-line {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: var(--muted);
+      font-size: var(--fs-base);
+      line-height: 1.5;
+    }
+
+    .rule-line::before {
+      content: "";
+      width: 12px;
+      height: 12px;
+      border-radius: 999px;
+      border: 1px solid rgba(244, 215, 138, 0.26);
+      background: radial-gradient(circle, rgba(244, 215, 138, 0.9), rgba(244, 215, 138, 0.08) 65%, transparent 70%);
+      box-shadow: 0 0 0 6px rgba(244, 215, 138, 0.04);
+      flex: none;
+    }
+
+    .primary-btn,
+    .ghost-btn,
+    .key-btn {
+      border: 0;
+      border-radius: var(--radius-md);
+      min-height: 54px;
+      color: var(--text);
+      cursor: pointer;
+      transition: transform 0.15s ease, filter 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+    }
+
+    .primary-btn {
+      align-self: flex-start;
+      min-width: min(100%, 13.5rem);
+      padding: 0 1.2rem;
+      font-size: var(--fs-lg);
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      background:
+        linear-gradient(180deg, rgba(247, 214, 140, 0.24), rgba(198, 130, 55, 0.10)),
+        linear-gradient(180deg, #c83b32 0%, #741215 100%);
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.12),
+        0 14px 28px rgba(114, 18, 21, 0.42),
+        0 0 0 1px rgba(244, 215, 138, 0.18);
+      text-shadow: 0 1px 0 rgba(0, 0, 0, 0.28);
+    }
+
+    .ghost-btn {
+      min-width: 8.5rem;
+      padding: 0 1rem;
+      font-size: var(--fs-base);
+      font-weight: 700;
+      background: rgba(255, 255, 255, 0.04);
+      box-shadow: inset 0 0 0 1px rgba(244, 215, 138, 0.17);
+      color: #f6e8c8;
+    }
+
+    .primary-btn:hover,
+    .ghost-btn:hover,
+    .key-btn:hover {
+      filter: brightness(1.08);
+    }
+
+    .primary-btn:active,
+    .ghost-btn:active,
+    .key-btn:active {
+      transform: translateY(2px) scale(0.985);
+    }
+
+    .game-shell {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      min-height: 0;
+    }
+
+    .top-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      font-size: var(--fs-sm);
+      color: var(--muted);
+      letter-spacing: 0.04em;
+    }
+
+    .progress-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 0.65rem 0.95rem;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.04);
+      box-shadow: inset 0 0 0 1px rgba(244, 215, 138, 0.12);
+    }
+
+    .progress-chip strong {
+      color: var(--gold-2);
+      font-size: var(--fs-base);
+      font-weight: 800;
+    }
+
+    .timer-zone {
+      display: grid;
+      place-items: center;
+      gap: 12px;
+      padding-top: 4px;
+      padding-bottom: 4px;
+      min-height: calc(var(--ring-size) + 24px);
+    }
+
+    .timer-ring {
+      position: relative;
+      width: var(--ring-size);
+      height: var(--ring-size);
+      display: grid;
+      place-items: center;
+      filter: drop-shadow(0 0 24px rgba(217, 177, 94, 0.18));
+    }
+
+    .timer-ring svg {
+      width: 100%;
+      height: 100%;
+      transform: rotate(-90deg);
+      overflow: visible;
+    }
+
+    .timer-ring .track {
+      fill: none;
+      stroke: rgba(255, 255, 255, 0.08);
+      stroke-width: 12;
+    }
+
+    .timer-ring .progress {
+      fill: none;
+      stroke: url(#progressGradient);
+      stroke-width: 12;
+      stroke-linecap: round;
+      filter: drop-shadow(0 0 12px rgba(244, 215, 138, 0.24));
+      stroke-dasharray: 0;
+      stroke-dashoffset: 0;
+      transition: stroke-dashoffset 0.05s linear;
+    }
+
+    .timer-center {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      text-align: center;
+      gap: 8px;
+    }
+
+    .timer-number {
+      font-size: var(--fs-2xl);
+      line-height: 1;
+      font-weight: 900;
+      color: #fff2cc;
+      text-shadow: 0 0 20px rgba(244, 215, 138, 0.20);
+      animation: numberBeat 1s ease-in-out infinite;
+    }
+
+    .timer-label {
+      font-size: var(--fs-sm);
+      letter-spacing: 0.18em;
+      color: var(--muted);
+      text-transform: uppercase;
+    }
+
+    .question-wrap {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      align-items: center;
+      text-align: center;
+    }
+
+    .question {
+      margin: 0;
+      font-family: "Times New Roman", "Songti TC", serif;
+      font-size: clamp(1.6rem, 1.35rem + 1.8vw, 2.45rem);
+      line-height: 1.06;
+      letter-spacing: 0.05em;
+      color: #ffe8bd;
+      text-shadow: 0 8px 26px rgba(0, 0, 0, 0.34);
+    }
+
+    .input-stage {
+      display: grid;
+      gap: 12px;
+      margin-top: auto;
+      min-height: 0;
+    }
+
+    .answer-display {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      align-items: center;
+      gap: 12px;
+      padding: 0.9rem 1rem;
+      border-radius: var(--radius-lg);
+      background: rgba(255, 255, 255, 0.045);
+      box-shadow: inset 0 0 0 1px rgba(244, 215, 138, 0.12), var(--shadow-soft);
+      min-height: 72px;
+    }
+
+    .answer-copy {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      min-width: 0;
+    }
+
+    .answer-copy .label {
+      font-size: var(--fs-sm);
+      color: var(--muted);
+      letter-spacing: 0.08em;
+    }
+
+    .answer-copy .value {
+      font-size: var(--fs-xl);
+      line-height: 1;
+      font-weight: 900;
+      color: #fff0c8;
+      letter-spacing: 0.05em;
+      min-height: 1.1em;
+      word-break: break-all;
+    }
+
+    .answer-hint {
+      font-size: var(--fs-base);
+      color: var(--muted);
+      text-align: right;
+      line-height: 1.4;
+    }
+
+    .status-line {
+      min-height: 1.6em;
+      text-align: center;
+      font-size: var(--fs-base);
+      line-height: 1.45;
+      letter-spacing: 0.03em;
+      color: var(--muted);
+    }
+
+    .status-line.good {
+      color: var(--success);
+    }
+
+    .status-line.bad {
+      color: var(--danger);
+    }
+
+    .status-line.flash {
+      animation: flashPop 0.42s ease;
+    }
+
+    .input-shake {
+      animation: shake 0.28s ease;
+    }
+
+    .keypad {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .key-btn {
+      min-height: var(--key-size);
+      display: inline-grid;
+      place-items: center;
+      border-radius: 18px;
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02)),
+        rgba(21, 14, 14, 0.9);
+      box-shadow:
+        inset 0 0 0 1px rgba(244, 215, 138, 0.12),
+        0 10px 20px rgba(0, 0, 0, 0.2);
+      font-size: clamp(1rem, 1rem + 0.35vw, 1.25rem);
+      font-weight: 800;
+      color: #fff1cd;
+    }
+
+    .key-btn[data-action="confirm"] {
+      background:
+        linear-gradient(180deg, rgba(247, 214, 140, 0.2), rgba(212, 145, 64, 0.1)),
+        linear-gradient(180deg, #cc4838 0%, #7c1418 100%);
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.12),
+        0 12px 24px rgba(111, 18, 21, 0.4),
+        0 0 0 1px rgba(244, 215, 138, 0.14);
+    }
+
+    .key-btn[data-action="clear"],
+    .key-btn[data-action="back"] {
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02)),
+        rgba(34, 20, 20, 0.96);
+      color: #f1d8bb;
+    }
+
+    .key-btn .mini {
+      font-size: var(--fs-sm);
+      opacity: 0.92;
+    }
+
+    .result-shell {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    .result-head {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .result-title {
+      margin: 0;
+      font-family: "Times New Roman", "Songti TC", serif;
+      font-size: var(--fs-xl);
+      letter-spacing: 0.05em;
+      line-height: 1.06;
+      color: #ffe7bc;
+    }
+
+    .result-note {
+      margin: 0;
+      font-size: var(--fs-base);
+      line-height: 1.55;
+      color: var(--muted);
+      max-width: 100%;
+    }
+
+    .score-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .score-block {
+      padding: 0.92rem 1rem;
+      border-radius: var(--radius-lg);
+      background: rgba(255, 255, 255, 0.045);
+      box-shadow: inset 0 0 0 1px rgba(244, 215, 138, 0.12);
+      min-height: 92px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 6px;
+    }
+
+    .score-block .label {
+      font-size: var(--fs-sm);
+      color: var(--muted);
+      letter-spacing: 0.08em;
+    }
+
+    .score-block .value {
+      font-size: var(--fs-xl);
+      line-height: 1;
+      font-weight: 900;
+      color: #fff2ca;
+    }
+
+    .review-wrap {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      min-height: 0;
+    }
+
+    .review-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .review-head .label {
+      font-size: var(--fs-md);
+      font-weight: 800;
+      color: #fff0c9;
+      letter-spacing: 0.06em;
+    }
+
+    .review-list {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      overflow: auto;
+      max-height: 37vh;
+      padding-right: 2px;
+    }
+
+    .review-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 10px;
+      align-items: center;
+      padding: 0.85rem 0;
+      border-bottom: 1px solid rgba(244, 215, 138, 0.11);
+    }
+
+    .review-row .left,
+    .review-row .right {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      min-width: 0;
+    }
+
+    .review-row .question-tag {
+      font-size: var(--fs-base);
+      font-weight: 800;
+      color: #ffecc1;
+      line-height: 1.2;
+    }
+
+    .review-row .meta,
+    .review-row .answer-text {
+      font-size: var(--fs-sm);
+      line-height: 1.4;
+      color: var(--muted);
+    }
+
+    .result-cta {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: auto;
+      padding-top: 2px;
+    }
+
+    .mini-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--muted);
+      font-size: var(--fs-sm);
+      letter-spacing: 0.05em;
+    }
+
+    .mini-badge::before {
+      content: "";
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
+      background: linear-gradient(180deg, var(--gold-2), var(--gold));
+      box-shadow: 0 0 16px rgba(244, 215, 138, 0.22);
+      flex: none;
+    }
+
+    @keyframes haloPulse {
+      0%, 100% { transform: scale(1); opacity: 0.78; }
+      50% { transform: scale(1.03); opacity: 1; }
+    }
+
+    @keyframes gridDrift {
+      0% { transform: translateY(0); }
+      100% { transform: translateY(-24px); }
+    }
+
+    @keyframes titleGlow {
+      0%, 100% { text-shadow: 0 0 18px rgba(216, 177, 94, 0.14), 0 8px 28px rgba(0, 0, 0, 0.35); }
+      50% { text-shadow: 0 0 24px rgba(244, 215, 138, 0.22), 0 10px 32px rgba(0, 0, 0, 0.45); }
+    }
+
+    @keyframes sealSpin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+
+    @keyframes numberBeat {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.03); }
+    }
+
+    @keyframes flashPop {
+      0% { transform: translateY(6px); opacity: 0; }
+      100% { transform: translateY(0); opacity: 1; }
+    }
+
+    @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      20% { transform: translateX(-5px); }
+      40% { transform: translateX(5px); }
+      60% { transform: translateX(-3px); }
+      80% { transform: translateX(3px); }
+    }
+
+    @media (max-height: 700px) {
+      :root {
+        --ring-size: clamp(146px, 24vh, 220px);
+        --key-size: clamp(52px, 8.2vw, 66px);
+      }
+
+      .hero,
+      .game-shell,
+      .result-shell {
+        gap: 12px;
+      }
+
+      .review-list {
+        max-height: 33vh;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.001ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.001ms !important;
+        scroll-behavior: auto !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main id="app" aria-label="時辰小測驗手機遊戲">
+    <!-- 開始畫面：只放品牌、主標、簡短說明與啟動按鈕，保持第一視窗乾淨。 -->
+    <section class="screen active" data-screen="start" aria-labelledby="startTitle">
+      <div class="hero">
+        <div class="brand-wrap">
+          <div class="brand-mark">十二時辰</div>
+          <h1 id="startTitle" class="title">時辰小測驗</h1>
+          <p class="subtitle">用 4 題快問快答，測你對十二時辰嘅即時反應。</p>
+        </div>
+
+        <div class="rules" aria-label="遊戲規則">
+          <div class="rule-line">每次回答 4 題，每題 6 秒</div>
+          <div class="rule-line">用數字鍵盤輸入 0 至 23，按確定或 Enter 送出</div>
+          <div class="rule-line">答對加 25 分，滿分 100 分</div>
+        </div>
+
+        <button class="primary-btn" id="startBtn" type="button">大玩開始</button>
+      </div>
+    </section>
+
+    <!-- 遊戲畫面：倒數、題目、輸入與數字鍵盤。 -->
+    <section class="screen" data-screen="game" aria-labelledby="gameTitle">
+      <div class="game-shell">
+        <div class="top-row">
+          <div class="progress-chip" aria-live="polite">
+            <span>進度</span>
+            <strong id="questionProgress">1/4</strong>
+          </div>
+          <div class="mini-badge" id="scoreBadge">分數 0</div>
+        </div>
+
+        <div class="timer-zone">
+          <div class="timer-ring" aria-label="剩餘時間 6 秒">
+            <svg viewBox="0 0 220 220" role="img" aria-labelledby="timerTitle timerDesc">
+              <title id="timerTitle">倒數圓環</title>
+              <desc id="timerDesc">顯示每題 6 秒的剩餘時間與進度</desc>
+              <defs>
+                <linearGradient id="progressGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stop-color="#f7d78d" />
+                  <stop offset="52%" stop-color="#d9b15e" />
+                  <stop offset="100%" stop-color="#8f1f24" />
+                </linearGradient>
+              </defs>
+              <circle class="track" cx="110" cy="110" r="88"></circle>
+              <circle class="progress" id="timerCircle" cx="110" cy="110" r="88" stroke="url(#progressGradient)"></circle>
+            </svg>
+            <div class="timer-center">
+              <div class="timer-number" id="timerNumber">6</div>
+              <div class="timer-label">SECONDS</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="question-wrap">
+          <h2 class="question" id="gameTitle">子係幾點？</h2>
+          <div class="status-line" id="statusLine" aria-live="polite"></div>
+        </div>
+
+        <div class="input-stage">
+          <div class="answer-display" id="answerDisplay">
+            <div class="answer-copy">
+              <div class="label">你的答案</div>
+              <div class="value" id="answerValue">--</div>
+            </div>
+            <div class="answer-hint">輸入 0 至 23<br>再按確定</div>
+          </div>
+
+          <div class="keypad" aria-label="數字鍵盤">
+            <button class="key-btn" type="button" data-digit="1">1</button>
+            <button class="key-btn" type="button" data-digit="2">2</button>
+            <button class="key-btn" type="button" data-digit="3">3</button>
+            <button class="key-btn" type="button" data-digit="4">4</button>
+            <button class="key-btn" type="button" data-digit="5">5</button>
+            <button class="key-btn" type="button" data-digit="6">6</button>
+            <button class="key-btn" type="button" data-digit="7">7</button>
+            <button class="key-btn" type="button" data-digit="8">8</button>
+            <button class="key-btn" type="button" data-digit="9">9</button>
+            <button class="key-btn" type="button" data-action="clear"><span class="mini">清除</span></button>
+            <button class="key-btn" type="button" data-digit="0">0</button>
+            <button class="key-btn" type="button" data-action="back"><span class="mini">刪除</span></button>
+          </div>
+
+          <button class="primary-btn" id="confirmBtn" type="button">確定</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- 結束畫面：分數、正確率、評語、題目回顧與重玩按鈕。 -->
+    <section class="screen" data-screen="result" aria-labelledby="resultTitle">
+      <div class="result-shell">
+        <div class="result-head">
+          <h2 class="result-title" id="resultTitle">今次結果</h2>
+          <p class="result-note" id="resultComment">你已完成 4 題時辰小測驗。</p>
+        </div>
+
+        <div class="score-grid" aria-label="最終分數">
+          <div class="score-block">
+            <div class="label">總分</div>
+            <div class="value" id="finalScore">0</div>
+          </div>
+          <div class="score-block">
+            <div class="label">正確率</div>
+            <div class="value" id="finalAccuracy">0%</div>
+          </div>
+        </div>
+
+        <div class="review-wrap">
+          <div class="review-head">
+            <div class="label">答案回顧</div>
+            <div class="mini-badge" id="finalBadge">再試一次，睇吓可唔可以滿分</div>
+          </div>
+          <ul class="review-list" id="reviewList" aria-label="題目答案回顧"></ul>
+        </div>
+
+        <div class="result-cta">
+          <button class="primary-btn" id="retryBtn" type="button">再玩一次</button>
+          <button class="ghost-btn" id="backHomeBtn" type="button">回到開始</button>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <script>
+    (() => {
+      // =============================
+      // 核心資料：十二時辰對應 0, 2, 4...22 點。
+      // =============================
+      const HOURS = [
+        { name: '子', hour: 0 },
+        { name: '丑', hour: 2 },
+        { name: '寅', hour: 4 },
+        { name: '卯', hour: 6 },
+        { name: '辰', hour: 8 },
+        { name: '巳', hour: 10 },
+        { name: '午', hour: 12 },
+        { name: '未', hour: 14 },
+        { name: '申', hour: 16 },
+        { name: '酉', hour: 18 },
+        { name: '戌', hour: 20 },
+        { name: '亥', hour: 22 }
+      ];
+
+      const TOTAL_QUESTIONS = 4;
+      const TIME_LIMIT = 6000;
+      const FEEDBACK_DELAY = 850;
+
+      const screens = {
+        start: document.querySelector('[data-screen="start"]'),
+        game: document.querySelector('[data-screen="game"]'),
+        result: document.querySelector('[data-screen="result"]')
+      };
+
+      const els = {
+        startBtn: document.getElementById('startBtn'),
+        retryBtn: document.getElementById('retryBtn'),
+        backHomeBtn: document.getElementById('backHomeBtn'),
+        questionProgress: document.getElementById('questionProgress'),
+        scoreBadge: document.getElementById('scoreBadge'),
+        gameTitle: document.getElementById('gameTitle'),
+        timerCircle: document.getElementById('timerCircle'),
+        timerNumber: document.getElementById('timerNumber'),
+        statusLine: document.getElementById('statusLine'),
+        answerDisplay: document.getElementById('answerDisplay'),
+        answerValue: document.getElementById('answerValue'),
+        confirmBtn: document.getElementById('confirmBtn'),
+        reviewList: document.getElementById('reviewList'),
+        finalScore: document.getElementById('finalScore'),
+        finalAccuracy: document.getElementById('finalAccuracy'),
+        finalBadge: document.getElementById('finalBadge'),
+        resultComment: document.getElementById('resultComment')
+      };
+
+      const circleLength = 2 * Math.PI * 88;
+      els.timerCircle.style.strokeDasharray = `${circleLength}`;
+      els.timerCircle.style.strokeDashoffset = '0';
+
+      let deck = [];
+      let currentIndex = 0;
+      let score = 0;
+      let correctCount = 0;
+      let currentQuestion = null;
+      let currentInput = '';
+      let locked = false;
+      let timerFrame = 0;
+      let feedbackTimer = 0;
+      let deadline = 0;
+      let records = [];
+      let activeScreen = 'start';
+
+      let audioCtx = null;
+      let audioReady = false;
+
+      function shuffle(array) {
+        const copy = array.slice();
+        for (let i = copy.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [copy[i], copy[j]] = [copy[j], copy[i]];
+        }
+        return copy;
+      }
+
+      function pickQuestions() {
+        deck = shuffle(HOURS).slice(0, TOTAL_QUESTIONS);
+      }
+
+      function showScreen(name) {
+        activeScreen = name;
+        Object.entries(screens).forEach(([key, node]) => {
+          node.classList.toggle('active', key === name);
+        });
+      }
+
+      function ensureAudio() {
+        if (audioReady) return;
+        const AC = window.AudioContext || window.webkitAudioContext;
+        if (!AC) return;
+        audioCtx = new AC();
+        audioReady = true;
+      }
+
+      function playTone(freq, duration, type, gainValue, delay = 0) {
+        if (!audioCtx) return;
+        const start = audioCtx.currentTime + delay;
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = type;
+        osc.frequency.value = freq;
+        gain.gain.setValueAtTime(0.0001, start);
+        gain.gain.exponentialRampToValueAtTime(gainValue, start + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
+        osc.connect(gain).connect(audioCtx.destination);
+        osc.start(start);
+        osc.stop(start + duration + 0.02);
+      }
+
+      function playCorrectSound() {
+        ensureAudio();
+        if (!audioCtx) return;
+        playTone(880, 0.09, 'triangle', 0.06, 0);
+        playTone(1180, 0.14, 'triangle', 0.05, 0.09);
+      }
+
+      function playWrongSound() {
+        ensureAudio();
+        if (!audioCtx) return;
+        playTone(180, 0.1, 'sawtooth', 0.05, 0);
+        playTone(120, 0.16, 'sawtooth', 0.045, 0.1);
+      }
+
+      function updateBadge() {
+        els.scoreBadge.textContent = `分數 ${score}`;
+      }
+
+      function formatAnswer(hour) {
+        return `${hour}點`;
+      }
+
+      function clearFeedback() {
+        els.statusLine.textContent = '';
+        els.statusLine.className = 'status-line';
+      }
+
+      function showFeedback(message, tone = '') {
+        els.statusLine.textContent = message;
+        els.statusLine.className = `status-line ${tone} flash`;
+      }
+
+      function renderInput() {
+        els.answerValue.textContent = currentInput === '' ? '--' : currentInput;
+      }
+
+      function resetTimer() {
+        cancelAnimationFrame(timerFrame);
+        deadline = performance.now() + TIME_LIMIT;
+        els.timerNumber.textContent = '6';
+        els.timerCircle.style.strokeDashoffset = '0';
+        function tick() {
+          if (locked) return;
+          const now = performance.now();
+          const left = Math.max(0, deadline - now);
+          const fraction = left / TIME_LIMIT;
+          const seconds = Math.max(0, Math.ceil(left / 1000));
+          els.timerNumber.textContent = String(seconds);
+          els.timerCircle.style.strokeDashoffset = String(circleLength * (1 - fraction));
+          if (left <= 0) {
+            handleTimeout();
+            return;
+          }
+          timerFrame = requestAnimationFrame(tick);
+        }
+        timerFrame = requestAnimationFrame(tick);
+      }
+
+      function beginQuestion(index) {
+        clearTimeout(feedbackTimer);
+        locked = false;
+        currentIndex = index;
+        currentQuestion = deck[currentIndex];
+        currentInput = '';
+        renderInput();
+        clearFeedback();
+        els.answerDisplay.classList.remove('input-shake');
+        els.questionProgress.textContent = `${currentIndex + 1}/${TOTAL_QUESTIONS}`;
+        els.gameTitle.textContent = `${currentQuestion.name}係幾點？`;
+        updateBadge();
+        resetTimer();
+      }
+
+      function appendDigit(digit) {
+        if (locked) return;
+        if (currentInput === '0' && digit === '0') return;
+        if (currentInput === '0' && digit !== '0') {
+          currentInput = digit;
+        } else if (currentInput.length < 2) {
+          const nextValue = currentInput + digit;
+          if (Number(nextValue) <= 23) {
+            currentInput = nextValue;
+          }
+        }
+        renderInput();
+      }
+
+      function backspace() {
+        if (locked) return;
+        currentInput = currentInput.slice(0, -1);
+        renderInput();
+      }
+
+      function clearInput() {
+        if (locked) return;
+        currentInput = '';
+        renderInput();
+      }
+
+      function commitRecord({ answer, correct, timedOut }) {
+        records.push({
+          ...currentQuestion,
+          answer,
+          correct,
+          timedOut
+        });
+      }
+
+      function lockAndProceed() {
+        locked = true;
+        cancelAnimationFrame(timerFrame);
+        clearTimeout(feedbackTimer);
+        feedbackTimer = setTimeout(() => {
+          if (currentIndex + 1 < TOTAL_QUESTIONS) {
+            beginQuestion(currentIndex + 1);
+          } else {
+            finishGame();
+          }
+        }, FEEDBACK_DELAY);
+      }
+
+      function submitAnswer() {
+        if (locked) return;
+        if (currentInput === '') {
+          els.answerDisplay.classList.remove('input-shake');
+          void els.answerDisplay.offsetWidth;
+          els.answerDisplay.classList.add('input-shake');
+          showFeedback('請先輸入答案再按確定。', 'bad');
+          return;
+        }
+
+        const userAnswer = Number(currentInput);
+        const isCorrect = userAnswer === currentQuestion.hour;
+        commitRecord({ answer: currentInput, correct: isCorrect, timedOut: false });
+
+        if (isCorrect) {
+          score += 25;
+          correctCount += 1;
+          showFeedback(`答對！${currentQuestion.name}時 = ${formatAnswer(currentQuestion.hour)}`, 'good');
+          playCorrectSound();
+        } else {
+          showFeedback(`唔啱，正確答案：${currentQuestion.name}時 = ${formatAnswer(currentQuestion.hour)}`, 'bad');
+          playWrongSound();
+        }
+
+        updateBadge();
+        lockAndProceed();
+      }
+
+      function handleTimeout() {
+        if (locked) return;
+        locked = true;
+        cancelAnimationFrame(timerFrame);
+        commitRecord({ answer: currentInput || '', correct: false, timedOut: true });
+        showFeedback(`時間到！正確答案：${currentQuestion.name}時 = ${formatAnswer(currentQuestion.hour)}`, 'bad');
+        playWrongSound();
+        lockAndProceed();
+      }
+
+      function commentaryForScore(value) {
+        if (value === 100) return '滿分！你已經完全掌握十二時辰，真係時辰達人。';
+        if (value >= 75) return '表現好穩，對十二時辰已經相當熟悉。';
+        if (value >= 50) return '有一定基礎，再玩幾次就可以更快更準。';
+        return '先記住十二時辰對應，再挑戰一次會更穩。';
+      }
+
+      function renderReview() {
+        els.reviewList.innerHTML = records.map((item, index) => {
+          const userText = item.timedOut
+            ? '超時'
+            : item.answer === ''
+              ? '未作答'
+              : `${item.answer}點`;
+          const stateText = item.correct ? '答對' : (item.timedOut ? '超時' : '答錯');
+          const stateColor = item.correct ? 'color: var(--success);' : 'color: var(--danger);';
+          return `
+            <li class="review-row">
+              <div class="left">
+                <div class="question-tag">第 ${index + 1} 題：${item.name}係幾點？</div>
+                <div class="meta">你的答案：${userText}</div>
+              </div>
+              <div class="right" style="text-align:right;">
+                <div class="answer-text" style="${stateColor}">${stateText}</div>
+                <div class="meta">正確：${item.hour}點</div>
+              </div>
+            </li>
+          `;
+        }).join('');
+      }
+
+      function finishGame() {
+        clearTimeout(feedbackTimer);
+        cancelAnimationFrame(timerFrame);
+        const accuracy = Math.round((correctCount / TOTAL_QUESTIONS) * 100);
+        els.finalScore.textContent = String(score);
+        els.finalAccuracy.textContent = `${accuracy}%`;
+        els.resultComment.textContent = commentaryForScore(score);
+        els.finalBadge.textContent = score === 100 ? '滿分完成，真係好犀利' : '再試一次，分數仲可以再高';
+        renderReview();
+        showScreen('result');
+      }
+
+      function startGame() {
+        ensureAudio();
+        if (audioCtx && audioCtx.state === 'suspended') {
+          audioCtx.resume().catch(() => {});
+        }
+        pickQuestions();
+        currentIndex = 0;
+        score = 0;
+        correctCount = 0;
+        currentQuestion = null;
+        currentInput = '';
+        locked = false;
+        records = [];
+        updateBadge();
+        showScreen('game');
+        beginQuestion(0);
+      }
+
+      function goHome() {
+        clearTimeout(feedbackTimer);
+        cancelAnimationFrame(timerFrame);
+        locked = true;
+        currentInput = '';
+        renderInput();
+        showScreen('start');
+        els.startBtn.focus({ preventScroll: true });
+      }
+
+      function handleKeydown(event) {
+        if (activeScreen !== 'game') return;
+
+        const { key } = event;
+        if (/^[0-9]$/.test(key)) {
+          event.preventDefault();
+          appendDigit(key);
+          return;
+        }
+        if (key === 'Enter') {
+          event.preventDefault();
+          submitAnswer();
+          return;
+        }
+        if (key === 'Backspace') {
+          event.preventDefault();
+          backspace();
+          return;
+        }
+        if (key === 'Escape') {
+          event.preventDefault();
+          clearInput();
+        }
+      }
+
+      document.addEventListener('keydown', handleKeydown);
+
+      document.addEventListener('click', (event) => {
+        const digitButton = event.target.closest('[data-digit]');
+        const actionButton = event.target.closest('[data-action]');
+        if (digitButton) {
+          ensureAudio();
+          const digit = digitButton.dataset.digit;
+          appendDigit(digit);
+          return;
+        }
+        if (actionButton) {
+          ensureAudio();
+          const action = actionButton.dataset.action;
+          if (action === 'clear') clearInput();
+          if (action === 'back') backspace();
+        }
+      });
+
+      els.startBtn.addEventListener('click', startGame);
+      els.confirmBtn.addEventListener('click', submitAnswer);
+      els.retryBtn.addEventListener('click', startGame);
+      els.backHomeBtn.addEventListener('click', goHome);
+
+      // 初始畫面預設狀態。
+      updateBadge();
+      renderInput();
+      showScreen('start');
+    })();
+  </script>
+</body>
+</html>
