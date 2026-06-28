@@ -1,0 +1,990 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#1a1a2e">
+    <title>重力滾珠迷宮 | Gravity Maze</title>
+    <style>
+        /* ==================== 基礎設定 ==================== */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Microsoft JhengHei', sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            color: white;
+            overflow: hidden;
+            position: fixed;
+            width: 100%;
+            height: 100%;
+            touch-action: none;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        /* ==================== 主容器 ==================== */
+        #app {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: env(safe-area-inset-top, 20px) env(safe-area-inset-right, 10px) env(safe-area-inset-bottom, 20px) env(safe-area-inset-left, 10px);
+        }
+
+        /* ==================== 遊戲標題 ==================== */
+        .game-header {
+            text-align: center;
+            margin-bottom: 20px;
+            z-index: 10;
+        }
+
+        .game-title {
+            font-size: 32px;
+            font-weight: bold;
+            background: linear-gradient(45deg, #00d2ff, #3a7bd5, #00d2ff);
+            background-size: 200% auto;
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            animation: gradientShift 3s ease infinite;
+            text-shadow: 0 0 30px rgba(0, 210, 255, 0.3);
+            margin-bottom: 8px;
+        }
+
+        .game-subtitle {
+            font-size: 16px;
+            color: #a0a0a0;
+            letter-spacing: 2px;
+        }
+
+        @keyframes gradientShift {
+            0%, 100% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+        }
+
+        /* ==================== 遊戲狀態列 ==================== */
+        .game-stats {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+            max-width: 450px;
+            padding: 12px 20px;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            margin-bottom: 15px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        .stat-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .stat-label {
+            font-size: 16px;
+            color: #a0a0a0;
+        }
+
+        .stat-value {
+            font-size: 20px;
+            font-weight: bold;
+            color: #00d2ff;
+        }
+
+        /* ==================== 遊戲畫布容器 ==================== */
+        .game-container {
+            position: relative;
+            width: 100%;
+            max-width: 450px;
+            aspect-ratio: 9 / 16;
+            background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+            border-radius: 20px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+            overflow: hidden;
+            margin-bottom: 15px;
+        }
+
+        #gameCanvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+            border-radius: 20px;
+        }
+
+        /* ==================== 控制按鈕 ==================== */
+        .controls {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            justify-content: center;
+            width: 100%;
+            max-width: 450px;
+        }
+
+        .btn {
+            padding: 14px 28px;
+            font-size: 18px;
+            font-weight: bold;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+            min-width: 120px;
+            touch-action: manipulation;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #00d2ff 0%, #3a7bd5 100%);
+            color: white;
+        }
+
+        .btn-primary:active {
+            transform: translateY(2px);
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+        }
+
+        .btn-secondary {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+        }
+
+        .btn-secondary:active {
+            transform: translateY(2px);
+        }
+
+        .btn-info {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            backdrop-filter: blur(10px);
+        }
+
+        .btn-info:active {
+            transform: translateY(2px);
+        }
+
+        /* ==================== 彈窗 ==================== */
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            padding: 20px;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+            padding: 30px;
+            border-radius: 20px;
+            max-width: 400px;
+            width: 100%;
+            box-shadow: 0 10px 50px rgba(0, 0, 0, 0.5);
+            animation: modalSlideIn 0.3s ease;
+        }
+
+        @keyframes modalSlideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-50px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .modal-title {
+            font-size: 28px;
+            font-weight: bold;
+            margin-bottom: 20px;
+            text-align: center;
+            color: #00d2ff;
+        }
+
+        .modal-text {
+            font-size: 18px;
+            line-height: 1.6;
+            margin-bottom: 25px;
+            color: #e0e0e0;
+        }
+
+        .modal-buttons {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+        }
+
+        /* ==================== 說明內容 ==================== */
+        .instructions {
+            list-style: none;
+            padding: 0;
+        }
+
+        .instructions li {
+            font-size: 18px;
+            padding: 12px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .instructions li:last-child {
+            border-bottom: none;
+        }
+
+        .instructions li::before {
+            content: "🎮 ";
+            margin-right: 10px;
+        }
+
+        /* ==================== 勝利畫面 ==================== */
+        #victoryModal .modal-title {
+            font-size: 36px;
+            animation: victoryPulse 1s ease infinite;
+        }
+
+        @keyframes victoryPulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+
+        .victory-stats {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 20px;
+            border-radius: 12px;
+            margin: 20px 0;
+        }
+
+        .victory-stat {
+            font-size: 20px;
+            margin: 10px 0;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        /* ==================== 煙火效果 ==================== */
+        .firework {
+            position: fixed;
+            pointer-events: none;
+            z-index: 999;
+        }
+
+        .firework-particle {
+            position: absolute;
+            width: 4px;
+            height: 4px;
+            border-radius: 50%;
+            animation: fireworkFade 1s ease-out forwards;
+        }
+
+        @keyframes fireworkFade {
+            to {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+        }
+
+        /* ==================== 陀螺儀狀態 ==================== */
+        .gyro-status {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(0, 0, 0, 0.6);
+            padding: 8px 12px;
+            border-radius: 8px;
+            font-size: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .gyro-indicator {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #ff4444;
+            animation: gyroPulse 1.5s ease-in-out infinite;
+        }
+
+        .gyro-indicator.active {
+            background: #00ff00;
+        }
+
+        @keyframes gyroPulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        /* ==================== 載入畫面 ==================== */
+        .loading {
+            text-align: center;
+            padding: 20px;
+        }
+
+        .loading-spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid rgba(255, 255, 255, 0.2);
+            border-top-color: #00d2ff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* ==================== 響應式調整 ==================== */
+        @media (max-height: 700px) {
+            .game-title { font-size: 28px; }
+            .game-subtitle { font-size: 16px; }
+            .game-header { margin-bottom: 10px; }
+            .game-stats { margin-bottom: 10px; padding: 10px 15px; }
+            .game-container { margin-bottom: 10px; }
+            .btn { padding: 12px 24px; font-size: 16px; }
+        }
+
+        @media (max-height: 600px) {
+            .game-title { font-size: 24px; }
+            .game-header { margin-bottom: 5px; }
+            .game-stats { display: none; }
+        }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <!-- 遊戲標題 -->
+        <div class="game-header">
+            <h1 class="game-title">重力滾珠迷宮</h1>
+            <p class="game-subtitle">GRAVITY MAZE</p>
+        </div>
+
+        <!-- 遊戲狀態列 -->
+        <div class="game-stats">
+            <div class="stat-item">
+                <span class="stat-label">關卡</span>
+                <span class="stat-value" id="levelDisplay">1</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-label">時間</span>
+                <span class="stat-value" id="timerDisplay">00:00</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-label">最佳</span>
+                <span class="stat-value" id="bestDisplay">--:--</span>
+            </div>
+        </div>
+
+        <!-- 遊戲畫布 -->
+        <div class="game-container">
+            <canvas id="gameCanvas"></canvas>
+            <div class="gyro-status">
+                <div class="gyro-indicator" id="gyroIndicator"></div>
+                <span id="gyroStatus">陀螺儀未啟動</span>
+            </div>
+        </div>
+
+        <!-- 控制按鈕 -->
+        <div class="controls">
+            <button class="btn btn-primary" id="startBtn">開始遊戲</button>
+            <button class="btn btn-secondary" id="resetBtn" style="display:none;">重新開始</button>
+            <button class="btn btn-info" id="helpBtn">遊戲說明</button>
+        </div>
+    </div>
+
+    <!-- 說明彈窗 -->
+    <div class="modal" id="helpModal">
+        <div class="modal-content">
+            <h2 class="modal-title">🎮 遊戲說明</h2>
+            <ul class="instructions">
+                <li>傾斜手機控制小球移動</li>
+                <li>避開牆壁找到正確路徑</li>
+                <li>將藍色小球移到綠色終點</li>
+                <li>iOS 需授權陀螺儀權限</li>
+                <li>每關迷宮都是隨機生成</li>
+            </ul>
+            <div class="modal-buttons">
+                <button class="btn btn-primary" id="closeHelpBtn">我知道了</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 勝利彈窗 -->
+    <div class="modal" id="victoryModal">
+        <div class="modal-content">
+            <h2 class="modal-title">🎉 恭喜通關！</h2>
+            <div class="victory-stats">
+                <div class="victory-stat">
+                    <span>完成時間：</span>
+                    <span id="victoryTime">00:00</span>
+                </div>
+                <div class="victory-stat">
+                    <span>當前關卡：</span>
+                    <span id="victoryLevel">1</span>
+                </div>
+            </div>
+            <div class="modal-buttons">
+                <button class="btn btn-primary" id="nextLevelBtn">下一關</button>
+                <button class="btn btn-secondary" id="restartBtn">重新開始</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 權限請求彈窗 -->
+    <div class="modal" id="permissionModal">
+        <div class="modal-content">
+            <h2 class="modal-title">🔐 需要權限</h2>
+            <p class="modal-text">此遊戲需要使用陀螺儀感應器來控制小球移動。請點擊下方按鈕授權。</p>
+            <div class="modal-buttons">
+                <button class="btn btn-primary" id="requestPermissionBtn">授權陀螺儀</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ==================== 遊戲常數 ==================== 
+        const MAZE_COLS = 12;
+        const MAZE_ROWS = 20;
+        const CELL_SIZE = 30;
+        const BALL_RADIUS = 12;
+        const GRAVITY_SCALE = 0.5;
+        const FRICTION = 0.98;
+        const BOUNCE_DAMPING = 0.6;
+
+        // ==================== 全域變數 ==================== 
+        let canvas, ctx;
+        let gameState = 'idle'; // idle, playing, victory
+        let maze = [];
+        let ball = { x: 0, y: 0, vx: 0, vy: 0 };
+        let startPos = { x: 0, y: 0 };
+        let endPos = { x: 0, y: 0 };
+        let level = 1;
+        let startTime = 0;
+        let timerInterval = null;
+        let bestTime = null;
+        let gyroActive = false;
+        let gravity = { x: 0, y: 0 };
+
+        // 音效
+        const sounds = {
+            bounce: null,
+            victory: null
+        };
+
+        // ==================== 初始化 ==================== 
+        function init() {
+            canvas = document.getElementById('gameCanvas');
+            ctx = canvas.getContext('2d');
+            
+            resizeCanvas();
+            window.addEventListener('resize', resizeCanvas);
+            
+            // 創建簡單音效
+            sounds.bounce = createBeepSound(200, 0.1, 'sine');
+            sounds.victory = createBeepSound(800, 0.3, 'square');
+            
+            setupEventListeners();
+            drawIdleScreen();
+        }
+
+        function resizeCanvas() {
+            const container = canvas.parentElement;
+            canvas.width = container.clientWidth;
+            canvas.height = container.clientHeight;
+        }
+
+        // ==================== 音效生成 ==================== 
+        function createBeepSound(frequency, duration, type = 'sine') {
+            return () => {
+                try {
+                    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                    const oscillator = audioContext.createOscillator();
+                    const gainNode = audioContext.createGain();
+                    
+                    oscillator.connect(gainNode);
+                    gainNode.connect(audioContext.destination);
+                    
+                    oscillator.frequency.value = frequency;
+                    oscillator.type = type;
+                    
+                    gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+                    gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + duration);
+                    
+                    oscillator.start(audioContext.currentTime);
+                    oscillator.stop(audioContext.currentTime + duration);
+                } catch (e) {
+                    console.log('Audio not supported');
+                }
+            };
+        }
+
+        // ==================== 事件監聽 ==================== 
+        function setupEventListeners() {
+            document.getElementById('startBtn').addEventListener('click', startGame);
+            document.getElementById('resetBtn').addEventListener('click', resetGame);
+            document.getElementById('helpBtn').addEventListener('click', () => {
+                document.getElementById('helpModal').classList.add('active');
+            });
+            document.getElementById('closeHelpBtn').addEventListener('click', () => {
+                document.getElementById('helpModal').classList.remove('active');
+            });
+            document.getElementById('nextLevelBtn').addEventListener('click', nextLevel);
+            document.getElementById('restartBtn').addEventListener('click', () => {
+                document.getElementById('victoryModal').classList.remove('active');
+                level = 1;
+                updateLevelDisplay();
+                resetGame();
+            });
+            document.getElementById('requestPermissionBtn').addEventListener('click', requestGyroPermission);
+        }
+
+        // ==================== 陀螺儀處理 ==================== 
+        async function requestGyroPermission() {
+            if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+                try {
+                    const permission = await DeviceOrientationEvent.requestPermission();
+                    if (permission === 'granted') {
+                        startGyroscope();
+                        document.getElementById('permissionModal').classList.remove('active');
+                    } else {
+                        alert('需要陀螺儀權限才能遊玩此遊戲');
+                    }
+                } catch (error) {
+                    console.error('Error requesting permission:', error);
+                    alert('無法獲取陀螺儀權限');
+                }
+            } else {
+                startGyroscope();
+                document.getElementById('permissionModal').classList.remove('active');
+            }
+        }
+
+        function startGyroscope() {
+            if (window.DeviceOrientationEvent) {
+                window.addEventListener('deviceorientation', handleOrientation);
+                gyroActive = true;
+                updateGyroStatus();
+            } else {
+                alert('您的裝置不支援陀螺儀功能');
+            }
+        }
+
+        function handleOrientation(event) {
+            if (!gyroActive || gameState !== 'playing') return;
+            
+            // beta: 前後傾斜 (-180 to 180)
+            // gamma: 左右傾斜 (-90 to 90)
+            const beta = event.beta || 0;
+            const gamma = event.gamma || 0;
+            
+            // 將角度轉換為重力向量
+            gravity.x = Math.max(-1, Math.min(1, gamma / 45)) * GRAVITY_SCALE;
+            gravity.y = Math.max(-1, Math.min(1, beta / 45)) * GRAVITY_SCALE;
+        }
+
+        function updateGyroStatus() {
+            const indicator = document.getElementById('gyroIndicator');
+            const status = document.getElementById('gyroStatus');
+            
+            if (gyroActive) {
+                indicator.classList.add('active');
+                status.textContent = '陀螺儀已啟動';
+            } else {
+                indicator.classList.remove('active');
+                status.textContent = '陀螺儀未啟動';
+            }
+        }
+
+        // ==================== 迷宮生成（遞歸回溯算法）==================== 
+        function generateMaze() {
+            // 初始化迷宮（全是牆）
+            maze = Array(MAZE_ROWS).fill().map(() => Array(MAZE_COLS).fill(1));
+            
+            // 使用遞歸回溯算法
+            const stack = [];
+            const startX = 0;
+            const startY = 0;
+            
+            maze[startY][startX] = 0;
+            stack.push([startX, startY]);
+            
+            const directions = [
+                [0, -1], // 上
+                [1, 0],  // 右
+                [0, 1],  // 下
+                [-1, 0]  // 左
+            ];
+            
+            while (stack.length > 0) {
+                const [x, y] = stack[stack.length - 1];
+                const neighbors = [];
+                
+                // 檢查所有方向的未訪問鄰居
+                for (const [dx, dy] of directions) {
+                    const nx = x + dx * 2;
+                    const ny = y + dy * 2;
+                    
+                    if (nx >= 0 && nx < MAZE_COLS && ny >= 0 && ny < MAZE_ROWS && maze[ny][nx] === 1) {
+                        neighbors.push([nx, ny, dx, dy]);
+                    }
+                }
+                
+                if (neighbors.length > 0) {
+                    // 隨機選擇一個鄰居
+                    const [nx, ny, dx, dy] = neighbors[Math.floor(Math.random() * neighbors.length)];
+                    
+                    // 打通牆壁
+                    maze[y + dy][x + dx] = 0;
+                    maze[ny][nx] = 0;
+                    
+                    stack.push([nx, ny]);
+                } else {
+                    stack.pop();
+                }
+            }
+            
+            // 設定起點和終點
+            startPos = { x: 0.5, y: 0.5 };
+            endPos = { x: MAZE_COLS - 0.5, y: MAZE_ROWS - 0.5 };
+            
+            // 確保終點周圍有空間
+            maze[MAZE_ROWS - 1][MAZE_COLS - 1] = 0;
+            maze[MAZE_ROWS - 2][MAZE_COLS - 1] = 0;
+            maze[MAZE_ROWS - 1][MAZE_COLS - 2] = 0;
+        }
+
+        // ==================== 遊戲邏輯 ==================== 
+        function startGame() {
+            // 檢查是否需要請求陀螺儀權限
+            if (!gyroActive) {
+                if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+                    document.getElementById('permissionModal').classList.add('active');
+                    return;
+                } else {
+                    startGyroscope();
+                }
+            }
+            
+            generateMaze();
+            resetBall();
+            gameState = 'playing';
+            startTime = Date.now();
+            
+            document.getElementById('startBtn').style.display = 'none';
+            document.getElementById('resetBtn').style.display = 'inline-block';
+            
+            if (timerInterval) clearInterval(timerInterval);
+            timerInterval = setInterval(updateTimer, 100);
+            
+            gameLoop();
+        }
+
+        function resetGame() {
+            generateMaze();
+            resetBall();
+            startTime = Date.now();
+            gameState = 'playing';
+        }
+
+        function resetBall() {
+            ball.x = startPos.x * CELL_SIZE;
+            ball.y = startPos.y * CELL_SIZE;
+            ball.vx = 0;
+            ball.vy = 0;
+        }
+
+        function nextLevel() {
+            level++;
+            updateLevelDisplay();
+            document.getElementById('victoryModal').classList.remove('active');
+            resetGame();
+        }
+
+        function updateLevelDisplay() {
+            document.getElementById('levelDisplay').textContent = level;
+        }
+
+        function updateTimer() {
+            const elapsed = Math.floor((Date.now() - startTime) / 1000);
+            const minutes = Math.floor(elapsed / 60).toString().padStart(2, '0');
+            const seconds = (elapsed % 60).toString().padStart(2, '0');
+            document.getElementById('timerDisplay').textContent = `${minutes}:${seconds}`;
+        }
+
+        // ==================== 物理引擎 ==================== 
+        function updatePhysics() {
+            // 應用重力
+            ball.vx += gravity.x;
+            ball.vy += gravity.y;
+            
+            // 應用摩擦力
+            ball.vx *= FRICTION;
+            ball.vy *= FRICTION;
+            
+            // 移動小球
+            const nextX = ball.x + ball.vx;
+            const nextY = ball.y + ball.vy;
+            
+            // 碰撞檢測
+            const collision = checkCollision(nextX, nextY);
+            
+            if (collision.hit) {
+                if (collision.horizontal) {
+                    ball.vx *= -BOUNCE_DAMPING;
+                    if (Math.abs(ball.vx) > 0.1) {
+                        sounds.bounce();
+                    }
+                } else {
+                    ball.x = nextX;
+                }
+                
+                if (collision.vertical) {
+                    ball.vy *= -BOUNCE_DAMPING;
+                    if (Math.abs(ball.vy) > 0.1) {
+                        sounds.bounce();
+                    }
+                } else {
+                    ball.y = nextY;
+                }
+            } else {
+                ball.x = nextX;
+                ball.y = nextY;
+            }
+            
+            // 檢查是否到達終點
+            const distToEnd = Math.sqrt(
+                Math.pow(ball.x - endPos.x * CELL_SIZE, 2) + 
+                Math.pow(ball.y - endPos.y * CELL_SIZE, 2)
+            );
+            
+            if (distToEnd < BALL_RADIUS + 10) {
+                victory();
+            }
+        }
+
+        function checkCollision(x, y) {
+            const left = Math.floor((x - BALL_RADIUS) / CELL_SIZE);
+            const right = Math.floor((x + BALL_RADIUS) / CELL_SIZE);
+            const top = Math.floor((y - BALL_RADIUS) / CELL_SIZE);
+            const bottom = Math.floor((y + BALL_RADIUS) / CELL_SIZE);
+            
+            let horizontal = false;
+            let vertical = false;
+            
+            // 檢查四個方向的碰撞
+            if (left >= 0 && left < MAZE_COLS && top >= 0 && top < MAZE_ROWS && maze[top][left] === 1) {
+                horizontal = true;
+            }
+            if (right >= 0 && right < MAZE_COLS && top >= 0 && top < MAZE_ROWS && maze[top][right] === 1) {
+                horizontal = true;
+            }
+            if (left >= 0 && left < MAZE_COLS && bottom >= 0 && bottom < MAZE_ROWS && maze[bottom][left] === 1) {
+                horizontal = true;
+            }
+            if (right >= 0 && right < MAZE_COLS && bottom >= 0 && bottom < MAZE_ROWS && maze[bottom][right] === 1) {
+                horizontal = true;
+            }
+            
+            // 上下碰撞
+            const currentCol = Math.floor(ball.x / CELL_SIZE);
+            if (top >= 0 && top < MAZE_ROWS && currentCol >= 0 && currentCol < MAZE_COLS && maze[top][currentCol] === 1) {
+                vertical = true;
+            }
+            if (bottom >= 0 && bottom < MAZE_ROWS && currentCol >= 0 && currentCol < MAZE_COLS && maze[bottom][currentCol] === 1) {
+                vertical = true;
+            }
+            
+            return {
+                hit: horizontal || vertical,
+                horizontal: horizontal,
+                vertical: vertical
+            };
+        }
+
+        // ==================== 勝利處理 ==================== 
+        function victory() {
+            gameState = 'victory';
+            sounds.victory();
+            
+            if (timerInterval) {
+                clearInterval(timerInterval);
+                timerInterval = null;
+            }
+            
+            const elapsed = Math.floor((Date.now() - startTime) / 1000);
+            const minutes = Math.floor(elapsed / 60).toString().padStart(2, '0');
+            const seconds = (elapsed % 60).toString().padStart(2, '0');
+            const timeString = `${minutes}:${seconds}`;
+            
+            // 更新最佳時間
+            if (bestTime === null || elapsed < bestTime) {
+                bestTime = elapsed;
+                const bestMinutes = Math.floor(bestTime / 60).toString().padStart(2, '0');
+                const bestSeconds = (bestTime % 60).toString().padStart(2, '0');
+                document.getElementById('bestDisplay').textContent = `${bestMinutes}:${bestSeconds}`;
+            }
+            
+            document.getElementById('victoryTime').textContent = timeString;
+            document.getElementById('victoryLevel').textContent = level;
+            document.getElementById('victoryModal').classList.add('active');
+            
+            // 煙火效果
+            createFireworks();
+        }
+
+        function createFireworks() {
+            const colors = ['#ff0000', '#00ff00', '#0000ff', '#ffff00', '#ff00ff', '#00ffff'];
+            
+            for (let i = 0; i < 3; i++) {
+                setTimeout(() => {
+                    const x = Math.random() * window.innerWidth;
+                    const y = Math.random() * window.innerHeight * 0.5;
+                    
+                    for (let j = 0; j < 30; j++) {
+                        const particle = document.createElement('div');
+                        particle.className = 'firework-particle';
+                        particle.style.left = x + 'px';
+                        particle.style.top = y + 'px';
+                        particle.style.background = colors[Math.floor(Math.random() * colors.length)];
+                        
+                        const angle = (Math.PI * 2 * j) / 30;
+                        const velocity = 50 + Math.random() * 50;
+                        const tx = Math.cos(angle) * velocity;
+                        const ty = Math.sin(angle) * velocity;
+                        
+                        particle.style.transform = `translate(${tx}px, ${ty}px)`;
+                        
+                        document.body.appendChild(particle);
+                        
+                        setTimeout(() => particle.remove(), 1000);
+                    }
+                }, i * 300);
+            }
+        }
+
+        // ==================== 渲染 ==================== 
+        function draw() {
+            // 清空畫布
+            ctx.fillStyle = '#1a1a2e';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // 計算縮放和偏移
+            const mazeWidth = MAZE_COLS * CELL_SIZE;
+            const mazeHeight = MAZE_ROWS * CELL_SIZE;
+            const scale = Math.min(canvas.width / mazeWidth, canvas.height / mazeHeight) * 0.9;
+            const offsetX = (canvas.width - mazeWidth * scale) / 2;
+            const offsetY = (canvas.height - mazeHeight * scale) / 2;
+            
+            ctx.save();
+            ctx.translate(offsetX, offsetY);
+            ctx.scale(scale, scale);
+            
+            // 繪製迷宮
+            for (let y = 0; y < MAZE_ROWS; y++) {
+                for (let x = 0; x < MAZE_COLS; x++) {
+                    if (maze[y][x] === 1) {
+                        // 牆壁
+                        ctx.fillStyle = '#34495e';
+                        ctx.fillRect(x * CELL_SIZE, y * CELL_SIZE, CELL_SIZE, CELL_SIZE);
+                        
+                        // 牆壁邊框
+                        ctx.strokeStyle = '#2c3e50';
+                        ctx.lineWidth = 1;
+                        ctx.strokeRect(x * CELL_SIZE, y * CELL_SIZE, CELL_SIZE, CELL_SIZE);
+                    } else {
+                        // 路徑
+                        ctx.fillStyle = '#2c3e50';
+                        ctx.fillRect(x * CELL_SIZE, y * CELL_SIZE, CELL_SIZE, CELL_SIZE);
+                    }
+                }
+            }
+            
+            // 繪製終點
+            ctx.fillStyle = '#00ff88';
+            ctx.shadowColor = '#00ff88';
+            ctx.shadowBlur = 20;
+            ctx.beginPath();
+            ctx.arc(endPos.x * CELL_SIZE, endPos.y * CELL_SIZE, CELL_SIZE * 0.6, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.shadowBlur = 0;
+            
+            // 繪製起點標記（小圓點）
+            ctx.fillStyle = '#ffffff';
+            ctx.beginPath();
+            ctx.arc(startPos.x * CELL_SIZE, startPos.y * CELL_SIZE, 5, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // 繪製小球
+            const gradient = ctx.createRadialGradient(ball.x, ball.y, 0, ball.x, ball.y, BALL_RADIUS);
+            gradient.addColorStop(0, '#00d2ff');
+            gradient.addColorStop(0.7, '#3a7bd5');
+            gradient.addColorStop(1, '#1e5a8e');
+            
+            ctx.fillStyle = gradient;
+            ctx.shadowColor = '#00d2ff';
+            ctx.shadowBlur = 15;
+            ctx.beginPath();
+            ctx.arc(ball.x, ball.y, BALL_RADIUS, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.shadowBlur = 0;
+            
+            // 繪製高光
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+            ctx.beginPath();
+            ctx.arc(ball.x - 4, ball.y - 4, 4, 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.restore();
+        }
+
+        function drawIdleScreen() {
+            ctx.fillStyle = '#1a1a2e';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            ctx.fillStyle = 'white';
+            ctx.font = '24px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('點擊「開始遊戲」開始冒險', canvas.width / 2, canvas.height / 2);
+        }
+
+        // ==================== 遊戲主迴圈 ==================== 
+        function gameLoop() {
+            if (gameState === 'playing') {
+                updatePhysics();
+                draw();
+                requestAnimationFrame(gameLoop);
+            }
+        }
+
+        // ==================== 啟動遊戲 ==================== 
+        window.addEventListener('load', init);
+
+        // 防止觸控滾動
+        document.addEventListener('touchmove', (e) => {
+            e.preventDefault();
+        }, { passive: false });
+    </script>
+</body>
+</html>
