@@ -829,6 +829,13 @@
             resetBall();
             startTime = Date.now();
             gameState = 'playing';
+            
+            // 重新啟動計時器
+            if (timerInterval) clearInterval(timerInterval);
+            timerInterval = setInterval(updateTimer, 100);
+            
+            // 重新啟動遊戲循環
+            gameLoop();
         }
 
         function resetBall() {
