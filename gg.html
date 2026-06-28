@@ -422,8 +422,10 @@
                 <li>傾斜手機控制小球移動</li>
                 <li>避開牆壁找到正確路徑</li>
                 <li>將藍色小球移到綠色終點</li>
+                <li>起點終點隨機分布四角</li>
+                <li>紅色邊框為防護牆不可穿越</li>
+                <li>迷宮 15×24 起隨關卡增大</li>
                 <li>iOS 需授權陀螺儀權限</li>
-                <li>每關迷宮都是隨機生成</li>
             </ul>
             <div class="modal-buttons">
                 <button class="btn btn-primary" id="closeHelpBtn">我知道了</button>
@@ -465,13 +467,14 @@
 
     <script>
         // ==================== 遊戲常數 ==================== 
-        const MAZE_COLS = 12;
-        const MAZE_ROWS = 20;
-        const CELL_SIZE = 30;
-        const BALL_RADIUS = 12;
+        // 迷宮尺寸隨關卡遞增，增加難度
+        let MAZE_COLS = 15;
+        let MAZE_ROWS = 24;
+        const CELL_SIZE = 28;
+        const BALL_RADIUS = 10;
         const GRAVITY_SCALE = 0.5;
-        const FRICTION = 0.98;
-        const BOUNCE_DAMPING = 0.6;
+        const FRICTION = 0.985;
+        const BOUNCE_DAMPING = 0.5;
 
         // ==================== 全域變數 ==================== 
         let canvas, ctx;
@@ -618,36 +621,54 @@
         }
 
         // ==================== 迷宮生成（遞歸回溯算法）==================== 
+        // 根據關卡動態調整迷宮難度
+        function getMazeSizeForLevel(lvl) {
+            // 基礎：15x24，隨關卡遞增，最高 20x32
+            const cols = Math.min(15 + Math.floor((lvl-1)*1.5), 20);
+            const rows = Math.min(24 + Math.floor((lvl-1)*2), 32);
+            return { cols, rows };
+        }
+
         function generateMaze() {
+            // 根據關卡設定迷宮大小
+            const size = getMazeSizeForLevel(level);
+            MAZE_COLS = size.cols;
+            MAZE_ROWS = size.rows;
+
             // 初始化迷宮（全是牆）
             maze = Array(MAZE_ROWS).fill().map(() => Array(MAZE_COLS).fill(1));
             
-            // 使用遞歸回溯算法
+            // 使用遞歸回溯算法 - 從內部開始，避免邊界
             const stack = [];
-            const startX = 0;
-            const startY = 0;
+            const startX = 1 + Math.floor(Math.random()*2)*2; // 奇數起點
+            const startY = 1 + Math.floor(Math.random()*2)*2;
+            const sx = Math.min(startX, MAZE_COLS-2 - (MAZE_COLS%2===0?1:0));
+            const sy = Math.min(startY, MAZE_ROWS-2 - (MAZE_ROWS%2===0?1:0));
             
-            maze[startY][startX] = 0;
-            stack.push([startX, startY]);
+            maze[sy][sx] = 0;
+            stack.push([sx, sy]);
             
             const directions = [
-                [0, -1], // 上
-                [1, 0],  // 右
-                [0, 1],  // 下
-                [-1, 0]  // 左
+                [0, -2], // 上
+                [2, 0],  // 右
+                [0, 2],  // 下
+                [-2, 0]  // 左
             ];
             
             while (stack.length > 0) {
                 const [x, y] = stack[stack.length - 1];
                 const neighbors = [];
                 
+                // 隨機打亂方向，增加迷宮複雜度
+                const shuffledDirs = [...directions].sort(() => Math.random() - 0.5);
+                
                 // 檢查所有方向的未訪問鄰居
-                for (const [dx, dy] of directions) {
-                    const nx = x + dx * 2;
-                    const ny = y + dy * 2;
+                for (const [dx, dy] of shuffledDirs) {
+                    const nx = x + dx;
+                    const ny = y + dy;
                     
-                    if (nx >= 0 && nx < MAZE_COLS && ny >= 0 && ny < MAZE_ROWS && maze[ny][nx] === 1) {
-                        neighbors.push([nx, ny, dx, dy]);
+                    if (nx > 0 && nx < MAZE_COLS-1 && ny > 0 && ny < MAZE_ROWS-1 && maze[ny][nx] === 1) {
+                        neighbors.push([nx, ny, dx/2, dy/2]);
                     }
                 }
                 
@@ -664,15 +685,117 @@
                     stack.pop();
                 }
             }
-            
-            // 設定起點和終點
-            startPos = { x: 0.5, y: 0.5 };
-            endPos = { x: MAZE_COLS - 0.5, y: MAZE_ROWS - 0.5 };
-            
-            // 確保終點周圍有空間
-            maze[MAZE_ROWS - 1][MAZE_COLS - 1] = 0;
-            maze[MAZE_ROWS - 2][MAZE_COLS - 1] = 0;
-            maze[MAZE_ROWS - 1][MAZE_COLS - 2] = 0;
+
+            // 加強迷宮難度：添加額外的死路分支
+            addExtraDeadEnds( Math.floor(MAZE_COLS * MAZE_ROWS * 0.04) );
+
+            // 強制外層牆壁 - 防止球滾出界外
+            for (let x = 0; x < MAZE_COLS; x++) {
+                maze[0][x] = 1;
+                maze[MAZE_ROWS-1][x] = 1;
+            }
+            for (let y = 0; y < MAZE_ROWS; y++) {
+                maze[y][0] = 1;
+                maze[y][MAZE_COLS-1] = 1;
+            }
+
+            // 四個角落位置（留一格邊牆）
+            const corners = [
+                { x: 1, y: 1, name: '左上' },                              // 左上
+                { x: MAZE_COLS-2, y: 1, name: '右上' },                   // 右上
+                { x: 1, y: MAZE_ROWS-2, name: '左下' },                  // 左下
+                { x: MAZE_COLS-2, y: MAZE_ROWS-2, name: '右下' }         // 右下
+            ];
+
+            // 隨機選擇起點角落
+            const startCornerIdx = Math.floor(Math.random() * 4);
+            let endCornerIdx;
+            do {
+                endCornerIdx = Math.floor(Math.random() * 4);
+            } while (endCornerIdx === startCornerIdx); // 終點不能與起點相同
+
+            const startCorner = corners[startCornerIdx];
+            const endCorner = corners[endCornerIdx];
+
+            // 確保起點和終點區域暢通
+            carveArea(startCorner.x, startCorner.y, 1);
+            carveArea(endCorner.x, endCorner.y, 1);
+
+            // 設定起點和終點（網格中心）
+            startPos = { x: startCorner.x + 0.5, y: startCorner.y + 0.5 };
+            endPos = { x: endCorner.x + 0.5, y: endCorner.y + 0.5 };
+
+            // 確保起終點連通到迷宮主路徑
+            ensureConnectivity(startCorner.x, startCorner.y);
+            ensureConnectivity(endCorner.x, endCorner.y);
+        }
+
+        // 增加額外死路，讓迷宮更複雜
+        function addExtraDeadEnds(count) {
+            let added = 0;
+            let attempts = 0;
+            while (added < count && attempts < count*10) {
+                attempts++;
+                const x = 1 + Math.floor(Math.random() * (MAZE_COLS-2));
+                const y = 1 + Math.floor(Math.random() * (MAZE_ROWS-2));
+                if (maze[y][x] === 1) {
+                    // 檢查相鄰開口數量
+                    let openNeighbors = 0;
+                    if (x > 0 && maze[y][x-1] === 0) openNeighbors++;
+                    if (x < MAZE_COLS-1 && maze[y][x+1] === 0) openNeighbors++;
+                    if (y > 0 && maze[y-1][x] === 0) openNeighbors++;
+                    if (y < MAZE_ROWS-1 && maze[y+1][x] === 0) openNeighbors++;
+                    // 只在有1個鄰居開口時打通，製造死路分支
+                    if (openNeighbors === 1 && Math.random() < 0.65) {
+                        maze[y][x] = 0;
+                        added++;
+                    }
+                }
+            }
+        }
+
+        // 在指定位置周圍開闢空間
+        function carveArea(cx, cy, radius) {
+            for (let dy = -radius; dy <= radius; dy++) {
+                for (let dx = -radius; dx <= radius; dx++) {
+                    const nx = cx + dx;
+                    const ny = cy + dy;
+                    if (nx > 0 && nx < MAZE_COLS-1 && ny > 0 && ny < MAZE_ROWS-1) {
+                        // 中心和十字方向一定開通
+                        if (dx === 0 && dy === 0) maze[ny][nx] = 0;
+                        if (Math.abs(dx) + Math.abs(dy) === 1) maze[ny][nx] = 0;
+                    }
+                }
+            }
+            maze[cy][cx] = 0; // 確保中心點開通
+        }
+
+        // 確保指定點連通到迷宮主幹道
+        function ensureConnectivity(px, py) {
+            if (maze[py][px] === 0) return; // 已連通
+            // 向四周尋找最近的開口並打通路徑
+            const searchDirs = [[1,0],[-1,0],[0,1],[0,-1],[1,1],[-1,-1],[1,-1],[-1,1]];
+            for (const [dx, dy] of searchDirs) {
+                for (let step = 1; step <= 3; step++) {
+                    const nx = px + dx * step;
+                    const ny = py + dy * step;
+                    if (nx > 0 && nx < MAZE_COLS-1 && ny > 0 && ny < MAZE_ROWS-1) {
+                        if (maze[ny][nx] === 0) {
+                            // 打通路徑
+                            for (let s = 1; s <= step; s++) {
+                                const ix = px + dx * s;
+                                const iy = py + dy * s;
+                                if (ix > 0 && ix < MAZE_COLS-1 && iy > 0 && iy < MAZE_ROWS-1) {
+                                    maze[iy][ix] = 0;
+                                }
+                            }
+                            return;
+                        }
+                    }
+                }
+            }
+            // 保底：直接開通
+            maze[py][px] = 0;
         }
 
         // ==================== 遊戲邏輯 ==================== 
@@ -742,35 +865,81 @@
             // 應用摩擦力
             ball.vx *= FRICTION;
             ball.vy *= FRICTION;
+
+            // 速度限制，避免穿牆
+            const maxVel = 6;
+            ball.vx = Math.max(-maxVel, Math.min(maxVel, ball.vx));
+            ball.vy = Math.max(-maxVel, Math.min(maxVel, ball.vy));
             
-            // 移動小球
-            const nextX = ball.x + ball.vx;
-            const nextY = ball.y + ball.vy;
-            
-            // 碰撞檢測
-            const collision = checkCollision(nextX, nextY);
-            
-            if (collision.hit) {
-                if (collision.horizontal) {
-                    ball.vx *= -BOUNCE_DAMPING;
-                    if (Math.abs(ball.vx) > 0.1) {
-                        sounds.bounce();
+            // 分軸移動與碰撞檢測（更精確）
+            // X 軸
+            let nextX = ball.x + ball.vx;
+            if (checkWallCollision(nextX, ball.y)) {
+                // 嘗試逐步回退找到安全位置
+                let safeX = ball.x;
+                const step = ball.vx > 0 ? 0.5 : -0.5;
+                for (let i = 0; i < Math.abs(ball.vx)*2; i++) {
+                    const testX = safeX + step;
+                    if (!checkWallCollision(testX, ball.y)) {
+                        safeX = testX;
+                    } else {
+                        break;
                     }
-                } else {
-                    ball.x = nextX;
                 }
-                
-                if (collision.vertical) {
-                    ball.vy *= -BOUNCE_DAMPING;
-                    if (Math.abs(ball.vy) > 0.1) {
-                        sounds.bounce();
-                    }
-                } else {
-                    ball.y = nextY;
-                }
+                ball.x = safeX;
+                ball.vx *= -BOUNCE_DAMPING;
+                if (Math.abs(ball.vx) > 0.5) sounds.bounce();
             } else {
                 ball.x = nextX;
+            }
+
+            // Y 軸
+            let nextY = ball.y + ball.vy;
+            if (checkWallCollision(ball.x, nextY)) {
+                let safeY = ball.y;
+                const step = ball.vy > 0 ? 0.5 : -0.5;
+                for (let i = 0; i < Math.abs(ball.vy)*2; i++) {
+                    const testY = safeY + step;
+                    if (!checkWallCollision(ball.x, testY)) {
+                        safeY = testY;
+                    } else {
+                        break;
+                    }
+                }
+                ball.y = safeY;
+                ball.vy *= -BOUNCE_DAMPING;
+                if (Math.abs(ball.vy) > 0.5) sounds.bounce();
+            } else {
                 ball.y = nextY;
+            }
+
+            // 邊界牆壁強制限制 - 絕對不允許超出迷宮
+            const mazePixelWidth = MAZE_COLS * CELL_SIZE;
+            const mazePixelHeight = MAZE_ROWS * CELL_SIZE;
+            const minX = BALL_RADIUS + 1;
+            const maxX = mazePixelWidth - BALL_RADIUS - 1;
+            const minY = BALL_RADIUS + 1;
+            const maxY = mazePixelHeight - BALL_RADIUS - 1;
+
+            if (ball.x < minX) {
+                ball.x = minX;
+                ball.vx = Math.abs(ball.vx) * BOUNCE_DAMPING;
+                sounds.bounce();
+            }
+            if (ball.x > maxX) {
+                ball.x = maxX;
+                ball.vx = -Math.abs(ball.vx) * BOUNCE_DAMPING;
+                sounds.bounce();
+            }
+            if (ball.y < minY) {
+                ball.y = minY;
+                ball.vy = Math.abs(ball.vy) * BOUNCE_DAMPING;
+                sounds.bounce();
+            }
+            if (ball.y > maxY) {
+                ball.y = maxY;
+                ball.vy = -Math.abs(ball.vy) * BOUNCE_DAMPING;
+                sounds.bounce();
             }
             
             // 檢查是否到達終點
@@ -779,47 +948,59 @@
                 Math.pow(ball.y - endPos.y * CELL_SIZE, 2)
             );
             
-            if (distToEnd < BALL_RADIUS + 10) {
+            if (distToEnd < BALL_RADIUS + 8) {
                 victory();
             }
         }
 
+        // 精確的牆壁碰撞檢測 - 8方向取樣
+        function checkWallCollision(x, y) {
+            // 邊界檢查 - 外牆
+            if (x - BALL_RADIUS < CELL_SIZE * 0.5 || 
+                x + BALL_RADIUS > (MAZE_COLS - 0.5) * CELL_SIZE ||
+                y - BALL_RADIUS < CELL_SIZE * 0.5 ||
+                y + BALL_RADIUS > (MAZE_ROWS - 0.5) * CELL_SIZE) {
+                // 允許在起點終點區域稍微寬鬆，但仍需有牆壁限制
+                const mazeW = MAZE_COLS * CELL_SIZE;
+                const mazeH = MAZE_ROWS * CELL_SIZE;
+                if (x - BALL_RADIUS < 2 || x + BALL_RADIUS > mazeW - 2 ||
+                    y - BALL_RADIUS < 2 || y + BALL_RADIUS > mazeH - 2) {
+                    return true;
+                }
+            }
+
+            // 8 個方向的碰撞點檢測
+            const points = [
+                [x, y - BALL_RADIUS],          // 上
+                [x, y + BALL_RADIUS],          // 下
+                [x - BALL_RADIUS, y],          // 左
+                [x + BALL_RADIUS, y],          // 右
+                [x - BALL_RADIUS*0.7, y - BALL_RADIUS*0.7], // 左上
+                [x + BALL_RADIUS*0.7, y - BALL_RADIUS*0.7], // 右上
+                [x - BALL_RADIUS*0.7, y + BALL_RADIUS*0.7], // 左下
+                [x + BALL_RADIUS*0.7, y + BALL_RADIUS*0.7]  // 右下
+            ];
+
+            for (const [px, py] of points) {
+                const col = Math.floor(px / CELL_SIZE);
+                const row = Math.floor(py / CELL_SIZE);
+                if (col < 0 || col >= MAZE_COLS || row < 0 || row >= MAZE_ROWS) {
+                    return true; // 超出邊界視為碰撞
+                }
+                if (maze[row] && maze[row][col] === 1) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        // 保留舊接口兼容
         function checkCollision(x, y) {
-            const left = Math.floor((x - BALL_RADIUS) / CELL_SIZE);
-            const right = Math.floor((x + BALL_RADIUS) / CELL_SIZE);
-            const top = Math.floor((y - BALL_RADIUS) / CELL_SIZE);
-            const bottom = Math.floor((y + BALL_RADIUS) / CELL_SIZE);
-            
-            let horizontal = false;
-            let vertical = false;
-            
-            // 檢查四個方向的碰撞
-            if (left >= 0 && left < MAZE_COLS && top >= 0 && top < MAZE_ROWS && maze[top][left] === 1) {
-                horizontal = true;
-            }
-            if (right >= 0 && right < MAZE_COLS && top >= 0 && top < MAZE_ROWS && maze[top][right] === 1) {
-                horizontal = true;
-            }
-            if (left >= 0 && left < MAZE_COLS && bottom >= 0 && bottom < MAZE_ROWS && maze[bottom][left] === 1) {
-                horizontal = true;
-            }
-            if (right >= 0 && right < MAZE_COLS && bottom >= 0 && bottom < MAZE_ROWS && maze[bottom][right] === 1) {
-                horizontal = true;
-            }
-            
-            // 上下碰撞
-            const currentCol = Math.floor(ball.x / CELL_SIZE);
-            if (top >= 0 && top < MAZE_ROWS && currentCol >= 0 && currentCol < MAZE_COLS && maze[top][currentCol] === 1) {
-                vertical = true;
-            }
-            if (bottom >= 0 && bottom < MAZE_ROWS && currentCol >= 0 && currentCol < MAZE_COLS && maze[bottom][currentCol] === 1) {
-                vertical = true;
-            }
-            
+            const hit = checkWallCollision(x, y);
             return {
-                hit: horizontal || vertical,
-                horizontal: horizontal,
-                vertical: vertical
+                hit: hit,
+                horizontal: hit,
+                vertical: hit
             };
         }
 
@@ -893,70 +1074,163 @@
             // 計算縮放和偏移
             const mazeWidth = MAZE_COLS * CELL_SIZE;
             const mazeHeight = MAZE_ROWS * CELL_SIZE;
-            const scale = Math.min(canvas.width / mazeWidth, canvas.height / mazeHeight) * 0.9;
+            const scale = Math.min(canvas.width / mazeWidth, canvas.height / mazeHeight) * 0.92;
             const offsetX = (canvas.width - mazeWidth * scale) / 2;
             const offsetY = (canvas.height - mazeHeight * scale) / 2;
             
             ctx.save();
             ctx.translate(offsetX, offsetY);
             ctx.scale(scale, scale);
+
+            // 繪製外層堅固邊框背景
+            ctx.fillStyle = '#1e2a38';
+            ctx.fillRect(-4, -4, mazeWidth+8, mazeHeight+8);
             
             // 繪製迷宮
             for (let y = 0; y < MAZE_ROWS; y++) {
                 for (let x = 0; x < MAZE_COLS; x++) {
                     if (maze[y][x] === 1) {
-                        // 牆壁
-                        ctx.fillStyle = '#34495e';
+                        // 牆壁 - 外牆更深色
+                        const isBorder = x===0 || y===0 || x===MAZE_COLS-1 || y===MAZE_ROWS-1;
+                        ctx.fillStyle = isBorder ? '#1a2530' : '#3a4a5c';
                         ctx.fillRect(x * CELL_SIZE, y * CELL_SIZE, CELL_SIZE, CELL_SIZE);
                         
                         // 牆壁邊框
-                        ctx.strokeStyle = '#2c3e50';
-                        ctx.lineWidth = 1;
-                        ctx.strokeRect(x * CELL_SIZE, y * CELL_SIZE, CELL_SIZE, CELL_SIZE);
+                        ctx.strokeStyle = isBorder ? '#0f1822' : '#2c3e50';
+                        ctx.lineWidth = isBorder ? 2 : 1;
+                        ctx.strokeRect(x * CELL_SIZE+0.5, y * CELL_SIZE+0.5, CELL_SIZE-1, CELL_SIZE-1);
+
+                        // 外牆加高光頂部
+                        if (isBorder) {
+                            ctx.fillStyle = 'rgba(255,255,255,0.06)';
+                            ctx.fillRect(x * CELL_SIZE, y * CELL_SIZE, CELL_SIZE, 3);
+                        }
                     } else {
                         // 路徑
-                        ctx.fillStyle = '#2c3e50';
+                        ctx.fillStyle = '#273748';
                         ctx.fillRect(x * CELL_SIZE, y * CELL_SIZE, CELL_SIZE, CELL_SIZE);
+                        // 細格線
+                        ctx.strokeStyle = 'rgba(255,255,255,0.03)';
+                        ctx.lineWidth = 1;
+                        ctx.strokeRect(x * CELL_SIZE, y * CELL_SIZE, CELL_SIZE, CELL_SIZE);
                     }
                 }
             }
+
+            // 外層防護牆 - 醒目邊框
+            ctx.strokeStyle = '#ff5a5f';
+            ctx.lineWidth = 4;
+            ctx.setLineDash([]);
+            ctx.strokeRect(2, 2, mazeWidth-4, mazeHeight-4);
+            ctx.strokeStyle = 'rgba(255,90,95,0.3)';
+            ctx.lineWidth = 8;
+            ctx.strokeRect(-2, -2, mazeWidth+4, mazeHeight+4);
             
-            // 繪製終點
+            // 繪製終點 - 脈動效果
+            const pulse = 0.85 + Math.sin(Date.now()/250)*0.15;
+            ctx.save();
+            ctx.translate(endPos.x * CELL_SIZE, endPos.y * CELL_SIZE);
+            ctx.scale(pulse, pulse);
+            // 外圈光暈
+            ctx.fillStyle = 'rgba(0,255,136,0.2)';
+            ctx.beginPath();
+            ctx.arc(0, 0, CELL_SIZE * 0.7, 0, Math.PI * 2);
+            ctx.fill();
+            // 主體
             ctx.fillStyle = '#00ff88';
             ctx.shadowColor = '#00ff88';
-            ctx.shadowBlur = 20;
+            ctx.shadowBlur = 25;
             ctx.beginPath();
-            ctx.arc(endPos.x * CELL_SIZE, endPos.y * CELL_SIZE, CELL_SIZE * 0.6, 0, Math.PI * 2);
+            ctx.arc(0, 0, CELL_SIZE * 0.45, 0, Math.PI * 2);
             ctx.fill();
             ctx.shadowBlur = 0;
-            
-            // 繪製起點標記（小圓點）
-            ctx.fillStyle = '#ffffff';
+            // 內圈
+            ctx.fillStyle = 'rgba(255,255,255,0.9)';
             ctx.beginPath();
-            ctx.arc(startPos.x * CELL_SIZE, startPos.y * CELL_SIZE, 5, 0, Math.PI * 2);
+            ctx.arc(0, 0, CELL_SIZE * 0.18, 0, Math.PI * 2);
             ctx.fill();
+            ctx.restore();
+            // 終點文字
+            ctx.fillStyle = '#00ff88';
+            ctx.font = 'bold 10px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('EXIT', endPos.x * CELL_SIZE, endPos.y * CELL_SIZE + 4);
+            
+            // 繪製起點標記
+            ctx.save();
+            ctx.translate(startPos.x * CELL_SIZE, startPos.y * CELL_SIZE);
+            // 起點光圈
+            ctx.strokeStyle = 'rgba(0,210,255,0.5)';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([4,3]);
+            ctx.beginPath();
+            ctx.arc(0,0, CELL_SIZE*0.5, 0, Math.PI*2);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            // 起點中心
+            ctx.fillStyle = 'rgba(0,210,255,0.25)';
+            ctx.beginPath();
+            ctx.arc(0,0,8,0,Math.PI*2);
+            ctx.fill();
+            ctx.fillStyle = '#00d2ff';
+            ctx.beginPath();
+            ctx.arc(0,0,4,0,Math.PI*2);
+            ctx.fill();
+            ctx.restore();
+            ctx.fillStyle = '#00d2ff';
+            ctx.font = 'bold 10px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('START', startPos.x * CELL_SIZE, startPos.y * CELL_SIZE - CELL_SIZE*0.55);
             
             // 繪製小球
-            const gradient = ctx.createRadialGradient(ball.x, ball.y, 0, ball.x, ball.y, BALL_RADIUS);
-            gradient.addColorStop(0, '#00d2ff');
-            gradient.addColorStop(0.7, '#3a7bd5');
-            gradient.addColorStop(1, '#1e5a8e');
+            const gradient = ctx.createRadialGradient(ball.x -3, ball.y -3, 0, ball.x, ball.y, BALL_RADIUS);
+            gradient.addColorStop(0, '#70eaff');
+            gradient.addColorStop(0.4, '#00d2ff');
+            gradient.addColorStop(1, '#0066aa');
             
             ctx.fillStyle = gradient;
             ctx.shadowColor = '#00d2ff';
-            ctx.shadowBlur = 15;
+            ctx.shadowBlur = 18;
             ctx.beginPath();
             ctx.arc(ball.x, ball.y, BALL_RADIUS, 0, Math.PI * 2);
             ctx.fill();
             ctx.shadowBlur = 0;
+
+            // 球體立體邊框
+            ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.arc(ball.x, ball.y, BALL_RADIUS, 0, Math.PI * 2);
+            ctx.stroke();
             
             // 繪製高光
-            ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.55)';
             ctx.beginPath();
-            ctx.arc(ball.x - 4, ball.y - 4, 4, 0, Math.PI * 2);
+            ctx.arc(ball.x - BALL_RADIUS*0.35, ball.y - BALL_RADIUS*0.35, BALL_RADIUS*0.35, 0, Math.PI * 2);
+            ctx.fill();
+            // 小反光點
+            ctx.fillStyle = 'rgba(255,255,255,0.9)';
+            ctx.beginPath();
+            ctx.arc(ball.x - BALL_RADIUS*0.45, ball.y - BALL_RADIUS*0.45, 2, 0, Math.PI*2);
             ctx.fill();
             
             ctx.restore();
+
+            // 顯示當前起終點角落資訊（左上角小標籤）
+            ctx.fillStyle = 'rgba(0,0,0,0.5)';
+            ctx.fillRect(10, 10, 170, 28);
+            ctx.fillStyle = '#a0dfff';
+            ctx.font = '16px monospace';
+            ctx.textAlign = 'left';
+            const startCornerName = 
+                startPos.y < MAZE_ROWS*CELL_SIZE/2 
+                ? (startPos.x < MAZE_COLS*CELL_SIZE/2 ? '左上↘' : '右上↙')
+                : (startPos.x < MAZE_COLS*CELL_SIZE/2 ? '左下↗' : '右下↖');
+            const endCornerName = 
+                endPos.y < MAZE_ROWS*CELL_SIZE/2 
+                ? (endPos.x < MAZE_COLS*CELL_SIZE/2 ? '左上' : '右上')
+                : (endPos.x < MAZE_COLS*CELL_SIZE/2 ? '左下' : '右下');
+            ctx.fillText(`${startCornerName} → ${endCornerName}`, 18, 30);
         }
 
         function drawIdleScreen() {
