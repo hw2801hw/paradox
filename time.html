@@ -502,6 +502,7 @@
       color: #fff1cd;
     }
 
+    /* 確定按鈕高亮專屬設計 */
     .key-btn[data-action="confirm"] {
       background:
         linear-gradient(180deg, rgba(247, 214, 140, 0.2), rgba(212, 145, 64, 0.1)),
@@ -765,7 +766,7 @@
       </div>
     </section>
 
-    <!-- 遊戲畫面：倒數、題目、輸入與數字鍵盤。 -->
+    <!-- 遊戲畫面：倒數、題目、輸入與數字鍵盤。已將「確定」按鈕完美整合進鍵盤中。 -->
     <section class="screen" data-screen="game" aria-labelledby="gameTitle">
       <div class="game-shell">
         <div class="top-row">
@@ -812,6 +813,7 @@
             <div class="answer-hint">輸入 0 至 23<br>再按確定</div>
           </div>
 
+          <!-- 3x4 整合式數字鍵盤：左下角為清除，右下角為高亮確定 -->
           <div class="keypad" aria-label="數字鍵盤">
             <button class="key-btn" type="button" data-digit="1">1</button>
             <button class="key-btn" type="button" data-digit="2">2</button>
@@ -824,10 +826,8 @@
             <button class="key-btn" type="button" data-digit="9">9</button>
             <button class="key-btn" type="button" data-action="clear"><span class="mini">清除</span></button>
             <button class="key-btn" type="button" data-digit="0">0</button>
-            <button class="key-btn" type="button" data-action="back"><span class="mini">刪除</span></button>
+            <button class="key-btn" type="button" data-action="confirm" id="confirmBtn">確定</button>
           </div>
-
-          <button class="primary-btn" id="confirmBtn" type="button">確定</button>
         </div>
       </div>
     </section>
