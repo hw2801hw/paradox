@@ -1,0 +1,1205 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>水果塔防對戰 Fruit Tower War</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  :root{ --min-font:16px; }
+  *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body{
+    margin:0; padding:0; height:100%; width:100%;
+    background:#02040a;
+    font-family:"PingFang TC","Microsoft JhengHei","Segoe UI",system-ui,sans-serif;
+    font-size:16px;
+    color:#e5f2ff;
+    overflow:hidden;
+    user-select:none;
+  }
+  #outer{
+    width:100vw; height:100vh; height:100dvh;
+    display:flex; align-items:center; justify-content:center;
+    padding-bottom:env(safe-area-inset-bottom);
+    box-sizing:border-box;
+    background:radial-gradient(ellipse at 50% 30%, #10182b 0%, #030408 70%);
+  }
+  #gameContainer{
+    position:relative;
+    height:100%;
+    width:auto;
+    max-width:100%;
+    aspect-ratio:9/16;
+    border-radius:14px;
+    overflow:hidden;
+    box-shadow:0 0 50px rgba(56,189,248,0.15), inset 0 0 0 1px rgba(148,163,184,0.25);
+    background:#050813;
+  }
+  canvas{ position:absolute; inset:0; width:100%; height:100%; display:block; touch-action:none; }
+
+  .min16{ font-size:16px !important; }
+  .btn{
+    font-size:16px; min-height:44px; padding:8px 14px; border-radius:10px;
+    background:linear-gradient(180deg,#1e293b,#0f172a); color:#e2e8f0;
+    border:1px solid rgba(148,163,184,0.35); font-weight:600;
+    display:flex; align-items:center; justify-content:center; gap:4px;
+    cursor:pointer; transition:all 0.15s;
+  }
+  .btn:active{ transform:scale(0.95); }
+  .icon-btn{ width:44px; height:44px; font-size:20px; border-radius:50%; }
+  .roll-btn{
+    background:linear-gradient(180deg,#0ea5e9,#0369a1); color:white;
+    font-size:17px; font-weight:800; padding:10px 18px; border-radius:14px;
+    border:1px solid rgba(224,242,254,0.5); box-shadow:0 4px 14px rgba(14,165,233,0.5);
+    min-height:48px;
+  }
+  .hp-bar-outer{ height:16px; border-radius:8px; background:rgba(0,0,0,0.55); overflow:hidden; border:1px solid rgba(148,163,184,0.4); }
+  .hp-bar-inner{ height:100%; transition:width .25s ease; }
+  
+  /* 骰子樣式與動畫 */
+  .dice-face{
+    width:34px; height:34px; border-radius:8px; background:linear-gradient(180deg,#f8fafc,#cbd5e1);
+    color:#0f172a; display:flex; align-items:center; justify-content:center;
+    font-size:20px; font-weight:900; box-shadow:0 2px 6px rgba(0,0,0,0.5);
+    animation: diceRoll .4s ease;
+    position: relative;
+    cursor: default;
+  }
+  .dice-face.selectable{ cursor:pointer; border:2px solid transparent; }
+  .dice-face.selectable:hover{ border-color:#38bdf8; }
+  .dice-face.selected{ border:2px solid #fbbf24; box-shadow:0 0 10px rgba(251,191,36,0.7); background:linear-gradient(180deg,#fef3c7,#fde68a); }
+  .dice-face.fruit{ background:linear-gradient(180deg,#fef08a,#f59e0b); font-size:16px; flex-direction:column; gap:0; line-height:1; padding-top:2px; }
+  .dice-face.fruit .num{ font-size:18px; font-weight:900; line-height:1; }
+  
+  /* 土城堡粉碎骰子特效 */
+  .crushed-dice {
+    animation: crushAnim 0.7s forwards !important;
+  }
+  .crushed-dice::after {
+    content: '❌';
+    position: absolute;
+    font-size: 26px;
+    color: #ef4444;
+    text-shadow: 0 0 8px rgba(0,0,0,0.8);
+    opacity: 0;
+    animation: fadeInCross 0.3s 0.2s forwards;
+  }
+  
+  @keyframes diceRoll{
+    0%{ transform:rotate(0deg) scale(0.4); opacity:0; }
+    60%{ transform:rotate(300deg) scale(1.15); opacity:1; }
+    100%{ transform:rotate(360deg) scale(1); }
+  }
+  @keyframes crushAnim {
+    0% { transform: scale(1); }
+    20% { transform: scale(1.2) rotate(-15deg); filter: brightness(1.5); }
+    40% { transform: scale(1.1) rotate(15deg); }
+    60% { transform: scale(1.2) rotate(-10deg); }
+    100% { transform: scale(0.8); background: #475569; color: #94a3b8; filter: grayscale(1); opacity: 0.7; box-shadow: none; }
+  }
+  @keyframes fadeInCross { to { opacity: 1; transform: scale(1.2); } }
+
+  .modal-panel{
+    background:linear-gradient(180deg,#0b1224,#050810);
+    border:1px solid rgba(56,189,248,0.35); border-radius:16px;
+    box-shadow:0 10px 40px rgba(0,0,0,0.7);
+  }
+  .castle-card{
+    border:2px solid rgba(148,163,184,0.3); border-radius:14px; padding:10px;
+    background:rgba(15,23,42,0.7); cursor:pointer; transition:.15s;
+  }
+  .castle-card.selected{ border-color:#38bdf8; box-shadow:0 0 18px rgba(56,189,248,0.6); background:rgba(14,116,144,0.25); }
+  .scrollbar-thin::-webkit-scrollbar{ width:6px; }
+  .scrollbar-thin::-webkit-scrollbar-thumb{ background:#334155; border-radius:4px; }
+  #toast{ pointer-events:none; }
+</style>
+</head>
+<body>
+<div id="outer">
+  <div id="gameContainer">
+    <canvas id="gameCanvas"></canvas>
+
+    <!-- ===================== 介面容器群 ===================== -->
+    
+    <!-- 主選單 -->
+    <div id="mainMenuScreen" class="absolute inset-0 z-30 flex flex-col items-center justify-center p-4" style="background:linear-gradient(180deg,#040611,#0a1020);">
+      <h1 class="text-4xl font-extrabold mb-8 text-transparent bg-clip-text bg-gradient-to-b from-cyan-300 to-blue-500 tracking-wider drop-shadow-[0_0_15px_rgba(56,189,248,0.5)]">
+        🏰 塔防對戰
+      </h1>
+      <button id="goToSelectBtn" class="btn roll-btn w-[80%] mb-4 min16 py-4 text-lg">⚔️ 開始遊戲</button>
+      <button id="openDexBtn" class="btn w-[80%] mb-4 min16 py-3">📖 城堡圖鑑 & 規則</button>
+    </div>
+
+    <!-- 城堡選擇畫面 -->
+    <div id="castleSelectScreen" class="absolute inset-0 z-30 hidden flex-col p-3 overflow-y-auto scrollbar-thin" style="background:linear-gradient(180deg,#040611,#0a1020);">
+      <button id="backToMainBtn" class="absolute top-3 left-3 text-slate-400 font-bold text-xl px-2 py-1 bg-slate-800 rounded-lg">🔙</button>
+      <h2 class="text-center text-xl font-extrabold mt-2 mb-1 text-cyan-300">選擇你的城堡</h2>
+      <p class="text-center text-sm text-slate-400 mb-3">請挑選屬性，準備與 AI 決戰</p>
+      <div id="castleCards" class="grid grid-cols-1 gap-2 mb-3"></div>
+      <button id="startBtn" class="btn roll-btn mx-auto mt-1 mb-3 min16" disabled style="opacity:.4;">請先選擇城堡</button>
+    </div>
+
+    <!-- 遊戲內 HUD -->
+    <div id="hud" class="absolute inset-0 z-10 hidden">
+      <!-- 頂部：AI 資訊 -->
+      <div class="absolute top-0 left-0 right-0 p-2 pt-3">
+        <div class="flex items-center gap-2">
+          <div id="aiIcon" class="text-2xl drop-shadow-lg">🤖</div>
+          <div class="flex-1">
+            <div class="flex justify-between text-base font-bold text-red-300">
+              <span id="aiCastleName">AI 城堡</span>
+              <span id="aiHpText">10000/10000</span>
+            </div>
+            <div class="hp-bar-outer"><div id="aiHpFill" class="hp-bar-inner" style="width:100%;background:linear-gradient(90deg,#f87171,#7f1d1d);"></div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 中間：骰子與回合資訊 -->
+      <div class="absolute left-0 right-0 flex flex-col items-center gap-1" style="top:50%; transform:translateY(-50%);">
+        <div id="aiDiceRow" class="flex gap-1 flex-wrap justify-center max-w-[90%] pointer-events-none"></div>
+        <div id="phaseIndicator" class="text-lg font-extrabold text-cyan-200 bg-black/60 border border-cyan-500/50 rounded-full px-4 py-1.5 my-2 shadow-[0_0_15px_rgba(56,189,248,0.3)] backdrop-blur-sm transition-all duration-300 pointer-events-none">
+          第 <span id="turnNum">0</span> 回合 - 準備中
+        </div>
+        <div id="playerDiceRow" class="flex gap-1 flex-wrap justify-center max-w-[90%]"></div>
+      </div>
+
+      <!-- 重擲 UI (絕對定位於骰子下方) -->
+      <div id="rerollUI" class="absolute left-0 right-0 flex justify-center gap-4 z-20 hidden" style="top:65%;">
+        <button id="btnAcceptRoll" class="btn bg-green-600/90 hover:bg-green-500 text-white min16 border-green-400">✅ 確定</button>
+        <button id="btnReroll" class="btn bg-blue-600/90 hover:bg-blue-500 text-white min16 border-blue-400">🎲 重擲(剩1次)</button>
+      </div>
+
+      <!-- 底部：玩家資訊 + 控制 -->
+      <div class="absolute left-0 right-0 bottom-0 p-2" style="padding-bottom:calc(env(safe-area-inset-bottom) + 8px);">
+        <div id="upgradeChoice" class="hidden flex gap-2 justify-center mb-2">
+          <button id="btnUpgradeDice" class="btn min16" style="flex:1;">➕3士兵骰(共4顆)</button>
+          <button id="btnUpgradeFruit" class="btn min16" style="flex:1;">➕2將軍骰(共3顆)</button>
+        </div>
+        <div id="trainChoice" class="hidden flex flex-col gap-2 justify-center mb-2">
+          <div class="text-center text-sm text-amber-300 font-bold">第5回合後解鎖：二選一</div>
+          <div class="flex gap-2">
+            <button id="btnTrainSoldier" class="btn min16" style="flex:1;">🛡️ 士兵訓練</button>
+            <button id="btnGeneralReroll" class="btn min16" style="flex:1;">🎲 將軍重擲</button>
+          </div>
+          <div id="trainSubChoice" class="hidden flex gap-2">
+            <button id="btnTrainAttack" class="btn min16" style="flex:1;font-size:14px;">⚔️ 進攻流<br><span class="text-xs">攻+50% 速+1 1%暈城</span></button>
+            <button id="btnTrainResist" class="btn min16" style="flex:1;font-size:14px;">🛡️ 抵抗流<br><span class="text-xs">血+50% 回血 護盾</span></button>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-2 mb-2">
+          <div id="playerIcon" class="text-2xl drop-shadow-lg">🧑‍🚀</div>
+          <div class="flex-1">
+            <div class="flex justify-between text-base font-bold text-cyan-300">
+              <span id="playerCastleName">玩家城堡</span>
+              <span id="playerHpText">10000/10000</span>
+            </div>
+            <div class="hp-bar-outer"><div id="playerHpFill" class="hp-bar-inner" style="width:100%;background:linear-gradient(90deg,#38bdf8,#0369a1);"></div></div>
+          </div>
+        </div>
+
+        <div class="flex items-center justify-between px-1">
+           <div class="flex gap-2">
+             <button id="btnPause" class="icon-btn btn">⏸</button>
+           </div>
+           <div class="text-xs text-slate-400 text-right">
+             ⚔️ 清除場上所有士兵進入下一回合
+           </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 提示 Toast -->
+    <div id="toast" class="absolute top-[20%] left-0 right-0 flex flex-col items-center gap-2 z-40"></div>
+
+    <!-- 暫停 Modal -->
+    <div id="pauseModal" class="hidden absolute inset-0 z-40 flex items-center justify-center bg-black/70 backdrop-blur-sm">
+      <div class="modal-panel p-5 w-[80%] text-center">
+        <h2 class="text-xl font-bold text-cyan-300 mb-3">⏸ 遊戲暫停</h2>
+        <button id="resumeBtn" class="btn roll-btn w-full mb-3 min16">▶ 繼續遊戲</button>
+        <button id="pauseRulesBtn" class="btn w-full mb-3 min16">📖 查看圖鑑與規則</button>
+        <button id="pauseRestartBtn" class="btn w-full min16 border-red-500/50 text-red-300">🔄 回到主選單</button>
+      </div>
+    </div>
+
+    <!-- 圖鑑與規則 Modal -->
+    <div id="rulesModal" class="hidden absolute inset-0 z-50 flex items-center justify-center bg-black/85 p-3 backdrop-blur-md">
+      <div class="modal-panel p-4 w-full max-h-[90%] flex flex-col">
+        <h2 class="text-xl font-extrabold text-cyan-300 mb-2 text-center border-b border-slate-700 pb-2">📖 圖鑑與規則</h2>
+        <div id="rulesContent" class="text-base leading-relaxed text-slate-200 overflow-y-auto scrollbar-thin pr-1 flex-1 space-y-3"></div>
+        <button id="closeRulesBtn" class="btn roll-btn w-full mt-3 min16">✖ 關閉</button>
+      </div>
+    </div>
+
+    <!-- 勝負 Modal -->
+    <div id="gameOverModal" class="hidden absolute inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-sm">
+      <div class="modal-panel p-6 w-[85%] text-center">
+        <h2 id="gameOverTitle" class="text-3xl font-extrabold mb-2">🏆 勝利！</h2>
+        <div class="text-sm text-slate-400 mb-4">經歷了 <span id="finalTurnText" class="text-white font-bold"></span> 回合的激戰</div>
+        <p id="gameOverDesc" class="text-base text-slate-300 mb-6">恭喜你摧毀了敵方城堡！</p>
+        <button id="playAgainBtn" class="btn roll-btn w-full min16">🔄 回到主選單</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   水果塔防對戰 - 核心邏輯
+   ============================================================ */
+
+const CASTLE_DATA = {
+  wind:{ key:'wind', name:'風城堡', emoji:'🌪️', color:'#5eead4',
+    passive:'攻擊時有 10% 機率擊退場上所有敵人 7 格（不造成傷害）。',
+    ultimate:'神嵐（HP<50%）：攻擊機率由 10% 提升至 25%，且擊退時造成傷害。' },
+  thunder:{ key:'thunder', name:'雷城堡', emoji:'⚡', color:'#facc15',
+    passive:'攻擊時，對範圍內首個目標以外的敵人造成 5 點傷害。',
+    ultimate:'天譴（HP<50%）：對首個目標額外造成 50 傷害（榴槤將軍免疫）。' },
+  earth:{ key:'earth', name:'土城堡', emoji:'⛰️', color:'#a16207',
+    passive:'完全免疫射程 <3 的敵人所造成的傷害（蘋果將軍除外）。',
+    ultimate:'地震（HP<50%）：每回合自動粉碎敵方點數最少的普通骰（使該骰無效）。' },
+  water:{ key:'water', name:'水城堡', emoji:'🌊', color:'#38bdf8',
+    passive:'每擊敗 20 個敵人，恢復 1000 點 HP。',
+    ultimate:'海嘯（HP<50%）：每 10 次攻擊，擊退所有射程 <3 的敵人回到出生點（柿子將軍除外）。' },
+  fire:{ key:'fire', name:'火城堡', emoji:'🔥', color:'#f87171',
+    passive:'能直接擊敗射程為 1 的士兵（香蕉將軍除外）。',
+    ultimate:'紅蓮（HP<50%）：受擊時有 10% 機率（對香蕉將軍為 50%）冰凍攻擊者 2 秒。' }
+};
+const GENERAL_DATA = {
+  coconut:{ name:'椰子將軍', color:'#4ade80', immune:'wind', emoji:'🥥' },
+  apple:{ name:'蘋果將軍', color:'#f87171', immune:'earth', emoji:'🍎' },
+  persimmon:{ name:'柿子將軍', color:'#fb923c', immune:'water', emoji:'🟠' },
+  banana:{ name:'香蕉將軍', color:'#facc15', immune:'fire', emoji:'🍌' },
+  durian:{ name:'榴槤將軍', color:'#c084fc', immune:'thunder', emoji:'💜' }
+};
+const COUNTER_GENERAL = { wind:'coconut', earth:'apple', water:'persimmon', fire:'banana', thunder:'durian' };
+const UPGRADE_TURN = 3;
+const TRAIN_TURN = 5;
+
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+let W = 0, H = 0;
+let layout = {};
+
+function resizeCanvas(){
+  const rect = canvas.getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = Math.round(rect.width * dpr);
+  canvas.height = Math.round(rect.height * dpr);
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  W = rect.width; H = rect.height;
+  
+  layout.aiCastle = { x: W*0.5, y: H*0.11 };
+  layout.playerCastle = { x: W*0.5, y: H*0.89 };
+  layout.playerSpawn = { x: W*0.16, y: H*0.78 };
+  layout.aiSpawn = { x: W*0.84, y: H*0.22 };
+  layout.GRID = H/24;
+}
+window.addEventListener('resize', resizeCanvas);
+
+/* 遊戲狀態管理：引入了回合階段 (phase) 機制 */
+let game = {
+  running:false, paused:false, over:false,
+  turn:0, lastTime:0,
+  phase: 'idle', // 'idle' -> 'waiting' -> 'rolling' -> 'rerolling' -> 'spawning' -> 'battling'
+  phaseTimer: 0,
+  unitIdSeq:1, units:[], floats:[],
+  player:{ team:'player', type:null, hp:10000, maxHp:10000, mode:'normal', atkTimer:0, killsSinceHeal:0, tsunamiCount:0, hasRerolled:false, allowGeneralReroll:false, soldierTrain:null },
+  ai:{ team:'ai', type:null, hp:10000, maxHp:10000, mode:'normal', atkTimer:0, killsSinceHeal:0, tsunamiCount:0, hasRerolled:false, allowGeneralReroll:false, soldierTrain:null }
+};
+
+let audioCtx=null;
+function ensureAudio(){ if(!audioCtx){ try{ audioCtx = new (window.AudioContext||window.webkitAudioContext)(); }catch(e){} } }
+function beep(freq,dur,type,vol){
+  if(!audioCtx) return;
+  const o=audioCtx.createOscillator(), g=audioCtx.createGain();
+  o.type=type||'sine'; o.frequency.value=freq;
+  g.gain.value=vol!==undefined?vol:0.15;
+  o.connect(g); g.connect(audioCtx.destination);
+  const now=audioCtx.currentTime;
+  o.start(now);
+  g.gain.exponentialRampToValueAtTime(0.001, now+dur);
+  o.stop(now+dur);
+}
+function playSound(name){
+  ensureAudio();
+  switch(name){
+    case 'roll': for(let i=0;i<3;i++) setTimeout(()=>beep(300+Math.random()*200,0.08,'square',0.1), i*60); break;
+    case 'atk': beep(220,0.08,'triangle',0.08); break;
+    case 'hitCastle': beep(120,0.12,'sawtooth',0.12); break;
+    case 'death': beep(400,0.08,'sine',0.05); break;
+    case 'crush': beep(80,0.4,'square',0.2); setTimeout(()=>beep(60,0.3,'sawtooth',0.3), 50); break; // 土城堡擊碎骰子
+    case 'win': [523,659,784,1046].forEach((f,i)=>setTimeout(()=>beep(f,0.3,'sine',0.15), i*150)); break;
+    case 'lose': [400,300,200,120].forEach((f,i)=>setTimeout(()=>beep(f,0.4,'sawtooth',0.15), i*150)); break;
+  }
+}
+
+function rollDiceArr(n){ return Array.from({length:n}, ()=>1+Math.floor(Math.random()*6)); }
+
+/* 執行新回合的擲骰與大招判定 */
+function executeTurnRoll(){
+  game.turn++;
+  game.phase = 'rolling';
+  game.player.hasRerolled = false;
+  game.ai.hasRerolled = false;
+  game.selectedDice = new Set();
+  game.selectedFruitDice = new Set();
+  
+  if(game.turn === UPGRADE_TURN){
+    document.getElementById('upgradeChoice').classList.remove('hidden');
+    showToast(`🔓 第 ${UPGRADE_TURN} 回合達成！可升級你的骰子配置！`);
+  }
+
+  if(game.turn === TRAIN_TURN){
+    document.getElementById('trainChoice').classList.remove('hidden');
+    showToast(`🔓 第 ${TRAIN_TURN} 回合達成！可選擇士兵訓練或將軍重擲！`);
+  }
+
+  // 1. 決定 AI 第3回合後的策略
+  if(game.turn >= UPGRADE_TURN && game.ai.mode === 'normal') {
+    game.ai.mode = Math.random() < 0.5 ? 'dice' : 'fruit';
+  }
+
+  // AI 第5回合後訓練選擇
+  if(game.turn >= TRAIN_TURN && game.ai.soldierTrain === null && !game.ai.allowGeneralReroll){
+    if(Math.random() < 0.5){
+      game.ai.allowGeneralReroll = true;
+    } else {
+      game.ai.soldierTrain = Math.random() < 0.5 ? 'attack' : 'resist';
+    }
+  }
+
+  // 2. 雙方擲骰
+  let pRes = performRoll(game.player, 'player');
+  let aRes = performRoll(game.ai, 'ai');
+  game.pendingSpawns = { pRes, aRes };
+
+  // 3. 更新 UI 與動畫 (先不判定土城堡大招，等重擲結束後才判定)
+  game.phase = 'rerolling'; // 先設好 phase 讓 render 知道可選
+  renderDiceUI(pRes, aRes);
+  playSound('roll');
+  
+  updateHUDPhase('rerolling');
+  updateHUD();
+
+  // 4. 進入重擲階段，等待玩家操作
+  updateRerollBtnText();
+  document.getElementById('rerollUI').classList.remove('hidden');
+}
+
+function acceptRolls() {
+  document.getElementById('rerollUI').classList.add('hidden');
+  
+  // AI 重擲邏輯：如果普通骰總點數偏低，則重擲
+  let aiNormalSum = game.pendingSpawns.aRes.rolls.reduce((a,b)=>a+b, 0);
+  let aiThreshold = game.ai.mode === 'dice' ? 12 : 3;
+  if (aiNormalSum < aiThreshold) {
+    game.ai.hasRerolled = true;
+    let newARoll = performRoll(game.ai, 'ai');
+    game.pendingSpawns.aRes.rolls = newARoll.rolls; // 僅更新普通骰，保留將軍骰
+  }
+
+  // 判定土城堡大招 (HP < 50% 擊碎敵方最小骰子)
+  checkEarthCrush(game.player, game.pendingSpawns.aRes);
+  checkEarthCrush(game.ai, game.pendingSpawns.pRes);
+
+  renderDiceUI(game.pendingSpawns.pRes, game.pendingSpawns.aRes);
+  
+  if(game.pendingSpawns.pRes.crushIdx !== -1 || game.pendingSpawns.aRes.crushIdx !== -1) {
+    setTimeout(() => { playSound('crush'); }, 200); 
+  } else if (game.ai.hasRerolled || game.player.hasRerolled) {
+    playSound('roll');
+  }
+
+  game.phase = 'spawning';
+  game.phaseTimer = 1.2; 
+}
+
+function performRoll(side, team) {
+  let normalCount = 1, fruitCount = 0;
+  if(side.mode === 'dice') normalCount = 4; // +3士兵骰 共4顆
+  else if(side.mode === 'fruit') fruitCount = 2; // +2將軍骰
+
+  let fruitRolls = fruitCount > 0 ? rollDiceArr(fruitCount) : null;
+  let fruitVal = fruitRolls ? fruitRolls.reduce((a,b)=>a+b,0) : null;
+
+  return {
+    rolls: rollDiceArr(normalCount),
+    fruitVal: fruitVal,
+    fruitRolls: fruitRolls, // 個別將軍骰點數供顯示與重擲
+    crushIdx: -1 // 記錄被土城堡摧毀的骰子索引
+  };
+}
+
+/* 檢查並執行土城堡碎骰大招 */
+function checkEarthCrush(castle, enemyRes) {
+  if (castle.type === 'earth' && castle.hp <= castle.maxHp * 0.5 && enemyRes.rolls.length > 0) {
+    let minIdx = 0;
+    let minVal = enemyRes.rolls[0];
+    for (let i = 1; i < enemyRes.rolls.length; i++) {
+      if (enemyRes.rolls[i] < minVal) {
+        minVal = enemyRes.rolls[i];
+        minIdx = i;
+      }
+    }
+    enemyRes.crushIdx = minIdx;
+    
+    // 顯示浮動文字提示
+    const targetPos = castle.team === 'player' ? layout.playerCastle : layout.aiCastle;
+    spawnFloatText(targetPos, '⛰️地震碎骰!', '#facc15');
+  }
+}
+
+/* 根據結算結果生成單位 */
+function executeSpawns() {
+  const { pRes, aRes } = game.pendingSpawns;
+  spawnFromRes(game.player, 'player', pRes, game.ai.type);
+  spawnFromRes(game.ai, 'ai', aRes, game.player.type);
+  
+  game.phase = 'battling';
+  updateHUDPhase('battling');
+}
+
+function spawnFromRes(side, team, res, enemyCastleType) {
+  let totalNormal = 0;
+  for(let i = 0; i < res.rolls.length; i++){
+    if(i !== res.crushIdx) totalNormal += res.rolls[i];
+  }
+  if(totalNormal > 0) spawnUnits(team, totalNormal, false, enemyCastleType);
+  if(res.fruitVal !== null) spawnUnits(team, res.fruitVal, true, enemyCastleType);
+}
+
+function spawnUnits(team, count, isGeneral, enemyCastleType){
+  const spawnPt = team==='player'?layout.playerSpawn:layout.aiSpawn;
+  const side = team==='player' ? game.player : game.ai;
+  for(let i=0;i<count;i++){
+    let hp=100, maxHp=100, atk=10;
+    let speed = isGeneral ? (side.allowGeneralReroll ? 10 : 4) : 2;
+    let shield=0, regen=0, stunChance=0;
+    // 士兵訓練只適用於所有士兵（非將軍）
+    if(!isGeneral && side.soldierTrain === 'attack'){
+      atk = Math.round(atk * 1.5);
+      speed += 1;
+      stunChance = 0.01;
+    } else if(!isGeneral && side.soldierTrain === 'resist'){
+      hp = Math.round(hp * 1.5);
+      maxHp = hp;
+      regen = 10; // 每5秒恢復10
+      shield = 3;
+    }
+    game.units.push({
+      id: game.unitIdSeq++,
+      team, isGeneral,
+      generalType: isGeneral ? COUNTER_GENERAL[enemyCastleType] : null,
+      hp, maxHp, atk, 
+      range: isGeneral ? 1 : (1+Math.floor(Math.random()*5)), // 射程 1~5
+      speed,
+      x: spawnPt.x + (Math.random()*44-22),
+      y: spawnPt.y + (Math.random()*44-22),
+      atkTimer:0, frozen:0, dead:false,
+      spawnDelay: i*0.12 + Math.random()*0.15,
+      shield, regen, regenTimer:0, stunChance
+    });
+  }
+}
+
+/* 優化：風城堡擊退敵人時，嚴格沿著直線路徑後退，絕不偏離路徑 */
+function knockback(unit, gridAmt, effect){
+  if(effect==='wind' && unit.generalType==='coconut') return;
+  if(effect==='water' && unit.generalType==='persimmon') return;
+  
+  // 決定此單位的目標城堡（P0）與出生點（P1）
+  const P0 = unit.team==='player' ? layout.aiCastle : layout.playerCastle;
+  const P1 = unit.team==='player' ? layout.playerSpawn : layout.aiSpawn;
+
+  // 計算路徑線段向量 P0 -> P1
+  const ux = P1.x - P0.x, uy = P1.y - P0.y;
+  const lenSq = ux * ux + uy * uy;
+  if(lenSq <= 0) return;
+  const len = Math.sqrt(lenSq);
+
+  // 計算單位當前位置在路徑線段上的投影比例 t (0 代表城堡, 1 代表出生點)
+  const wx = unit.x - P0.x, wy = unit.y - P0.y;
+  let t = (wx * ux + wy * uy) / lenSq;
+
+  // 擊退：將單位朝出生點方向推動 (t 增加)
+  const dist = gridAmt * layout.GRID;
+  t = Math.min(1, Math.max(0, t + dist / len));
+
+  // 更新單位坐標，確保緊貼於直線路徑上
+  unit.x = P0.x + t * ux;
+  unit.y = P0.y + t * uy;
+}
+
+function dealDamage(unit, dmg, castle){
+  if(dmg<=0 || unit.dead) return;
+  // 抵抗流護盾：消耗護盾抵銷傷害
+  if(unit.shield > 0){
+    unit.shield--;
+    spawnFloatText({x:unit.x,y:unit.y}, '🛡️', '#93c5fd');
+    return;
+  }
+  unit.hp -= dmg;
+  spawnFloatText({x:unit.x,y:unit.y}, '-'+Math.round(dmg), '#fca5a5');
+  if(unit.hp<=0){
+    unit.dead = true;
+    if(castle.type==='water'){
+      castle.killsSinceHeal++;
+      if(castle.killsSinceHeal>=20){
+        castle.killsSinceHeal = 0;
+        castle.hp = Math.min(castle.maxHp, castle.hp+1000);
+        const pos = castle===game.player ? layout.playerCastle : layout.aiCastle;
+        spawnFloatText(pos, '+1000 HP', '#4ade80');
+      }
+    }
+    playSound('death');
+  }
+}
+
+function performCastleAbility(castle, pos, enemyTeam, primary, inRange){
+  const lowHp = castle.hp <= castle.maxHp*0.5;
+  switch(castle.type){
+    case 'wind': {
+      // 風城堡：由擊退4格改為7格，大招機率由10%提升至25%
+      const chance = lowHp ? 0.25 : 0.10;
+      if(Math.random()<chance){
+        inRange.forEach(u=>{
+          knockback(u, 7, 'wind');
+          if(lowHp) dealDamage(u, 25, castle); // 大招：擊退時有傷
+        });
+        spawnFloatText(pos, lowHp ? '💨神嵐擊退!' : '💨擊退!','#5eead4');
+      } else {
+        dealDamage(primary, castle.hp>0?25:0, castle);
+      }
+      break;
+    }
+    case 'thunder': {
+      const immuneP = primary.generalType==='durian';
+      let dmg = 25 + ((lowHp && !immuneP) ? 50 : 0);
+      dealDamage(primary, dmg, castle);
+      inRange.slice(1).forEach(u=>{ if(u.generalType!=='durian') dealDamage(u,5,castle); });
+      break;
+    }
+    case 'earth': {
+      dealDamage(primary, 25, castle);
+      break;
+    }
+    case 'water': {
+      dealDamage(primary, 25, castle);
+      if(lowHp){
+        castle.tsunamiCount++;
+        if(castle.tsunamiCount>=10){
+          castle.tsunamiCount = 0;
+          const spawnPt = enemyTeam==='ai' ? layout.aiSpawn : layout.playerSpawn;
+          game.units.forEach(u=>{
+            if(!u.dead && u.team===enemyTeam && u.range<3 && u.generalType!=='persimmon'){
+              u.x = spawnPt.x; u.y = spawnPt.y;
+            }
+          });
+          spawnFloatText(pos,'🌊海嘯!','#38bdf8');
+        }
+      }
+      break;
+    }
+    case 'fire': {
+      if(primary.range<=1 && primary.generalType!=='banana') {
+        primary.shield = 0; // 破除護盾確保直接擊敗
+        dealDamage(primary, primary.hp, castle);
+      } else {
+        dealDamage(primary, 25, castle);
+      }
+      break;
+    }
+  }
+}
+
+function updateCastleAttack(dt, castle, pos, enemyTeam){
+  if(castle.hp<=0) return;
+  // 被擊暈時無法攻擊
+  if(castle.stunTimer > 0){
+    castle.stunTimer -= dt;
+    return;
+  }
+  castle.atkTimer = (castle.atkTimer||0) + dt;
+  if(castle.atkTimer>1) castle.atkTimer = 1;
+  if(castle.atkTimer<1) return;
+  
+  const lowHp = castle.hp <= castle.maxHp * 0.5;
+  const rangePx = (10 + (lowHp ? 5 : 0)) * layout.GRID;
+  
+  const inRange = game.units.filter(u=>!u.dead && u.team===enemyTeam && u.spawnDelay<=0 &&
+    Math.hypot(u.x-pos.x,u.y-pos.y) <= rangePx);
+  if(inRange.length===0) return;
+  castle.atkTimer = 0;
+  inRange.sort((a,b)=>Math.hypot(a.x-pos.x,a.y-pos.y)-Math.hypot(b.x-pos.x,b.y-pos.y));
+  performCastleAbility(castle, pos, enemyTeam, inRange[0], inRange);
+  playSound('atk');
+}
+
+function unitAttackCastle(unit, castle){
+  let dmg = unit.atk;
+  if(castle.type==='earth' && unit.range<3 && unit.generalType!=='apple') dmg = 0;
+  if(dmg>0){
+    castle.hp -= dmg;
+    spawnFloatText(unit.team==='player'?layout.aiCastle:layout.playerCastle, '-'+dmg, '#f87171');
+    playSound('hitCastle');
+    // 進攻流：1% 機率擊暈城堡2秒
+    if(unit.stunChance > 0 && Math.random() < unit.stunChance){
+      castle.stunTimer = 2.0;
+      spawnFloatText(unit.team==='player'?layout.aiCastle:layout.playerCastle, '💫擊暈!', '#fbbf24');
+    }
+  }
+  if(castle.type==='fire' && castle.hp>0 && castle.hp<=castle.maxHp*0.5){
+    const chance = unit.generalType==='banana' ? 0.5 : 0.1;
+    if(Math.random()<chance){ unit.frozen = 2.0; spawnFloatText({x:unit.x,y:unit.y}, '❄️', '#93c5fd'); }
+  }
+  if(castle.hp<=0){
+    castle.hp = 0;
+    // 傳入被摧毀的城堡所屬隊伍作為 loserTeam
+    endGame(castle === game.player ? 'player' : 'ai');
+  }
+}
+
+function spawnFloatText(pos, text, color){
+  game.floats.push({ x:pos.x+(Math.random()*20-10), y:pos.y, text, color, life:1.2 });
+}
+
+function update(dt){
+  if(!game.running || game.paused || game.over) return;
+  
+  // 回合狀態機控制
+  if (game.phase === 'idle') {
+    game.phase = 'waiting';
+    game.phaseTimer = 0.5;
+  } 
+  else if (game.phase === 'waiting') {
+    game.phaseTimer -= dt;
+    if (game.phaseTimer <= 0) {
+       executeTurnRoll();
+    }
+  }
+  else if (game.phase === 'rerolling') {
+    // 等待玩家點擊「確定」或「重擲」，不自動推進時間
+  }
+  else if (game.phase === 'spawning') {
+    game.phaseTimer -= dt;
+    if (game.phaseTimer <= 0) {
+       executeSpawns();
+    }
+  }
+  else if (game.phase === 'battling') {
+    // 核心回合檢查：雙方場上是否都清空了
+    if (game.units.length === 0) {
+      game.phase = 'waiting';
+      game.phaseTimer = 1.2; // 稍微停頓後進入下一回合
+      updateHUDPhase('waiting');
+    }
+  }
+
+  // 單位移動與攻擊
+  for(const u of game.units){
+    if(u.dead) continue;
+    if(u.spawnDelay>0){ u.spawnDelay -= dt; continue; }
+    if(u.frozen>0){ u.frozen -= dt; continue; }
+    // 抵抗流：每5秒恢復10 HP
+    if(u.regen > 0){
+      u.regenTimer = (u.regenTimer||0) + dt;
+      if(u.regenTimer >= 5){
+        u.regenTimer = 0;
+        if(u.hp < u.maxHp){
+          u.hp = Math.min(u.maxHp, u.hp + u.regen);
+          spawnFloatText({x:u.x,y:u.y}, '+'+u.regen, '#4ade80');
+        }
+      }
+    }
+    const enemyCastle = u.team==='player' ? game.ai : game.player;
+    const castlePos = u.team==='player' ? layout.aiCastle : layout.playerCastle;
+    if(enemyCastle.hp<=0) continue;
+    const dx = castlePos.x-u.x, dy = castlePos.y-u.y;
+    const d = Math.hypot(dx,dy) || 0.001;
+    const rangePx = u.range*layout.GRID;
+    if(d>rangePx){
+      const spd = u.speed*layout.GRID;
+      u.x += dx/d*spd*dt; u.y += dy/d*spd*dt;
+    } else {
+      u.atkTimer += dt;
+      if(u.atkTimer>=1){ u.atkTimer -= 1; unitAttackCastle(u, enemyCastle); }
+    }
+  }
+  
+  // 清理死亡單位
+  game.units = game.units.filter(u=>!u.dead);
+
+  // 城堡自動攻擊
+  updateCastleAttack(dt, game.player, layout.playerCastle, 'ai');
+  updateCastleAttack(dt, game.ai, layout.aiCastle, 'player');
+
+  // 浮動文字更新
+  game.floats.forEach(f=>{ f.life-=dt*1.2; f.y-=15*dt; });
+  game.floats = game.floats.filter(f=>f.life>0);
+  
+  updateHUD();
+}
+
+function drawBackground(){
+  ctx.clearRect(0,0,W,H);
+  const g = ctx.createLinearGradient(0,0,0,H);
+  g.addColorStop(0,'#0b1120'); g.addColorStop(0.5,'#060a16'); g.addColorStop(1,'#0b1120');
+  ctx.fillStyle = g; ctx.fillRect(0,0,W,H);
+  
+  ctx.strokeStyle = 'rgba(56,189,248,0.08)'; ctx.lineWidth = 20; ctx.lineCap='round';
+  ctx.beginPath(); ctx.moveTo(layout.playerSpawn.x, layout.playerSpawn.y); ctx.lineTo(layout.aiCastle.x, layout.aiCastle.y); ctx.stroke();
+  ctx.strokeStyle = 'rgba(248,113,113,0.08)';
+  ctx.beginPath(); ctx.moveTo(layout.aiSpawn.x, layout.aiSpawn.y); ctx.lineTo(layout.playerCastle.x, layout.playerCastle.y); ctx.stroke();
+}
+
+function drawCastle(pos, castle, team){
+  const info = CASTLE_DATA[castle.type];
+  if(!info) return;
+  const lowHp = castle.hp <= castle.maxHp*0.5;
+  const t = performance.now()/300;
+  const glow = lowHp ? (0.5+0.5*Math.sin(t)) : 0;
+  ctx.save();
+  ctx.shadowColor = info.color;
+  ctx.shadowBlur = 14 + glow*20;
+  ctx.fillStyle = info.color;
+  ctx.beginPath();
+  const size = 34;
+  ctx.roundRect(pos.x-size, pos.y-size*0.75, size*2, size*1.5, 10);
+  ctx.globalAlpha = 0.85;
+  ctx.fill();
+  ctx.globalAlpha = 1;
+  ctx.shadowBlur = 0;
+  ctx.font = '28px sans-serif';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(info.emoji, pos.x, pos.y-2);
+  ctx.restore();
+}
+
+function drawUnit(u){
+  if(u.spawnDelay>0) return;
+  const r = u.isGeneral ? 18 : 13;
+  let fill = u.isGeneral ? GENERAL_DATA[u.generalType].color : (u.team==='player' ? '#38bdf8' : '#f87171');
+  
+  ctx.save();
+  if(u.frozen>0){ ctx.shadowColor='#93c5fd'; ctx.shadowBlur=8; }
+  ctx.beginPath();
+  ctx.arc(u.x,u.y,r,0,Math.PI*2);
+  ctx.fillStyle = fill;
+  ctx.fill();
+  ctx.lineWidth = 2;
+  ctx.strokeStyle = u.team==='player' ? '#e0f2fe' : '#1f2937';
+  ctx.stroke();
+  
+  // 在士兵中心顯示射程數字 (強制最少16px)
+  ctx.fillStyle = (u.team==='player' || u.isGeneral) ? '#020617' : '#450a0a';
+  if(u.isGeneral && u.generalType==='coconut') ctx.fillStyle='#022c22';
+  const fontSize = Math.max(16, r * 1.2);
+  ctx.font = 'bold ' + fontSize + 'px sans-serif';
+  ctx.textAlign = 'center'; 
+  ctx.textBaseline = 'middle';
+  ctx.fillText(u.range, u.x, u.y+1); // 顯示射程數字，Y軸微調置中
+  ctx.restore();
+
+  // 將軍 Emoji 標示
+  if(u.isGeneral){
+    ctx.font = Math.max(16, r+4) + 'px sans-serif';
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText(GENERAL_DATA[u.generalType].emoji, u.x, u.y-r-10);
+  }
+  
+  // 血條
+  if(u.hp<u.maxHp){
+    const w=22;
+    ctx.fillStyle='rgba(0,0,0,0.6)'; ctx.fillRect(u.x-w/2, u.y-r-6, w, 3);
+    ctx.fillStyle='#4ade80'; ctx.fillRect(u.x-w/2, u.y-r-6, w*(u.hp/u.maxHp), 3);
+  }
+}
+
+function drawFloats(){
+  ctx.textAlign='center';
+  game.floats.forEach(f=>{
+    ctx.globalAlpha = Math.max(0, Math.min(1, f.life));
+    ctx.fillStyle = '#000'; // 黑色描邊效果
+    ctx.font = '900 17px sans-serif';
+    ctx.fillText(f.text, f.x+1, f.y+1);
+    ctx.fillText(f.text, f.x-1, f.y-1);
+    ctx.fillStyle = f.color;
+    ctx.fillText(f.text, f.x, f.y);
+  });
+  ctx.globalAlpha = 1;
+}
+
+function render(){
+  if(!W) return;
+  drawBackground();
+  if(game.ai.type) drawCastle(layout.aiCastle, game.ai, 'ai');
+  if(game.player.type) drawCastle(layout.playerCastle, game.player, 'player');
+  for(const u of game.units) drawUnit(u);
+  drawFloats();
+  if(game.paused){
+    ctx.fillStyle='rgba(0,0,0,0.5)'; ctx.fillRect(0,0,W,H);
+  }
+}
+
+function loop(ts){
+  if(!game.lastTime) game.lastTime = ts;
+  let dt = (ts-game.lastTime)/1000;
+  game.lastTime = ts;
+  if(dt>0.1) dt = 0.1;
+  update(dt);
+  render();
+  requestAnimationFrame(loop);
+}
+
+function updateHUD(){
+  const p=game.player, a=game.ai;
+  document.getElementById('playerHpFill').style.width = Math.max(0,p.hp/p.maxHp*100)+'%';
+  document.getElementById('aiHpFill').style.width = Math.max(0,a.hp/a.maxHp*100)+'%';
+  document.getElementById('playerHpText').textContent = Math.max(0,Math.round(p.hp))+'/'+p.maxHp;
+  document.getElementById('aiHpText').textContent = Math.max(0,Math.round(a.hp))+'/'+a.maxHp;
+  document.getElementById('turnNum').textContent = game.turn;
+}
+
+function updateHUDPhase(phase) {
+  const indicator = document.getElementById('phaseIndicator');
+  if(phase === 'waiting') {
+    indicator.innerHTML = `第 <span id="turnNum">${game.turn}</span> 回合結束 - 準備中...`;
+    indicator.className = 'text-base font-bold text-slate-300 bg-black/60 border border-slate-600 rounded-full px-4 py-1.5 my-2 shadow-lg backdrop-blur-sm transition-all duration-300';
+  } else if (phase === 'rolling' || phase === 'rerolling' || phase === 'spawning') {
+    indicator.innerHTML = `🎲 第 <span id="turnNum">${game.turn}</span> 回合 - 召喚中`;
+    indicator.className = 'text-lg font-extrabold text-amber-300 bg-black/70 border border-amber-500/80 rounded-full px-4 py-1.5 my-2 shadow-[0_0_20px_rgba(245,158,11,0.5)] backdrop-blur-sm transition-all duration-300 scale-110';
+  } else if (phase === 'battling') {
+    indicator.innerHTML = `⚔️ 第 <span id="turnNum">${game.turn}</span> 回合 - 激戰中`;
+    indicator.className = 'text-base font-bold text-cyan-200 bg-black/50 border border-cyan-800/50 rounded-full px-4 py-1.5 my-2 shadow-md backdrop-blur-sm transition-all duration-300 opacity-70';
+  }
+}
+
+function renderDiceUI(pRes, aRes){
+  const pRow = document.getElementById('playerDiceRow');
+  const aRow = document.getElementById('aiDiceRow');
+  pRow.innerHTML=''; aRow.innerHTML='';
+  
+  // 繪製玩家骰子 (處理被 AI 土城堡擊碎的情況)
+  pRes.rolls.forEach((v, idx)=>{ 
+    const d=document.createElement('div'); 
+    d.className = 'dice-face'; 
+    if(idx === pRes.crushIdx) d.classList.add('crushed-dice');
+    d.textContent=v; 
+    // 重擲階段可點選要重擲的普通骰
+    if(game.phase === 'rerolling' && !game.player.hasRerolled && idx !== pRes.crushIdx){
+      d.classList.add('selectable');
+      if(game.selectedDice && game.selectedDice.has(idx)) d.classList.add('selected');
+      d.dataset.idx = idx;
+      d.addEventListener('click', ()=>{
+        if(!game.selectedDice) game.selectedDice = new Set();
+        if(game.selectedDice.has(idx)){
+          game.selectedDice.delete(idx);
+          d.classList.remove('selected');
+        } else {
+          game.selectedDice.add(idx);
+          d.classList.add('selected');
+        }
+        updateRerollBtnText();
+      });
+    }
+    pRow.appendChild(d); 
+  });
+  if(pRes.fruitRolls){ 
+    pRes.fruitRolls.forEach((v, fIdx)=>{
+      const d=document.createElement('div'); 
+      d.className='dice-face fruit'; 
+      d.innerHTML='🍎<span class="num">'+v+'</span>'; 
+      if(game.phase === 'rerolling' && !game.player.hasRerolled && game.player.allowGeneralReroll){
+        d.classList.add('selectable');
+        if(game.selectedFruitDice && game.selectedFruitDice.has(fIdx)) d.classList.add('selected');
+        d.addEventListener('click', ()=>{
+          if(!game.selectedFruitDice) game.selectedFruitDice = new Set();
+          if(game.selectedFruitDice.has(fIdx)){ game.selectedFruitDice.delete(fIdx); d.classList.remove('selected'); }
+          else { game.selectedFruitDice.add(fIdx); d.classList.add('selected'); }
+          updateRerollBtnText();
+        });
+      }
+      pRow.appendChild(d); 
+    });
+  }
+  
+  // 繪製 AI 骰子 (處理被玩家土城堡擊碎的情況)
+  aRes.rolls.forEach((v, idx)=>{ 
+    const d=document.createElement('div'); 
+    d.className = 'dice-face'; 
+    if(idx === aRes.crushIdx) d.classList.add('crushed-dice');
+    d.textContent=v; 
+    aRow.appendChild(d); 
+  });
+  if(aRes.fruitRolls){ 
+    aRes.fruitRolls.forEach(v=>{
+      const d=document.createElement('div'); 
+      d.className='dice-face fruit'; 
+      d.innerHTML='🍌<span class="num">'+v+'</span>'; 
+      aRow.appendChild(d); 
+    });
+  }
+}
+
+function updateRerollBtnText(){
+  const btn = document.getElementById('btnReroll');
+  if(game.player.hasRerolled){
+    btn.textContent = '🎲 已重擲';
+    btn.disabled = true;
+  } else {
+    const n1 = game.selectedDice ? game.selectedDice.size : 0;
+    const n2 = game.selectedFruitDice ? game.selectedFruitDice.size : 0;
+    const n = n1 + n2;
+    btn.textContent = n > 0 ? `🎲 重擲選中(${n})` : '🎲 請先點選骰子';
+    btn.disabled = n === 0;
+  }
+}
+
+function showToast(msg){
+  const t=document.getElementById('toast');
+  const el=document.createElement('div');
+  el.className='min16 bg-slate-900/90 border border-cyan-400/50 text-cyan-200 rounded-full px-5 py-2 font-bold shadow-lg transform scale-0 transition-transform duration-300';
+  el.textContent=msg;
+  t.appendChild(el);
+  requestAnimationFrame(()=>el.classList.replace('scale-0','scale-100'));
+  setTimeout(()=>{ 
+    el.style.opacity='0'; el.style.transform='scale(0.8)';
+    setTimeout(()=>el.remove(),300); 
+  }, 2500);
+}
+
+function endGame(loserTeam){
+  game.over = true; game.running=false;
+  const winner = loserTeam==='player' ? 'ai' : 'player';
+  const modal = document.getElementById('gameOverModal');
+  const title = document.getElementById('gameOverTitle');
+  const desc = document.getElementById('gameOverDesc');
+  document.getElementById('finalTurnText').textContent = game.turn;
+  
+  if(winner==='player'){
+    title.textContent='🏆 勝利！'; title.className = 'text-4xl font-extrabold mb-2 text-green-400 drop-shadow-[0_0_10px_rgba(74,222,128,0.6)]';
+    desc.textContent='成功攻破了敵方陣營！';
+    playSound('win');
+  } else {
+    title.textContent='💀 敗北...'; title.className = 'text-4xl font-extrabold mb-2 text-red-500 drop-shadow-[0_0_10px_rgba(239,68,68,0.6)]';
+    desc.textContent='你的城堡已成廢墟，再接再厲！';
+    playSound('lose');
+  }
+  modal.classList.remove('hidden');
+}
+
+function startGame(castleType){
+  ensureAudio();
+  game.player.type = castleType;
+  const keys = Object.keys(CASTLE_DATA);
+  game.ai.type = keys[Math.floor(Math.random()*keys.length)];
+
+  Object.assign(game.player,{ hp:10000,maxHp:10000,mode:'normal',atkTimer:0,killsSinceHeal:0,tsunamiCount:0,hasRerolled:false,allowGeneralReroll:false,soldierTrain:null });
+  Object.assign(game.ai,{ hp:10000,maxHp:10000,mode:'normal',atkTimer:0,killsSinceHeal:0,tsunamiCount:0,hasRerolled:false,allowGeneralReroll:false,soldierTrain:null });
+  game.units=[]; game.floats=[]; game.turn=0; game.over=false; game.paused=false;
+  game.phase = 'idle';
+
+  document.getElementById('playerCastleName').textContent = CASTLE_DATA[castleType].name;
+  document.getElementById('playerIcon').textContent = CASTLE_DATA[castleType].emoji;
+  document.getElementById('aiCastleName').textContent = 'AI · '+CASTLE_DATA[game.ai.type].name;
+  document.getElementById('aiIcon').textContent = CASTLE_DATA[game.ai.type].emoji;
+  document.getElementById('upgradeChoice').classList.add('hidden');
+  document.getElementById('trainChoice').classList.add('hidden');
+  document.getElementById('trainSubChoice').classList.add('hidden');
+  
+  // 清空骰子區
+  document.getElementById('playerDiceRow').innerHTML='';
+  document.getElementById('aiDiceRow').innerHTML='';
+  updateHUDPhase('waiting');
+
+  document.getElementById('castleSelectScreen').classList.add('hidden');
+  document.getElementById('hud').classList.remove('hidden');
+  document.getElementById('gameOverModal').classList.add('hidden');
+
+  resizeCanvas();
+  updateHUD();
+  showToast('⚔️ 遊戲開始！AI 使用了「'+CASTLE_DATA[game.ai.type].name+'」');
+  game.running = true;
+  game.lastTime = 0;
+  requestAnimationFrame(loop);
+}
+
+/* 建立城堡選單 */
+let selectedCastle = null;
+function buildCastleCards(){
+  const wrap = document.getElementById('castleCards');
+  wrap.innerHTML='';
+  Object.values(CASTLE_DATA).forEach(c=>{
+    const card=document.createElement('div');
+    card.className='castle-card';
+    card.dataset.key=c.key;
+    card.innerHTML = `
+      <div class="flex items-center gap-2 mb-1">
+        <span class="text-2xl">${c.emoji}</span>
+        <span class="text-lg font-bold" style="color:${c.color}">${c.name}</span>
+      </div>
+      <div class="text-[15px] text-slate-300 mb-1 leading-snug">🛡️ ${c.passive}</div>
+      <div class="text-[15px] text-amber-300 leading-snug">✨ ${c.ultimate}</div>
+    `;
+    card.addEventListener('click', ()=>{
+      document.querySelectorAll('.castle-card').forEach(el=>el.classList.remove('selected'));
+      card.classList.add('selected');
+      selectedCastle = c.key;
+      const btn = document.getElementById('startBtn');
+      btn.disabled=false; btn.style.opacity=1; btn.textContent='⚔️ 確認並出戰';
+      ensureAudio();
+    });
+    wrap.appendChild(card);
+  });
+}
+
+function buildRulesContent(){
+  const el = document.getElementById('rulesContent');
+  el.innerHTML = `
+    <div class="bg-slate-800/50 p-3 rounded-lg border border-slate-700">
+      <b class="text-cyan-300 text-lg block mb-2">🏰 城堡圖鑑 (基礎HP 10000 / 攻擊力 25 / 射程 10，HP<50%時射程額外+5)</b>
+      <div class="space-y-2 text-[15px]">
+        <p><b class="text-[#5eead4]">🌪️ 風城堡：</b>攻擊有10%機率擊退全場7格(無傷)。<br><span class="text-amber-300">HP<50%大招：攻擊機率由10%提升至25%，且擊退時造成傷害。</span></p>
+        <p><b class="text-[#facc15]">⚡ 雷城堡：</b>攻擊會擴散，對範圍內其他敵人造成5點傷害。<br><span class="text-amber-300">HP<50%大招：對首要目標額外造成50點重擊 (榴槤將軍免疫)。</span></p>
+        <p><b class="text-[#a16207]">⛰️ 土城堡：</b>免疫射程 <3 的近戰傷害 (蘋果將軍除外)。<br><span class="text-amber-300">HP<50%大招：每回合擲骰階段，自動擊碎敵方點數最小的骰子使其無效。</span></p>
+        <p><b class="text-[#38bdf8]">🌊 水城堡：</b>每擊殺 20 個敵人恢復 1000 HP。<br><span class="text-amber-300">HP<50%大招：每攻擊10次觸發海嘯，將射程<3的敵人沖回起點(柿子除外)。</span></p>
+        <p><b class="text-[#f87171]">🔥 火城堡：</b>能直接擊敗射程為 1 的近戰敵人 (香蕉除外)。<br><span class="text-amber-300">HP<50%大招：受擊時有10%機率(香蕉50%)將攻擊者冰凍2秒。</span></p>
+      </div>
+    </div>
+  `;
+}
+
+// 主選單導航邏輯
+document.getElementById('goToSelectBtn').addEventListener('click', ()=>{ 
+  document.getElementById('mainMenuScreen').classList.add('hidden');
+  document.getElementById('castleSelectScreen').classList.remove('hidden');
+  document.getElementById('castleSelectScreen').classList.add('flex');
+});
+document.getElementById('backToMainBtn').addEventListener('click', ()=>{
+  document.getElementById('castleSelectScreen').classList.add('hidden');
+  document.getElementById('castleSelectScreen').classList.remove('flex');
+  document.getElementById('mainMenuScreen').classList.remove('hidden');
+});
+document.getElementById('openDexBtn').addEventListener('click', ()=>document.getElementById('rulesModal').classList.remove('hidden'));
+
+// 遊戲操作邏輯
+document.getElementById('startBtn').addEventListener('click', ()=>{ if(selectedCastle) startGame(selectedCastle); });
+document.getElementById('btnPause').addEventListener('click', ()=>{ game.paused=true; document.getElementById('pauseModal').classList.remove('hidden'); });
+document.getElementById('resumeBtn').addEventListener('click', ()=>{ game.paused=false; document.getElementById('pauseModal').classList.add('hidden'); });
+document.getElementById('pauseRulesBtn').addEventListener('click', ()=>document.getElementById('rulesModal').classList.remove('hidden'));
+document.getElementById('pauseRestartBtn').addEventListener('click', ()=>location.reload());
+document.getElementById('playAgainBtn').addEventListener('click', ()=>location.reload());
+document.getElementById('closeRulesBtn').addEventListener('click', ()=>document.getElementById('rulesModal').classList.add('hidden'));
+
+// 重擲與確認按鈕邏輯
+document.getElementById('btnAcceptRoll').addEventListener('click', ()=>{
+  if(game.phase === 'rerolling') acceptRolls();
+});
+
+/* 重擲邏輯：將軍骰重擲必定為 6 */
+document.getElementById('btnReroll').addEventListener('click', ()=>{
+  const hasNormal = game.selectedDice && game.selectedDice.size > 0;
+  const hasFruit = game.selectedFruitDice && game.selectedFruitDice.size > 0;
+  if(game.phase === 'rerolling' && !game.player.hasRerolled && (hasNormal || hasFruit)) {
+    game.player.hasRerolled = true;
+    // 重擲選中的普通骰
+    if(hasNormal){
+      const rolls = game.pendingSpawns.pRes.rolls;
+      game.selectedDice.forEach(idx=>{
+        if(idx >= 0 && idx < rolls.length) rolls[idx] = 1 + Math.floor(Math.random()*6);
+      });
+      game.selectedDice.clear();
+    }
+    // 重擲選中的將軍骰（必定為 6）
+    if(hasFruit && game.pendingSpawns.pRes.fruitRolls){
+      const fRolls = game.pendingSpawns.pRes.fruitRolls;
+      game.selectedFruitDice.forEach(idx=>{
+        if(idx >= 0 && idx < fRolls.length) fRolls[idx] = 6;
+      });
+      // 更新總和
+      game.pendingSpawns.pRes.fruitVal = fRolls.reduce((a,b)=>a+b,0);
+      game.selectedFruitDice.clear();
+    }
+    renderDiceUI(game.pendingSpawns.pRes, game.pendingSpawns.aRes);
+    playSound('roll');
+    
+    updateRerollBtnText();
+  }
+});
+
+// 升級邏輯：選擇後離即生效且之後不得更換
+document.getElementById('btnUpgradeDice').addEventListener('click', ()=>{
+  if(game.player.mode !== 'normal') return;
+  game.player.mode='dice';
+  showToast('已配置策略：+3士兵骰 共4顆（已鎖定）');
+  document.getElementById('upgradeChoice').classList.add('hidden');
+  document.getElementById('trainChoice').classList.add('hidden');
+  document.getElementById('trainSubChoice').classList.add('hidden');
+  // 若目前為第3回合重擲階段，立即以新配置重擲
+  if(game.phase === 'rerolling' && game.turn === UPGRADE_TURN){
+    game.selectedDice = new Set();
+    let newPRoll = performRoll(game.player, 'player');
+    game.pendingSpawns.pRes = newPRoll;
+    renderDiceUI(game.pendingSpawns.pRes, game.pendingSpawns.aRes);
+    playSound('roll');
+    updateRerollBtnText();
+  }
+});
+document.getElementById('btnUpgradeFruit').addEventListener('click', ()=>{
+  if(game.player.mode !== 'normal') return;
+  game.player.mode='fruit';
+  showToast('已配置策略：+2將軍骰（已鎖定）');
+  document.getElementById('upgradeChoice').classList.add('hidden');
+  document.getElementById('trainChoice').classList.add('hidden');
+  document.getElementById('trainSubChoice').classList.add('hidden');
+  // 若目前為第3回合重擲階段，立即以新配置重擲
+  if(game.phase === 'rerolling' && game.turn === UPGRADE_TURN){
+    game.selectedDice = new Set();
+    let newPRoll = performRoll(game.player, 'player');
+    game.pendingSpawns.pRes = newPRoll;
+    renderDiceUI(game.pendingSpawns.pRes, game.pendingSpawns.aRes);
+    playSound('roll');
+    updateRerollBtnText();
+  }
+});
+
+// 第5回合訓練/將軍重擲選擇（修復點選解鎖後立即刷新骰子UI與可點擊狀態）
+document.getElementById('btnGeneralReroll').addEventListener('click', ()=>{
+  if(game.player.allowGeneralReroll || game.player.soldierTrain) return;
+  game.player.allowGeneralReroll = true;
+  showToast('已解鎖：將軍骰可重擲（已鎖定）');
+  document.getElementById('trainChoice').classList.add('hidden');
+  if(game.phase === 'rerolling' && game.pendingSpawns){
+    renderDiceUI(game.pendingSpawns.pRes, game.pendingSpawns.aRes);
+    updateRerollBtnText();
+  }
+});
+document.getElementById('btnTrainSoldier').addEventListener('click', ()=>{
+  if(game.player.allowGeneralReroll || game.player.soldierTrain) return;
+  document.getElementById('trainSubChoice').classList.remove('hidden');
+  document.getElementById('btnTrainSoldier').disabled = true;
+  document.getElementById('btnGeneralReroll').disabled = true;
+});
+document.getElementById('btnTrainAttack').addEventListener('click', ()=>{
+  if(game.player.soldierTrain) return;
+  game.player.soldierTrain = 'attack';
+  showToast('士兵訓練：進攻流（已鎖定）');
+  document.getElementById('trainChoice').classList.add('hidden');
+});
+document.getElementById('btnTrainResist').addEventListener('click', ()=>{
+  if(game.player.soldierTrain) return;
+  game.player.soldierTrain = 'resist';
+  showToast('士兵訓練：抵抗流（已鎖定）');
+  document.getElementById('trainChoice').classList.add('hidden');
+});
+
+// 初始化
+buildCastleCards();
+buildRulesContent();
+resizeCanvas();
+requestAnimationFrame(loop); // 背景動畫預先執行
+</script>
+</body>
+</html>
