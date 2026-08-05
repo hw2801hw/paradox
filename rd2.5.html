@@ -1,0 +1,1839 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>元素骰子對戰 - Random Dice</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Arial', 'Microsoft JhengHei', sans-serif;
+            background: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
+            color: #fff;
+            overflow-y: auto;
+            overflow-x: hidden;
+            min-height: 100vh;
+            height: auto;
+            font-size: 16px;
+        }
+        
+        .game-container {
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+            height: auto;
+            max-width: 500px;
+            margin: 0 auto;
+            padding-bottom: 20px;
+        }
+        
+        .player-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            padding: 8px;
+            position: relative;
+            min-height: 0;
+        }
+        
+        .info-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 12px;
+            background: rgba(0, 0, 0, 0.4);
+            border-radius: 8px;
+            margin-bottom: 8px;
+            font-size: 16px;
+            flex-shrink: 0;
+        }
+        
+        .stat {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-weight: bold;
+        }
+        
+        .hp { color: #ff6b6b; }
+        .sp { color: #4ecdc4; }
+        
+        .board-container {
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            flex: 1;
+            min-height: 0;
+            padding: 35px;
+            justify-content: center;
+        }
+        
+        .path-track {
+            position: absolute;
+            border: 10px solid rgba(255, 107, 107, 0.3);
+            pointer-events: none;
+            z-index: 0;
+        }
+        
+        #ai-board-container .path-track {
+            top: 15px; bottom: 0; left: 15px; right: 15px;
+            border-bottom: none;
+            border-radius: 20px 20px 0 0;
+        }
+        
+        #player-board-container .path-track {
+            top: 0; bottom: 15px; left: 15px; right: 15px;
+            border-top: none;
+            border-radius: 0 0 20px 20px;
+        }
+        
+        .board {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            grid-template-rows: repeat(3, 1fr);
+            gap: 4px;
+            flex: 0 0 auto;
+            width: 100%;
+            background: rgba(0, 0, 0, 0.3);
+            padding: 8px;
+            border-radius: 10px;
+            border: 2px solid rgba(78, 205, 196, 0.3);
+            position: relative;
+            z-index: 1;
+        }
+        
+        .cell {
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.1));
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            cursor: pointer;
+            transition: all 0.3s;
+            aspect-ratio: 1 / 1;
+        }
+        
+        .cell:hover {
+            background: rgba(255, 255, 255, 0.15);
+            transform: scale(1.02);
+        }
+
+        .cell.dragging {
+            z-index: 100;
+        }
+        
+        .cell.drag-over {
+            border-color: #4ecdc4;
+            background: rgba(78, 205, 196, 0.3);
+            box-shadow: 0 0 15px rgba(78, 205, 196, 0.5);
+        }
+        
+        .cell.selected {
+            border-color: #f9d423;
+            background: rgba(249, 212, 35, 0.3);
+            box-shadow: 0 0 15px rgba(249, 212, 35, 0.6);
+            transform: scale(1.05);
+        }
+
+        /* 特殊休眠格樣式 */
+        .cell.special-cell {
+            background: linear-gradient(135deg, rgba(155, 89, 182, 0.2), rgba(142, 68, 173, 0.3));
+            border: 2px solid #9b59b6;
+            box-shadow: inset 0 0 15px rgba(155, 89, 182, 0.6);
+        }
+        
+        .dice {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            border-radius: 6px;
+            font-weight: bold;
+            cursor: grab;
+            transition: transform 0.2s, box-shadow 0.3s;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+            position: relative;
+            background: rgba(255, 255, 255, 0.12);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            overflow: hidden;
+            padding: 2px;
+            word-break: break-all;
+            text-align: center;
+        }
+        
+        .dice:active {
+            cursor: grabbing;
+            transform: scale(0.95);
+        }
+        
+        .dice-name {
+            font-size: 16px;
+            text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.8);
+            line-height: 1.2;
+        }
+        
+        .dice-pips {
+            text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.8);
+            line-height: 1.1;
+            word-break: break-all;
+            overflow-wrap: anywhere;
+            max-width: 100%;
+            text-align: center;
+            user-select: none;
+        }
+        
+        .dice.evolved {
+            box-shadow: 0 0 15px currentColor, 0 4px 8px rgba(0, 0, 0, 0.3);
+            animation: glow 2s infinite;
+            border: 2px solid gold;
+            font-weight: 900;
+        }
+
+        /* 休眠狀態的骰子 */
+        .dice.sleeping {
+            filter: grayscale(100%) brightness(60%);
+            animation: sleepPulse 2s infinite ease-in-out;
+        }
+        @keyframes sleepPulse {
+            0%, 100% { filter: grayscale(100%) brightness(60%); }
+            50% { filter: grayscale(100%) brightness(20%); }
+        }
+        .dice.sleeping::after {
+            content: "💤";
+            position: absolute;
+            top: -10px;
+            right: -10px;
+            font-size: 20px;
+            animation: floatZ 2s infinite ease-in-out;
+            text-shadow: none;
+            filter: none;
+            pointer-events: none;
+        }
+        @keyframes floatZ {
+            0%, 100% { transform: translateY(0); opacity: 0.8; }
+            50% { transform: translateY(-5px); opacity: 1; }
+        }
+
+        /* 被禁止攻擊（靜音）狀態的骰子 */
+        .dice.silenced {
+            filter: grayscale(80%);
+        }
+        .dice.silenced::after {
+            content: "🚫";
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 30px;
+            z-index: 10;
+            pointer-events: none;
+            text-shadow: 0 0 5px rgba(0,0,0,0.8);
+        }
+
+        /* 被破壞的格子 */
+        .cell.broken {
+            background: rgba(255, 0, 0, 0.15) !important;
+            border: 2px dashed #ff4d4d !important;
+            cursor: not-allowed !important;
+            position: relative;
+        }
+        .cell.broken::after {
+            content: "❌";
+            font-size: 22px;
+            opacity: 0.7;
+        }
+        
+        @keyframes glow {
+            0%, 100% { box-shadow: 0 0 10px currentColor, 0 4px 8px rgba(0, 0, 0, 0.3); }
+            50% { box-shadow: 0 0 25px currentColor, 0 0 35px currentColor, 0 4px 8px rgba(0, 0, 0, 0.3); }
+        }
+        
+        .monster {
+            position: absolute;
+            width: 40px; 
+            height: 40px;
+            transform: translate(-50%, -50%);
+            background: radial-gradient(circle, #ff6b6b 0%, #c92a2a 100%);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            transition: all 0.1s linear;
+            border: 3px solid #fff;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4);
+            z-index: 10;
+        }
+        
+        .monster.immune {
+            border-color: #fff;
+            box-shadow: 0 0 15px 5px rgba(255, 255, 255, 0.8);
+            background: radial-gradient(circle, #a8c0ff 0%, #3f2b96 100%);
+        }
+        
+        .projectile {
+            position: absolute;
+            font-size: 18px;
+            pointer-events: none;
+            z-index: 1000;
+            transform: translate(-50%, -50%);
+            line-height: 1;
+            filter: drop-shadow(0 0 4px rgba(255, 255, 255, 0.8));
+        }
+
+        .projectile.lightning-shot {
+            font-size: 24px;
+            filter: drop-shadow(0 0 10px #ffd700);
+            animation: pulseLightning 0.2s infinite alternate;
+        }
+        @keyframes pulseLightning {
+            from { transform: translate(-50%, -50%) scale(1); }
+            to { transform: translate(-50%, -50%) scale(1.4); }
+        }
+        
+        .attack-effect {
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            background: radial-gradient(circle, #ffff00 0%, transparent 70%);
+            border-radius: 50%;
+            pointer-events: none;
+            animation: attackAnim 0.5s ease-out forwards;
+            z-index: 100;
+        }
+        
+        @keyframes attackAnim {
+            0% { transform: scale(0.5); opacity: 1; }
+            100% { transform: scale(2); opacity: 0; }
+        }
+
+        /* 彈出數字/文字動畫 */
+        .floating-text {
+            position: absolute;
+            font-weight: 900;
+            font-size: 18px;
+            pointer-events: none;
+            z-index: 2000;
+            animation: floatUpFade 0.8s ease-out forwards;
+            text-shadow: 1px 1px 3px #000, 0 0 6px rgba(0,0,0,0.8);
+            transform: translate(-50%, -100%);
+            white-space: nowrap;
+        }
+        @keyframes floatUpFade {
+            0% { transform: translate(-50%, 0) scale(0.8); opacity: 1; }
+            40% { transform: translate(-50%, -25px) scale(1.2); opacity: 1; }
+            100% { transform: translate(-50%, -45px) scale(1); opacity: 0; }
+        }
+
+        /* 火屬性普攻全體特效 */
+        .fire-buff-effect {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: radial-gradient(circle, rgba(255,77,77,0.8) 0%, transparent 80%);
+            border-radius: 8px;
+            pointer-events: none;
+            animation: firePulse 0.6s ease-out forwards;
+            z-index: 10;
+        }
+        @keyframes firePulse {
+            0% { transform: scale(0.5); opacity: 1; }
+            50% { transform: scale(1.1); opacity: 0.8; }
+            100% { transform: scale(1); opacity: 0; }
+        }
+        
+        .menu-screen, .encyclopedia-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.95);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+            flex-direction: column;
+        }
+        
+        .menu-screen.hidden, .encyclopedia-screen.hidden {
+            display: none;
+        }
+        
+        .menu-title {
+            font-size: 56px;
+            margin-bottom: 50px;
+            text-shadow: 0 0 20px #4ecdc4;
+            font-weight: bold;
+            text-align: center;
+        }
+        
+        .menu-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            padding: 20px 60px;
+            border-radius: 15px;
+            color: white;
+            font-size: 24px;
+            font-weight: bold;
+            cursor: pointer;
+            margin: 15px;
+            transition: all 0.3s;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        }
+        
+        .menu-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+        }
+        
+        .encyclopedia-content {
+            background: rgba(0, 0, 0, 0.8);
+            padding: 40px;
+            border-radius: 20px;
+            max-width: 900px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+            border: 3px solid #4ecdc4;
+        }
+        
+        .encyclopedia-title {
+            font-size: 36px;
+            margin-bottom: 30px;
+            text-align: center;
+            color: #4ecdc4;
+        }
+        
+        .dice-entry {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            border-left: 5px solid;
+        }
+        
+        .dice-entry h3 {
+            font-size: 24px;
+            margin-bottom: 10px;
+        }
+        
+        .dice-entry p {
+            font-size: 16px;
+            line-height: 1.6;
+            margin: 5px 0;
+        }
+        
+        .close-btn {
+            background: #ff6b6b;
+            border: none;
+            padding: 15px 40px;
+            border-radius: 10px;
+            color: white;
+            font-size: 20px;
+            font-weight: bold;
+            cursor: pointer;
+            margin-top: 20px;
+            transition: all 0.3s;
+            display: block;
+            width: 100%;
+        }
+        
+        .close-btn:hover {
+            background: #ff5252;
+            transform: scale(1.05);
+        }
+        
+        .monster-hp {
+            position: absolute;
+            top: -15px;
+            background: #000;
+            color: #fff;
+            font-size: 11px;
+            padding: 2px 5px;
+            border-radius: 10px;
+            font-weight: bold;
+            border: 1px solid #fff;
+            min-width: 25px;
+            text-align: center;
+            white-space: nowrap;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 2px;
+        }
+        
+        .summon-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            padding: 15px 24px;
+            border-radius: 10px;
+            color: white;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            margin: 10px 8px 15px 8px;
+            transition: all 0.3s;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+            flex-shrink: 0;
+            min-height: 54px;
+        }
+        
+        .summon-btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+        }
+        
+        .summon-btn:active:not(:disabled) {
+            transform: translateY(0);
+        }
+        
+        .summon-btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+        
+        .divider {
+            height: 2px;
+            background: linear-gradient(90deg, transparent, #4ecdc4, transparent);
+            margin: 2px 0;
+            flex-shrink: 0;
+        }
+        
+        .game-over {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.95);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            animation: fadeIn 0.5s;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        .game-over.show {
+            display: flex;
+        }
+        
+        .game-over-content {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 40px;
+            border-radius: 20px;
+            text-align: center;
+            box-shadow: 0 10px 50px rgba(0, 0, 0, 0.5);
+            animation: slideIn 0.5s;
+            width: 90%;
+            max-width: 400px;
+        }
+        
+        @keyframes slideIn {
+            from { transform: translateY(-50px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        
+        .game-over-content h2 {
+            font-size: 48px;
+            margin-bottom: 20px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+        }
+        
+        .game-over-content p {
+            font-size: 20px;
+            margin-bottom: 10px;
+        }
+        
+        .restart-btn {
+            background: white;
+            color: #667eea;
+            border: none;
+            padding: 15px 40px;
+            border-radius: 10px;
+            font-size: 20px;
+            font-weight: bold;
+            cursor: pointer;
+            margin-top: 30px;
+            transition: all 0.3s;
+            width: 100%;
+        }
+        
+        .restart-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 5px 20px rgba(255, 255, 255, 0.4);
+        }
+        
+        @media (max-width: 768px) {
+            .menu-title { font-size: 40px; }
+            .game-over-content h2 { font-size: 36px; }
+        }
+        
+        @media (max-width: 480px) {
+            .dice-pips { font-size: 16px; }
+            .summon-btn { font-size: 16px; padding: 12px 20px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="menu-screen" id="menu-screen">
+        <h1 class="menu-title">🎲 元素骰子對戰 🎲</h1>
+        <button class="menu-btn" onclick="startGame()">⚔️ 開始遊玩</button>
+        <button class="menu-btn" onclick="showEncyclopedia()">📖 骰子圖鑑</button>
+    </div>
+    
+    <div class="encyclopedia-screen hidden" id="encyclopedia-screen">
+        <div class="encyclopedia-content">
+            <h2 class="encyclopedia-title">📖 骰子圖鑑</h2>
+            
+            <div class="dice-entry" style="border-color: #ff6b6b;">
+                <h3>👾 怪物資訊與機制</h3>
+                <p><strong>基礎生命值 (HP)：</strong>100（每被擊殺一次傳送至對手起點時 +10% 最大生命值）</p>
+                <p><strong>基礎移動速度：</strong>每秒推進約 4% 軌道長度，每扣 1❤️ 使每秒推進 +2%。</p>
+                <p><strong>漏怪機制：</strong>怪物到達終點扣 1❤️，怪物返回該方起點並恢復 10% 生命值；同時破壞該方 1 個空格（無法放置骰子），若無空格則直接移除最低點數骰子（包含該格子）。</p>
+            </div>
+
+            <div class="dice-entry" style="border-color: #00d2ff;">
+                <h3>🌪️ 風 → 神嵐（6🌟）</h3>
+                <p><strong>基礎傷害：</strong>點數 × 100</p>
+                <p><strong>被動能力：</strong>風每有 1 點數，使敵方怪物閃避率 +1%</p>
+                <p><strong>普攻能力：</strong>攻擊時有 1% 機率使怪物後退</p>
+                <p><strong>進化效果：</strong>攻擊時有 2% 機率使怪物回到起點</p>
+                <p><strong>攻擊速度：</strong>每秒1次</p>
+            </div>
+            
+            <div class="dice-entry" style="border-color: #f9d423;">
+                <h3>⚡ 雷 → 天譴（6🌟）</h3>
+                <p><strong>基礎傷害：</strong>點數 × 100</p>
+                <p><strong>被動能力：</strong>雷每有 1 點數，使敵方怪物每秒推進 +0.5%</p>
+                <p><strong>普攻能力：</strong>每正常攻擊 10 次，下次進入閃電狀態，1 秒內快速射出 5 個特別⚡</p>
+                <p><strong>進化效果：</strong>攻擊時有 5% 機率使自身當前的傷害變為 10 倍</p>
+                <p><strong>攻擊速度：</strong>每秒1次</p>
+            </div>
+            
+            <div class="dice-entry" style="border-color: #8b4513;">
+                <h3>🪨 土 → 地震（6🌟）</h3>
+                <p><strong>基礎傷害：</strong>點數 × 100</p>
+                <p><strong>被動能力：</strong>土每有 1 點數，使敵方怪物每次重生時的護盾 +1</p>
+                <p><strong>普攻能力：</strong>攻擊時有 2% 機率使怪物定身 2 秒</p>
+                <p><strong>進化效果：</strong>攻擊定身的怪物時必定造成暴擊（3倍傷害）</p>
+                <p><strong>攻擊速度：</strong>每秒1次</p>
+            </div>
+            
+            <div class="dice-entry" style="border-color: #4facfe;">
+                <h3>💧 水 → 海嘯（6🌟）</h3>
+                <p><strong>基礎傷害：</strong>點數 × 100</p>
+                <p><strong>被動能力：</strong>水每有 1 點數，使敵方怪物每 3 秒恢復 HP +0.5%</p>
+                <p><strong>普攻能力：</strong>攻擊時有 0.05% 機率恢復 1❤️</p>
+                <p><strong>進化效果：</strong>每次攻擊降低怪物 5% 移速（可無限疊加）</p>
+                <p><strong>攻擊速度：</strong>每秒1次</p>
+            </div>
+            
+            <div class="dice-entry" style="border-color: #fa709a;">
+                <h3>🔥 火 → 紅蓮（6🌟）</h3>
+                <p><strong>基礎傷害：</strong>點數 × 100</p>
+                <p><strong>被動能力：</strong>火每有 1 點數，使敵方怪物每次重生時禁止對方全體骰子攻擊 +0.2 秒</p>
+                <p><strong>普攻能力：</strong>攻擊時有 10% 機率使己方全體任何骰子下一次傷害 +100%（附帶火焰特效）</p>
+                <p><strong>進化效果：</strong>每 10 秒賦予敵方怪物 2 秒免疫所有傷害的護盾（被動）</p>
+                <p><strong>攻擊速度：</strong>每秒1次</p>
+            </div>
+            
+            <div style="margin-top: 30px; padding: 20px; background: rgba(78, 205, 196, 0.2); border-radius: 10px;">
+                <h3 style="font-size: 20px; margin-bottom: 10px;">💡 遊戲機制</h3>
+                <p><strong>操作規則：</strong>可自由拖曳骰子與任何位置互換。拖曳相同元素+相同星數的骰子進行合併，星數+1，元素重新隨機。</p>
+                <p><strong>進化限制：</strong>場上同一元素的 6🌟（進化）只能存在 1 個，最多 5 個。</p>
+                <p><strong>射程與路徑：</strong>骰子會自動攻擊**自己陣營軌道上**的怪物。AI怪物從左下角出發，玩家怪物從右上角出發。</p>
+                <p><strong>擊殺與漏怪：</strong>擊殺怪物會將其傳送到對手起點並+10%HP；漏怪扣 1❤️，怪物返回該方起點並恢復 10% 生命值，同時破壞該方 1 個空格（使其無法放置骰子），若無空格則直接移除最低點數骰子（包含該格子）。</p>
+                <p><strong>特殊格子：</strong>棋盤正中央的格子為「休眠格」。位於其上的骰子及其同種類（元素+星數）的場上所有骰子都會進入休眠，無法攻擊或發動能力。</p>
+                <p><strong>被動計算：</strong>屬性被動會計算己方場上所有「非休眠狀態」該元素的總點數。</p>
+            </div>
+            
+            <button class="close-btn" onclick="hideEncyclopedia()">返回主選單</button>
+        </div>
+    </div>
+    
+    <div class="game-container" id="game-container" style="display: none;">
+        <div class="player-area">
+            <div class="info-bar" id="ai-info-bar">
+                <div class="stat">🤖 AI</div>
+                <div class="stat"><span id="ai-hp" class="hp">❤️❤️❤️</span></div>
+                <div class="stat">🎲 <span id="ai-sp" class="sp">10</span></div>
+            </div>
+            <div class="board-container" id="ai-board-container">
+                <div class="path-track"></div>
+                <div class="board" id="ai-board"></div>
+            </div>
+        </div>
+        
+        <div class="divider"></div>
+        
+        <div class="player-area">
+            <div class="board-container" id="player-board-container">
+                <div class="path-track"></div>
+                <div class="board" id="player-board"></div>
+            </div>
+            <div class="info-bar" id="player-info-bar">
+                <div class="stat">👤 玩家</div>
+                <div class="stat"><span id="player-hp" class="hp">❤️❤️❤️</span></div>
+                <div class="stat">🎲 <span id="player-sp" class="sp">10</span></div>
+            </div>
+            <button class="summon-btn" id="summon-btn">🎲 召喚骰子 (免費)</button>
+        </div>
+    </div>
+    
+    <div class="game-over" id="game-over">
+        <div class="game-over-content">
+            <h2 id="result-text">勝利！</h2>
+            <p id="result-detail"></p>
+            <button class="restart-btn" onclick="location.reload()">🔄 重新開始</button>
+        </div>
+    </div>
+    
+    <div class="game-over" id="remove-modal">
+        <div class="game-over-content" style="background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%);">
+            <h3 style="font-size: 24px; margin-bottom: 15px;">🗑️ 移除骰子</h3>
+            <p id="remove-modal-text">確定要花費 20 🎲 移除這個骰子嗎？</p>
+            <div style="display: flex; gap: 10px; margin-top: 20px;">
+                <button class="restart-btn" style="margin-top:0; background: #e74c3c; color: white;" id="confirm-remove-btn" onclick="confirmRemoveDice()">確定 (20🎲)</button>
+                <button class="restart-btn" style="margin-top:0; background: #95a5a6; color: white;" onclick="closeRemoveModal()">取消</button>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        const BOARD_ROWS = 3;
+        const BOARD_COLS = 5;
+        const INITIAL_HP = 3;
+        const INITIAL_SP = 10;
+        
+        const ELEMENTS = {
+            wind: { name: '風', evolved: '神嵐', emoji: '🌪️', color: '#ffffff' },
+            thunder: { name: '雷', evolved: '天譴', emoji: '⚡', color: '#ffd700' },
+            earth: { name: '土', evolved: '地震', emoji: '🪨', color: '#cd853f' },
+            water: { name: '水', evolved: '海嘯', emoji: '💧', color: '#00e5ff' },
+            fire: { name: '火', evolved: '紅蓮', emoji: '🔥', color: '#ff4d4d' }
+        };
+        
+        const ELEMENT_KEYS = Object.keys(ELEMENTS);
+        
+        const gameState = {
+            player: {
+                hp: INITIAL_HP,
+                sp: INITIAL_SP,
+                board: Array(BOARD_ROWS * BOARD_COLS).fill(null),
+                summonCount: 0,
+                killCount: 0
+            },
+            ai: {
+                hp: INITIAL_HP,
+                sp: INITIAL_SP,
+                board: Array(BOARD_ROWS * BOARD_COLS).fill(null),
+                summonCount: 0,
+                killCount: 0
+            },
+            monsters: [],
+            monsterBaseHP: 100,
+            wave: 1,
+            gameOver: false,
+            gameStarted: false,
+            draggedDice: null,
+            draggedIndex: null,
+            selectedIndex: null,
+            sleepingSignatures: new Set(),
+            lastMoveTime: performance.now()
+        };
+
+        let pendingRemoveIndex = null;
+
+        function handleDiceDblClick(index) {
+            const dice = gameState.player.board[index];
+            if (!dice || dice === 'BROKEN') return;
+            
+            pendingRemoveIndex = index;
+            const modal = document.getElementById('remove-modal');
+            const confirmBtn = document.getElementById('confirm-remove-btn');
+            const modalText = document.getElementById('remove-modal-text');
+            
+            if (gameState.player.sp < 20) {
+                modalText.textContent = `🎲 資源不足！移除骰子需要 20 🎲（當前擁有: ${gameState.player.sp} 🎲）`;
+                confirmBtn.style.display = 'none';
+            } else {
+                modalText.textContent = `確定要花費 20 🎲 移除【${ELEMENTS[dice.element].name}】骰子嗎？`;
+                confirmBtn.style.display = 'block';
+            }
+            modal.classList.add('show');
+        }
+
+        function closeRemoveModal() {
+            document.getElementById('remove-modal').classList.remove('show');
+            pendingRemoveIndex = null;
+        }
+
+        function confirmRemoveDice() {
+            if (pendingRemoveIndex !== null && gameState.player.sp >= 20) {
+                gameState.player.sp -= 20;
+                gameState.player.board[pendingRemoveIndex] = null;
+                updateUI('player');
+                
+                const board = document.getElementById('player-board');
+                const cells = board.querySelectorAll('.cell');
+                if (cells[pendingRemoveIndex]) {
+                    const rect = cells[pendingRemoveIndex].getBoundingClientRect();
+                    showFloatingText(rect.left + rect.width / 2, rect.top + rect.height / 2, '🗑️ 已移除', '#e74c3c');
+                }
+            }
+            closeRemoveModal();
+        }
+
+        // 浮動文字 / 打擊數字效果
+        function showFloatingText(x, y, text, color = '#ff4d4d', isCrit = false) {
+            const el = document.createElement('div');
+            el.className = 'floating-text';
+            el.textContent = text;
+            el.style.color = color;
+            el.style.left = `${x}px`;
+            el.style.top = `${y}px`;
+            if (isCrit) {
+                el.style.fontSize = '24px';
+                el.style.textShadow = '0 0 10px #ffd700, 2px 2px 4px #000';
+            }
+            document.body.appendChild(el);
+            setTimeout(() => el.remove(), 800);
+        }
+
+        // 計算某玩家場上「非休眠狀態」的某元素總點數
+        function getElementPips(player, element) {
+            let totalPips = 0;
+            gameState[player].board.forEach((dice, index) => {
+                if (!dice || dice === 'BROKEN') return;
+                const isSleeping = index === 7 || gameState.sleepingSignatures.has(`${dice.element}-${dice.pips}`);
+                if (!isSleeping && dice.element === element) {
+                    totalPips += dice.pips;
+                }
+            });
+            return totalPips;
+        }
+
+        // 移除敵方最低點數骰子
+        function destroyLowestDice(targetPlayer) {
+            let lowestPips = 99;
+            let candidates = [];
+            gameState[targetPlayer].board.forEach((dice, index) => {
+                if (dice && dice !== 'BROKEN') {
+                    if (dice.pips < lowestPips) {
+                        lowestPips = dice.pips;
+                        candidates = [index];
+                    } else if (dice.pips === lowestPips) {
+                        candidates.push(index);
+                    }
+                }
+            });
+
+            if (candidates.length > 0) {
+                const removeIndex = candidates[Math.floor(Math.random() * candidates.length)];
+                gameState[targetPlayer].board[removeIndex] = null;
+                updateUI(targetPlayer);
+
+                const boardId = targetPlayer === 'player' ? 'player-board' : 'ai-board';
+                const board = document.getElementById(boardId);
+                const cells = board.querySelectorAll('.cell');
+                if (cells[removeIndex]) {
+                    const rect = cells[removeIndex].getBoundingClientRect();
+                    showFloatingText(rect.left + rect.width / 2, rect.top + rect.height / 2, '🔥 骰子銷毀!', '#ff4d4d', true);
+                }
+            }
+        }
+        
+        function getAdjacentIndices(index) {
+            const r = Math.floor(index / 5);
+            const c = index % 5;
+            const adj = [];
+            if (r > 0) adj.push(index - 5);
+            if (r < 2) adj.push(index + 5);
+            if (c > 0) adj.push(index - 1);
+            if (c < 4) adj.push(index + 1);
+            return adj;
+        }
+
+        function initBoard(boardId, isPlayer) {
+            const board = document.getElementById(boardId);
+            board.innerHTML = '';
+            for (let i = 0; i < BOARD_ROWS * BOARD_COLS; i++) {
+                const cell = document.createElement('div');
+                cell.className = 'cell';
+                cell.dataset.index = i;
+                
+                if (i === 7) {
+                    cell.classList.add('special-cell');
+                }
+                
+                if (isPlayer) {
+                    cell.addEventListener('dragover', handleDragOver);
+                    cell.addEventListener('drop', handleDrop);
+                    cell.addEventListener('dragleave', handleDragLeave);
+                    cell.addEventListener('click', handleCellClick);
+                    cell.addEventListener('dblclick', (e) => {
+                        const idx = parseInt(e.currentTarget.dataset.index);
+                        handleDiceDblClick(idx);
+                    });
+                }
+                
+                board.appendChild(cell);
+            }
+        }
+        
+        function createDice(element, pips = 1) {
+            return {
+                element,
+                pips,
+                lastAttack: 0,
+                thunderAttacks: 0,
+                lightningShots: 0,
+                nextLightningShotTime: 0,
+                lastFireTick: 0,
+                nextAttackDmgBuff: false
+            };
+        }
+
+        function renderDice(dice, cell, index, isPlayer, isSleeping, isSilenced) {
+            if (!dice || dice === 'BROKEN') {
+                cell.innerHTML = '';
+                return;
+            }
+            
+            const elementData = ELEMENTS[dice.element];
+            const isEvolved = dice.pips >= 6;
+            
+            let contentHtml = '';
+            if (isEvolved) {
+                contentHtml = `<div class="dice-name" style="color: ${elementData.color}; font-size: 16px; font-weight: 900; text-shadow: 0 0 6px ${elementData.color};">${elementData.evolved}</div>`;
+            } else {
+                const emojiStr = elementData.emoji.repeat(dice.pips);
+                let fontSize = '22px';
+                if (dice.pips === 1) fontSize = '24px';
+                else if (dice.pips === 2) fontSize = '20px';
+                else if (dice.pips === 3) fontSize = '16px';
+                else if (dice.pips === 4) fontSize = '13px';
+                else if (dice.pips === 5) fontSize = '11px';
+                
+                contentHtml = `<div class="dice-pips" style="font-size: ${fontSize};">${emojiStr}</div>`;
+            }
+            
+            cell.innerHTML = `
+                <div class="dice ${isEvolved ? 'evolved' : ''} ${isSleeping ? 'sleeping' : ''} ${isSilenced ? 'silenced' : ''}" 
+                     draggable="${isPlayer}"
+                     data-element="${dice.element}"
+                     data-pips="${dice.pips}"
+                     data-index="${index}">
+                    ${contentHtml}
+                </div>
+            `;
+            
+            if (isPlayer) {
+                const diceEl = cell.querySelector('.dice');
+                diceEl.addEventListener('dragstart', handleDragStart);
+                diceEl.addEventListener('dragend', handleDragEnd);
+            }
+        }
+        
+        function renderBoard(player) {
+            const boardId = player === 'player' ? 'player-board' : 'ai-board';
+            const board = document.getElementById(boardId);
+            const cells = board.querySelectorAll('.cell');
+            const isSilenced = Date.now() < (gameState[player].silencedUntil || 0);
+            
+            gameState[player].board.forEach((dice, index) => {
+                const cell = cells[index];
+                
+                if (dice === 'BROKEN') {
+                    cell.classList.add('broken');
+                    cell.innerHTML = '';
+                    cell.dataset.diceStr = 'broken';
+                    return;
+                } else {
+                    cell.classList.remove('broken');
+                }
+                
+                let isSleeping = false;
+                if (dice) {
+                    isSleeping = index === 7 || gameState.sleepingSignatures.has(`${dice.element}-${dice.pips}`);
+                }
+                
+                const currentDiceStr = cell.dataset.diceStr || 'none';
+                const newDiceStr = dice ? `${dice.element}-${dice.pips}-${isSleeping}-${isSilenced}` : 'empty';
+                
+                if (currentDiceStr !== newDiceStr) {
+                    renderDice(dice, cell, index, player === 'player', isSleeping, isSilenced);
+                    cell.dataset.diceStr = newDiceStr;
+                }
+            });
+        }
+        
+        function getSummonCost(player) {
+            return gameState[player].summonCount === 0 ? 0 : 1;
+        }
+        
+        function summonDice(player) {
+            const cost = getSummonCost(player);
+            if (gameState[player].sp < cost) return false;
+            
+            const emptyIndex = gameState[player].board.findIndex(d => d === null);
+            if (emptyIndex === -1) return false;
+            
+            const randomElement = ELEMENT_KEYS[Math.floor(Math.random() * ELEMENT_KEYS.length)];
+            const initialPips = gameState[player].summonCount === 0 ? 6 : 1;
+            gameState[player].board[emptyIndex] = createDice(randomElement, initialPips);
+            gameState[player].sp -= cost;
+            gameState[player].summonCount += 1;
+            
+            updateUI(player);
+            return true;
+        }
+        
+        function handleAction(player, fromIndex, toIndex) {
+            if (fromIndex === toIndex) return false;
+            
+            const from = gameState[player].board[fromIndex];
+            const to = gameState[player].board[toIndex];
+            
+            if (!from || from === 'BROKEN' || to === 'BROKEN') return false;
+            
+            if (to && from.element === to.element && from.pips === to.pips) {
+                if (from.pips === 6) {
+                    gameState[player].board[toIndex] = from;
+                    gameState[player].board[fromIndex] = to;
+                    updateUI(player);
+                    return true;
+                }
+                
+                const newPips = from.pips + 1;
+                let newElement;
+                
+                if (newPips === 6) {
+                    const existing6Stars = new Set(gameState[player].board.filter(d => d && d !== 'BROKEN' && d.pips === 6).map(d => d.element));
+                    const available = ELEMENT_KEYS.filter(e => !existing6Stars.has(e));
+                    
+                    if (available.length === 0) return false; 
+                    newElement = available[Math.floor(Math.random() * available.length)];
+                } else {
+                    newElement = ELEMENT_KEYS[Math.floor(Math.random() * ELEMENT_KEYS.length)];
+                }
+                
+                gameState[player].board[toIndex] = createDice(newElement, newPips);
+                gameState[player].board[fromIndex] = null;
+            } else {
+                gameState[player].board[toIndex] = from;
+                gameState[player].board[fromIndex] = to;
+            }
+            
+            updateUI(player);
+            return true;
+        }
+        
+        function handleDragStart(e) {
+            const dice = e.target.closest('.dice');
+            if (!dice) return;
+            
+            if (gameState.selectedIndex !== null) {
+                document.querySelectorAll('.cell.selected').forEach(c => c.classList.remove('selected'));
+                gameState.selectedIndex = null;
+            }
+            
+            gameState.draggedIndex = parseInt(dice.dataset.index);
+            const cell = e.target.closest('.cell');
+            if (cell) {
+                cell.classList.add('dragging');
+            }
+            
+            if (e.dataTransfer) {
+                e.dataTransfer.effectAllowed = 'move';
+                e.dataTransfer.setData('text/plain', dice.dataset.index);
+            }
+        }
+        
+        function handleDragEnd(e) {
+            const cell = e.target && e.target.closest ? e.target.closest('.cell') : null;
+            if (cell) {
+                cell.classList.remove('dragging');
+            }
+            document.querySelectorAll('.cell.dragging').forEach(c => c.classList.remove('dragging'));
+            gameState.draggedIndex = null;
+        }
+        
+        function handleDragOver(e) {
+            e.preventDefault();
+            e.currentTarget.classList.add('drag-over');
+        }
+        
+        function handleDragLeave(e) {
+            e.currentTarget.classList.remove('drag-over');
+        }
+        
+        function handleDrop(e) {
+            e.preventDefault();
+            const cell = e.currentTarget.closest('.cell') || e.currentTarget;
+            if (cell) {
+                cell.classList.remove('drag-over');
+            }
+            document.querySelectorAll('.cell.drag-over').forEach(c => c.classList.remove('drag-over'));
+            
+            const toIndex = parseInt(e.currentTarget.dataset.index);
+            if (gameState.draggedIndex !== null && !isNaN(toIndex)) {
+                if (gameState.player.board[toIndex] !== 'BROKEN') {
+                    handleAction('player', gameState.draggedIndex, toIndex);
+                }
+            }
+        }
+        
+        function handleCellClick(e) {
+            const clickedIndex = parseInt(e.currentTarget.dataset.index);
+            if (gameState.player.board[clickedIndex] === 'BROKEN') return;
+            
+            if (gameState.selectedIndex !== null) {
+                if (gameState.selectedIndex === clickedIndex) {
+                    e.currentTarget.classList.remove('selected');
+                    gameState.selectedIndex = null;
+                } else {
+                    handleAction('player', gameState.selectedIndex, clickedIndex);
+                    document.querySelectorAll('.cell.selected').forEach(c => c.classList.remove('selected'));
+                    gameState.selectedIndex = null;
+                }
+            } else {
+                if (gameState.player.board[clickedIndex]) {
+                    gameState.selectedIndex = clickedIndex;
+                    e.currentTarget.classList.add('selected');
+                }
+            }
+        }
+
+        // 初始化怪物並計算護盾（土屬性被動）與火屬性被動（禁止攻擊/靜音）
+        function applySpawnPassives(monster) {
+            const enemyPlayer = monster.side === 'player' ? 'ai' : 'player';
+            
+            // 土屬性被動：土每有1點數，敵方怪物重生時護盾+1
+            const earthPips = getElementPips(enemyPlayer, 'earth');
+            monster.shield = (monster.shield || 0) + earthPips;
+
+            // 火屬性被動：使敵方怪物每次重生時禁止對方全體骰子攻擊+0.2秒
+            const firePips = getElementPips(enemyPlayer, 'fire');
+            if (firePips > 0) {
+                const silenceDuration = firePips * 200;
+                gameState[monster.side].silencedUntil = Math.max(
+                    gameState[monster.side].silencedUntil || 0,
+                    Date.now() + silenceDuration
+                );
+            }
+        }
+        
+        function spawnInitialMonsters() {
+            const m = {
+                id: Date.now() + Math.random(),
+                hp: gameState.monsterBaseHP,
+                maxHp: gameState.monsterBaseHP,
+                shield: 0,
+                position: 0,
+                side: 'ai', 
+                speed: 0.04, // 每秒 4% 軌道長度
+                slowFactor: 1,
+                immobilizedUntil: 0,
+                immuneUntil: 0
+            };
+            applySpawnPassives(m);
+            gameState.monsters = [m];
+        }
+        
+        function getMonsterPosition(position, pathWidth, pathHeight, isPlayer) {
+            const margin = 20; 
+            const w = pathWidth;
+            const h = pathHeight;
+            let x, y;
+            
+            if (isPlayer) {
+                if (position < 0.333) {
+                    const t = position / 0.333;
+                    x = w - margin;
+                    y = margin + t * (h - 2 * margin);
+                } else if (position < 0.666) {
+                    const t = (position - 0.333) / 0.333;
+                    x = (w - margin) - t * (w - 2 * margin);
+                    y = h - margin;
+                } else {
+                    const t = (position - 0.666) / 0.334;
+                    x = margin;
+                    y = (h - margin) - t * (h - 2 * margin);
+                }
+            } else {
+                if (position < 0.333) {
+                    const t = position / 0.333;
+                    x = margin;
+                    y = (h - margin) - t * (h - 2 * margin);
+                } else if (position < 0.666) {
+                    const t = (position - 0.333) / 0.333;
+                    x = margin + t * (w - 2 * margin);
+                    y = margin;
+                } else {
+                    const t = (position - 0.666) / 0.334;
+                    x = w - margin;
+                    y = margin + t * (h - 2 * margin);
+                }
+            }
+            return { x, y };
+        }
+        
+        function renderMonsters() {
+            const allEls = document.querySelectorAll('.monster');
+            const currentIds = gameState.monsters.map(m => `monster-${m.id}`);
+            allEls.forEach(el => {
+                if (!currentIds.includes(el.id)) el.remove();
+            });
+
+            gameState.monsters.forEach(monster => {
+                const isPlayer = monster.side === 'player';
+                const containerId = isPlayer ? 'player-board-container' : 'ai-board-container';
+                const container = document.getElementById(containerId);
+                
+                let div = document.getElementById(`monster-${monster.id}`);
+                if (!div) {
+                    div = document.createElement('div');
+                    div.id = `monster-${monster.id}`;
+                    div.className = 'monster';
+                    container.appendChild(div);
+                } else if (div.parentElement !== container) {
+                    container.appendChild(div);
+                }
+                
+                const pathWidth = container.clientWidth;
+                const pathHeight = container.clientHeight;
+                const pos = getMonsterPosition(monster.position, pathWidth, pathHeight, isPlayer);
+                
+                const isImmune = monster.immuneUntil && monster.immuneUntil > Date.now();
+                div.className = `monster ${isImmune ? 'immune' : ''}`;
+                
+                let shieldHtml = monster.shield > 0 ? `<span style="color: #00e5ff; font-weight: 900;">🛡️${Math.ceil(monster.shield)}</span>` : '';
+                div.innerHTML = `
+                    👻
+                    <div class="monster-hp">${shieldHtml}${Math.ceil(monster.hp)}</div>
+                `;
+                div.style.left = `${pos.x}px`;
+                div.style.top = `${pos.y}px`;
+            });
+        }
+        
+        function moveMonsters() {
+            const now = Date.now();
+            let dt = (now - gameState.lastMoveTime) / 1000;
+            // 限制單幀最大時間步長，防止第一幀或切換頁面時時間差爆發
+            if (dt > 0.1 || isNaN(dt)) dt = 0.016;
+            gameState.lastMoveTime = now;
+            
+            gameState.monsters.forEach(monster => {
+                const currentSide = monster.side;
+                const enemyPlayer = currentSide === 'player' ? 'ai' : 'player';
+                
+                // 每扣 1❤️ 每秒推進 +2%
+                const brokenHearts = 3 - gameState[currentSide].hp;
+                const heartBonusSpeed = brokenHearts > 0 ? brokenHearts * 0.02 : 0;
+
+                // 雷屬性被動：敵方雷每有1點數，推進速度每秒+0.5%
+                const enemyThunderPips = getElementPips(enemyPlayer, 'thunder');
+                const thunderBonusSpeed = enemyThunderPips * 0.005;
+
+                const baseSpeed = 0.04 + heartBonusSpeed + thunderBonusSpeed;
+                const isImmobilized = monster.immobilizedUntil && monster.immobilizedUntil > now;
+                
+                if (!isImmobilized) {
+                    monster.position += (baseSpeed * monster.slowFactor * dt);
+                }
+                
+                // 水屬性被動：敵方水每有1點數，每3秒恢復 0.5% HP
+                const enemyWaterPips = getElementPips(enemyPlayer, 'water');
+                if (enemyWaterPips > 0) {
+                    if (!monster.lastWaterPassiveTick) monster.lastWaterPassiveTick = now;
+                    if (now - monster.lastWaterPassiveTick >= 3000) {
+                        monster.lastWaterPassiveTick = now;
+                        const healAmount = monster.maxHp * (enemyWaterPips * 0.005);
+                        if (monster.hp < monster.maxHp) {
+                            monster.hp = Math.min(monster.maxHp, monster.hp + healAmount);
+                            
+                            // 彈出回血數字
+                            const containerId = currentSide === 'player' ? 'player-board-container' : 'ai-board-container';
+                            const container = document.getElementById(containerId);
+                            if (container) {
+                                const pos = getMonsterPosition(monster.position, container.clientWidth, container.clientHeight, currentSide === 'player');
+                                const rect = container.getBoundingClientRect();
+                                showFloatingText(rect.left + pos.x, rect.top + pos.y, `+${Math.ceil(healAmount)}`, '#2ecc71');
+                            }
+                        }
+                    }
+                }
+                
+                if (monster.position >= 1) {
+                    gameState[currentSide].hp -= 1;
+                    
+                    // 破壞 1 個空格；若無空格則直接移除最低點數骰子（包含該格子）
+                    const emptyIndices = [];
+                    gameState[currentSide].board.forEach((d, idx) => {
+                        if (d === null) emptyIndices.push(idx);
+                    });
+
+                    if (emptyIndices.length > 0) {
+                        const brokenIndex = emptyIndices[Math.floor(Math.random() * emptyIndices.length)];
+                        gameState[currentSide].board[brokenIndex] = 'BROKEN';
+                    } else {
+                        let lowestPips = 99;
+                        let candidates = [];
+                        gameState[currentSide].board.forEach((dice, idx) => {
+                            if (dice && dice !== 'BROKEN') {
+                                if (dice.pips < lowestPips) {
+                                    lowestPips = dice.pips;
+                                    candidates = [idx];
+                                } else if (dice.pips === lowestPips) {
+                                    candidates.push(idx);
+                                }
+                            }
+                        });
+
+                        if (candidates.length > 0) {
+                            const removeIndex = candidates[Math.floor(Math.random() * candidates.length)];
+                            gameState[currentSide].board[removeIndex] = 'BROKEN';
+                        }
+                    }
+
+                    if (gameState[currentSide].hp <= 0) {
+                        endGame(currentSide === 'player' ? 'ai' : 'player');
+                        return;
+                    }
+                    
+                    monster.position = 0;
+                    // 正確的回血邏輯：在當前生命值上恢復 10% 最大生命值（不超過上限）
+                    monster.hp = Math.min(monster.maxHp, monster.hp + monster.maxHp * 0.1);
+                    monster.shield = 0;
+                    applySpawnPassives(monster);
+                    
+                    updateUI(currentSide);
+                }
+            });
+        }
+
+        function fireProjectile(boardId, cellIndex, element, targetId, isLightningShot = false, onHitCallback = null) {
+            const board = document.getElementById(boardId);
+            const cells = board.querySelectorAll('.cell');
+            if (!cells[cellIndex]) return;
+            
+            const cellRect = cells[cellIndex].getBoundingClientRect();
+            const targetEl = document.getElementById(`monster-${targetId}`);
+            if (!targetEl) return;
+            
+            let currentX = cellRect.left + window.scrollX + cellRect.width / 2;
+            let currentY = cellRect.top + window.scrollY + cellRect.height / 2;
+            
+            const proj = document.createElement('div');
+            proj.className = `projectile ${isLightningShot ? 'lightning-shot' : ''}`;
+            proj.textContent = isLightningShot ? '⚡' : ELEMENTS[element].emoji;
+            proj.style.left = `${currentX}px`;
+            proj.style.top = `${currentY}px`;
+            document.body.appendChild(proj);
+            
+            const speed = isLightningShot ? 26 : 18;
+            
+            function trackTarget() {
+                const target = document.getElementById(`monster-${targetId}`);
+                let targetX = currentX;
+                let targetY = currentY;
+                
+                if (target) {
+                    const tRect = target.getBoundingClientRect();
+                    targetX = tRect.left + window.scrollX + tRect.width / 2;
+                    targetY = tRect.top + window.scrollY + tRect.height / 2;
+                }
+                
+                const dx = targetX - currentX;
+                const dy = targetY - currentY;
+                const dist = Math.hypot(dx, dy);
+                
+                if (dist <= speed || !target) {
+                    proj.style.left = `${targetX}px`;
+                    proj.style.top = `${targetY}px`;
+                    createAttackEffectAt(targetX, targetY, element);
+                    if (onHitCallback) onHitCallback(targetX, targetY);
+                    proj.remove();
+                } else {
+                    currentX += (dx / dist) * speed;
+                    currentY += (dy / dist) * speed;
+                    proj.style.left = `${currentX}px`;
+                    proj.style.top = `${currentY}px`;
+                    requestAnimationFrame(trackTarget);
+                }
+            }
+            
+            requestAnimationFrame(trackTarget);
+        }
+        
+        function createAttackEffectAt(x, y, element) {
+            const effect = document.createElement('div');
+            effect.className = 'attack-effect';
+            effect.style.left = `${x}px`;
+            effect.style.top = `${y}px`;
+            effect.style.transform = `translate(-50%, -50%) scale(0.5)`;
+            
+            const colors = {
+                wind: '#00d2ff',
+                thunder: '#f9d423',
+                earth: '#8b4513',
+                water: '#4facfe',
+                fire: '#ff6b6b'
+            };
+            effect.style.background = `radial-gradient(circle, ${colors[element]} 0%, transparent 70%)`;
+            
+            document.body.appendChild(effect);
+            setTimeout(() => effect.remove(), 500);
+        }
+
+        // 觸發火屬性普攻全體雙倍Buff特效
+        function triggerFireBuffEffect(player) {
+            const boardId = player === 'player' ? 'player-board' : 'ai-board';
+            const board = document.getElementById(boardId);
+            const cells = board.querySelectorAll('.cell');
+            cells.forEach((cell, idx) => {
+                if (gameState[player].board[idx]) {
+                    const fx = document.createElement('div');
+                    fx.className = 'fire-buff-effect';
+                    cell.appendChild(fx);
+                    setTimeout(() => fx.remove(), 600);
+                }
+            });
+        }
+        
+        function diceAttack(player) {
+            const now = Date.now();
+            
+            // 火屬性被動：若處於禁止攻擊狀態，則無法攻擊
+            if (now < (gameState[player].silencedUntil || 0)) return;
+
+            const boardId = player === 'player' ? 'player-board' : 'ai-board';
+            const enemyPlayer = player === 'player' ? 'ai' : 'player';
+            
+            const myMonsters = gameState.monsters.filter(m => m.side === player).sort((a,b) => b.position - a.position);
+            let target = myMonsters[0];
+            
+            gameState[player].board.forEach((dice, index) => {
+                if (!dice || dice === 'BROKEN') return;
+                
+                const isSleeping = index === 7 || gameState.sleepingSignatures.has(`${dice.element}-${dice.pips}`);
+                if (isSleeping) return;
+                
+                const isEvolved = dice.pips >= 6;
+                
+                // 火屬性進化被動：每10秒賦予敵方怪物2秒無敵
+                if (isEvolved && dice.element === 'fire') {
+                    if (now - (dice.lastFireTick || 0) >= 10000) {
+                        dice.lastFireTick = now;
+                        gameState.monsters.filter(m => m.side !== player).forEach(m => {
+                            m.immuneUntil = now + 2000;
+                        });
+                    }
+                }
+
+                if (!target || target.hp <= 0) {
+                    const aliveMonsters = gameState.monsters.filter(m => m.side === player && m.hp > 0).sort((a,b) => b.position - a.position);
+                    target = aliveMonsters[0];
+                }
+                if (!target) return;
+
+                // 處理雷屬性連射狀態
+                if (dice.lightningShots > 0) {
+                    if (now >= dice.nextLightningShotTime) {
+                        dice.lightningShots -= 1;
+                        dice.nextLightningShotTime = now + 180;
+                        executeSingleShot(player, boardId, index, dice, target, true);
+                    }
+                    return;
+                }
+
+                const attackSpeed = 1000;
+                if (now - dice.lastAttack < attackSpeed) return;
+                dice.lastAttack = now;
+
+                // 雷屬性普攻：每10次普通攻擊後，下次進入閃電狀態（1秒內射5發特別⚡）
+                if (dice.element === 'thunder') {
+                    dice.thunderAttacks = (dice.thunderAttacks || 0) + 1;
+                    if (dice.thunderAttacks >= 10) {
+                        dice.thunderAttacks = 0;
+                        dice.lightningShots = 5;
+                        dice.nextLightningShotTime = now;
+                        return;
+                    }
+                }
+
+                executeSingleShot(player, boardId, index, dice, target, false);
+            });
+        }
+
+        function executeSingleShot(player, boardId, index, dice, target, isLightning) {
+            const now = Date.now();
+            const enemyPlayer = player === 'player' ? 'ai' : 'player';
+
+            // 水屬性普攻：0.05% 機率恢復 1❤️
+            if (dice.element === 'water' && Math.random() < 0.0005) {
+                if (gameState[player].hp < 3) {
+                    gameState[player].hp += 1;
+                    updateUI(player);
+                    
+                    const barId = player === 'player' ? 'player-info-bar' : 'ai-info-bar';
+                    const bar = document.getElementById(barId);
+                    if (bar) {
+                        const rect = bar.getBoundingClientRect();
+                        showFloatingText(rect.left + rect.width / 2, rect.top, '❤️ +1', '#2ecc71', true);
+                    }
+                }
+            }
+
+            // 火屬性普攻：10% 機率使己方全體骰子下一次攻擊傷害+100%
+            if (dice.element === 'fire' && Math.random() < 0.10) {
+                gameState[player].board.forEach(d => {
+                    if (d) d.nextAttackDmgBuff = true;
+                });
+                triggerFireBuffEffect(player);
+            }
+
+            // 風屬性被動：敵方風每有1點數，敵方怪物閃避率+1%
+            const enemyWindPips = getElementPips(enemyPlayer, 'wind');
+            const dodgeRate = enemyWindPips * 0.01;
+            const isDodged = Math.random() < dodgeRate;
+
+            fireProjectile(boardId, index, dice.element, target.id, isLightning, (hitX, hitY) => {
+                if (!target || target.hp <= 0) return;
+
+                if (isDodged) {
+                    showFloatingText(hitX, hitY, '閃避!', '#bdc3c7');
+                    return;
+                }
+
+                let damage = dice.pips * 100;
+
+                // 消耗火屬性全體Buff
+                if (dice.nextAttackDmgBuff) {
+                    damage *= 2;
+                    dice.nextAttackDmgBuff = false;
+                }
+
+                // 特殊與進化效果
+                const isEvolved = dice.pips >= 6;
+                const isImmobilized = target.immobilizedUntil && target.immobilizedUntil > now;
+
+                if (dice.element === 'wind' && Math.random() < 0.01) {
+                    target.position = Math.max(0, target.position - 0.05); 
+                }
+                if (dice.element === 'earth' && Math.random() < 0.02) {
+                    target.immobilizedUntil = now + 2000; 
+                }
+
+                let isCrit = false;
+                if (isEvolved) {
+                    switch (dice.element) {
+                        case 'wind': 
+                            if (Math.random() < 0.02) target.position = 0;
+                            break;
+                        case 'thunder': 
+                            if (Math.random() < 0.05) { damage *= 10; isCrit = true; }
+                            break;
+                        case 'earth': 
+                            if (isImmobilized) { damage *= 3; isCrit = true; }
+                            break;
+                        case 'water': 
+                            target.slowFactor *= 0.95; 
+                            break;
+                    }
+                }
+
+                const isImmune = target.immuneUntil && target.immuneUntil > now;
+                if (isImmune) {
+                    damage = 0;
+                    showFloatingText(hitX, hitY, '免疫!', '#a8c0ff');
+                    return;
+                }
+
+                // 扣除護盾（土屬性被動）與生命值
+                let actualDmgToHp = damage;
+                if (target.shield > 0) {
+                    if (target.shield >= damage) {
+                        target.shield -= damage;
+                        showFloatingText(hitX, hitY, `🛡️ -${Math.ceil(damage)}`, '#00e5ff');
+                        actualDmgToHp = 0;
+                    } else {
+                        actualDmgToHp = damage - target.shield;
+                        showFloatingText(hitX, hitY, `🛡️ -${Math.ceil(target.shield)}`, '#00e5ff');
+                        target.shield = 0;
+                    }
+                }
+
+                if (actualDmgToHp > 0) {
+                    target.hp -= actualDmgToHp;
+                    showFloatingText(hitX, hitY, `-${Math.ceil(actualDmgToHp)}`, isCrit ? '#ffd700' : '#ff4d4d', isCrit);
+                }
+
+                if (target.hp <= 0) {
+                    gameState[player].killCount += 1;
+                    gameState[player].sp += 5;
+                    
+                    target.side = player === 'player' ? 'ai' : 'player';
+                    target.position = 0;
+                    target.maxHp *= 1.1;
+                    target.hp = target.maxHp;
+                    target.shield = 0;
+                    
+                    target.slowFactor = 1;
+                    target.immuneUntil = 0;
+                    target.immobilizedUntil = 0;
+
+                    applySpawnPassives(target);
+                    updateUI(player);
+                }
+            });
+        }
+        
+        function optimizeAiCenterCell() {
+            // 1. 計算玩家與 AI 場上各 (元素-星數) 組合的總點數
+            const playerSigPips = {};
+            gameState.player.board.forEach((dice) => {
+                if (!dice || dice === 'BROKEN') return;
+                const sig = `${dice.element}-${dice.pips}`;
+                playerSigPips[sig] = (playerSigPips[sig] || 0) + dice.pips;
+            });
+
+            const aiSigPips = {};
+            gameState.ai.board.forEach((dice) => {
+                if (!dice || dice === 'BROKEN') return;
+                const sig = `${dice.element}-${dice.pips}`;
+                aiSigPips[sig] = (aiSigPips[sig] || 0) + dice.pips;
+            });
+
+            const currentCenter = gameState.ai.board[7];
+
+            // 2. 評估 AI 目前中間格的骰子是否為無效或自傷
+            let isCurrentCenterBad = false;
+            if (currentCenter && currentCenter !== 'BROKEN') {
+                const currentSig = `${currentCenter.element}-${currentCenter.pips}`;
+                const pPips = playerSigPips[currentSig] || 0;
+                const aPips = aiSigPips[currentSig] || 0;
+
+                if (pPips === 0 || aPips > pPips) {
+                    isCurrentCenterBad = true;
+                }
+            }
+
+            // 3. 尋找最值得封印的玩家組合 (玩家點數遠大於 AI 的組合)
+            let bestSigToTarget = null;
+            let maxNetAdvantage = 0;
+
+            Object.keys(playerSigPips).forEach(sig => {
+                const pPips = playerSigPips[sig];
+                const aPips = aiSigPips[sig] || 0;
+                const netAdvantage = pPips - aPips;
+
+                if (netAdvantage > maxNetAdvantage) {
+                    const aiHasDice = gameState.ai.board.some(d => d && d !== 'BROKEN' && `${d.element}-${d.pips}` === sig);
+                    if (aiHasDice) {
+                        maxNetAdvantage = netAdvantage;
+                        bestSigToTarget = sig;
+                    }
+                }
+            });
+
+            // 4. 若有適合克制玩家的骰子，將其移動至中間格 (index 7)
+            if (bestSigToTarget) {
+                const currentSig = (currentCenter && currentCenter !== 'BROKEN') ? `${currentCenter.element}-${currentCenter.pips}` : null;
+                if (currentSig !== bestSigToTarget) {
+                    const targetIdx = gameState.ai.board.findIndex((d, idx) => idx !== 7 && d && d !== 'BROKEN' && `${d.element}-${d.pips}` === bestSigToTarget);
+                    if (targetIdx !== -1) {
+                        handleAction('ai', targetIdx, 7);
+                        return true;
+                    }
+                }
+            }
+
+            // 5. 若中間格骰子無效/自傷，且未找到更佳克制骰子，則將中間格骰子移至安全空位或交換
+            if (isCurrentCenterBad && currentCenter && currentCenter !== 'BROKEN') {
+                const emptyIdx = gameState.ai.board.findIndex((d, idx) => idx !== 7 && d === null);
+                if (emptyIdx !== -1) {
+                    handleAction('ai', 7, emptyIdx);
+                    return true;
+                }
+
+                let bestSwapIdx = -1;
+                let minHarm = 999;
+                gameState.ai.board.forEach((d, idx) => {
+                    if (idx === 7 || !d || d === 'BROKEN') return;
+                    const sig = `${d.element}-${d.pips}`;
+                    const pPips = playerSigPips[sig] || 0;
+                    const aPips = aiSigPips[sig] || 0;
+                    const harm = aPips - pPips;
+                    if (harm < minHarm) {
+                        minHarm = harm;
+                        bestSwapIdx = idx;
+                    }
+                });
+
+                if (bestSwapIdx !== -1) {
+                    handleAction('ai', 7, bestSwapIdx);
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        function aiTurn() {
+            if (optimizeAiCenterCell()) {
+                return;
+            }
+
+            const cost = getSummonCost('ai');
+            if (gameState.ai.sp >= cost && gameState.ai.board.includes(null)) {
+                summonDice('ai');
+                return;
+            }
+            
+            if (Math.random() > 0.5) {
+                for (let i = 0; i < gameState.ai.board.length; i++) {
+                    const dice1 = gameState.ai.board[i];
+                    if (!dice1 || dice1 === 'BROKEN') continue;
+                    
+                    for (let j = i + 1; j < gameState.ai.board.length; j++) {
+                        const dice2 = gameState.ai.board[j];
+                        if (!dice2 || dice2 === 'BROKEN') continue;
+                        
+                        if (dice1.element === dice2.element && dice1.pips === dice2.pips && dice1.pips < 6) {
+                            if (dice1.pips === 5) {
+                                const existing6Stars = new Set(gameState.ai.board.filter(d => d && d !== 'BROKEN' && d.pips === 6).map(d => d.element));
+                                if (existing6Stars.size >= 5) continue; 
+                            }
+                            handleAction('ai', i, j);
+                            return;
+                        }
+                    }
+                }
+            }
+        }
+        
+        function getHeartDisplay(hp) {
+            const hearts = [];
+            for (let i = 0; i < 3; i++) {
+                hearts.push(i < hp ? '❤️' : '💔');
+            }
+            return hearts.join('');
+        }
+        
+        function updateUI(player) {
+            gameState.sleepingSignatures = new Set();
+            const pMiddle = gameState.player.board[7];
+            const aiMiddle = gameState.ai.board[7];
+            if (pMiddle) gameState.sleepingSignatures.add(`${pMiddle.element}-${pMiddle.pips}`);
+            if (aiMiddle) gameState.sleepingSignatures.add(`${aiMiddle.element}-${aiMiddle.pips}`);
+
+            if (player === 'player' || player === 'all') {
+                document.getElementById('player-hp').innerHTML = getHeartDisplay(gameState.player.hp);
+                document.getElementById('player-sp').textContent = gameState.player.sp;
+                renderBoard('player');
+            }
+            
+            if (player === 'ai' || player === 'all') {
+                document.getElementById('ai-hp').innerHTML = getHeartDisplay(gameState.ai.hp);
+                document.getElementById('ai-sp').textContent = gameState.ai.sp;
+                renderBoard('ai');
+            }
+            
+            const summonBtn = document.getElementById('summon-btn');
+            const cost = getSummonCost('player');
+            const canSummon = gameState.player.sp >= cost && gameState.player.board.includes(null);
+            summonBtn.disabled = !canSummon;
+            
+            const costText = cost === 0 ? '免費' : `消耗 ${cost} 🎲`;
+            summonBtn.textContent = `🎲 召喚骰子 (${costText})`;
+        }
+        
+        function endGame(winner) {
+            if (gameState.gameOver) return;
+            gameState.gameOver = true;
+            
+            const overlay = document.getElementById('game-over');
+            const resultText = document.getElementById('result-text');
+            const resultDetail = document.getElementById('result-detail');
+            
+            if (winner === 'player') {
+                resultText.textContent = '🎉 勝利！';
+                resultDetail.textContent = `你擊敗了 AI！`;
+            } else {
+                resultText.textContent = '💀 失敗';
+                resultDetail.textContent = `AI 擊敗了你。`;
+            }
+            
+            overlay.classList.add('show');
+        }
+        
+        function gameLoop() {
+            if (gameState.gameOver || !gameState.gameStarted) return;
+            
+            moveMonsters();
+            diceAttack('player'); 
+            diceAttack('ai');
+            renderMonsters();
+            updateUI('all');
+            
+            requestAnimationFrame(gameLoop);
+        }
+        
+        function aiLoop() {
+            if (gameState.gameOver) return;
+            aiTurn();
+            setTimeout(aiLoop, 800);
+        }
+        
+        function startGame() {
+            document.getElementById('menu-screen').classList.add('hidden');
+            document.getElementById('game-container').style.display = 'flex';
+            gameState.gameStarted = true;
+            // 統一使用 Date.now() 避免與 moveMonsters 的時間戳規格不一致
+            gameState.lastMoveTime = Date.now();
+            
+            initBoard('player-board', true);
+            initBoard('ai-board', false);
+            
+            updateUI('all');
+            
+            spawnInitialMonsters();
+            
+            gameLoop();
+            setTimeout(aiLoop, 2500);
+        }
+        
+        function showEncyclopedia() {
+            document.getElementById('menu-screen').classList.add('hidden');
+            document.getElementById('encyclopedia-screen').classList.remove('hidden');
+        }
+        
+        function hideEncyclopedia() {
+            document.getElementById('encyclopedia-screen').classList.add('hidden');
+            document.getElementById('menu-screen').classList.remove('hidden');
+        }
+        
+        document.getElementById('summon-btn').addEventListener('click', () => {
+            summonDice('player');
+        });
+    </script>
+</body>
+</html>
