@@ -1,0 +1,2377 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <title>彈射決鬥</title>
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+  <style>
+    :root {
+      --safe-top: env(safe-area-inset-top);
+      --safe-right: env(safe-area-inset-right);
+      --safe-bottom: env(safe-area-inset-bottom);
+      --safe-left: env(safe-area-inset-left);
+      --panel: rgba(8, 14, 24, 0.74);
+      --panel-strong: rgba(12, 18, 30, 0.92);
+      --line: rgba(255, 255, 255, 0.14);
+      --accent: #7dd3fc;
+      --accent-2: #a78bfa;
+      --danger: #fb7185;
+      --good: #34d399;
+      --text: #f8fafc;
+      --muted: rgba(248, 250, 252, 0.72);
+    }
+
+    html {
+      font-size: 16px;
+      color-scheme: dark;
+      -webkit-text-size-adjust: 100%;
+    }
+
+    body, button, input, label, select, textarea {
+      font-size: 1rem;
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      min-height: 100dvh;
+      overflow: hidden;
+      background:
+        radial-gradient(circle at top, rgba(125, 211, 252, 0.14), transparent 35%),
+        linear-gradient(180deg, #020617 0%, #0f172a 55%, #020617 100%);
+      color: var(--text);
+      touch-action: none;
+    }
+
+    #app {
+      position: fixed;
+      inset: 0;
+      box-sizing: border-box;
+      padding:
+        calc(var(--safe-top) + 12px)
+        calc(var(--safe-right) + 12px)
+        calc(var(--safe-bottom) + 12px)
+        calc(var(--safe-left) + 12px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+
+    #stage {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      max-width: 100%;
+      max-height: 100%;
+      border-radius: 24px;
+      overflow: hidden;
+      background: linear-gradient(180deg, rgba(7, 12, 20, 0.98), rgba(4, 7, 14, 1));
+      box-shadow:
+        0 20px 50px rgba(0, 0, 0, 0.45),
+        inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+    }
+
+    canvas {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      display: block;
+      touch-action: none;
+    }
+
+    .overlay {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      gap: 1rem;
+      padding: 1rem;
+      background: linear-gradient(180deg, rgba(2, 6, 23, 0.34), rgba(2, 6, 23, 0.58));
+      backdrop-filter: blur(14px);
+      transition: opacity 0.24s ease, transform 0.24s ease;
+      z-index: 20;
+    }
+
+    .overlay.hidden {
+      opacity: 0;
+      pointer-events: none;
+      transform: translateY(12px) scale(0.98);
+    }
+
+    .panel {
+      width: min(100%, 46rem);
+      max-height: min(86%, 48rem);
+      overflow: auto;
+      border-radius: 24px;
+      background: var(--panel-strong);
+      border: 1px solid var(--line);
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.32);
+      padding: 1rem;
+      scrollbar-width: thin;
+      scrollbar-color: rgba(125, 211, 252, 0.5) transparent;
+    }
+
+    .panel::-webkit-scrollbar {
+      width: 12px;
+    }
+
+    .panel::-webkit-scrollbar-thumb {
+      background: rgba(125, 211, 252, 0.35);
+      border-radius: 999px;
+      border: 3px solid transparent;
+      background-clip: content-box;
+    }
+
+    .title-glow {
+      text-shadow: 0 0 24px rgba(125, 211, 252, 0.28);
+      animation: floatTitle 4.8s ease-in-out infinite;
+    }
+
+    @keyframes floatTitle {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-6px); }
+    }
+
+    .btn {
+      min-height: 3rem;
+      padding: 0.75rem 1rem;
+      border-radius: 18px;
+      border: 1px solid rgba(148, 163, 184, 0.24);
+      background: linear-gradient(180deg, rgba(15, 23, 42, 0.96), rgba(15, 23, 42, 0.78));
+      color: var(--text);
+      transition: transform 0.16s ease, border-color 0.16s ease, background 0.16s ease, box-shadow 0.16s ease;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.08);
+      cursor: pointer;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .btn:hover {
+      transform: translateY(-1px);
+      border-color: rgba(125, 211, 252, 0.5);
+      box-shadow: 0 10px 24px rgba(0, 0, 0, 0.24);
+    }
+
+    .btn:active {
+      transform: translateY(1px) scale(0.99);
+    }
+
+    .btn-primary {
+      background: linear-gradient(180deg, rgba(59, 130, 246, 0.95), rgba(37, 99, 235, 0.9));
+      border-color: rgba(125, 211, 252, 0.45);
+    }
+
+    .btn-ghost {
+      background: rgba(15, 23, 42, 0.58);
+    }
+
+    .btn-danger {
+      background: linear-gradient(180deg, rgba(244, 63, 94, 0.95), rgba(190, 24, 93, 0.9));
+      border-color: rgba(251, 113, 133, 0.42);
+    }
+
+    .hud {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      pointer-events: none;
+      padding: 0.75rem;
+      gap: 0.75rem;
+      z-index: 10;
+    }
+
+    .hud.hidden {
+      display: none;
+    }
+
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 0.75rem;
+      width: 100%;
+      pointer-events: auto;
+    }
+
+    .hud-pill {
+      min-height: 2.8rem;
+      border-radius: 18px;
+      background: rgba(8, 14, 24, 0.76);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      backdrop-filter: blur(12px);
+      display: flex;
+      align-items: center;
+      padding: 0.5rem 0.8rem;
+      gap: 0.6rem;
+      box-shadow: 0 8px 20px rgba(0,0,0,0.3);
+    }
+
+    .meter {
+      flex: 1;
+      height: 0.85rem;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.09);
+      overflow: hidden;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      min-width: 80px;
+    }
+
+    .meter > div {
+      height: 100%;
+      border-radius: inherit;
+      transition: width 0.18s ease;
+    }
+
+    .meter-good { background: linear-gradient(90deg, #22c55e, #86efac); }
+    .meter-danger { background: linear-gradient(90deg, #fb7185, #f43f5e); }
+    .small-note {
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    .section-title {
+      font-size: 1.25rem;
+      font-weight: 900;
+      margin: 0 0 0.75rem 0;
+      letter-spacing: 0.02em;
+    }
+
+    .menu-grid {
+      width: min(100%, 28rem);
+      display: flex;
+      flex-direction: column;
+      gap: 0.8rem;
+    }
+
+    .brand {
+      font-size: clamp(2.1rem, 5vw, 3.8rem);
+      font-weight: 900;
+      letter-spacing: 0.04em;
+      text-align: center;
+      line-height: 1;
+    }
+
+    .brand-sub {
+      text-align: center;
+      color: rgba(248, 250, 252, 0.74);
+      line-height: 1.5;
+      max-width: 32rem;
+    }
+
+    .choice-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 0.75rem;
+    }
+
+    .choice-card {
+      min-height: 8.3rem;
+      border-radius: 20px;
+      background: rgba(15, 23, 42, 0.74);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      padding: 0.85rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      cursor: pointer;
+      transition: transform 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease;
+    }
+
+    .choice-card:hover {
+      transform: translateY(-1px);
+      border-color: rgba(125, 211, 252, 0.5);
+      box-shadow: 0 12px 28px rgba(0, 0, 0, 0.28);
+    }
+
+    .choice-card.active {
+      border-color: rgba(125, 211, 252, 0.9);
+      box-shadow: 0 0 0 1px rgba(125, 211, 252, 0.2), 0 14px 34px rgba(0, 0, 0, 0.32);
+      background: linear-gradient(180deg, rgba(15, 23, 42, 0.96), rgba(30, 41, 59, 0.86));
+    }
+
+    .choice-name {
+      font-size: 1.05rem;
+      font-weight: 900;
+    }
+
+    .choice-meta {
+      color: rgba(248, 250, 252, 0.75);
+      line-height: 1.45;
+    }
+
+    .choice-rows {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+
+    .row-item {
+      border-radius: 18px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      background: rgba(15, 23, 42, 0.62);
+      padding: 0.85rem;
+    }
+
+    .row-item strong {
+      display: block;
+      margin-bottom: 0.35rem;
+      font-size: 1.05rem;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div id="stage">
+      <canvas id="gameCanvas"></canvas>
+
+      <!-- 主選單介面 -->
+      <div id="menuScreen" class="overlay">
+        <button id="fullscreenBtn" class="btn btn-ghost text-base absolute top-4 right-4 flex items-center gap-2 z-10" aria-label="全螢幕">
+          <span id="fullscreenIcon">⛶</span> <span id="fullscreenText">全螢幕</span>
+        </button>
+
+        <div class="menu-grid">
+          <div>
+            <div class="brand title-glow">彈射決鬥</div>
+            <p class="brand-sub mx-auto mt-4 text-base">
+              2D 側視物理投擲對戰。按住畫面任意處拖拽拉弓瞄準，360 度無死角發射！
+            </p>
+          </div>
+          <button id="startBtn" class="btn btn-primary text-base">開始遊玩</button>
+          <button id="encyclopediaBtn" class="btn btn-ghost text-base">武器圖鑑</button>
+          <button id="skillsBtn" class="btn btn-ghost text-base">角色技能</button>
+          <p class="small-note text-base text-center">
+            往左下拖拉向右上發射，往右下拖拉向左上發射！
+          </p>
+        </div>
+      </div>
+
+      <div id="hud" class="hud hidden">
+        <div class="topbar">
+          <!-- 左側：玩家 HP -->
+          <div class="hud-pill flex-1 max-w-[220px]">
+            <div class="font-black text-amber-400 mr-1 min-w-[1.8rem]">你</div>
+            <div class="meter"><div id="playerMeter" class="meter-good" style="width: 100%;"></div></div>
+            <div id="playerHp" class="font-black ml-1 min-w-[3.2rem] text-right">1000</div>
+          </div>
+
+          <!-- 正中間：退出按鈕與回合提示 -->
+          <div class="flex flex-col items-center">
+            <button id="exitGameBtn" class="btn btn-danger text-base px-4 py-1.5" style="min-height: 2.4rem;">退出</button>
+            <div id="turnTag" class="text-base font-extrabold text-cyan-300 mt-1 bg-slate-900/85 px-3 py-0.5 rounded-full border border-white/10 shadow-md">你的回合</div>
+          </div>
+
+          <!-- 右側：AI HP -->
+          <div class="hud-pill flex-1 max-w-[220px] justify-end">
+            <div id="aiHp" class="font-black mr-1 min-w-[3.2rem] text-left">1000</div>
+            <div class="meter"><div id="aiMeter" class="meter-danger" style="width: 100%;"></div></div>
+            <div class="font-black text-rose-400 ml-1 min-w-[1.8rem] text-right">AI</div>
+          </div>
+        </div>
+
+        <!-- 技能發動按鈕 -->
+        <div id="skillBtnWrapper" class="absolute bottom-6 left-1/2 -translate-x-1/2 z-20 pointer-events-auto hidden">
+          <button id="skillBtn" class="btn border-yellow-400 bg-yellow-900/80 text-yellow-100 px-6 py-2 rounded-full font-bold shadow-lg transition-transform pointer-events-none opacity-50" style="min-width: 160px; font-size: 1.1rem; border-width: 2px;">
+            技能: 0/100%
+          </button>
+        </div>
+      </div>
+
+      <div id="selectionModal" class="overlay hidden">
+        <div class="panel">
+          <div class="section-title">開始遊玩</div>
+          <p class="small-note text-base mb-4">先選角色，再選武器。AI 會自動隨機配置。</p>
+
+          <div class="choice-rows mb-4">
+            <div>
+              <div class="label mb-2 font-bold">角色</div>
+              <div id="characterGrid" class="choice-grid"></div>
+            </div>
+
+            <div>
+              <div class="label mb-2 font-bold">武器</div>
+              <div id="weaponGrid" class="choice-grid"></div>
+            </div>
+          </div>
+
+          <div class="row-item mb-4">
+            <strong>目前配置</strong>
+            <div id="selectionSummary" class="small-note text-base"></div>
+          </div>
+
+          <div class="flex flex-wrap gap-3 justify-end">
+            <button id="cancelSelectionBtn" class="btn btn-ghost text-base">返回主選單</button>
+            <button id="confirmSelectionBtn" class="btn btn-primary text-base">確認出戰</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="encyclopediaModal" class="overlay hidden">
+        <div class="panel">
+          <div class="section-title">武器圖鑑</div>
+          <p class="small-note text-base mb-4">基礎命中固定傷害皆為 100，速度皆已統一，可專注於彈跳、體積尺寸與地形破壞能力的運用。</p>
+          <div id="weaponList" class="choice-rows"></div>
+          <div class="mt-4 flex justify-end">
+            <button class="btn btn-ghost text-base closePanelBtn">關閉</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="skillsModal" class="overlay hidden">
+        <div class="panel">
+          <div class="section-title">角色技能</div>
+          <p class="small-note text-base mb-4">所有角色生命統一為 1000，各自擁有獨特的被動技能。</p>
+          <div id="skillsList" class="choice-rows"></div>
+          <div class="mt-4 flex justify-end">
+            <button class="btn btn-ghost text-base closePanelBtn">關閉</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="resultModal" class="overlay hidden">
+        <div class="panel text-center">
+          <div id="resultTitle" class="section-title" style="font-size: 1.6rem;">勝負已分</div>
+          <p id="resultText" class="small-note text-base mb-4">---</p>
+          <div class="flex flex-wrap gap-3 justify-center">
+            <button id="againBtn" class="btn btn-primary text-base">再來一局</button>
+            <button id="backMenuBtn" class="btn btn-ghost text-base">回到主選單</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (() => {
+      const canvas = document.getElementById('gameCanvas');
+      const ctx = canvas.getContext('2d');
+
+      const dom = {
+        app: document.getElementById('app'),
+        stage: document.getElementById('stage'),
+        menuScreen: document.getElementById('menuScreen'),
+        hud: document.getElementById('hud'),
+        skillBtnWrapper: document.getElementById('skillBtnWrapper'),
+        skillBtn: document.getElementById('skillBtn'),
+        selectionModal: document.getElementById('selectionModal'),
+        encyclopediaModal: document.getElementById('encyclopediaModal'),
+        skillsModal: document.getElementById('skillsModal'),
+        resultModal: document.getElementById('resultModal'),
+        startBtn: document.getElementById('startBtn'),
+        encyclopediaBtn: document.getElementById('encyclopediaBtn'),
+        skillsBtn: document.getElementById('skillsBtn'),
+        cancelSelectionBtn: document.getElementById('cancelSelectionBtn'),
+        confirmSelectionBtn: document.getElementById('confirmSelectionBtn'),
+        exitGameBtn: document.getElementById('exitGameBtn'),
+        fullscreenBtn: document.getElementById('fullscreenBtn'),
+        fullscreenText: document.getElementById('fullscreenText'),
+        fullscreenIcon: document.getElementById('fullscreenIcon'),
+        turnTag: document.getElementById('turnTag'),
+        playerMeter: document.getElementById('playerMeter'),
+        aiMeter: document.getElementById('aiMeter'),
+        playerHp: document.getElementById('playerHp'),
+        aiHp: document.getElementById('aiHp'),
+        characterGrid: document.getElementById('characterGrid'),
+        weaponGrid: document.getElementById('weaponGrid'),
+        selectionSummary: document.getElementById('selectionSummary'),
+        weaponList: document.getElementById('weaponList'),
+        skillsList: document.getElementById('skillsList'),
+        resultTitle: document.getElementById('resultTitle'),
+        resultText: document.getElementById('resultText'),
+        againBtn: document.getElementById('againBtn'),
+        backMenuBtn: document.getElementById('backMenuBtn'),
+      };
+
+      // 100米地圖規模 (3400px，每米約 34px)
+      const WORLD = {
+        width: 3400,
+        height: 980,
+        groundPad: 82,
+      };
+
+      function clamp(val, min, max) {
+        return Math.max(min, Math.min(max, val));
+      }
+
+      function lerp(a, b, t) {
+        return a + (b - a) * t;
+      }
+
+      function rand(min, max) {
+        return min + Math.random() * (max - min);
+      }
+
+      function pick(arr) {
+        return arr[Math.floor(Math.random() * arr.length)];
+      }
+
+      function saveSetting(key, val) {
+        try {
+          localStorage.setItem(key, JSON.stringify(val));
+        } catch (e) {}
+      }
+
+      function loadSetting(key, defaultVal) {
+        try {
+          const item = localStorage.getItem(key);
+          return item ? JSON.parse(item) : defaultVal;
+        } catch (e) {
+          return defaultVal;
+        }
+      }
+
+      const characters = [
+        {
+          id: 'shadow',
+          name: '影之武士',
+          speedBonus: 0.1,
+          splashBonus: 0,
+          recoilResist: 0.1,
+          skill: '10% 機率閃避傷害，10% 機率獲得額外回合',
+          color: '#a855f7',
+        },
+        {
+          id: 'guardian',
+          name: '鋼鐵守護者',
+          speedBonus: 0,
+          splashBonus: 0,
+          recoilResist: 0.4,
+          skill: '開局自帶 1 層護盾，25% 機率受到傷害減半',
+          color: '#3b82f6',
+        },
+        {
+          id: 'engineer',
+          name: '爆破專家',
+          speedBonus: 0.05,
+          splashBonus: 0.25,
+          recoilResist: 0.1,
+          skill: '武器彈跳+3次，每彈跳 1 次該回合體積/坑洞+5',
+          color: '#f97316',
+        },
+        {
+          id: 'mountain',
+          name: '泰山巨兵',
+          speedBonus: -0.1,
+          splashBonus: 0,
+          recoilResist: 0.6,
+          skill: '反彈 9% 受到的傷害；HP 低於 50% 時視野能看更遠',
+          color: '#22c55e',
+        },
+      ];
+
+      const weapons = [
+        {
+          id: 'hammer',
+          name: '重錘球',
+          bounces: 2,
+          radius: 25,
+          speed: 1.0,
+          gravity: 1.0,
+          bounce: 0.4,
+          color: '#eab308',
+          splash: 50,
+          terrainRadius: 40,
+          terrainDepth: 30,
+          ability: '重型彈體，10% 機率使敵人眩暈',
+          skillDesc: '發動後本回合先後連擲 2 次',
+        },
+        {
+          id: 'flare',
+          name: '爆裂瓶',
+          bounces: 1,
+          radius: 20,
+          speed: 1.1,
+          gravity: 0.9,
+          bounce: 0.2,
+          color: '#ef4444',
+          splash: 45,
+          terrainRadius: 35,
+          terrainDepth: 25,
+          ability: '每次彈跳與終點皆四濺 4 朵殘留火焰',
+          skillDesc: '發動後本回合同時並行 3 瓶散射',
+        },
+        {
+          id: 'bounce_ball',
+          name: '彈彈球',
+          bounces: 4,
+          radius: 10,
+          speed: 1.0,
+          gravity: 1.0,
+          bounce: 0.5,
+          color: '#38bdf8',
+          splash: 30,
+          terrainRadius: 10,
+          terrainDepth: 10,
+          ability: '每彈跳 1 次，本局攻擊永久疊加 1%',
+          skillDesc: '發動後本局彈跳次數額外 +5',
+        },
+        {
+          id: 'water_burst',
+          name: '蜘蛛蛋',
+          bounces: 0,
+          radius: 30,
+          speed: 1.0,
+          gravity: 1.0,
+          bounce: 0.2,
+          color: '#06b6d4',
+          splash: 30,
+          terrainRadius: 30,
+          terrainDepth: 30,
+          ability: '同時並行5發散射+先後連擲4次(共20發蜘蛛蛋)，蜘蛛蛋於兩回合後孵化停留原地',
+          skillDesc: '發動後本回合轉為單發母蜘蛛(彈跳3次•體積/坑洞:60)，命中敵人時造成100傷害，並會命令所有小蜘蛛立即追蹤敵人，每隻隨機造成1~9點傷害後消失。如果母蜘蛛沒有命中敵人，那麼全部小蜘蛛都會死亡，並會恢復角色300HP。',
+        },
+      ];
+
+      function getCharacter(id) {
+        return characters.find((c) => c.id === id) || characters[0];
+      }
+
+      function getWeapon(id) {
+        return weapons.find((w) => w.id === id) || weapons[0];
+      }
+
+      const cloudSeeds = Array.from({ length: 14 }, () => ({
+        x: Math.random() * WORLD.width,
+        y: 60 + Math.random() * 260,
+        s: 0.7 + Math.random() * 0.6,
+        w: 0.8 + Math.random() * 0.5,
+      }));
+
+      const state = {
+        phase: 'menu',
+        selectedCharacterId: loadSetting('selectedCharacterId', 'shadow'),
+        selectedWeaponId: loadSetting('selectedWeaponId', 'bounce_ball'),
+        match: null,
+        camera: { x: 0, y: 0, shake: 0 },
+        cameraFocus: 'player',
+        viewW: window.innerWidth,
+        viewH: window.innerHeight,
+        dpr: window.devicePixelRatio || 1,
+        time: 0,
+        lastTs: 0,
+        aiDelay: 0,
+        turnDelay: 0,
+        particles: [],
+        floatingTexts: [],
+        flash: null,
+      };
+
+      const dragState = {
+        active: false,
+        pointerId: null,
+        startX: 0,
+        startY: 0,
+        currentX: 0,
+        currentY: 0,
+      };
+
+      const TERRAIN_STEP = 2;
+      const terrainSamples = [];
+
+      function buildTerrain() {
+        terrainSamples.length = 0;
+        for (let x = 0; x <= WORLD.width + TERRAIN_STEP; x += TERRAIN_STEP) {
+          terrainSamples.push({ x, y: terrainHeightRaw(x) });
+        }
+      }
+
+      function terrainHeightRaw(x) {
+        const u = (x - 1700) / 1700;
+        const clampedU = clamp(u, -1, 1);
+        return 800 - 260 * (1 - Math.sqrt(1 - clampedU * clampedU));
+      }
+
+      function terrainHeightAt(x) {
+        const clamped = clamp(x, 0, WORLD.width);
+        const index = Math.floor(clamped / TERRAIN_STEP);
+        const a = terrainSamples[index] || terrainSamples[0];
+        const b = terrainSamples[index + 1] || a;
+        const t = (clamped - a.x) / TERRAIN_STEP;
+        return lerp(a.y, b.y, clamp(t, 0, 1));
+      }
+
+      function destroyTerrain(impactX, impactY, R) {
+        const currentY = terrainHeightAt(impactX);
+        const surfaceY = Math.max(impactY, currentY);
+
+        for (let i = 0; i < terrainSamples.length; i++) {
+          const pt = terrainSamples[i];
+          const dx = Math.abs(pt.x - impactX);
+          if (dx < R) {
+            const craterY = surfaceY + Math.sqrt(R * R - dx * dx);
+            if (pt.y < craterY) {
+              pt.y = Math.min(WORLD.height - WORLD.groundPad, craterY);
+            }
+          }
+        }
+      }
+
+      function createPlayer(def, side) {
+        const x = side === 'left' ? 1615 : 1785;
+        const y = terrainHeightAt(x);
+        return {
+          side,
+          def,
+          x,
+          y,
+          vx: 0,
+          vy: 0,
+          hpMax: 1000,
+          hp: 1000,
+          flash: 0,
+          bobSeed: Math.random() * Math.PI * 2,
+          aimAngle: side === 'left' ? 45 : 135,
+          aimPower: 70,
+          recoilTimer: 0,
+          shield: def.id === 'guardian' ? 1 : 0,
+          stunned: false,
+        };
+      }
+
+      function createMatch() {
+        buildTerrain();
+        const playerDef = getCharacter(state.selectedCharacterId);
+        const weaponDef = getWeapon(state.selectedWeaponId);
+        const aiDef = pick(characters.filter((item) => item.id !== playerDef.id));
+        const aiWeapon = pick(weapons);
+
+        return {
+          turn: 0,
+          round: 1,
+          extraTurn: false,
+          winner: null,
+          player: createPlayer(playerDef, 'left'),
+          ai: createPlayer(aiDef, 'right'),
+          playerWeapon: weaponDef,
+          aiWeapon,
+          projectiles: [],
+          spiders: [],
+          aiProfile: aiDef,
+          aiWeaponDef: aiWeapon,
+          lastTrajectories: [],
+          playerSkillCharge: 0,
+          aiSkillCharge: 0,
+          hammerSeqActive: false,
+          aiHammerSeqActive: false,
+          flareSkillThisTurn: false,
+          aiFlareSkillThisTurn: false,
+          playerSpiderSkillActive: false,
+          aiSpiderSkillActive: false,
+          pendingSequentialShot: false,
+          playerBounceDmgBonus: 0,
+          aiBounceDmgBonus: 0,
+          playerExtraBounces: 0,
+          aiExtraBounces: 0,
+        };
+      }
+
+      function openPanel(panel) {
+        hideAllPanels();
+        panel.classList.remove('hidden');
+      }
+
+      function hideAllPanels() {
+        [dom.selectionModal, dom.encyclopediaModal, dom.skillsModal, dom.resultModal].forEach((panel) => {
+          panel.classList.add('hidden');
+        });
+      }
+
+      function showMenu() {
+        state.phase = 'menu';
+        state.match = null;
+        state.camera.x = 1700 - (state.viewW || 800) / 2;
+        state.camera.y = 160;
+        state.aiDelay = 0;
+        state.turnDelay = 0;
+        dragState.active = false;
+        hideAllPanels();
+        dom.menuScreen.classList.remove('hidden');
+        dom.hud.classList.add('hidden');
+        dom.skillBtnWrapper.classList.add('hidden');
+      }
+
+      function showSelection() {
+        renderSelectionCards();
+        renderSelectionSummary();
+        openPanel(dom.selectionModal);
+      }
+
+      function showEncyclopedia() {
+        renderEncyclopedia();
+        openPanel(dom.encyclopediaModal);
+      }
+
+      function showSkills() {
+        renderSkills();
+        openPanel(dom.skillsModal);
+      }
+
+      function startGame() {
+        tryFullscreenAndLandscape();
+        state.phase = 'game';
+        state.match = createMatch();
+        state.particles = [];
+        state.floatingTexts = [];
+        state.flash = null;
+        state.camera.shake = 0;
+        state.cameraFocus = 'player';
+        dragState.active = false;
+        
+        dom.menuScreen.classList.add('hidden');
+        dom.hud.classList.remove('hidden');
+        dom.skillBtnWrapper.classList.remove('hidden');
+        hideAllPanels();
+        
+        syncTurnUI();
+        syncHpUI();
+        syncSkillUI();
+        beginTurn(0, true);
+      }
+
+      function endGame(winnerText) {
+        state.phase = 'over';
+        state.match.winner = winnerText;
+        dom.resultTitle.textContent = winnerText === '你' ? '你贏了' : 'AI 贏了';
+        dom.resultText.textContent = winnerText === '你'
+          ? '漂亮的一擊，成功拆掉對手的血量。'
+          : '這一局由 AI 率先抓到節奏。再試一次吧。';
+        openPanel(dom.resultModal);
+        dom.hud.classList.add('hidden');
+        dom.skillBtnWrapper.classList.add('hidden');
+      }
+
+      async function tryFullscreenAndLandscape() {
+        try {
+          const docEl = document.documentElement;
+          if (!document.fullscreenElement && !document.webkitFullscreenElement) {
+            if (docEl.requestFullscreen) {
+              await docEl.requestFullscreen();
+            } else if (docEl.webkitRequestFullscreen) {
+              await docEl.webkitRequestFullscreen();
+            } else if (docEl.msRequestFullscreen) {
+              await docEl.msRequestFullscreen();
+            }
+          }
+          if (screen.orientation && screen.orientation.lock) {
+            await screen.orientation.lock('landscape').catch(() => {});
+          }
+        } catch (err) {}
+      }
+
+      function toggleFullscreen() {
+        if (!document.fullscreenElement && !document.webkitFullscreenElement) {
+          tryFullscreenAndLandscape();
+        } else {
+          if (document.exitFullscreen) {
+            document.exitFullscreen().catch(() => {});
+          } else if (document.webkitExitFullscreen) {
+            document.webkitExitFullscreen();
+          }
+        }
+      }
+
+      function updateFullscreenButton() {
+        const isFS = !!(document.fullscreenElement || document.webkitFullscreenElement);
+        dom.fullscreenText.textContent = isFS ? '退出全螢幕' : '全螢幕';
+        dom.fullscreenIcon.textContent = isFS ? '✕' : '⛶';
+      }
+
+      document.addEventListener('fullscreenchange', updateFullscreenButton);
+      document.addEventListener('webkitfullscreenchange', updateFullscreenButton);
+
+      function syncSelectionModel() {
+        saveSetting('selectedCharacterId', state.selectedCharacterId);
+        saveSetting('selectedWeaponId', state.selectedWeaponId);
+        renderSelectionCards();
+        renderSelectionSummary();
+      }
+
+      function renderSelectionCards() {
+        dom.characterGrid.innerHTML = '';
+        dom.weaponGrid.innerHTML = '';
+
+        characters.forEach((character) => {
+          const card = document.createElement('button');
+          card.type = 'button';
+          card.className = 'choice-card text-left ' + (character.id === state.selectedCharacterId ? 'active' : '');
+          card.innerHTML = `
+            <div class="choice-name">${character.name}</div>
+            <div class="choice-meta text-base">HP 1000 · ${character.skill}</div>
+          `;
+          card.addEventListener('click', () => {
+            state.selectedCharacterId = character.id;
+            syncSelectionModel();
+          });
+          dom.characterGrid.appendChild(card);
+        });
+
+        weapons.forEach((weapon) => {
+          const card = document.createElement('button');
+          card.type = 'button';
+          card.className = 'choice-card text-left ' + (weapon.id === state.selectedWeaponId ? 'active' : '');
+          card.innerHTML = `
+            <div class="choice-name">${weapon.name}</div>
+            <div class="choice-meta text-base text-cyan-300 font-bold mt-1">${weapon.ability}</div>
+            <div class="choice-meta text-base text-yellow-300 font-bold mt-1">技能：${weapon.skillDesc}</div>
+          `;
+          card.addEventListener('click', () => {
+            state.selectedWeaponId = weapon.id;
+            syncSelectionModel();
+          });
+          dom.weaponGrid.appendChild(card);
+        });
+      }
+
+      function renderSelectionSummary() {
+        const character = getCharacter(state.selectedCharacterId);
+        const weapon = getWeapon(state.selectedWeaponId);
+        dom.selectionSummary.textContent = `角色：${character.name} 武器：${weapon.name} | ${character.skill}`;
+      }
+
+      function renderEncyclopedia() {
+        dom.weaponList.innerHTML = weapons.map((weapon) => `
+          <div class="row-item">
+            <strong>${weapon.name}</strong>
+            <div class="small-note text-base">
+              基礎彈跳 ${weapon.bounces} 次 • 體積/坑洞: ${weapon.radius}
+            </div>
+            <div class="small-note text-base mt-1 text-cyan-300 font-bold">${weapon.ability}</div>
+            <div class="small-note text-base mt-1 text-yellow-300 font-bold">技能：${weapon.skillDesc}</div>
+          </div>
+        `).join('');
+      }
+
+      function renderSkills() {
+        dom.skillsList.innerHTML = characters.map((character) => `
+          <div class="row-item">
+            <strong>${character.name}</strong>
+            <div class="small-note text-base">HP 1000 · 被動技能：${character.skill}</div>
+          </div>
+        `).join('');
+      }
+
+      function syncHpUI() {
+        if (!state.match) return;
+        const player = state.match.player;
+        const ai = state.match.ai;
+        dom.playerHp.textContent = Math.max(0, Math.ceil(player.hp));
+        dom.aiHp.textContent = Math.max(0, Math.ceil(ai.hp));
+        dom.playerMeter.style.width = `${clamp((player.hp / player.hpMax) * 100, 0, 100)}%`;
+        dom.aiMeter.style.width = `${clamp((ai.hp / ai.hpMax) * 100, 0, 100)}%`;
+      }
+
+      function syncSkillUI() {
+        if (!state.match) return;
+        const progress = Math.min(100, state.match.playerSkillCharge || 0);
+        dom.skillBtn.textContent = `技能: ${progress}/100%`;
+
+        if (progress >= 100) {
+            dom.skillBtn.classList.remove('pointer-events-none', 'opacity-50');
+            dom.skillBtn.classList.add('cursor-pointer', 'hover:scale-105', 'bg-yellow-500', 'text-slate-900');
+        } else {
+            dom.skillBtn.classList.add('pointer-events-none', 'opacity-50');
+            dom.skillBtn.classList.remove('cursor-pointer', 'hover:scale-105', 'bg-yellow-500', 'text-slate-900');
+        }
+      }
+
+      function syncTurnUI() {
+        if (!state.match) return;
+        const whose = state.match.turn === 0 ? '你的回合 (請拉拽角色投擲)' : 'AI 回合';
+        dom.turnTag.textContent = `${whose} · 第 ${state.match.round} 回合`;
+      }
+
+      function beginTurn(turnIndex, immediate = false) {
+        if (!state.match || state.phase !== 'game') return;
+
+        // 蜘蛛蛋於兩回合後自動孵化為小蜘蛛並留在原地
+        if (state.match && state.match.spiders) {
+          state.match.spiders.forEach(s => {
+            if (!s.hatched) {
+              if (s.turnsRemaining > 0) {
+                s.turnsRemaining--;
+                if (s.turnsRemaining <= 0) {
+                  s.hatched = true;
+                }
+              }
+            }
+          });
+        }
+
+        // 檢查目標是否處於眩暈狀態 (暫停一回合)
+        const activePlayer = turnIndex === 0 ? state.match.player : state.match.ai;
+        if (activePlayer.stunned) {
+          activePlayer.stunned = false;
+          spawnFloatingText(activePlayer.x, activePlayer.y - 120, '眩暈中 跳過回合!', '#f5c15a');
+          state.turnDelay = 1.2;
+          return;
+        }
+
+        // 回合充能 20%
+        if (turnIndex === 0) {
+          state.match.playerSkillCharge = Math.min(100, (state.match.playerSkillCharge || 0) + 20);
+          syncSkillUI();
+        } else {
+          state.match.aiSkillCharge = Math.min(100, (state.match.aiSkillCharge || 0) + 20);
+        }
+
+        state.match.turn = turnIndex;
+        syncTurnUI();
+
+        if (turnIndex === 0) {
+          state.aiDelay = 0;
+          state.turnDelay = 0;
+          state.cameraFocus = 'player';
+        } else {
+          state.aiDelay = 0.85 + Math.random() * 0.55;
+          state.cameraFocus = 'ai';
+        }
+      }
+
+      function getShotOrigin(player, angleRad) {
+        const rad = angleRad !== undefined ? angleRad : player.aimAngle * Math.PI / 180;
+        return {
+          x: player.x + Math.cos(rad) * 36,
+          y: player.y - 60 - Math.sin(rad) * 36,
+        };
+      }
+
+      function calculateTrajectoryPoints(startX, startY, angleDeg, powerValue, weapon, player) {
+        const pts = [{ x: startX, y: startY }];
+        const angleRad = angleDeg * Math.PI / 180;
+        const baseSpeed = (300 + powerValue * 12) * weapon.speed * (1 + (player ? player.def.speedBonus : 0));
+        let vx = Math.cos(angleRad) * baseSpeed;
+        let vy = -Math.sin(angleRad) * baseSpeed;
+        let x = startX;
+        let y = startY;
+        const gravity = 900 * weapon.gravity;
+        const dt = 0.03;
+
+        let bounces = weapon.bounces;
+        if (state.match && player === state.match.player && state.match.playerSpiderSkillActive) {
+          bounces = 3;
+        } else if (state.match && player === state.match.ai && state.match.aiSpiderSkillActive) {
+          bounces = 3;
+        } else {
+          if (player && player.def.id === 'engineer') bounces += 3;
+          if (state.match && player === state.match.player && state.match.playerExtraBounces) bounces += state.match.playerExtraBounces;
+          if (state.match && player === state.match.ai && state.match.aiExtraBounces) bounces += state.match.aiExtraBounces;
+        }
+
+        for (let i = 0; i < 80; i++) {
+          vy += gravity * dt;
+          x += vx * dt;
+          y += vy * dt;
+
+          if (x < 0 || x > WORLD.width) {
+            vx *= -0.72;
+            x = clamp(x, 0, WORLD.width);
+          }
+
+          const gY = terrainHeightAt(x);
+          if (y >= gY) {
+            pts.push({ x, y: gY });
+            if (bounces > 0) {
+              bounces--;
+              vy = -Math.max(Math.abs(vy) * 1.01, Math.sqrt(2 * gravity * 130));
+              vx = (vx >= 0 ? 1 : -1) * Math.max(Math.abs(vx) * 1.01, 200);
+            } else {
+              break;
+            }
+          } else {
+            pts.push({ x, y });
+          }
+        }
+        return pts;
+      }
+
+      function fireProjectile(angleDeg, powerValue, weapon, player, isAI = false, isWaterSubShot = false) {
+        if (!state.match || state.phase !== 'game') return;
+
+        // 扔出武器 2 秒後，使自身下方地形隆起正半圓形
+        const shooterX = player.x;
+        setTimeout(() => {
+            if (!state.match) return;
+            const raiseRadius = 60;
+            for (let i = 0; i < terrainSamples.length; i++) {
+                const pt = terrainSamples[i];
+                const dx = Math.abs(pt.x - shooterX);
+                if (dx < raiseRadius) {
+                    const h = Math.sqrt(raiseRadius * raiseRadius - dx * dx);
+                    pt.y = Math.max(0, pt.y - h);
+                }
+            }
+        }, 2000);
+
+        let isMother = false;
+        if (weapon.id === 'water_burst') {
+          if (!isAI && state.match.playerSpiderSkillActive) {
+            isMother = true;
+            state.match.playerSpiderSkillActive = false;
+          } else if (isAI && state.match.aiSpiderSkillActive) {
+            isMother = true;
+            state.match.aiSpiderSkillActive = false;
+          }
+        }
+
+        let numShots = 1;
+        if (weapon.id === 'flare' && !isAI && state.match.flareSkillThisTurn) {
+            numShots = 3;
+            state.match.flareSkillThisTurn = false;
+        } else if (weapon.id === 'flare' && isAI && state.match.aiFlareSkillThisTurn) {
+            numShots = 3;
+            state.match.aiFlareSkillThisTurn = false;
+        } else if (weapon.id === 'water_burst' && !isMother) {
+            numShots = 5; // 蜘蛛蛋普通攻擊：同時並行 5 發散射
+        }
+
+        // 蜘蛛蛋普通攻擊：先後連擲 4 次（共 20 發蜘蛛蛋）
+        if (weapon.id === 'water_burst' && !isWaterSubShot && !isMother) {
+            state.match.pendingSequentialShot = true;
+            for (let v = 1; v < 4; v++) {
+                setTimeout(() => {
+                    if (state.match && state.phase === 'game') {
+                        if (v === 3) state.match.pendingSequentialShot = false;
+                        fireProjectile(angleDeg, powerValue, weapon, player, isAI, true);
+                    }
+                }, v * 160);
+            }
+        }
+
+        const angles = [];
+        if (numShots === 1) {
+            angles.push(angleDeg);
+        } else {
+            const spread = 8;
+            const startAngle = angleDeg - (spread * (numShots - 1)) / 2;
+            for (let i = 0; i < numShots; i++) {
+                angles.push(startAngle + i * spread);
+            }
+        }
+
+        if (!isAI) {
+            state.match.lastTrajectories = angles.map(deg => {
+                const rad = deg * Math.PI / 180;
+                const origin = getShotOrigin(player, rad);
+                return calculateTrajectoryPoints(origin.x, origin.y, deg, powerValue, weapon, player);
+            });
+        }
+
+        angles.forEach(deg => {
+            const angleRad = deg * Math.PI / 180;
+            const origin = getShotOrigin(player, angleRad);
+            const baseSpeed = (300 + powerValue * 12) * weapon.speed * (1 + player.def.speedBonus);
+            
+            const vx = Math.cos(angleRad) * baseSpeed;
+            const vy = -Math.sin(angleRad) * baseSpeed;
+
+            let bounces = weapon.bounces;
+            let radius = weapon.radius;
+
+            if (isMother) {
+              bounces = 3;
+              radius = 60;
+            } else {
+              if (player.def.id === 'engineer') {
+                  bounces += 3;
+              }
+              if (player === state.match.player && state.match.playerExtraBounces) {
+                  bounces += state.match.playerExtraBounces;
+              } else if (player === state.match.ai && state.match.aiExtraBounces) {
+                  bounces += state.match.aiExtraBounces;
+              }
+            }
+
+            state.match.projectiles.push({
+                x: origin.x,
+                y: origin.y,
+                vx,
+                vy,
+                radius,
+                weapon: isMother ? { ...weapon, radius: 60, splash: 60, terrainRadius: 60 } : weapon,
+                owner: player,
+                bouncesLeft: bounces,
+                age: 0,
+                trail: [],
+                aiShot: isAI,
+                isFlame: false,
+                isSpiderEgg: weapon.id === 'water_burst' && !isMother,
+                isMotherSpider: isMother,
+            });
+
+            spawnFlash(origin.x, origin.y, isMother ? '#0891b2' : weapon.color, 0.22);
+        });
+
+        if (weapon.id === 'hammer' && !isAI && state.match.hammerSeqActive) {
+            state.match.hammerSeqActive = false;
+            state.match.pendingSequentialShot = true;
+            setTimeout(() => {
+                if (state.match && state.phase === 'game') {
+                    state.match.pendingSequentialShot = false;
+                    fireProjectile(angleDeg, powerValue, weapon, player, isAI);
+                }
+            }, 1000);
+        } else if (weapon.id === 'hammer' && isAI && state.match.aiHammerSeqActive) {
+            state.match.aiHammerSeqActive = false;
+            state.match.pendingSequentialShot = true;
+            setTimeout(() => {
+                if (state.match && state.phase === 'game') {
+                    state.match.pendingSequentialShot = false;
+                    fireProjectile(angleDeg, powerValue, weapon, player, isAI);
+                }
+            }, 1000);
+        }
+      }
+
+      function spawnFlareFlames(x, y, shooter, aiShot) {
+        if (!state.match) return;
+        for (let f = 0; f < 4; f++) {
+          const angle = rand(-Math.PI * 0.85, -Math.PI * 0.15);
+          const speed = rand(200, 460);
+          state.match.projectiles.push({
+            x: x,
+            y: y - 12,
+            vx: Math.cos(angle) * speed + rand(-60, 60),
+            vy: Math.sin(angle) * speed,
+            radius: 12,
+            weapon: getWeapon('flare'),
+            owner: shooter,
+            bouncesLeft: 0,
+            age: 0,
+            trail: [],
+            aiShot: aiShot,
+            isFlame: true,
+          });
+        }
+      }
+
+      function findAiShot(attacker, target, weapon) {
+        const start = getShotOrigin(attacker, 135 * Math.PI / 180);
+        const targetX = target.x;
+        const targetY = target.y - 70;
+        let best = null;
+
+        const isTargetRight = targetX > start.x;
+        const minAngle = isTargetRight ? -10 : 100;
+        const maxAngle = isTargetRight ? 80 : 170;
+        const defaultAngle = isTargetRight ? 45 : 135;
+
+        for (let angle = minAngle; angle <= maxAngle; angle += 2) {
+          for (let power = 20; power <= 100; power += 4) {
+            let x = start.x;
+            let y = start.y;
+            const angleRad = angle * Math.PI / 180;
+            const speed = (300 + power * 12) * weapon.speed * (1 + attacker.def.speedBonus);
+            let vx = Math.cos(angleRad) * speed;
+            let vy = -Math.sin(angleRad) * speed;
+            let min = Infinity;
+
+            for (let t = 0; t < 2.2; t += 0.05) {
+              vy += 900 * weapon.gravity * 0.05;
+              x += vx * 0.05;
+              y += vy * 0.05;
+              const dist = Math.hypot(x - targetX, y - targetY);
+              if (dist < min) min = dist;
+              if (x < 0 || x > WORLD.width || y > WORLD.height) break;
+            }
+
+            const score = min;
+            if (!best || score < best.score) {
+              best = { angle, power, score };
+            }
+          }
+        }
+
+        const jitterAngle = rand(-4, 4);
+        const jitterPower = rand(-6, 6);
+        return {
+          angle: clamp(Math.round((best ? best.angle : defaultAngle) + jitterAngle), minAngle - 5, maxAngle + 5),
+          power: clamp(Math.round((best ? best.power : 65) + jitterPower), 20, 100),
+        };
+      }
+
+      function updateProjectiles(dt) {
+        const match = state.match;
+        if (!match || match.projectiles.length === 0) return;
+
+        for (let i = match.projectiles.length - 1; i >= 0; i--) {
+            const p = match.projectiles[i];
+            let resolved = false;
+
+            const gravity = 900 * p.weapon.gravity;
+            const subSteps = 4;
+            const step = dt / subSteps;
+
+            for (let s = 0; s < subSteps; s += 1) {
+                const prevX = p.x;
+                const prevY = p.y;
+
+                p.age += step;
+                p.vy += gravity * step;
+                p.x += p.vx * step;
+                p.y += p.vy * step;
+
+                p.trail.push({ x: p.x, y: p.y, life: 1 });
+                if (p.trail.length > 20) p.trail.shift();
+
+                if (p.x < 0 || p.x > WORLD.width) {
+                    p.vx *= -0.72;
+                    p.x = clamp(p.x, 0, WORLD.width);
+                    spawnSpark(p.x, p.y, p.weapon.color, 5);
+                }
+
+                const dist = Math.hypot(p.x - prevX, p.y - prevY);
+                const raySteps = Math.max(1, Math.ceil(dist / 2));
+                let hitTerrain = false;
+                let hitX = p.x;
+                let hitY = p.y;
+
+                for (let r = 1; r <= raySteps; r++) {
+                    const t = r / raySteps;
+                    const sampleX = lerp(prevX, p.x, t);
+                    const sampleY = lerp(prevY, p.y, t);
+                    const gY = terrainHeightAt(sampleX);
+
+                    if (sampleY + p.radius >= gY) {
+                        hitTerrain = true;
+                        hitX = sampleX;
+                        hitY = gY - p.radius;
+                        break;
+                    }
+                }
+
+                if (hitTerrain) {
+                    p.x = hitX;
+
+                    if (p.bouncesLeft > 0 && !p.isFlame) {
+                        p.bouncesLeft -= 1;
+
+                        if (p.owner.def.id === 'engineer') {
+                            p.bounceCount = (p.bounceCount || 0) + 1;
+                            p.radius += 5;
+                        }
+
+                        const g = 900 * p.weapon.gravity;
+                        p.vy = -Math.max(Math.abs(p.vy) * 1.01, Math.sqrt(2 * g * 130));
+                        p.vx = (p.vx >= 0 ? 1 : -1) * Math.max(Math.abs(p.vx) * 1.01, 200);
+                        p.y = hitY - 6;
+
+                        if (p.weapon.id === 'flare') {
+                            spawnFlareFlames(p.x, p.y, p.owner, p.aiShot);
+                        }
+
+                        if (p.weapon.id === 'bounce_ball') {
+                            if (p.owner === match.player) {
+                                match.playerBounceDmgBonus = (match.playerBounceDmgBonus || 0) + 0.01;
+                            } else if (p.owner === match.ai) {
+                                match.aiBounceDmgBonus = (match.aiBounceDmgBonus || 0) + 0.01;
+                            }
+                            spawnFloatingText(p.x, p.y - 30, '+1% 傷害!', '#38bdf8');
+                        }
+
+                        spawnSpark(p.x, p.y, p.weapon.color, 16);
+                    } else {
+                        p.y = hitY;
+                        resolveImpact(p.x, p.y, p, false);
+                        resolved = true;
+                        break;
+                    }
+                }
+
+                if (resolved) break;
+
+                const target = p.owner === match.player ? match.ai : match.player;
+                const targetHitRadius = 48;
+                const targetCenterY = target.y - 60;
+                const distToPlayer = Math.hypot(p.x - target.x, p.y - targetCenterY);
+                if (distToPlayer <= p.radius + targetHitRadius) {
+                    resolveImpact(p.x, p.y, p, true);
+                    resolved = true;
+                    break;
+                }
+            }
+
+            if (!resolved && p.age > 45.0) {
+                resolveImpact(p.x, p.y, p, false);
+            }
+        }
+      }
+
+      function resolveImpact(x, y, projectile, directHit = false) {
+        const match = state.match;
+        if (!match) return;
+
+        const shooter = projectile.owner;
+        const weapon = projectile.weapon;
+        const target = shooter === match.player ? match.ai : match.player;
+
+        const baseDamage = (projectile.isFlame ? 50 : 100);
+        let splashRadius = projectile.isFlame ? 35 : weapon.splash * (1 + shooter.def.splashBonus);
+        let actualTerrainRadius = weapon.terrainRadius;
+        if (shooter.def.id === 'engineer') {
+            actualTerrainRadius += (projectile.bounceCount || 0) * 5;
+        }
+
+        if (projectile.isMotherSpider) {
+          const targetCenterY = target.y - 70;
+          const distToEnemy = Math.hypot(target.x - x, targetCenterY - y);
+          const hitEnemy = directHit || distToEnemy <= 110;
+
+          if (hitEnemy) {
+            applyDamage(target, x, y, 100, 60, shooter, directHit, false, weapon);
+            let activeCount = 0;
+            if (match.spiders) {
+              match.spiders.forEach(s => {
+                if (s.owner === shooter) {
+                  s.hatched = true;
+                  s.tracking = true;
+                  s.trackProgress = 0;
+                  s.startX = s.x;
+                  s.startY = s.y;
+                  s.trackDuration = rand(3.5, 6.5);
+                  activeCount++;
+                }
+              });
+            }
+            spawnFloatingText(target.x, target.y - 120, `母蜘蛛命中! ${activeCount}隻小蜘蛛追擊!`, '#06b6d4');
+          } else {
+            if (match.spiders) {
+              match.spiders = match.spiders.filter(s => {
+                if (s.owner === shooter) {
+                  spawnSpark(s.x, s.y, '#94a3b8', 6);
+                  return false;
+                }
+                return true;
+              });
+            }
+            shooter.hp = clamp(shooter.hp + 300, 0, shooter.hpMax);
+            spawnFloatingText(shooter.x, shooter.y - 100, '+300 HP 獻祭恢復!', '#34d399');
+            spawnSpark(shooter.x, shooter.y - 50, '#34d399', 16);
+          }
+
+          destroyTerrain(x, y, 60);
+        } else if (projectile.isSpiderEgg || weapon.id === 'water_burst') {
+          match.spiders.push({
+            x: x,
+            y: terrainHeightAt(x),
+            hatched: false,
+            turnsRemaining: 2,
+            owner: shooter,
+            tracking: false,
+            trackProgress: 0,
+            trackDuration: rand(3.5, 6.5),
+            startX: x,
+            startY: terrainHeightAt(x),
+            seed: Math.random() * 100,
+          });
+          spawnSpark(x, y, '#06b6d4', 10);
+        } else {
+          applyDamage(match.ai, x, y, baseDamage, splashRadius, shooter, directHit, projectile.isFlame, weapon);
+          applyDamage(match.player, x, y, baseDamage, splashRadius, shooter, directHit, projectile.isFlame, weapon);
+        }
+
+        if (!projectile.isMotherSpider) {
+          if (projectile.isFlame) {
+              destroyTerrain(x, y, 12);
+          } else {
+              destroyTerrain(x, y, actualTerrainRadius);
+          }
+        }
+
+        if (weapon.id === 'flare' && !projectile.isFlame && !directHit) {
+            spawnFlareFlames(x, y, shooter, projectile.aiShot);
+        }
+
+        state.camera.shake = Math.min(14, 6 + splashRadius * 0.08);
+
+        if (shooter === match.player) {
+          state.cameraFocus = 'ai';
+        } else {
+          state.cameraFocus = 'player';
+        }
+
+        const idx = match.projectiles.indexOf(projectile);
+        if (idx !== -1) {
+            match.projectiles.splice(idx, 1);
+        }
+
+        syncHpUI();
+        checkTurnEnd(shooter);
+      }
+
+      function updateSpiders(dt) {
+        const match = state.match;
+        if (!match || !match.spiders) return;
+
+        const hadTrackingBefore = match.spiders.some(s => s.tracking);
+        let lastShooter = null;
+
+        for (let i = match.spiders.length - 1; i >= 0; i--) {
+          const s = match.spiders[i];
+
+          if (!s.tracking) {
+            s.y = terrainHeightAt(s.x);
+          } else {
+            lastShooter = s.owner;
+            const target = s.owner === match.player ? match.ai : match.player;
+            s.trackProgress += dt / s.trackDuration;
+
+            const t = clamp(s.trackProgress, 0, 1);
+            const currX = lerp(s.startX, target.x, t);
+            const groundY = terrainHeightAt(currX);
+            const directY = lerp(s.startY, target.y - 40, t);
+
+            const arcHeight = Math.sin(t * Math.PI) * 70;
+            s.x = currX;
+            s.y = Math.min(groundY, directY) - arcHeight;
+
+            if (Math.random() < 0.35) {
+              spawnParticle(s.x, s.y, rand(-20, 20), rand(-20, 20), 0.3, '#06b6d4', rand(2, 4));
+            }
+
+            if (t >= 1) {
+              const pct = Math.floor(Math.random() * 9) + 1;
+              const baseDmg = 100;
+              const dmg = Math.round(baseDmg * (pct / 100));
+
+              target.hp = clamp(target.hp - dmg, 0, target.hpMax);
+              spawnFloatingText(target.x, target.y - 100, `-${dmg} HP`, '#06b6d4');
+              spawnSpark(target.x, target.y - 50, '#06b6d4', 12);
+
+              target.flash = 0.18;
+              match.spiders.splice(i, 1);
+              syncHpUI();
+
+              if (target.hp <= 0 && state.phase === 'game') {
+                endGame(s.owner === match.player ? '你' : 'AI');
+                return;
+              }
+            }
+          }
+        }
+
+        const hasTrackingAfter = match.spiders.some(s => s.tracking);
+        if (hadTrackingBefore && !hasTrackingAfter) {
+          checkTurnEnd(lastShooter);
+        }
+      }
+
+      function checkTurnEnd(shooter) {
+        const match = state.match;
+        if (!match || state.phase !== 'game') return;
+
+        const hasTrackingSpiders = match.spiders && match.spiders.some(s => s.tracking);
+        if (match.projectiles.length === 0 && !match.pendingSequentialShot && !hasTrackingSpiders) {
+          if (match.player.hp <= 0) {
+            endGame('AI');
+            return;
+          }
+          if (match.ai.hp <= 0) {
+            endGame('你');
+            return;
+          }
+
+          if (shooter && shooter.def && shooter.def.id === 'shadow' && Math.random() < 0.10) {
+            spawnFloatingText(shooter.x, shooter.y - 140, '連擊 EXTRA TURN!', '#22d3ee');
+            match.extraTurn = true;
+          }
+
+          state.turnDelay = 0.7;
+        }
+      }
+
+      function applyDamage(player, x, y, baseDamage, splashRadius, shooter, directHit, isFlame = false, weapon) {
+        const centerY = player.y - 70;
+        const dist = Math.hypot(player.x - x, centerY - y);
+        const maxDist = splashRadius + 50;
+        if (dist > maxDist) return;
+
+        let isDodge = false;
+        if (player.def.id === 'shadow' && Math.random() < 0.10) {
+            isDodge = true;
+            spawnFloatingText(player.x, player.y - 120, '閃避 DODGE!', '#38bdf8');
+        }
+
+        if (!isDodge) {
+            if (player.shield > 0) {
+                player.shield -= 1;
+                spawnFloatingText(player.x, player.y - 120, '護盾抵擋 SHIELD!', '#a78bfa');
+                spawnSpark(player.x, player.y - 70, '#a78bfa', 16);
+            } else {
+                let damage = baseDamage;
+                
+                if (shooter === state.match.player && state.match.playerBounceDmgBonus) {
+                    damage *= (1 + state.match.playerBounceDmgBonus);
+                } else if (shooter === state.match.ai && state.match.aiBounceDmgBonus) {
+                    damage *= (1 + state.match.aiBounceDmgBonus);
+                }
+
+                if (player.def.id === 'guardian' && Math.random() < 0.25) {
+                    damage = damage * 0.5;
+                    spawnFloatingText(player.x, player.y - 130, '防禦減半!', '#a78bfa');
+                }
+                
+                damage = Math.round(damage);
+                player.hp = clamp(player.hp - damage, 0, player.hpMax);
+                
+                const flameLabel = isFlame ? ' (火焰)' : '';
+                if (damage > 0) {
+                    spawnFloatingText(player.x, player.y - 100, `-${damage}${flameLabel}`, isFlame ? '#ff7446' : '#f43f5e');
+                }
+
+                if (weapon && weapon.id === 'hammer' && damage > 0 && Math.random() < 0.10) {
+                    player.stunned = true;
+                    spawnFloatingText(player.x, player.y - 140, '眩暈 STUNNED!', '#f5c15a');
+                }
+
+                if (player.def.id === 'mountain' && shooter !== player && damage > 0) {
+                    const reflectDmg = Math.round(damage * 0.09);
+                    if (reflectDmg > 0) {
+                        shooter.hp = clamp(shooter.hp - reflectDmg, 0, shooter.hpMax);
+                        spawnFloatingText(shooter.x, shooter.y - 100, `反傷 -${reflectDmg}`, '#f59e0b');
+                    }
+                }
+            }
+        }
+
+        const dx = player.x - x;
+        const dir = dx >= 0 ? 1 : -1;
+        const knockMult = 1 - player.def.recoilResist;
+        
+        player.vx += dir * 429 * knockMult;
+        player.vy = -553 * knockMult;
+        player.flash = 0.28;
+        player.recoilTimer = 0.2;
+      }
+
+      function spawnFloatingText(x, y, text, color) {
+        state.floatingTexts.push({
+          x,
+          y,
+          text,
+          color,
+          life: 1.2,
+          maxLife: 1.2,
+        });
+      }
+
+      function spawnParticle(x, y, vx, vy, life, color, size) {
+        state.particles.push({ x, y, vx, vy, life, maxLife: life, color, size });
+      }
+
+      function spawnSpark(x, y, color, count) {
+        for (let i = 0; i < count; i += 1) {
+          const angle = rand(0, Math.PI * 2);
+          const speed = rand(50, 420);
+          spawnParticle(
+            x,
+            y,
+            Math.cos(angle) * speed,
+            Math.sin(angle) * speed - rand(60, 180),
+            rand(0.22, 0.6),
+            color,
+            rand(1.5, 3.8)
+          );
+        }
+      }
+
+      function spawnFlash(x, y, color, life = 0.2) {
+        state.flash = { x, y, radius: 20, life, color };
+      }
+
+      function updatePlayers(dt) {
+        if (!state.match) return;
+        [state.match.player, state.match.ai].forEach((player) => {
+          player.x += player.vx * dt;
+          player.vx *= Math.pow(0.08, dt);
+          player.x = clamp(player.x, 80, WORLD.width - 80);
+
+          const groundY = terrainHeightAt(player.x);
+          if (player.y < groundY || player.vy < 0) {
+            player.vy += 900 * dt;
+            player.y += player.vy * dt;
+            if (player.y >= groundY) {
+              player.y = groundY;
+              player.vy = 0;
+            }
+          } else {
+            player.y = groundY;
+            player.vy = 0;
+          }
+
+          player.flash = Math.max(0, player.flash - dt);
+          player.recoilTimer = Math.max(0, player.recoilTimer - dt);
+        });
+      }
+
+      function updateParticles(dt) {
+        state.particles = state.particles.filter((particle) => {
+          particle.life -= dt;
+          particle.vy += 860 * dt;
+          particle.x += particle.vx * dt;
+          particle.y += particle.vy * dt;
+          particle.vx *= Math.pow(0.4, dt);
+          particle.vy *= Math.pow(0.4, dt);
+          return particle.life > 0;
+        });
+
+        state.floatingTexts = state.floatingTexts.filter((ft) => {
+          ft.life -= dt;
+          ft.y -= 38 * dt;
+          return ft.life > 0;
+        });
+
+        if (state.flash) {
+          state.flash.life -= dt;
+          state.flash.radius += 540 * dt;
+          if (state.flash.life <= 0) state.flash = null;
+        }
+      }
+
+      function updateCamera(dt) {
+        let targetX;
+        let targetY;
+
+        if (state.phase === 'menu' || state.phase === 'over' || !state.match) {
+          targetX = 1700;
+          targetY = 480;
+        } else if (state.match.projectiles.length > 0) {
+          targetX = state.match.projectiles[0].x;
+          targetY = state.match.projectiles[0].y;
+        } else if (state.cameraFocus === 'ai') {
+          targetX = state.match.ai.x - 120;
+          targetY = state.match.ai.y - 100;
+        } else {
+          targetX = state.match.player.x + 120;
+          targetY = state.match.player.y - 100;
+        }
+
+        let cameraScale = 1;
+        if (state.viewW < 1100 || state.viewH < 650) {
+          cameraScale = Math.min(state.viewW / 1100, state.viewH / 650);
+          cameraScale = clamp(cameraScale, 0.45, 1.0);
+        }
+
+        if (state.match) {
+          const playerIsMountainLowHp = state.match.player.def.id === 'mountain' && state.match.player.hp < state.match.player.hpMax * 0.5;
+          if (playerIsMountainLowHp) {
+            cameraScale *= 0.68;
+          }
+        }
+
+        state.cameraScale = cameraScale;
+
+        const effectiveViewW = state.viewW / cameraScale;
+        const effectiveViewH = state.viewH / cameraScale;
+
+        targetX = clamp(targetX - effectiveViewW / 2, 0, WORLD.width - effectiveViewW);
+        targetY = clamp(targetY - effectiveViewH / 2, 0, WORLD.height - effectiveViewH);
+
+        state.camera.x = lerp(state.camera.x, targetX, 0.08);
+        state.camera.y = lerp(state.camera.y, targetY, 0.08);
+
+        if (state.camera.shake > 0) {
+          state.camera.shake = Math.max(0, state.camera.shake - dt * 20);
+        }
+      }
+
+      function setupDragListeners() {
+        canvas.addEventListener('pointerdown', (e) => {
+          const match = state.match;
+          if (state.phase !== 'game' || !match || match.turn !== 0) return;
+          const hasTrackingSpiders = match.spiders && match.spiders.some(s => s.tracking);
+          if (match.projectiles.length > 0 || hasTrackingSpiders || match.pendingSequentialShot || state.turnDelay > 0) return;
+
+          dragState.active = true;
+          dragState.pointerId = e.pointerId;
+          dragState.startX = e.clientX;
+          dragState.startY = e.clientY;
+          dragState.currentX = e.clientX;
+          dragState.currentY = e.clientY;
+          canvas.setPointerCapture(e.pointerId);
+        });
+
+        canvas.addEventListener('pointermove', (e) => {
+          if (!dragState.active || e.pointerId !== dragState.pointerId) return;
+          dragState.currentX = e.clientX;
+          dragState.currentY = e.clientY;
+
+          const dx = dragState.currentX - dragState.startX;
+          const dy = dragState.currentY - dragState.startY;
+          const dist = Math.hypot(dx, dy);
+
+          if (dist > 8) {
+            const angleRad = Math.atan2(dy, -dx);
+            let angleDeg = angleRad * 180 / Math.PI;
+            if (angleDeg < 0) angleDeg += 360;
+
+            const power = clamp(Math.round(dist / 2.5), 0, 100);
+            const player = state.match.player;
+            player.aimAngle = Math.round(angleDeg);
+            player.aimPower = power;
+          }
+        });
+
+        const releaseDrag = (e) => {
+          if (!dragState.active || e.pointerId !== dragState.pointerId) return;
+          dragState.active = false;
+          try {
+            canvas.releasePointerCapture(e.pointerId);
+          } catch (err) {}
+
+          const match = state.match;
+          const hasTrackingSpiders = match && match.spiders && match.spiders.some(s => s.tracking);
+          if (state.phase === 'game' && match && match.turn === 0 && match.projectiles.length === 0 && !hasTrackingSpiders && !match.pendingSequentialShot && state.turnDelay <= 0) {
+            const weapon = match.playerWeapon;
+            const player = match.player;
+            fireProjectile(player.aimAngle, player.aimPower, weapon, player, false);
+          }
+        };
+
+        canvas.addEventListener('pointerup', releaseDrag);
+        canvas.addEventListener('pointercancel', releaseDrag);
+      }
+
+      function render() {
+        ctx.save();
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        const scale = (state.dpr || 1) * (state.cameraScale || 1);
+        ctx.scale(scale, scale);
+
+        const shakeX = (Math.random() - 0.5) * state.camera.shake;
+        const shakeY = (Math.random() - 0.5) * state.camera.shake;
+
+        ctx.translate(-state.camera.x + shakeX, -state.camera.y + shakeY);
+
+        drawBackground();
+        drawTerrain();
+
+        if (state.match) {
+          if (state.match.lastTrajectories && state.match.lastTrajectories.length > 0) {
+            state.match.lastTrajectories.forEach(pts => {
+                ctx.save();
+                ctx.beginPath();
+                ctx.setLineDash([8, 8]);
+                ctx.strokeStyle = 'rgba(160, 160, 160, 0.65)';
+                ctx.lineWidth = 3.5;
+                if (pts.length > 0) {
+                    ctx.moveTo(pts[0].x, pts[0].y);
+                    for (let i = 1; i < pts.length; i++) {
+                        ctx.lineTo(pts[i].x, pts[i].y);
+                    }
+                }
+                ctx.stroke();
+                ctx.restore();
+            });
+          }
+
+          if (dragState.active && state.match.turn === 0) {
+            drawAimPreview();
+          }
+
+          drawPlayer(state.match.player);
+          drawPlayer(state.match.ai);
+          drawSpiders();
+
+          if (state.match.projectiles.length > 0) {
+            state.match.projectiles.forEach(drawProjectile);
+          }
+        }
+
+        drawParticles();
+        drawFloatingTexts();
+
+        ctx.restore();
+      }
+
+      function drawBackground() {
+        const skyGradient = ctx.createLinearGradient(0, 0, 0, WORLD.height);
+        skyGradient.addColorStop(0, '#040914');
+        skyGradient.addColorStop(0.6, '#0f172a');
+        skyGradient.addColorStop(1, '#1e1b4b');
+        ctx.fillStyle = skyGradient;
+        ctx.fillRect(0, 0, WORLD.width, WORLD.height);
+
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.04)';
+        cloudSeeds.forEach((cloud) => {
+          ctx.beginPath();
+          ctx.arc(cloud.x, cloud.y, 40 * cloud.s, 0, Math.PI * 2);
+          ctx.arc(cloud.x + 35 * cloud.w, cloud.y - 10, 50 * cloud.s, 0, Math.PI * 2);
+          ctx.arc(cloud.x + 75 * cloud.w, cloud.y, 38 * cloud.s, 0, Math.PI * 2);
+          ctx.fill();
+        });
+      }
+
+      function drawTerrain() {
+        ctx.beginPath();
+        ctx.moveTo(0, WORLD.height);
+        terrainSamples.forEach((pt) => {
+          ctx.lineTo(pt.x, pt.y);
+        });
+        ctx.lineTo(WORLD.width, WORLD.height);
+        ctx.closePath();
+
+        const groundGrad = ctx.createLinearGradient(0, 300, 0, WORLD.height);
+        groundGrad.addColorStop(0, '#1e293b');
+        groundGrad.addColorStop(0.3, '#0f172a');
+        groundGrad.addColorStop(1, '#020617');
+        ctx.fillStyle = groundGrad;
+        ctx.fill();
+
+        ctx.lineWidth = 6;
+        ctx.strokeStyle = '#38bdf8';
+        ctx.stroke();
+      }
+
+      function drawAimPreview() {
+        const player = state.match.player;
+        const weapon = state.match.playerWeapon;
+
+        let numShots = 1;
+        if (weapon.id === 'flare' && state.match.flareSkillThisTurn) {
+            numShots = 3;
+        } else if (weapon.id === 'water_burst' && !state.match.playerSpiderSkillActive) {
+            numShots = 5;
+        }
+
+        const angles = [];
+        if (numShots === 1) {
+            angles.push(player.aimAngle);
+        } else {
+            const spread = 8;
+            const startAngle = player.aimAngle - (spread * (numShots - 1)) / 2;
+            for (let i = 0; i < numShots; i++) {
+                angles.push(startAngle + i * spread);
+            }
+        }
+
+        angles.forEach(deg => {
+            const rad = deg * Math.PI / 180;
+            const origin = getShotOrigin(player, rad);
+            const pts = calculateTrajectoryPoints(origin.x, origin.y, deg, player.aimPower, weapon, player);
+
+            ctx.save();
+            ctx.beginPath();
+            ctx.setLineDash([6, 6]);
+            ctx.strokeStyle = '#38bdf8';
+            ctx.lineWidth = 3.5;
+            if (pts.length > 0) {
+              ctx.moveTo(pts[0].x, pts[0].y);
+              for (let i = 1; i < pts.length; i++) {
+                ctx.lineTo(pts[i].x, pts[i].y);
+              }
+            }
+            ctx.stroke();
+
+            pts.forEach((p, idx) => {
+              if (idx % 12 === 0) {
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, 4, 0, Math.PI * 2);
+                ctx.fillStyle = '#7dd3fc';
+                ctx.fill();
+              }
+            });
+            
+            ctx.fillStyle = '#f8fafc';
+            ctx.font = 'bold 16px sans-serif';
+            ctx.textAlign = 'left';
+            ctx.fillText(`力度: ${player.aimPower}`, origin.x + 10, origin.y - 20);
+            
+            ctx.restore();
+        });
+      }
+
+      function drawPlayer(player) {
+        ctx.save();
+        ctx.translate(player.x, player.y);
+
+        const isPlayer = player.side === 'left';
+        const bodyColor = player.def.color;
+
+        const bodyY = -52;
+        const headY = -92;
+
+        if (player.shield > 0) {
+          ctx.beginPath();
+          ctx.arc(0, -60, 58, 0, Math.PI * 2);
+          ctx.fillStyle = 'rgba(167, 139, 250, 0.22)';
+          ctx.fill();
+          ctx.strokeStyle = '#a78bfa';
+          ctx.lineWidth = 3;
+          ctx.stroke();
+        }
+
+        ctx.beginPath();
+        ctx.ellipse(0, -4, 38, 12, 0, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+        ctx.fill();
+
+        ctx.beginPath();
+        ctx.roundRect(-22, bodyY - 26, 44, 52, 12);
+        ctx.fillStyle = player.flash > 0 ? '#ffffff' : bodyColor;
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+        ctx.lineWidth = 2.5;
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.arc(0, headY, 24, 0, Math.PI * 2);
+        ctx.fillStyle = player.flash > 0 ? '#ffffff' : bodyColor;
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+        ctx.lineWidth = 2.5;
+        ctx.stroke();
+
+        const eyeX = isPlayer ? 8 : -8;
+        ctx.beginPath();
+        ctx.arc(eyeX, headY - 2, 4.5, 0, Math.PI * 2);
+        ctx.fillStyle = '#0f172a';
+        ctx.fill();
+
+        ctx.font = 'bold 16px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillStyle = '#f8fafc';
+        ctx.fillText(player.def.name, 0, -132);
+
+        const rad = player.aimAngle * Math.PI / 180;
+        ctx.save();
+        ctx.translate(0, -60);
+        ctx.rotate(-rad + (isPlayer ? 0 : Math.PI));
+        ctx.fillStyle = isPlayer ? state.match.playerWeapon.color : state.match.aiWeaponDef.color;
+        
+        let weaponVisualSize = 10;
+        ctx.fillRect(16, -weaponVisualSize / 2, weaponVisualSize * 1.8, weaponVisualSize);
+        ctx.restore();
+
+        ctx.restore();
+      }
+
+      function drawSpiders() {
+        if (!state.match || !state.match.spiders) return;
+        state.match.spiders.forEach(s => {
+          ctx.save();
+          ctx.translate(s.x, s.y);
+
+          if (!s.hatched) {
+            ctx.beginPath();
+            ctx.ellipse(0, -6, 7, 9, 0, 0, Math.PI * 2);
+            ctx.fillStyle = '#06b6d4';
+            ctx.fill();
+            ctx.strokeStyle = '#a5f3fc';
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.moveTo(-5, -6); ctx.lineTo(5, -6);
+            ctx.moveTo(0, -12); ctx.lineTo(0, 0);
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
+            ctx.lineWidth = 1;
+            ctx.stroke();
+          } else {
+            const wiggle = s.tracking ? Math.sin(state.time * 26 + s.seed) * 5 : Math.sin(state.time * 4 + s.seed) * 2;
+
+            ctx.strokeStyle = '#22d3ee';
+            ctx.lineWidth = 1.8;
+            for (let side = -1; side <= 1; side += 2) {
+              for (let l = 0; l < 4; l++) {
+                const offY = -8 + l * 2.5;
+                const legReach = side * (9 + l * 2);
+                ctx.beginPath();
+                ctx.moveTo(side * 3, offY);
+                ctx.lineTo(legReach, offY - 4 + (l % 2 === 0 ? wiggle : -wiggle));
+                ctx.lineTo(legReach + side * 3, offY + 3);
+                ctx.stroke();
+              }
+            }
+
+            ctx.beginPath();
+            ctx.arc(0, -10, 6, 0, Math.PI * 2);
+            ctx.fillStyle = '#0891b2';
+            ctx.fill();
+            ctx.strokeStyle = '#67e8f9';
+            ctx.lineWidth = 1.2;
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.arc(0, -4, 4, 0, Math.PI * 2);
+            ctx.fillStyle = '#06b6d4';
+            ctx.fill();
+
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(-2, -5, 1.5, 1.5);
+            ctx.fillRect(0.5, -5, 1.5, 1.5);
+          }
+
+          ctx.restore();
+        });
+      }
+
+      function drawProjectile(projectile) {
+        ctx.save();
+
+        if (projectile.isMotherSpider) {
+          ctx.beginPath();
+          ctx.arc(projectile.x, projectile.y, projectile.radius * 1.3, 0, Math.PI * 2);
+          ctx.fillStyle = 'rgba(6, 182, 212, 0.25)';
+          ctx.fill();
+
+          ctx.beginPath();
+          ctx.arc(projectile.x, projectile.y, projectile.radius, 0, Math.PI * 2);
+          ctx.fillStyle = '#0891b2';
+          ctx.fill();
+          ctx.strokeStyle = '#a5f3fc';
+          ctx.lineWidth = 4;
+          ctx.stroke();
+
+          ctx.fillStyle = '#ef4444';
+          ctx.beginPath();
+          ctx.arc(projectile.x - 14, projectile.y - 10, 6, 0, Math.PI * 2);
+          ctx.arc(projectile.x + 14, projectile.y - 10, 6, 0, Math.PI * 2);
+          ctx.fill();
+        } else if (projectile.isFlame) {
+          ctx.beginPath();
+          ctx.arc(projectile.x, projectile.y, projectile.radius * 1.8, 0, Math.PI * 2);
+          ctx.fillStyle = 'rgba(255, 85, 0, 0.38)';
+          ctx.fill();
+
+          ctx.beginPath();
+          ctx.arc(projectile.x, projectile.y, projectile.radius, 0, Math.PI * 2);
+          ctx.fillStyle = '#ff4500';
+          ctx.fill();
+
+          ctx.beginPath();
+          ctx.arc(projectile.x, projectile.y, projectile.radius * 0.5, 0, Math.PI * 2);
+          ctx.fillStyle = '#ffea00';
+          ctx.fill();
+
+          if (Math.random() < 0.6) {
+            spawnParticle(
+              projectile.x + rand(-4, 4),
+              projectile.y + rand(-4, 4),
+              rand(-20, 20),
+              rand(-40, -10),
+              rand(0.2, 0.4),
+              pick(['#ff2200', '#ff7700', '#ffee00']),
+              rand(2, 5)
+            );
+          }
+        } else {
+          projectile.trail.forEach((t, i) => {
+            ctx.beginPath();
+            ctx.arc(t.x, t.y, projectile.radius * (i / projectile.trail.length) * 0.7, 0, Math.PI * 2);
+            ctx.fillStyle = projectile.weapon.color;
+            ctx.globalAlpha = (i / projectile.trail.length) * 0.4;
+            ctx.fill();
+          });
+
+          ctx.globalAlpha = 1;
+          ctx.beginPath();
+          ctx.arc(projectile.x, projectile.y, projectile.radius, 0, Math.PI * 2);
+          ctx.fillStyle = projectile.weapon.color;
+          ctx.fill();
+          ctx.strokeStyle = '#ffffff';
+          ctx.lineWidth = 3;
+          ctx.stroke();
+        }
+
+        ctx.restore();
+      }
+
+      function drawParticles() {
+        state.particles.forEach((p) => {
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+          ctx.fillStyle = p.color;
+          ctx.globalAlpha = p.life / p.maxLife;
+          ctx.fill();
+        });
+
+        if (state.flash) {
+          ctx.beginPath();
+          ctx.arc(state.flash.x, state.flash.y, state.flash.radius, 0, Math.PI * 2);
+          ctx.fillStyle = state.flash.color;
+          ctx.globalAlpha = state.flash.life * 0.4;
+          ctx.fill();
+        }
+        ctx.globalAlpha = 1;
+      }
+
+      function drawFloatingTexts() {
+        state.floatingTexts.forEach((ft) => {
+          ctx.save();
+          ctx.font = '900 24px sans-serif';
+          ctx.textAlign = 'center';
+          ctx.fillStyle = ft.color;
+          ctx.globalAlpha = clamp(ft.life / ft.maxLife, 0, 1);
+          ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
+          ctx.shadowBlur = 6;
+          ctx.fillText(ft.text, ft.x, ft.y);
+          ctx.restore();
+        });
+      }
+
+      function tick(ts) {
+        if (!state.lastTs) state.lastTs = ts;
+        const dt = Math.min(0.05, (ts - state.lastTs) / 1000);
+        state.lastTs = ts;
+        state.time += dt;
+
+        resizeCanvas();
+
+        if (state.phase === 'game' && state.match) {
+          updatePlayers(dt);
+          updateProjectiles(dt);
+          updateSpiders(dt);
+          updateParticles(dt);
+
+          const hasTrackingSpiders = state.match.spiders && state.match.spiders.some(s => s.tracking);
+          if (state.match.turn === 1 && state.match.projectiles.length === 0 && !hasTrackingSpiders && !state.match.pendingSequentialShot && state.phase === 'game' && state.turnDelay <= 0) {
+            state.aiDelay -= dt;
+            if (state.aiDelay <= 0) {
+              state.aiDelay = Infinity;
+
+              if ((state.match.aiSkillCharge || 0) >= 100) {
+                state.match.aiSkillCharge -= 100;
+                const aiWeaponId = state.match.aiWeapon.id;
+                if (aiWeaponId === 'hammer') {
+                  state.match.aiHammerSeqActive = true;
+                  spawnFloatingText(state.match.ai.x, state.match.ai.y - 140, 'AI技能: 先後2連擊!', '#f5c15a');
+                } else if (aiWeaponId === 'flare') {
+                  state.match.aiFlareSkillThisTurn = true;
+                  spawnFloatingText(state.match.ai.x, state.match.ai.y - 140, 'AI技能: 並行+2散射!', '#ff7446');
+                } else if (aiWeaponId === 'bounce_ball') {
+                  state.match.aiExtraBounces = (state.match.aiExtraBounces || 0) + 5;
+                  spawnFloatingText(state.match.ai.x, state.match.ai.y - 140, 'AI技能: 本局彈跳+5!', '#38bdf8');
+                } else if (aiWeaponId === 'water_burst') {
+                  state.match.aiSpiderSkillActive = true;
+                  spawnFloatingText(state.match.ai.x, state.match.ai.y - 140, 'AI技能: 下發母蜘蛛!', '#06b6d4');
+                }
+              }
+
+              const aiShot = findAiShot(state.match.ai, state.match.player, state.match.aiWeapon);
+              state.match.ai.aimAngle = aiShot.angle;
+              state.match.ai.aimPower = aiShot.power;
+              fireProjectile(aiShot.angle, aiShot.power, state.match.aiWeapon, state.match.ai, true);
+            }
+          }
+
+          if (state.turnDelay > 0) {
+            state.turnDelay -= dt;
+            if (state.turnDelay <= 0 && state.phase === 'game') {
+              if (state.match.extraTurn) {
+                  state.match.extraTurn = false;
+                  beginTurn(state.match.turn);
+              } else {
+                  const nextTurn = state.match.turn === 0 ? 1 : 0;
+                  if (nextTurn === 0) state.match.round += 1;
+                  beginTurn(nextTurn);
+              }
+            }
+          }
+        } else {
+          updateParticles(dt);
+        }
+
+        updateCamera(dt);
+        render();
+
+        requestAnimationFrame(tick);
+      }
+
+      function resizeCanvas() {
+        const rect = dom.stage.getBoundingClientRect();
+        const dpr = window.devicePixelRatio || 1;
+        const width = Math.floor(rect.width * dpr);
+        const height = Math.floor(rect.height * dpr);
+
+        if (canvas.width !== width || canvas.height !== height) {
+          canvas.width = width;
+          canvas.height = height;
+          state.viewW = rect.width;
+          state.viewH = rect.height;
+          state.dpr = dpr;
+        }
+      }
+
+      function bindEvents() {
+        dom.startBtn.addEventListener('click', showSelection);
+        dom.encyclopediaBtn.addEventListener('click', showEncyclopedia);
+        dom.skillsBtn.addEventListener('click', showSkills);
+
+        dom.confirmSelectionBtn.addEventListener('click', startGame);
+        dom.cancelSelectionBtn.addEventListener('click', showMenu);
+
+        dom.exitGameBtn.addEventListener('click', showMenu);
+        dom.againBtn.addEventListener('click', startGame);
+        dom.backMenuBtn.addEventListener('click', showMenu);
+
+        dom.fullscreenBtn.addEventListener('click', toggleFullscreen);
+
+        dom.skillBtn.addEventListener('click', () => {
+            const match = state.match;
+            if (state.phase !== 'game' || !match || match.turn !== 0) return;
+            const hasTrackingSpiders = match.spiders && match.spiders.some(s => s.tracking);
+            if (match.projectiles.length > 0 || hasTrackingSpiders || match.pendingSequentialShot || state.turnDelay > 0) return;
+
+            if ((match.playerSkillCharge || 0) >= 100) {
+                match.playerSkillCharge -= 100;
+                
+                const weaponId = match.playerWeapon.id;
+                if (weaponId === 'hammer') {
+                    match.hammerSeqActive = true;
+                    spawnFloatingText(match.player.x, match.player.y - 140, '技能發動: 先後2連擊!', '#f5c15a');
+                } else if (weaponId === 'flare') {
+                    match.flareSkillThisTurn = true;
+                    spawnFloatingText(match.player.x, match.player.y - 140, '技能發動: 並行+2散射!', '#ff7446');
+                } else if (weaponId === 'bounce_ball') {
+                    match.playerExtraBounces = (match.playerExtraBounces || 0) + 5;
+                    spawnFloatingText(match.player.x, match.player.y - 140, '技能發動: 本局彈跳+5!', '#38bdf8');
+                } else if (weaponId === 'water_burst') {
+                    match.playerSpiderSkillActive = true;
+                    spawnFloatingText(match.player.x, match.player.y - 140, '技能發動: 下發轉為母蜘蛛!', '#06b6d4');
+                } else {
+                    spawnFloatingText(match.player.x, match.player.y - 140, '技能發動!', '#ffffff');
+                }
+                
+                syncSkillUI();
+            }
+        });
+
+        document.querySelectorAll('.closePanelBtn').forEach((btn) => {
+          btn.addEventListener('click', hideAllPanels);
+        });
+
+        setupDragListeners();
+      }
+
+      function init() {
+        buildTerrain();
+        bindEvents();
+        showMenu();
+        requestAnimationFrame(tick);
+      }
+
+      window.onload = function () {
+        init();
+      };
+    })();
+  </script>
+</body>
+</html>
