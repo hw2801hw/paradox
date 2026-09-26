@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Fire Hero - Shield Update</title>
+    <title>Fire Hero - Shield & Skill Update</title>
     <style>
         * {
             margin: 0;
@@ -38,11 +38,9 @@
             height: 100%;
             pointer-events: none;
             z-index: 10;
-            /* 避免被手機瀏海遮擋 */
             padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
         }
 
-        /* 通用 HUD 文字陰影 */
         .hud-shadow {
             text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
         }
@@ -142,7 +140,7 @@
             border: 1px solid #00d2ff;
             color: white;
             font-size: 13px;
-            min-width: 110px;
+            min-width: 120px;
         }
         .stat-row {
             display: flex;
@@ -152,9 +150,35 @@
         }
         .stat-icon { margin-right: 6px; }
         .stat-value { font-weight: bold; color: #00d2ff; text-align: right; }
+        .stat-value.hp { color: #ff4757; }
         .stat-value.bullets { color: #f1c40f; }
         .stat-value.firerate { color: #2ecc71; }
         .stat-value.damage { color: #e74c3c; }
+
+        /* 提示 Toast 消息 */
+        #toast-notice {
+            position: absolute;
+            top: 25%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.85);
+            border: 2px solid #2ecc71;
+            color: #fff;
+            padding: 12px 24px;
+            border-radius: 25px;
+            font-size: 18px;
+            font-weight: bold;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s, transform 0.3s;
+            z-index: 30;
+            box-shadow: 0 0 15px rgba(46, 204, 113, 0.5);
+            white-space: nowrap;
+        }
+        #toast-notice.show {
+            opacity: 1;
+            transform: translate(-50%, -60%);
+        }
 
         /* --- 彈出視窗通用樣式 --- */
         .overlay-screen {
@@ -202,7 +226,7 @@
         }
         .btn:active { transform: scale(0.95); }
 
-        /* --- 技能卡片樣式 RWD --- */
+        /* --- 技能卡片樣式 --- */
         #skill-container {
             display: flex;
             flex-wrap: wrap;
@@ -220,7 +244,7 @@
             border: 2px solid;
             border-radius: 15px;
             padding: 20px;
-            width: 140px;
+            width: 150px;
             cursor: pointer;
             text-align: center;
             transition: all 0.2s;
@@ -234,18 +258,18 @@
                 gap: 10px;
             }
             .skill-card {
-                width: 45%; /* 兩欄排列 */
+                width: 45%;
                 padding: 15px 10px;
             }
             .skill-icon { font-size: 36px !important; margin-bottom: 8px !important; }
             .skill-title { font-size: 16px !important; }
-            .skill-desc { font-size: 12px !important; display: none; /* 極小螢幕隱藏描述 */ }
+            .skill-desc { font-size: 12px !important; display: none; }
             
             #stats-container {
                 padding: 8px;
                 font-size: 12px;
                 right: 10px;
-                top: 50px; /* 避開計時器或等級條 */
+                top: 50px;
             }
             #timer-container {
                 top: 50px;
@@ -262,34 +286,13 @@
             }
         }
         
-        /* 稍微大一點的手機顯示描述 */
         @media (min-width: 380px) and (max-width: 600px) {
             .skill-desc { display: block !important; }
         }
 
-        .skill-card:hover:not(.disabled) {
+        .skill-card:hover {
             transform: translateY(-5px);
             background: rgba(255, 255, 255, 0.2);
-        }
-
-        .skill-card.disabled {
-            opacity: 0.4;
-            cursor: not-allowed;
-            filter: grayscale(80%);
-        }
-
-        .skill-card.disabled::after {
-            content: "MAX";
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%) rotate(-15deg);
-            background: rgba(255,0,0,0.8);
-            color: white;
-            padding: 5px 10px;
-            font-size: 14px;
-            font-weight: bold;
-            border-radius: 5px;
         }
 
         .skill-icon { font-size: 40px; display: block; margin-bottom: 10px; }
@@ -297,9 +300,17 @@
         .skill-desc { font-size: 12px; color: #ddd; line-height: 1.3; }
         .skill-level { font-size: 11px; color: #888; margin-top: 8px; display: block; }
 
+        /* 卡片類型顏色 */
         .type-multi { border-color: #f1c40f; box-shadow: 0 0 10px rgba(241, 196, 15, 0.2); }
+        .type-hp { border-color: #ff4757; box-shadow: 0 0 15px rgba(255, 71, 87, 0.4); animation: pulseHp 2s infinite; }
         .type-speed { border-color: #2ecc71; box-shadow: 0 0 10px rgba(46, 204, 113, 0.2); }
         .type-power { border-color: #e74c3c; box-shadow: 0 0 10px rgba(231, 76, 60, 0.2); }
+
+        @keyframes pulseHp {
+            0% { box-shadow: 0 0 10px rgba(255, 71, 87, 0.4); }
+            50% { box-shadow: 0 0 20px rgba(255, 71, 87, 0.8); }
+            100% { box-shadow: 0 0 10px rgba(255, 71, 87, 0.4); }
+        }
 
         .hidden { display: none !important; }
         .victory-text { color: #f1c40f; text-shadow: 0 0 20px #f1c40f; }
@@ -313,6 +324,11 @@
         <div id="timer-container" class="hud-shadow">⏱ <span id="timer-val">00:00</span></div>
         
         <div id="stats-container" class="hud-shadow">
+            <div class="stat-row">
+                <span class="stat-icon">❤️</span>
+                <span class="stat-label">生命</span>
+                <span class="stat-value hp" id="stat-hp">1/1</span>
+            </div>
             <div class="stat-row">
                 <span class="stat-icon">⚡</span>
                 <span class="stat-label">子彈</span>
@@ -339,6 +355,9 @@
             <span id="boss-hp-text">100.0%</span>
             <div id="boss-hp-bar"></div>
         </div>
+
+        <!-- 浮動提示 -->
+        <div id="toast-notice">🎉 成功觸發！HP +3</div>
     </div>
 
     <!-- 開始畫面 -->
@@ -353,10 +372,11 @@
         <h1 style="color:#ffcc00; text-shadow:0 0 20px #ffcc00;">LEVEL UP!</h1>
         <p>選擇能力升級</p>
         <div id="skill-container">
+            <!-- 多重射擊 / 滿彈替換為 50% HP+3 卡片 -->
             <div class="skill-card type-multi" id="card-multishot" onclick="chooseSkill('multishot')">
-                <span class="skill-icon">⚡</span>
-                <span class="skill-title">多重射擊</span>
-                <span class="skill-desc">子彈數量 +2<br>攻擊範圍變寬</span>
+                <span class="skill-icon" id="multishot-icon">⚡</span>
+                <span class="skill-title" id="multishot-title">多重射擊</span>
+                <span class="skill-desc" id="multishot-desc">子彈數量 +2<br>攻擊範圍變寬</span>
                 <span class="skill-level" id="multishot-level">0 / 3</span>
             </div>
             <div class="skill-card type-speed" id="card-firerate" onclick="chooseSkill('firerate')">
@@ -404,14 +424,20 @@ const bossHpContainer = document.getElementById('boss-hp-container');
 const bossHpBar = document.getElementById('boss-hp-bar');
 const bossHpText = document.getElementById('boss-hp-text');
 
+const uiStatHp = document.getElementById('stat-hp');
 const uiStatBullets = document.getElementById('stat-bullets');
 const uiStatFirerate = document.getElementById('stat-firerate');
 const uiStatDamage = document.getElementById('stat-damage');
 
 const cardMultishot = document.getElementById('card-multishot');
+const multishotIcon = document.getElementById('multishot-icon');
+const multishotTitle = document.getElementById('multishot-title');
+const multishotDesc = document.getElementById('multishot-desc');
 const multishotLevelText = document.getElementById('multishot-level');
+
 const firerateLevelText = document.getElementById('firerate-level');
 const damageLevelText = document.getElementById('damage-level');
+const toastNotice = document.getElementById('toast-notice');
 
 // 遊戲變數
 let gameRunning = false;
@@ -430,7 +456,8 @@ let isBossLevel = false;
 
 // --- 技能升級次數追蹤 ---
 let multishotUpgrades = 0;
-const MAX_MULTISHOT_UPGRADES = 3;
+const MAX_MULTISHOT_UPGRADES = 3; // 1 -> 3 -> 5 -> 7 顆子彈
+let hpSkillChoices = 0; // 記錄滿彈後選擇 HP+3 的次數
 let firerateUpgrades = 0;
 let damageUpgrades = 0;
 
@@ -444,30 +471,64 @@ const player = {
     bulletCount: 1,
     fireRate: 10,
     damage: 2,
+    hp: 1,
+    maxHp: 1,
+    invincibleFrames: 0,
     
     reset() {
         this.x = canvas.width / 2;
-        // RWD 調整: 使用相對位置，避免在不同比例螢幕上位置過低或過高
         this.y = canvas.height * 0.85; 
         this.targetX = this.x;
         this.bulletCount = 1;
         this.fireRate = 10;
         this.damage = 2;
+        this.hp = 1;
+        this.maxHp = 1;
+        this.invincibleFrames = 0;
     },
     
     update() {
         this.x += (this.targetX - this.x) * 0.25;
-        // 邊界檢查
         if(this.x < 20) this.x = 20;
         if(this.x > canvas.width - 20) this.x = canvas.width - 20;
         
-        // 確保 resize 後 y 軸位置正確
-        this.y = canvas.height * 0.85; 
+        this.y = canvas.height * 0.85;
+
+        if (this.invincibleFrames > 0) {
+            this.invincibleFrames--;
+        }
+    },
+
+    takeDamage(amount) {
+        if (this.invincibleFrames > 0) return false;
+        
+        this.hp -= amount;
+        this.invincibleFrames = 45; // 0.75 秒受擊無敵
+        
+        // 畫面上產生受傷紅火花
+        for(let i=0; i<8; i++) {
+            particles.push(new Particle(this.x, this.y, '#ff4757'));
+        }
+
+        if (this.hp <= 0) {
+            this.hp = 0;
+            updateHUD();
+            endGame();
+            return true;
+        }
+        updateHUD();
+        return false;
     },
     
     draw() {
         ctx.save();
         ctx.translate(this.x, this.y);
+
+        // 無敵時間閃爍效果
+        if (this.invincibleFrames > 0 && Math.floor(frameCount / 4) % 2 === 0) {
+            ctx.globalAlpha = 0.3;
+        }
+        
         ctx.fillStyle = '#00d2ff';
         ctx.beginPath();
         ctx.moveTo(0, -20);
@@ -475,7 +536,6 @@ const player = {
         ctx.lineTo(20, 20);
         ctx.fill();
         
-        // 根據子彈數量畫簡單的裝飾
         if(this.bulletCount > 1) {
             ctx.strokeStyle = '#f1c40f';
             ctx.lineWidth = 3;
@@ -498,7 +558,7 @@ function resize() {
     if(!gameRunning) player.reset();
 }
 window.addEventListener('resize', resize);
-resize(); // 初始化調用
+resize();
 
 // --- 輸入控制 ---
 function handleInput(x) { player.targetX = x; }
@@ -509,6 +569,18 @@ function handleInput(x) { player.targetX = x; }
         if(gameRunning) handleInput(clientX);
     }, {passive: false});
 });
+
+// --- 提示 Toast ---
+function showToast(text, color = '#2ecc71') {
+    toastNotice.innerText = text;
+    toastNotice.style.borderColor = color;
+    toastNotice.style.boxShadow = `0 0 15px ${color}`;
+    toastNotice.classList.add('show');
+    
+    setTimeout(() => {
+        toastNotice.classList.remove('show');
+    }, 1800);
+}
 
 // --- 時間格式化函數 ---
 function formatTime(ms) {
@@ -553,7 +625,7 @@ class Bullet {
 
 class Enemy {
     constructor() {
-        this.r = Math.random() * 20 + 25; // 半徑
+        this.r = Math.random() * 20 + 25;
         this.x = Math.random() * (canvas.width - this.r*2) + this.r;
         this.y = -this.r * 2;
         this.vx = (Math.random() - 0.5) * 5;
@@ -562,9 +634,6 @@ class Enemy {
         this.hp = Math.floor(Math.random() * 5) + 5 + (level * 5);
         this.maxHp = this.hp;
         
-        // --- 護盾機制 ---
-        // 根據飛船等級計算護盾層數
-        // Level 1: 0, Level 2: 2, Level 3: 4...
         this.shield = Math.max(0, (level - 1) * 2);
         this.maxShield = this.shield;
         
@@ -575,7 +644,6 @@ class Enemy {
         this.x += this.vx;
         this.y += this.vy;
         
-        // 邊界彈跳
         if(this.x - this.r < 0 || this.x + this.r > canvas.width) {
             this.vx *= -1;
             this.x = Math.max(this.r, Math.min(canvas.width - this.r, this.x));
@@ -583,19 +651,16 @@ class Enemy {
         if(this.y > canvas.height + 100) this.dead = true;
     }
     draw() {
-        // 繪製護盾光環
         if (this.shield > 0) {
             ctx.beginPath();
             ctx.arc(this.x, this.y, this.r + 6, 0, Math.PI*2);
-            ctx.strokeStyle = '#00d2ff'; // 藍色護盾
+            ctx.strokeStyle = '#00d2ff';
             ctx.lineWidth = 3;
-            // 讓護盾看起來有點閃爍
             ctx.globalAlpha = 0.7 + Math.sin(frameCount * 0.2) * 0.3; 
             ctx.stroke();
             ctx.globalAlpha = 1;
         }
 
-        // 繪製本體
         ctx.beginPath();
         ctx.arc(this.x, this.y, this.r, 0, Math.PI*2);
         ctx.fillStyle = this.color;
@@ -604,13 +669,11 @@ class Enemy {
         ctx.lineWidth = 2;
         ctx.stroke();
         
-        // 文字顯示
         ctx.fillStyle = '#fff';
         ctx.font = 'bold 16px Arial';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         
-        // 優先顯示護盾值，如果沒護盾則顯示HP
         if (this.shield > 0) {
             ctx.fillStyle = '#00d2ff';
             ctx.fillText(`🛡️${this.shield}`, this.x, this.y);
@@ -630,8 +693,7 @@ class Boss {
         this.y = 120;
         this.hp = 3000;
         this.maxHp = 3000;
-        // --- Boss 護盾機制 ---
-        this.shield = 300; // 固定 300 次免疫
+        this.shield = 300;
         this.maxShield = 300;
         
         this.dead = false;
@@ -650,8 +712,7 @@ class Boss {
             this.attackCount++;
             
             if(this.attackCount % 5 === 0) {
-                this.shoot(7); // 大招
-                // Boss 少量回血
+                this.shoot(7);
                 this.hp = Math.min(this.maxHp, this.hp + this.maxHp * 0.02);
                 for(let k=0; k<10; k++) particles.push(new HealParticle(this.x, this.y));
                 updateHUD();
@@ -669,7 +730,6 @@ class Boss {
         if (count === 1) {
              bossBullets.push(new BossBullet(this.x, this.y + 50, baseAngle));
         } else {
-             // 扇形彈幕
              let angles = [-3, -2, -1, 0, 1, 2, 3];
              angles.forEach(offset => {
                  bossBullets.push(new BossBullet(this.x, this.y + 50, baseAngle + offset));
@@ -681,17 +741,15 @@ class Boss {
         ctx.save();
         ctx.translate(this.x, this.y);
 
-        // --- 繪製 Boss 護盾 ---
         if (this.shield > 0) {
             ctx.beginPath();
-            ctx.arc(0, 0, 90, 0, Math.PI*2); // 畫一個大圈包圍 Boss
+            ctx.arc(0, 0, 90, 0, Math.PI*2);
             ctx.strokeStyle = '#00d2ff';
             ctx.lineWidth = 4;
-            ctx.globalAlpha = 0.6 + Math.sin(frameCount * 0.1) * 0.4; // 呼吸效果
+            ctx.globalAlpha = 0.6 + Math.sin(frameCount * 0.1) * 0.4;
             ctx.stroke();
             ctx.globalAlpha = 1;
             
-            // 顯示護盾次數
             ctx.fillStyle = '#00d2ff';
             ctx.font = 'bold 20px Arial';
             ctx.textAlign = 'center';
@@ -710,7 +768,6 @@ class Boss {
         ctx.lineWidth = 4;
         ctx.stroke();
 
-        // 眼睛
         ctx.fillStyle = '#ffff00';
         ctx.beginPath(); ctx.arc(-30, -10, 10, 0, Math.PI*2); ctx.fill();
         ctx.beginPath(); ctx.arc(30, -10, 10, 0, Math.PI*2); ctx.fill();
@@ -786,11 +843,11 @@ class Particle {
 
 class HealParticle {
     constructor(x, y) {
-        this.x = x + (Math.random()-0.5)*100;
-        this.y = y + (Math.random()-0.5)*50;
+        this.x = x + (Math.random()-0.5)*80;
+        this.y = y + (Math.random()-0.5)*40;
         this.vy = -Math.random()*3 - 1;
         this.life = 1;
-        this.size = Math.random()*8 + 4;
+        this.size = Math.random()*12 + 10;
     }
     update() {
         this.y += this.vy;
@@ -798,11 +855,11 @@ class HealParticle {
     }
     draw() {
         ctx.globalAlpha = this.life;
-        ctx.fillStyle = '#00ff00';
+        ctx.fillStyle = '#ff4757';
         ctx.shadowBlur = 10;
-        ctx.shadowColor = '#00ff00';
-        ctx.font = `${this.size}px Arial`;
-        ctx.fillText('+', this.x, this.y);
+        ctx.shadowColor = '#ff4757';
+        ctx.font = `bold ${this.size}px Arial`;
+        ctx.fillText('❤', this.x, this.y);
         ctx.shadowBlur = 0;
         ctx.globalAlpha = 1;
     }
@@ -811,6 +868,7 @@ class HealParticle {
 // --- 核心邏輯 ---
 
 function updateStatsDisplay() {
+    uiStatHp.innerText = `${player.hp}/${player.maxHp}`;
     uiStatBullets.innerText = `${player.bulletCount}/7`;
     let fireRateSeconds = (player.fireRate / 60).toFixed(2);
     uiStatFirerate.innerText = `${fireRateSeconds}s`;
@@ -818,11 +876,21 @@ function updateStatsDisplay() {
 }
 
 function updateSkillCards() {
-    multishotLevelText.innerText = `${multishotUpgrades} / ${MAX_MULTISHOT_UPGRADES}`;
-    if (multishotUpgrades >= MAX_MULTISHOT_UPGRADES) {
-        cardMultishot.classList.add('disabled');
+    // 判斷是否已達滿彈（7顆子彈）
+    if (multishotUpgrades < MAX_MULTISHOT_UPGRADES) {
+        // 多重射擊卡片
+        cardMultishot.className = 'skill-card type-multi';
+        multishotIcon.innerText = '⚡';
+        multishotTitle.innerText = '多重射擊';
+        multishotDesc.innerHTML = '子彈數量 +2<br>攻擊範圍變寬';
+        multishotLevelText.innerText = `${multishotUpgrades} / ${MAX_MULTISHOT_UPGRADES}`;
     } else {
-        cardMultishot.classList.remove('disabled');
+        // 替換為「50%機率 HP+3」幸運卡片
+        cardMultishot.className = 'skill-card type-hp';
+        multishotIcon.innerText = '💖';
+        multishotTitle.innerText = '幸運治癒';
+        multishotDesc.innerHTML = '50% 機率 HP +3<br>(滿彈替代技能)';
+        multishotLevelText.innerText = `已觸發 ${hpSkillChoices} 次`;
     }
     
     firerateLevelText.innerText = `已強化 ${firerateUpgrades} 次`;
@@ -868,9 +936,27 @@ function checkLevelUp() {
 // 全域函數：選擇技能
 window.chooseSkill = function(type) {
     if (type === 'multishot') {
-        if (multishotUpgrades >= MAX_MULTISHOT_UPGRADES) return;
-        player.bulletCount += 2;
-        multishotUpgrades++;
+        if (multishotUpgrades < MAX_MULTISHOT_UPGRADES) {
+            // 前三次升級多重射擊
+            player.bulletCount += 2;
+            multishotUpgrades++;
+        } else {
+            // 滿彈（7顆子彈）時：觸發 50% 機率 HP+3 技能
+            hpSkillChoices++;
+            const isSuccess = Math.random() < 0.5;
+            if (isSuccess) {
+                // 成功恢復/增加 HP
+                player.maxHp = Math.max(player.maxHp, player.hp + 3);
+                player.hp += 3;
+                showToast('🎉 幸運爆發！HP +3', '#2ecc71');
+                for(let i=0; i<15; i++) {
+                    particles.push(new HealParticle(player.x, player.y));
+                }
+            } else {
+                // 觸發失敗
+                showToast('❌ 運氣不佳... HP 未增加', '#e74c3c');
+            }
+        }
     }
     
     if(type === 'firerate') {
@@ -924,6 +1010,7 @@ function initGame() {
     bossBullets = [];
     
     multishotUpgrades = 0;
+    hpSkillChoices = 0;
     firerateUpgrades = 0;
     damageUpgrades = 0;
     
@@ -942,8 +1029,6 @@ function initGame() {
     
     uiEndTitle.innerText = "GAME OVER";
     uiEndTitle.classList.remove('victory-text');
-    
-    cardMultishot.classList.remove('disabled');
     
     gameRunning = true;
     updateHUD();
@@ -978,7 +1063,6 @@ function animate() {
 
     updateTimer();
 
-    // 清除畫布
     ctx.fillStyle = 'rgba(20, 30, 48, 0.3)';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
@@ -1003,7 +1087,7 @@ function animate() {
             // Boss 碰撞玩家
             if(Math.abs(player.x - boss.x) < (boss.width/2 + 20) && 
                Math.abs(player.y - boss.y) < (boss.height/2 + 20)) {
-                endGame();
+                player.takeDamage(3);
             }
         }
     } else {
@@ -1011,7 +1095,6 @@ function animate() {
         let spawnRate = Math.max(15, 60 - (level * 3)); 
         if(frameCount % spawnRate === 0) {
             enemies.push(new Enemy());
-            // 高等級生成更多
             if (level >= 2 && Math.random() < 0.3) enemies.push(new Enemy());
             if (level >= 5 && Math.random() < 0.3) enemies.push(new Enemy());
         }
@@ -1027,26 +1110,20 @@ function animate() {
                 if(b.dead || e.dead) return;
                 let dist = Math.hypot(b.x - e.x, b.y - e.y);
                 if(dist < e.r + b.radius) {
-                    b.dead = true; // 子彈消失
+                    b.dead = true;
                     
-                    // --- 護盾邏輯 ---
                     if (e.shield > 0) {
-                        e.shield--; // 扣除護盾
-                        // 產生藍色護盾粒子
+                        e.shield--;
                         for(let k=0; k<4; k++) particles.push(new Particle(b.x, b.y, '#00d2ff'));
-                        // 有護盾時，不扣血，不縮小
                     } else {
-                        // 無護盾，正常扣血
                         e.hp -= b.damage;
-                        e.r = Math.max(15, e.r - 1); // 被打中稍微變小
-                        // 產生紅色傷害粒子
+                        e.r = Math.max(15, e.r - 1);
                         particles.push(new Particle(b.x, b.y, '#ff416c'));
                         
                         if(e.hp <= 0) {
                             e.dead = true;
                             currentKills++;
                             updateHUD();
-                            // 死亡爆炸
                             for(let k=0; k<8; k++) particles.push(new Particle(e.x, e.y, e.color));
                             checkLevelUp();
                         }
@@ -1055,19 +1132,15 @@ function animate() {
             });
         } 
         else if (boss && !boss.dead) {
-            // Boss 碰撞
             if (b.x > boss.x - 75 && b.x < boss.x + 75 && 
                 b.y > boss.y - 50 && b.y < boss.y + 50) {
                 
                 b.dead = true;
                 
-                // --- Boss 護盾邏輯 ---
                 if (boss.shield > 0) {
                     boss.shield--;
-                    // 護盾藍色火花
                     for(let k=0; k<5; k++) particles.push(new Particle(b.x, b.y, '#00d2ff'));
                 } else {
-                    // 護盾破裂後才扣血
                     boss.hp -= b.damage;
                     updateHUD();
                     particles.push(new Particle(b.x, b.y, '#ff0000'));
@@ -1090,7 +1163,7 @@ function animate() {
             e.draw();
             let dist = Math.hypot(player.x - e.x, player.y - e.y);
             if(dist < e.r + 20) {
-                endGame();
+                player.takeDamage(1);
             }
         });
     }
@@ -1102,7 +1175,8 @@ function animate() {
             bb.draw();
             let dist = Math.hypot(player.x - bb.x, player.y - bb.y);
             if (dist < 20 + bb.radius) {
-                endGame();
+                bb.dead = true;
+                player.takeDamage(1);
             }
         });
         bossBullets = bossBullets.filter(bb => !bb.dead);
@@ -1126,4 +1200,3 @@ document.getElementById('restart-btn').onclick = initGame;
 </script>
 </body>
 </html>
-
