@@ -1,0 +1,3491 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <title>重燃意志</title>
+    <style>
+        :root {
+            --primary-color: #4A90E2;
+            --secondary-color: #E24A4A;
+            --success-color: #50C878;
+            --warning-color: #FFB347;
+            --bg-dark: #1a1a2e;
+            --bg-mid: #16213e;
+            --bg-light: #0f3460;
+            --text-light: #ffffff;
+            --text-dim: #cccccc;
+            --border-radius: 12px;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            font-family: 'Arial', 'Microsoft JhengHei', sans-serif;
+            background: linear-gradient(135deg, var(--bg-dark), var(--bg-mid));
+            color: var(--text-light);
+            overflow: hidden;
+            width: 100vw;
+            height: 100dvh;
+            height: 100svh;
+            position: fixed;
+            font-size: 16px;
+            padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+        }
+
+        /* ===== 通用容器 ===== */
+        .screen {
+            display: none;
+            width: 100%;
+            height: 100%;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            position: absolute;
+            top: 0;
+            left: 0;
+            padding: 20px;
+        }
+
+        .screen.active {
+            display: flex;
+        }
+
+        /* ===== 主選單 ===== */
+        #mainMenu {
+            background: linear-gradient(135deg, #1a1a2e, #16213e, #0f3460);
+        }
+
+        .game-title {
+            font-size: 48px;
+            font-weight: bold;
+            margin-bottom: 40px;
+            text-align: center;
+            background: linear-gradient(45deg, #FFD700, #FFA500);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            text-shadow: 0 0 30px rgba(255, 215, 0, 0.5);
+            animation: titleGlow 2s ease-in-out infinite;
+        }
+
+        @keyframes titleGlow {
+            0%, 100% { filter: brightness(1); }
+            50% { filter: brightness(1.2); }
+        }
+
+        .menu-btn {
+            background: linear-gradient(135deg, var(--primary-color), #357ABD);
+            border: none;
+            color: white;
+            padding: 18px 50px;
+            font-size: 20px;
+            border-radius: var(--border-radius);
+            cursor: pointer;
+            margin: 10px;
+            min-width: 240px;
+            font-weight: bold;
+            transition: all 0.3s;
+            box-shadow: 0 4px 15px rgba(74, 144, 226, 0.4);
+        }
+
+        .menu-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(74, 144, 226, 0.6);
+        }
+
+        .menu-btn.secondary {
+            background: linear-gradient(135deg, var(--success-color), #3DA35D);
+            box-shadow: 0 4px 15px rgba(80, 200, 120, 0.4);
+        }
+
+        .menu-btn.debug {
+            background: linear-gradient(135deg, #8e44ad, #9b59b6);
+            box-shadow: 0 4px 15px rgba(142, 68, 173, 0.4);
+        }
+
+        /* ===== 遊戲畫面 ===== */
+        #gameScreen {
+            padding: 0;
+            background: #1a1a2e;
+            position: relative;
+        }
+
+        #gameCanvas {
+            display: block;
+            background: linear-gradient(180deg, #0f3460 0%, #1a1a2e 50%, #0f3460 100%);
+            width: 100%;
+            touch-action: none;
+        }
+
+        /* ===== 頂部資訊欄 ===== */
+        .game-header {
+            width: 100%;
+            padding: 10px 15px;
+            background: rgba(26, 26, 46, 0.95);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 2px solid var(--primary-color);
+            z-index: 5;
+        }
+
+        .castle-hp {
+            flex: 1;
+            margin: 0 10px;
+        }
+
+        .hp-label {
+            font-size: 14px;
+            margin-bottom: 4px;
+            font-weight: bold;
+        }
+
+        .hp-bar-container {
+            width: 100%;
+            height: 24px;
+            background: rgba(0, 0, 0, 0.5);
+            border-radius: 12px;
+            overflow: hidden;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+        }
+
+        .hp-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #50C878, #3DA35D);
+            transition: width 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            font-weight: bold;
+        }
+
+        .hp-bar.enemy {
+            background: linear-gradient(90deg, #E24A4A, #C13838);
+        }
+
+        /* ===== 地圖右側法術面板 ===== */
+        .spells-panel {
+            position: absolute;
+            right: 12px;
+            top: 45%;
+            transform: translateY(-50%);
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            z-index: 10;
+            pointer-events: none;
+            max-height: 70%;
+            overflow: visible;
+        }
+
+        /* Exp 日誌 HTML 面板 - 可捲動 + 自動換行 */
+        .exp-logs-panel {
+            position: absolute;
+            left: 6px;
+            top: 60px;
+            width: auto;
+            max-width: 36vw;
+            max-height: 30vh;
+            background: rgba(15, 23, 42, 0.88);
+            border: 1px solid rgba(74, 144, 226, 0.5);
+            border-radius: 6px;
+            padding: 2px;
+            z-index: 10;
+            overflow-y: auto;
+            overflow-x: hidden;
+            -webkit-overflow-scrolling: touch;
+            pointer-events: auto;
+            backdrop-filter: blur(4px);
+            display: inline-flex;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 0;
+            height: auto;
+        }
+
+        .exp-log-item {
+            font-size: 10px;
+            line-height: 1.1;
+            padding: 0 3px;
+            border-radius: 2px;
+            background: transparent;
+            white-space: nowrap;
+            word-break: keep-all;
+            display: inline-block;
+            width: auto;
+            margin: 0;
+            letter-spacing: 0;
+        }
+
+        .exp-log-item.player {
+            color: #50C878;
+        }
+
+        .exp-log-item.enemy {
+            color: #FF6B6B;
+        }
+
+        @media (max-width: 768px) {
+            .exp-logs-panel {
+                max-width: 32vw;
+                max-height: 26vh;
+                padding: 1px;
+            }
+            .exp-log-item {
+                font-size: 9px;
+            }
+        }
+
+        .exp-log-item.player {
+            color: #50C878;
+        }
+
+        .exp-log-item.enemy {
+            color: #FF6B6B;
+        }
+
+        /* 手機比例優化 */
+        @media (max-width: 768px) {
+            .spells-panel {
+                right: 6px;
+                gap: 6px;
+                top: 50%;
+            }
+            .spell-card {
+                width: clamp(56px, 14vw, 78px);
+                padding: 6px 4px;
+            }
+            .spell-icon {
+                font-size: clamp(20px, 5vw, 28px);
+            }
+            .spell-name {
+                font-size: 9px;
+            }
+            .spell-cd {
+                font-size: 10px;
+            }
+            .exp-logs-panel {
+                width: clamp(140px, 36vw, 220px);
+                max-height: 32vh;
+                top: 58px;
+                left: 6px;
+            }
+            .exp-log-item {
+                font-size: 10px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            /* 已合併至上方 */
+        }
+
+        .spell-card {
+            background: rgba(22, 33, 62, 0.85);
+            border: 2px solid rgba(74, 144, 226, 0.6);
+            border-radius: 10px;
+            padding: 8px 6px;
+            width: 78px;
+            text-align: center;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.6);
+            position: relative;
+            overflow: hidden;
+            backdrop-filter: blur(4px);
+        }
+
+        .spell-card.active-buff {
+            border-color: #50C878;
+            box-shadow: 0 0 15px rgba(80, 200, 120, 0.8);
+            animation: spellPulse 1s infinite alternate;
+        }
+
+        @keyframes spellPulse {
+            from { transform: scale(1); }
+            to { transform: scale(1.05); }
+        }
+
+        .spell-icon {
+            font-size: 28px;
+            line-height: 1.1;
+        }
+
+        .spell-name {
+            font-size: 10px;
+            font-weight: bold;
+            color: var(--text-light);
+            white-space: nowrap;
+            margin-top: 2px;
+        }
+
+        .spell-cd {
+            font-size: 12px;
+            font-weight: bold;
+            color: var(--warning-color);
+            margin-top: 2px;
+        }
+
+        .spell-progress {
+            width: 100%;
+            height: 4px;
+            background: rgba(0, 0, 0, 0.4);
+            border-radius: 2px;
+            margin-top: 4px;
+            overflow: hidden;
+        }
+
+        .spell-progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #4A90E2, #50C878);
+            width: 0%;
+            transition: width 0.1s linear;
+        }
+
+        /* ===== 底部卡牌區 ===== */
+        .card-deck {
+            width: 100%;
+            padding: 12px 8px;
+            background: rgba(26, 26, 46, 0.98);
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            border-top: 2px solid var(--primary-color);
+            gap: 6px;
+            min-height: 140px;
+            flex-shrink: 0;
+            z-index: 5;
+        }
+
+        .unit-card {
+            flex: 1;
+            max-width: 80px;
+            background: linear-gradient(135deg, #16213e, #0f3460);
+            border-radius: 10px;
+            padding: 8px 4px;
+            text-align: center;
+            border: 2px solid rgba(74, 144, 226, 0.5);
+            position: relative;
+            transition: all 0.3s;
+        }
+
+        .unit-card.ready {
+            border-color: var(--success-color);
+            box-shadow: 0 0 15px rgba(80, 200, 120, 0.6);
+        }
+
+        .unit-icon {
+            font-size: 36px;
+            margin-bottom: 4px;
+            display: block;
+        }
+
+        .unit-name {
+            font-size: 12px;
+            font-weight: bold;
+            margin-bottom: 4px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .unit-cd {
+            font-size: 16px;
+            font-weight: bold;
+            color: var(--warning-color);
+            min-height: 20px;
+        }
+
+        .unit-cd.ready-text {
+            color: var(--success-color);
+        }
+
+        .unit-stars {
+            font-size: 12px;
+            margin-top: 2px;
+            min-height: 16px;
+        }
+
+        .cd-progress {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 4px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 0 0 8px 8px;
+            overflow: hidden;
+        }
+
+        .cd-progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, var(--success-color), var(--primary-color));
+            transition: width 0.1s linear;
+        }
+
+        /* ===== 說明與Debug選擇頁面 ===== */
+        #tutorialScreen, #debugSelectScreen {
+            padding: 20px;
+            overflow-y: auto;
+            justify-content: flex-start;
+        }
+
+        .tutorial-content {
+            max-width: 600px;
+            width: 100%;
+            margin: 0 auto;
+        }
+
+        .tutorial-title {
+            font-size: 32px;
+            font-weight: bold;
+            margin-bottom: 20px;
+            text-align: center;
+            color: var(--warning-color);
+        }
+
+        .tutorial-section {
+            background: rgba(22, 33, 62, 0.8);
+            padding: 16px;
+            border-radius: var(--border-radius);
+            margin-bottom: 16px;
+            border: 1px solid rgba(74, 144, 226, 0.3);
+        }
+
+        .tutorial-section h3 {
+            font-size: 20px;
+            margin-bottom: 12px;
+            color: var(--primary-color);
+        }
+
+        .tutorial-section p, .tutorial-section li {
+            font-size: 16px;
+            line-height: 1.6;
+            margin-bottom: 8px;
+        }
+
+        .tutorial-section ul {
+            padding-left: 20px;
+        }
+
+        .unit-info {
+            background: rgba(15, 52, 96, 0.6);
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 12px;
+            border-left: 4px solid var(--success-color);
+        }
+
+        .unit-info-header {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .unit-info-stats {
+            font-size: 14px;
+            color: var(--text-dim);
+            margin-bottom: 6px;
+        }
+
+        .unit-info-ability {
+            font-size: 16px;
+            color: var(--warning-color);
+            font-style: italic;
+        }
+
+        /* ===== Debug 單位選擇樣式 ===== */
+        .debug-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .debug-unit-item {
+            background: rgba(22, 33, 62, 0.9);
+            border: 2px solid rgba(74, 144, 226, 0.4);
+            border-radius: var(--border-radius);
+            padding: 12px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .debug-unit-item.selected {
+            border-color: var(--success-color);
+            background: rgba(80, 200, 120, 0.2);
+            box-shadow: 0 0 10px rgba(80, 200, 120, 0.5);
+        }
+
+        /* ===== 三選一畫面 ===== */
+        #upgradeScreen, #willScreen {
+            background: rgba(0, 0, 0, 0.95);
+            z-index: 100;
+        }
+
+        .upgrade-container {
+            max-width: 600px;
+            width: 90%;
+        }
+
+        .upgrade-title {
+            font-size: 32px;
+            font-weight: bold;
+            text-align: center;
+            margin-bottom: 30px;
+            color: var(--warning-color);
+        }
+
+        .upgrade-options {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .upgrade-option {
+            background: linear-gradient(135deg, #16213e, #0f3460);
+            padding: 20px;
+            border-radius: var(--border-radius);
+            border: 3px solid var(--primary-color);
+            cursor: pointer;
+            transition: all 0.3s;
+            text-align: center;
+        }
+
+        .upgrade-option:hover {
+            transform: scale(1.05);
+            border-color: var(--success-color);
+            box-shadow: 0 0 20px rgba(80, 200, 120, 0.5);
+        }
+
+        .upgrade-unit-name {
+            font-size: 22px;
+            font-weight: bold;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .upgrade-effect {
+            font-size: 18px;
+            color: var(--warning-color);
+            font-weight: bold;
+        }
+
+        .reroll-btn {
+            background: linear-gradient(135deg, var(--warning-color), #E09020);
+            border: none;
+            color: white;
+            padding: 14px 40px;
+            font-size: 18px;
+            border-radius: var(--border-radius);
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s;
+            margin-top: 10px;
+        }
+
+        .reroll-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(255, 179, 71, 0.6);
+        }
+
+        .reroll-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* ===== 遊戲結束畫面 ===== */
+        #gameOverScreen {
+            background: rgba(0, 0, 0, 0.95);
+            z-index: 100;
+        }
+
+        .gameover-title {
+            font-size: 48px;
+            font-weight: bold;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+
+        .gameover-title.victory {
+            color: var(--success-color);
+            text-shadow: 0 0 20px rgba(80, 200, 120, 0.8);
+        }
+
+        .gameover-title.defeat {
+            color: var(--secondary-color);
+            text-shadow: 0 0 20px rgba(226, 74, 74, 0.8);
+        }
+
+        /* ===== 動畫 ===== */
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        @keyframes slideUp {
+            from { transform: translateY(20px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        .screen.active {
+            animation: fadeIn 0.3s;
+        }
+
+        .upgrade-option {
+            animation: slideUp 0.4s ease-out;
+        }
+
+        .upgrade-option:nth-child(2) {
+            animation-delay: 0.1s;
+        }
+
+        .upgrade-option:nth-child(3) {
+            animation-delay: 0.2s;
+        }
+    </style>
+</head>
+<body>
+
+<!-- ===== 主選單 ===== -->
+<div id="mainMenu" class="screen active">
+    <h1 class="game-title">🏰 重燃意志 🏰</h1>
+    <button class="menu-btn" onclick="showSpellSelect()">⚔️ 開始對決</button>
+    <button class="menu-btn secondary" onclick="showTutorial()">📖 遊戲玩法</button>
+    <button class="menu-btn debug" onclick="showDebugSelect()">🧪 debug測試</button>
+</div>
+
+<!-- ===== 遊戲玩法說明 ===== -->
+<div id="tutorialScreen" class="screen">
+    <div class="tutorial-content">
+        <h2 class="tutorial-title">📖 遊戲玩法說明</h2>
+        
+        <div class="tutorial-section">
+            <h3>🎮 遊戲目標</h3>
+            <p>摧毀對方城堡！雙方城堡初始 HP 為 654,321。城堡擁有防禦砲台（每5秒造成100傷害）。當一方城堡 HP 降至 0 時，遊戲結束。</p>
+        </div>
+
+        <div class="tutorial-section">
+            <h3>🔮 自動法術系統</h3>
+            <p>在地圖右側會自動計時並施放強大法術（正常對決最多帶3個，Debug測試帶1個）：</p>
+            <ul>
+                <li>⚡ <strong>天雷轟頂</strong>（每 30 秒自動施放）：扣除全體敵軍 20% 最大 HP</li>
+                <li>🏃 <strong>疾風神速</strong>（每 40 秒自動施放）：我方全體友軍射程與移速各 +1，持續 5 秒</li>
+                <li>💚 <strong>城堡回春</strong>（每 100 秒自動施放）：我方城堡恢復10000HP</li>
+                <li>📚 <strong>經驗湧現</strong>（每 20 秒自動施放）：我方獲得 10% 經驗值</li>
+            </ul>
+        </div>
+
+        <div class="tutorial-section">
+            <h3>⚔️ 戰鬥機制</h3>
+            <ul>
+                <li>開局立即召喚第一波單位！</li>
+                <li>單位會自動沿路徑前進，進入射程後會停止移動並自動攻擊敵人或城堡</li>
+                <li>每個單位有獨特的召喚冷卻時間（CD），為 14~24 秒</li>
+                <li>CD 結束後單位會自動召喚，無需手動操作</li>
+                <li>擊殺敵方單位獲得 2%~7% 經驗值，己方單位死亡獲得 3% 經驗值</li>
+                <li>🏰 城堡：射程 10（285px），每5秒自動攻擊射程內敵人，造成100傷害</li>
+            </ul>
+        </div>
+
+        <div class="tutorial-section">
+            <h3>🏰 城堡機制</h3>
+            <ul>
+                <li>城堡射程為 10（實際 285px），會自動攻擊進入射程的敵方單位</li>
+                <li>若無敵方單位在射程內，城堡會嘗試攻擊對方城堡（需在射程內）</li>
+                <li>巨人 🗿 擁有反傷能力，現在也能反傷城堡 10 點傷害</li>
+            </ul>
+        </div>
+
+        <div class="tutorial-section">
+            <h3>👥 角色圖鑑</h3>
+            
+            <div class="unit-info">
+                <div class="unit-info-header">🗿 巨人</div>
+                <div class="unit-info-stats">HP: 10000 | ATK: 0 | DPS: 0 | 移速: 1 | 射程: 10 | CD: 28</div>
+                <div class="unit-info-ability">💪 能力：無視敵軍直接攻城。反傷 - 受到攻擊時反彈 10 點傷害給攻擊者（可反傷城堡）</div>
+                <div class="unit-info-ability">✨ 意志（🌟滿級後二選一）：<br>🛡️ 守護意志：每1秒恢復全體友軍5HP(在場每多1隻巨人可疊加，例如10隻巨人每秒恢復50HP)，且我方友軍死亡時「巨人」立即恢復200HP<br>💠 成仁意志：HP+1234%，且每當我方友軍死亡時，「巨人」的CD瞬間即時-1秒(並非永久疊加)</div>
+            </div>
+
+            <div class="unit-info">
+                <div class="unit-info-header">👑 史萊姆王</div>
+                <div class="unit-info-stats">HP: 500 | ATK: 100 | DPS: 50 | 移速: 2 | 射程: 1 | CD: 20</div>
+                <div class="unit-info-ability">👶 能力：分裂 - 死亡時分裂成 2 隻小史萊姆 🟢（HP 與 ATK 為原 50%）</div>
+                <div class="unit-info-ability">✨ 意志（🌟滿級後二選一）：<br>📚 教育意志：每次生成時額外召喚多1隻史萊姆王，且死亡時能分裂成3隻小史萊姆，但CD+3<br>⚠️ 瀕危意志：死亡時不分裂，進化成大史萊姆王，HP為原300%</div>
+            </div>
+
+            <div class="unit-info">
+                <div class="unit-info-header">🔥 鳳刺</div>
+                <div class="unit-info-stats">HP: 300 | ATK: 100 | DPS: 100 | 移速: 4 | 射程: 2 | CD: 16</div>
+                <div class="unit-info-ability">⚡ 能力：重生 - 受致命傷時保留1點血，獲得5秒無敵並無視敵軍直奔敵方城堡！</div>
+                <div class="unit-info-ability">✨ 意志（🌟滿級後二選一）：<br>🔥 復仇意志：鳳刺每死亡1次，就為下隻的鳳刺永久疊加ATK和DPS+2%<br>⚡ 率先意志：移速為10，無敵時DPS+100%，但無敵時間由5秒變為3秒</div>
+            </div>
+
+            <div class="unit-info">
+                <div class="unit-info-header">🏹 弓箭手</div>
+                <div class="unit-info-stats">HP: 300 | ATK: 100 | DPS: 150 | 移速: 3 | 射程: 5 | CD: 15</div>
+                <div class="unit-info-ability">🔙 能力：後退 - 每攻擊 10 次退回自身城堡</div>
+                <div class="unit-info-ability">✨ 意志（🌟滿級後二選一）：<br>🎯 狙擊意志：射程為7，ATK+200%，但DPS-40%<br>🏹 遊俠意志：DPS+200%，但射程為3</div>
+            </div>
+
+            <div class="unit-info">
+                <div class="unit-info-header">🔮 魔導士</div>
+                <div class="unit-info-stats">HP: 300 | ATK: 50 | DPS: 45 | 移速: 3 | 射程: 6 | CD: 14</div>
+                <div class="unit-info-ability">✨ 能力：飛行 - 免疫射程≤2的攻擊，HP少於50%時墮落</div>
+                <div class="unit-info-ability">✨ 意志（🌟滿級後二選一）：<br>👻 爆胎意志：墮落時於原地產出10個👻(👻HP：1 | ATK：1000 | DPS：200 | 移速：2 | 射程：1，無視敵軍直接攻城)<br>🌟 唯一意志：我方全體友軍每擊敗對方，除了「魔導士」外我方其他友軍都能永久疊加HP與ATK+1%，但不能再獲取任何EXP</div>
+            </div>
+        </div>
+
+        <button class="menu-btn" onclick="backToMenu()" style="margin-top: 20px; width: 100%;">返回主選單</button>
+    </div>
+</div>
+
+<!-- ===== Debug 測試單位選擇畫面 ===== -->
+<div id="debugSelectScreen" class="screen">
+    <div class="tutorial-content">
+        <h2 class="tutorial-title">🧪 Debug 測試 - 選擇單位</h2>
+        <p style="text-align: center; margin-bottom: 20px; color: var(--text-dim);">請點選 1 或 2 個單位進行對決測試，幫助您進行數值平衡調整：</p>
+        
+        <div class="debug-grid" id="debugUnitGrid">
+            <!-- 動態生成 5 個單位卡片供選擇 -->
+        </div>
+
+        <h3 style="text-align:center; margin:20px 0 12px; color:var(--warning-color);">🔮 選擇法術 (1個)</h3>
+        <div class="debug-grid" id="debugSpellGrid">
+            <!-- 動態生成 4 個法術卡片供選擇 -->
+        </div>
+
+        <div style="text-align: center; margin-top: 20px;">
+            <button class="menu-btn debug" id="startDebugBtn" onclick="confirmDebugStart()" disabled>🚀 開始 Debug 對決 (請選擇 2 個)</button>
+            <br>
+            <button class="menu-btn secondary" onclick="backToMenu()" style="margin-top: 10px;">返回主選單</button>
+        </div>
+    </div>
+</div>
+
+
+<!-- ===== 法術選擇畫面（正常對決）===== -->
+<div id="spellSelectScreen" class="screen">
+    <div class="tutorial-content">
+        <h2 class="tutorial-title">🔮 選擇法術 (最多3個)</h2>
+        <p style="text-align: center; margin-bottom: 20px; color: var(--text-dim);">請選擇 3 個法術帶入戰場：</p>
+        <div class="debug-grid" id="spellSelectGrid">
+            <!-- 動態生成 -->
+        </div>
+        <div style="text-align: center; margin-top: 20px;">
+            <button class="menu-btn" id="startSpellBtn" onclick="confirmSpellSelect()" disabled>⚔️ 開始對決 (請選 3 個)</button>
+            <br>
+            <button class="menu-btn secondary" onclick="backToMenu()" style="margin-top: 10px;">返回主選單</button>
+        </div>
+    </div>
+</div>
+
+
+<!-- ===== 遊戲畫面 ===== -->
+<div id="gameScreen" class="screen">
+    <!-- 頂部資訊 -->
+    <div class="game-header">
+        <div class="castle-hp" style="text-align: left;">
+            <div class="hp-label">🤖 AI 城堡</div>
+            <div class="hp-bar-container">
+                <div class="hp-bar enemy" id="enemyCastleHPBar" style="width: 100%;">
+                    <span id="enemyCastleHPText">654321</span>
+                </div>
+            </div>
+        </div>
+        <button id="speedBtn" onclick="toggleSpeed()" style="background: rgba(74, 144, 226, 0.8); border: 2px solid white; color: white; font-size: 24px; padding: 8px 16px; border-radius: 8px; cursor: pointer; font-weight: bold; min-width: 60px;">1️⃣</button>
+    </div>
+
+    <!-- 遊戲畫布 -->
+    <canvas id="gameCanvas"></canvas>
+
+    <!-- 鳳刺疊加顯示 -->
+    <div id="phoenixStacksDisplay" style="position:absolute; right:12px; bottom:180px; background:rgba(0,0,0,0.85); border:1px solid rgba(255,100,0,0.7); border-radius:8px; padding:6px 10px; font-size:12px; color:#FF8C00; z-index:12; pointer-events:none; display:none; flex-direction:column; gap:2px; max-width:200px; line-height:1.4; box-shadow:0 2px 8px rgba(0,0,0,0.5);">
+        <div style="font-weight:bold; font-size:12px;">🔥 鳳刺疊加</div>
+        <div id="playerPhoenixStacksText">我方: 0次</div>
+        <div id="enemyPhoenixStacksText">敵方: 0次</div>
+    </div>
+    <!-- 唯一意志疊加顯示 -->
+    <div id="uniqueWillDisplay" style="position:absolute; right:12px; bottom:260px; background:rgba(0,0,0,0.85); border:1px solid rgba(255,215,0,0.7); border-radius:8px; padding:6px 10px; font-size:12px; color:#FFD700; z-index:12; pointer-events:none; display:none; flex-direction:column; gap:2px; max-width:200px; line-height:1.4; box-shadow:0 2px 8px rgba(0,0,0,0.5);">
+        <div style="font-weight:bold; font-size:12px;">🌟 唯一意志疊加</div>
+        <div id="playerUniqueWillText">我方: 0次</div>
+        <div id="enemyUniqueWillText">敵方: 0次</div>
+    </div>
+
+    <!-- 左側 Exp 資訊欄 -->
+    <div id="expLogsPanel" class="exp-logs-panel"></div>
+
+    <!-- 地圖右側法術圖標面板 -->
+    <div class="spells-panel">
+        <div class="spell-card" id="spellCard1">
+            <div class="spell-icon">⚡</div>
+            <div class="spell-name">天雷轟頂</div>
+            <div class="spell-cd" id="spell1CD">30s</div>
+            <div class="spell-progress"><div class="spell-progress-bar" id="spell1Bar"></div></div>
+        </div>
+        <div class="spell-card" id="spellCard2">
+            <div class="spell-icon">🏃</div>
+            <div class="spell-name">疾風神速</div>
+            <div class="spell-cd" id="spell2CD">40s</div>
+            <div class="spell-progress"><div class="spell-progress-bar" id="spell2Bar"></div></div>
+        </div>
+        <div class="spell-card" id="spellCard3">
+            <div class="spell-icon">💚</div>
+            <div class="spell-name">城堡回春</div>
+            <div class="spell-cd" id="spell3CD">100s</div>
+            <div class="spell-progress"><div class="spell-progress-bar" id="spell3Bar"></div></div>
+        </div>
+        <div class="spell-card" id="spellCard4">
+            <div class="spell-icon">📚</div>
+            <div class="spell-name">經驗湧現</div>
+            <div class="spell-cd" id="spell4CD">20s</div>
+            <div class="spell-progress"><div class="spell-progress-bar" id="spell4Bar"></div></div>
+        </div>
+    </div>
+
+    <!-- 底部卡牌區 -->
+    <div class="card-deck">
+        <div class="unit-card" id="card0">
+            <div class="unit-icon">🗿</div>
+            <div class="unit-name">巨人</div>
+            <div class="unit-cd">20s</div>
+            <div class="unit-stars"></div>
+            <div class="cd-progress"><div class="cd-progress-bar" style="width: 0%"></div></div>
+        </div>
+        <div class="unit-card" id="card1">
+            <div class="unit-icon">👑</div>
+            <div class="unit-name">史萊姆王</div>
+            <div class="unit-cd">18s</div>
+            <div class="unit-stars"></div>
+            <div class="cd-progress"><div class="cd-progress-bar" style="width: 0%"></div></div>
+        </div>
+        <div class="unit-card" id="card2">
+            <div class="unit-icon">🔥</div>
+            <div class="unit-name">鳳刺</div>
+            <div class="unit-cd">16s</div>
+            <div class="unit-stars"></div>
+            <div class="cd-progress"><div class="cd-progress-bar" style="width: 0%"></div></div>
+        </div>
+        <div class="unit-card" id="card3">
+            <div class="unit-icon">🏹</div>
+            <div class="unit-name">弓箭手</div>
+            <div class="unit-cd">15s</div>
+            <div class="unit-stars"></div>
+            <div class="cd-progress"><div class="cd-progress-bar" style="width: 0%"></div></div>
+        </div>
+        <div class="unit-card" id="card4">
+            <div class="unit-icon">🔮</div>
+            <div class="unit-name">魔導士</div>
+            <div class="unit-cd">14s</div>
+            <div class="unit-stars"></div>
+            <div class="cd-progress"><div class="cd-progress-bar" style="width: 0%"></div></div>
+        </div>
+    </div>
+
+    <!-- 底部玩家城堡HP (放在卡牌區上方) -->
+    <div class="game-header" style="position: absolute; bottom: 140px; left: 0; right: 0; border-top: 2px solid var(--primary-color); border-bottom: none;">
+        <div class="castle-hp" style="text-align: left;">
+            <div class="hp-label">🛡️ 你的城堡</div>
+            <div class="hp-bar-container">
+                <div class="hp-bar" id="playerCastleHPBar" style="width: 100%;">
+                    <span id="playerCastleHPText">654321</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ===== 三選一升級畫面 ===== -->
+<div id="upgradeScreen" class="screen">
+    <div class="upgrade-container">
+        <h2 class="upgrade-title">🎁 選擇一個單位進行升級</h2>
+        <div class="upgrade-options" id="upgradeOptions">
+            <!-- 動態生成 -->
+        </div>
+        <div style="text-align: center;">
+            <button class="reroll-btn" id="rerollBtn" onclick="rerollUpgrades()">🔄 重抽一次</button>
+        </div>
+    </div>
+</div>
+
+<!-- 意志選擇畫面 (二選一) -->
+<div id="willScreen" class="screen">
+    <div class="upgrade-container">
+        <h2 class="upgrade-title">✨ 意志覺醒！二選一</h2>
+        <p id="willUnitName" style="text-align:center; margin-bottom:16px; font-weight:bold; font-size:18px;"></p>
+        <div class="upgrade-options" id="willOptions"></div>
+    </div>
+</div>
+
+<!-- ===== 遊戲結束畫面 ===== -->
+<div id="gameOverScreen" class="screen">
+    <h2 class="gameover-title" id="gameOverTitle">勝利！</h2>
+    <button class="menu-btn" onclick="backToMenu()" style="margin-top: 30px;">返回主選單</button>
+</div>
+
+<script>
+// ===== 全域變數 =====
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+let gameRunning = false;
+let animationId = null;
+let gameSpeed = 1; // 遊戲倍速：1 或 3
+
+// 當前參與對決的單位索引列表 (預設全部 5 個單位)
+let activeUnitIndices = [0, 1, 2, 3, 4];
+let selectedDebugUnits = [];
+
+// 攻擊光束特效列表
+const attackEffects = [];
+
+// 法術定義（4個）
+const spellDefinitions = [
+    { id: 0, cd: 30, icon: '⚡', name: '天雷轟頂', desc: '每30秒扣除敵軍20% MaxHP' },
+    { id: 1, cd: 40, icon: '🏃', name: '疾風神速', desc: '每40秒我方移速與射程+1 (5s)' },
+    { id: 2, cd: 100, icon: '💚', name: '城堡回春', desc: '每100秒城堡恢復10000HP' },
+    { id: 3, cd: 20, icon: '📚', name: '經驗湧現', desc: '每20秒+10%經驗值' }
+];
+
+// 法術狀態
+const spellState = {
+    spell1: {
+        cd: 30,
+        timer: 0,
+        icon: '⚡',
+        name: '天雷轟頂'
+    },
+    spell2: {
+        cd: 40,
+        timer: 0,
+        activeTimer: 0, // 疾風神速剩餘Buff時間
+        icon: '🏃',
+        name: '疾風神速'
+    },
+    spell3: {
+        cd: 100,
+        timer: 0,
+        icon: '💚',
+        name: '城堡回春'
+    },
+    spell4: {
+        cd: 20,
+        timer: 0,
+        icon: '📚',
+        name: '經驗湧現'
+    }
+};
+
+// AI法術狀態（全部擁有，CD+5秒）
+const enemySpellState = {
+    spell1: {
+        cd: 35,
+        timer: 0,
+        icon: '⚡',
+        name: '天雷轟頂'
+    },
+    spell2: {
+        cd: 45,
+        timer: 0,
+        activeTimer: 0,
+        icon: '🏃',
+        name: '疾風神速'
+    },
+    spell3: {
+        cd: 105,
+        timer: 0,
+        icon: '💚',
+        name: '城堡回春'
+    },
+    spell4: {
+        cd: 25,
+        timer: 0,
+        icon: '📚',
+        name: '經驗湧現'
+    }
+};
+
+// 法術選擇狀態
+let selectedSpellIndices = [0,1,2]; // 正常模式預設3個
+let selectedDebugSpell = null; // debug模式選1個
+let activeSpellIndices = [0,1,2]; // 當前對局實際生效的法術
+
+// 遊戲狀態
+const gameState = {
+    playerCastle: { hp: 654321, maxHp: 654321, x: 0, y: 0, attackTimer: 0 },
+    enemyCastle: { hp: 654321, maxHp: 654321, x: 0, y: 0, attackTimer: 0 },
+    playerExp: 0,
+    enemyExp: 0,
+    units: [],
+    nextUnitId: 0,
+    expLogs: [],
+    centerBox: null
+};
+
+// 升級記錄（用於顯示在地圖中間）
+const upgradeHistory = {
+    player: [],
+    enemy: []
+};
+
+let playerPhoenixStacks = 0;
+let enemyPhoenixStacks = 0;
+let playerLastPhoenixBuff = '';
+let enemyLastPhoenixBuff = '';
+let playerPhoenixAtkStacks = 0;
+let playerPhoenixDpsStacks = 0;
+let enemyPhoenixAtkStacks = 0;
+let enemyPhoenixDpsStacks = 0;
+// 魔導士唯一意志相關
+let playerHasUniqueWill = false;
+let enemyHasUniqueWill = false;
+let playerUniqueStacks = 0;
+let enemyUniqueStacks = 0;
+let playerLastUniqueBuff = '';
+let enemyLastUniqueBuff = '';
+let playerUniqueHpStacks = 0;
+let playerUniqueAtkStacks = 0;
+let enemyUniqueHpStacks = 0;
+let enemyUniqueAtkStacks = 0;
+
+// 單位配置 (基礎數值)
+const unitConfig = [
+    { name: '巨人', icon: '🗿', hp: 10000, atk: 0, dps: 0, speed: 1, range: 10, cd: 28, ability: 'reflect' },
+    { name: '史萊姆王', icon: '👑', hp: 500, atk: 100, dps: 50, speed: 2, range: 1, cd: 20, ability: 'split' },
+    { name: '鳳刺', icon: '🔥', hp: 300, atk: 100, dps: 100, speed: 4, range: 2, cd: 16, ability: 'teleport' },
+    { name: '弓箭手', icon: '🏹', hp: 300, atk: 100, dps: 150, speed: 3, range: 5, cd: 15, ability: 'retreat' },
+    { name: '魔導士', icon: '🔮', hp: 300, atk: 50, dps: 45, speed: 3, range: 6, cd: 14, ability: 'flying' }
+];
+
+// 計算實際畫布攻擊距離 (考慮疾風神速 Buff +1 射程，含AI)
+function getEffectiveRange(unit) {
+    let bonusRange = 0;
+    if (unit.isPlayer && spellState.spell2.activeTimer > 0) {
+        bonusRange = 1;
+    }
+    if (!unit.isPlayer && enemySpellState.spell2.activeTimer > 0) {
+        bonusRange = 1;
+    }
+    return 35 + (unit.range + bonusRange) * 25;
+}
+
+// 計算單位實際移動速度 (考慮疾風神速 Buff +1 移速 + 率先意志無敵額外+30，含AI)
+function getUnitSpeed(unit) {
+    let bonusSpeed = 0;
+    if (unit.isPlayer && spellState.spell2.activeTimer > 0) {
+        bonusSpeed = 1;
+    }
+    if (!unit.isPlayer && enemySpellState.spell2.activeTimer > 0) {
+        bonusSpeed = 1;
+    }
+    // 率先意志：無敵時額外+30移速
+    let leadingBonus = 0;
+    if (unit.will === 'leading' && unit.invincible && unit.name === '鳳刺') {
+        leadingBonus = 30;
+    }
+    return unit.speed + bonusSpeed + leadingBonus;
+}
+
+// 計算玩家與AI當前等級
+function getPlayerLevel() {
+    return upgradeHistory.player.length;
+}
+
+function getEnemyLevel() {
+    return upgradeHistory.enemy.length;
+}
+
+// 玩家與AI的單位狀態
+const playerUnits = unitConfig.map((u, i) => ({
+    ...u,
+    id: i,
+    currentCD: 0,
+    upgrades: 0,
+    will: null,
+    willChosen: false,
+    willName: '',
+    extraSpawns: 0,
+    stars: 0
+}));
+
+const enemyUnits = unitConfig.map((u, i) => ({
+    ...u,
+    id: i,
+    currentCD: 0,
+    upgrades: 0,
+    will: null,
+    willChosen: false,
+    willName: '',
+    extraSpawns: 0,
+    stars: 0
+}));
+
+// 路徑點定義
+let paths = {
+    player: [],
+    enemy: []
+};
+
+// ===== 畫布初始化 =====
+function resizeCanvas() {
+    const headerHeight = 60;
+    const footerHeight = 140;
+    const playerHPBarHeight = 60;
+    
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight - headerHeight - footerHeight - playerHPBarHeight;
+    
+    // 計算城堡位置
+    const centerX = canvas.width / 2;
+    gameState.playerCastle.x = centerX;
+    gameState.playerCastle.y = canvas.height - 50;
+    
+    gameState.enemyCastle.x = centerX;
+    gameState.enemyCastle.y = 50;
+    
+    // 左右路徑的X座標
+    const leftX = canvas.width * 0.25;
+    const rightX = canvas.width * 0.75;
+    
+    // 關鍵Y座標點
+    const playerBaseY = canvas.height - 50;
+    const enemyBaseY = 50;
+    
+    const playerZoneY = canvas.height - 120;
+    const enemyZoneY = 120;
+    
+    const midBottomY = canvas.height * 0.65;
+    const midTopY = canvas.height * 0.35;
+    
+    // 玩家路徑
+    paths.player = {
+        start: { x: centerX, y: playerBaseY },
+        left: [
+            { x: centerX, y: playerBaseY },
+            { x: leftX, y: playerZoneY },
+            { x: leftX, y: midBottomY },
+            { x: leftX, y: midTopY },
+            { x: leftX, y: enemyZoneY },
+            { x: centerX, y: enemyBaseY }
+        ],
+        right: [
+            { x: centerX, y: playerBaseY },
+            { x: rightX, y: playerZoneY },
+            { x: rightX, y: midBottomY },
+            { x: rightX, y: midTopY },
+            { x: rightX, y: enemyZoneY },
+            { x: centerX, y: enemyBaseY }
+        ]
+    };
+    
+    // 敵方路徑
+    paths.enemy = {
+        start: { x: centerX, y: enemyBaseY },
+        left: [
+            { x: centerX, y: enemyBaseY },
+            { x: leftX, y: enemyZoneY },
+            { x: leftX, y: midTopY },
+            { x: leftX, y: midBottomY },
+            { x: leftX, y: playerZoneY },
+            { x: centerX, y: playerBaseY }
+        ],
+        right: [
+            { x: centerX, y: enemyBaseY },
+            { x: rightX, y: enemyZoneY },
+            { x: rightX, y: midTopY },
+            { x: rightX, y: midBottomY },
+            { x: rightX, y: playerZoneY },
+            { x: centerX, y: playerBaseY }
+        ]
+    };
+}
+
+// ===== 場景切換 =====
+function showScreen(screenId) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.getElementById(screenId).classList.add('active');
+}
+
+function showUpgradeHistoryModal() {
+    const playerList = document.getElementById('playerHistoryList');
+    const enemyList = document.getElementById('enemyHistoryList');
+    if (!playerList || !enemyList) return;
+    
+    if (upgradeHistory.player.length === 0) {
+        playerList.innerHTML = '<div style="color:#888; text-align:center;">尚未升級</div>';
+    } else {
+        playerList.innerHTML = upgradeHistory.player.map((u, idx) => 
+            `<div style="padding:2px 0; border-bottom:1px solid rgba(255,255,255,0.1);"><span style="color:#FFD700;">${idx+1}.</span> ${u.icon} ${u.name} - <b>${u.type}</b></div>`
+        ).join('');
+    }
+    
+    if (upgradeHistory.enemy.length === 0) {
+        enemyList.innerHTML = '<div style="color:#888; text-align:center;">尚未升級</div>';
+    } else {
+        enemyList.innerHTML = upgradeHistory.enemy.map((u, idx) => 
+            `<div style="padding:2px 0; border-bottom:1px solid rgba(255,255,255,0.1);"><span style="color:#FFD700;">${idx+1}.</span> ${u.icon} ${u.name} - <b>${u.type}</b></div>`
+        ).join('');
+    }
+    
+    document.getElementById('upgradeHistoryModal').style.display = 'flex';
+}
+
+function closeUpgradeHistoryModal() {
+    document.getElementById('upgradeHistoryModal').style.display = 'none';
+}
+
+// 雙擊地圖中間彈出升級一覽
+function updatePhoenixStacksDisplay() {
+    const display = document.getElementById('phoenixStacksDisplay');
+    const playerText = document.getElementById('playerPhoenixStacksText');
+    const enemyText = document.getElementById('enemyPhoenixStacksText');
+    if (!display || !playerText || !enemyText) return;
+    if (playerPhoenixStacks === 0 && enemyPhoenixStacks === 0) { display.style.display = 'none'; return; }
+    display.style.display = 'flex';
+    const pLast = playerLastPhoenixBuff ? ` 最近+${playerLastPhoenixBuff}` : '';
+    const eLast = enemyLastPhoenixBuff ? ` 最近+${enemyLastPhoenixBuff}` : '';
+    playerText.textContent = `我方: ${playerPhoenixStacks}次 (ATK:${playerPhoenixAtkStacks} DPS:${playerPhoenixDpsStacks})${pLast}`;
+    enemyText.textContent = `敵方: ${enemyPhoenixStacks}次 (ATK:${enemyPhoenixAtkStacks} DPS:${enemyPhoenixDpsStacks})${eLast}`;
+}
+
+function updateUniqueWillDisplay() {
+    const display = document.getElementById('uniqueWillDisplay');
+    const playerText = document.getElementById('playerUniqueWillText');
+    const enemyText = document.getElementById('enemyUniqueWillText');
+    if (!display || !playerText || !enemyText) return;
+    if (playerUniqueStacks === 0 && enemyUniqueStacks === 0) { display.style.display = 'none'; return; }
+    display.style.display = 'flex';
+    const pLast = playerLastUniqueBuff ? ` 最近+${playerLastUniqueBuff}` : '';
+    const eLast = enemyLastUniqueBuff ? ` 最近+${enemyLastUniqueBuff}` : '';
+    playerText.textContent = `我方: ${playerUniqueStacks}次 (HP:${playerUniqueHpStacks} ATK:${playerUniqueAtkStacks})${pLast}`;
+    enemyText.textContent = `敵方: ${enemyUniqueStacks}次 (HP:${enemyUniqueHpStacks} ATK:${enemyUniqueAtkStacks})${eLast}`;
+}
+
+function initCenterDoubleClick() {
+    if (!canvas) return;
+    canvas.addEventListener('dblclick', (e) => {
+        if (!gameState.centerBox) return;
+        const rect = canvas.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        const scaleX = canvas.width / rect.width;
+        const scaleY = canvas.height / rect.height;
+        const cx = x * scaleX;
+        const cy = y * scaleY;
+        const box = gameState.centerBox;
+        if (cx >= box.x && cx <= box.x + box.w && cy >= box.y && cy <= box.y + box.h) {
+            showUpgradeHistoryModal();
+        }
+    });
+    // 手機雙擊支援
+    let lastTap = 0;
+    canvas.addEventListener('touchend', (e) => {
+        const now = Date.now();
+        if (now - lastTap < 300) {
+            if (!gameState.centerBox) return;
+            const rect = canvas.getBoundingClientRect();
+            const touch = e.changedTouches[0];
+            const x = touch.clientX - rect.left;
+            const y = touch.clientY - rect.top;
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            const cx = x * scaleX;
+            const cy = y * scaleY;
+            const box = gameState.centerBox;
+            if (cx >= box.x && cx <= box.x + box.w && cy >= box.y && cy <= box.y + box.h) {
+                showUpgradeHistoryModal();
+            }
+        }
+        lastTap = now;
+    });
+}
+
+function showTutorial() {
+    tryEnterFullscreen();
+    showScreen('tutorialScreen');
+}
+
+// ===== Debug 單位選擇畫面 =====
+function showDebugSelect() {
+    tryEnterFullscreen();
+    selectedDebugUnits = [];
+    selectedDebugSpell = null;
+    renderDebugGrid();
+    renderDebugSpellGrid();
+    showScreen('debugSelectScreen');
+}
+
+function renderDebugGrid() {
+    const grid = document.getElementById('debugUnitGrid');
+    grid.innerHTML = '';
+    
+    unitConfig.forEach((u, i) => {
+        const item = document.createElement('div');
+        const isSelected = selectedDebugUnits.includes(i);
+        item.className = 'debug-unit-item' + (isSelected ? ' selected' : '');
+        item.onclick = () => toggleDebugUnit(i);
+        item.innerHTML = `
+            <div style="font-size: 32px;">${u.icon}</div>
+            <div style="font-weight: bold; margin-top: 4px;">${u.name}</div>
+        `;
+        grid.appendChild(item);
+    });
+
+    updateDebugStartBtn();
+}
+
+function toggleDebugUnit(index) {
+    const pos = selectedDebugUnits.indexOf(index);
+    if (pos > -1) {
+        selectedDebugUnits.splice(pos, 1);
+    } else {
+        if (selectedDebugUnits.length < 2) {
+            selectedDebugUnits.push(index);
+        }
+    }
+    renderDebugGrid();
+    updateDebugStartBtn();
+}
+
+function confirmDebugStart() {
+    if ((selectedDebugUnits.length === 1 || selectedDebugUnits.length === 2) && selectedDebugSpell !== null) {
+        startGame(true, selectedDebugUnits, selectedDebugSpell);
+    }
+}
+
+// ===== 法術選擇（正常模式）=====
+function showSpellSelect() {
+    tryEnterFullscreen();
+    selectedSpellIndices = [0,1,2]; // 預設
+    renderSpellSelectGrid();
+    showScreen('spellSelectScreen');
+}
+
+function renderSpellSelectGrid() {
+    const grid = document.getElementById('spellSelectGrid');
+    if (!grid) return;
+    grid.innerHTML = '';
+    spellDefinitions.forEach((s, i) => {
+        const item = document.createElement('div');
+        const isSelected = selectedSpellIndices.includes(i);
+        item.className = 'debug-unit-item' + (isSelected ? ' selected' : '');
+        item.onclick = () => toggleSpellSelect(i);
+        item.innerHTML = `
+            <div style="font-size: 32px;">${s.icon}</div>
+            <div style="font-weight: bold; margin-top: 4px;">${s.name}</div>
+            <div style="font-size: 11px; color: var(--text-dim); margin-top: 4px;">${s.desc}</div>
+            <div style="font-size: 11px; color: var(--warning-color); margin-top: 2px;">CD ${s.cd}s</div>
+        `;
+        grid.appendChild(item);
+    });
+    const startBtn = document.getElementById('startSpellBtn');
+    if (selectedSpellIndices.length === 3) {
+        startBtn.disabled = false;
+        startBtn.textContent = '⚔️ 開始對決';
+    } else {
+        startBtn.disabled = true;
+        startBtn.textContent = `⚔️ 請選擇 3 個法術 (${selectedSpellIndices.length}/3)`;
+    }
+}
+
+function toggleSpellSelect(index) {
+    const pos = selectedSpellIndices.indexOf(index);
+    if (pos > -1) {
+        selectedSpellIndices.splice(pos, 1);
+    } else {
+        if (selectedSpellIndices.length < 3) {
+            selectedSpellIndices.push(index);
+        }
+    }
+    renderSpellSelectGrid();
+}
+
+function confirmSpellSelect() {
+    if (selectedSpellIndices.length === 3) {
+        startGame(false);
+    }
+}
+
+// ===== Debug 法術選擇（1個）=====
+function renderDebugSpellGrid() {
+    const grid = document.getElementById('debugSpellGrid');
+    if (!grid) return;
+    grid.innerHTML = '';
+    spellDefinitions.forEach((s, i) => {
+        const item = document.createElement('div');
+        const isSelected = selectedDebugSpell === i;
+        item.className = 'debug-unit-item' + (isSelected ? ' selected' : '');
+        item.onclick = () => toggleDebugSpell(i);
+        item.innerHTML = `
+            <div style="font-size: 32px;">${s.icon}</div>
+            <div style="font-weight: bold; margin-top: 4px;">${s.name}</div>
+            <div style="font-size: 11px; color: var(--text-dim); margin-top: 4px;">${s.desc}</div>
+            <div style="font-size: 11px; color: var(--warning-color); margin-top: 2px;">CD ${s.cd}s</div>
+        `;
+        grid.appendChild(item);
+    });
+    updateDebugStartBtn();
+}
+
+function toggleDebugSpell(index) {
+    if (selectedDebugSpell === index) {
+        selectedDebugSpell = null;
+    } else {
+        selectedDebugSpell = index;
+    }
+    renderDebugSpellGrid();
+}
+
+function updateDebugStartBtn() {
+    const startBtn = document.getElementById('startDebugBtn');
+    if ((selectedDebugUnits.length === 1 || selectedDebugUnits.length === 2) && selectedDebugSpell !== null) {
+        startBtn.disabled = false;
+        startBtn.textContent = '🚀 開始 Debug 對決';
+    } else {
+        startBtn.disabled = true;
+        let txt = '🚀 請選擇 ';
+        if (selectedDebugUnits.length === 0) txt += `單位 0/1-2 `;
+        else if (selectedDebugUnits.length > 2) txt += `單位過多 `;
+        if (selectedDebugSpell === null) txt += `法術 0/1`;
+        startBtn.textContent = txt;
+    }
+}
+
+function backToMenu() {
+    gameRunning = false;
+    if (animationId) cancelAnimationFrame(animationId);
+    // 返回主選單時隱藏疊加顯示，確保下局乾淨
+    const phoenixDisplay = document.getElementById('phoenixStacksDisplay');
+    if (phoenixDisplay) phoenixDisplay.style.display = 'none';
+    const uniqueDisplay = document.getElementById('uniqueWillDisplay');
+    if (uniqueDisplay) uniqueDisplay.style.display = 'none';
+    showScreen('mainMenu');
+}
+
+function tryEnterFullscreen() {
+    try {
+        const doc = document.documentElement;
+        if (!document.fullscreenElement && doc.requestFullscreen) {
+            doc.requestFullscreen().catch(()=>{});
+        } else if (doc.webkitRequestFullscreen) {
+            doc.webkitRequestFullscreen();
+        }
+    } catch(e) {}
+}
+
+// ===== 開始遊戲 =====
+function startGame(isDebug = false, debugIndices = [], debugSpellIdx = null) {
+    activeUnitIndices = isDebug ? [...debugIndices] : [0, 1, 2, 3, 4];
+    // 決定本局生效法術
+    if (isDebug) {
+        activeSpellIndices = debugSpellIdx !== null ? [debugSpellIdx] : (selectedDebugSpell !== null ? [selectedDebugSpell] : [0]);
+    } else {
+        activeSpellIndices = [...selectedSpellIndices];
+    }
+
+    // 重置遊戲狀態與城堡計時器
+    gameState.playerCastle.hp = 654321;
+    gameState.playerCastle.attackTimer = 0;
+    gameState.enemyCastle.hp = 654321;
+    gameState.enemyCastle.attackTimer = 0;
+    gameState.playerExp = 0;
+    gameState.enemyExp = 0;
+    gameState.units = [];
+    gameState.nextUnitId = 0;
+    gameState.expLogs = [];
+    attackEffects.length = 0;
+    gameSpeed = 1;
+
+    // 重置法術狀態
+    spellState.spell1.timer = 0;
+    spellState.spell2.timer = 0;
+    spellState.spell2.activeTimer = 0;
+    spellState.spell3.timer = 0;
+    spellState.spell4.timer = 0;
+    // 重置AI法術狀態
+    enemySpellState.spell1.timer = 0;
+    enemySpellState.spell2.timer = 0;
+    enemySpellState.spell2.activeTimer = 0;
+    enemySpellState.spell3.timer = 0;
+    enemySpellState.spell4.timer = 0;
+    
+    // 重置升級記錄
+    upgradeHistory.player = [];
+    upgradeHistory.enemy = [];
+    
+    // 重置單位狀態
+    playerUnits.forEach((u, i) => {
+        const base = unitConfig[i];
+        u.hp = base.hp;
+        u.atk = base.atk;
+        u.dps = base.dps;
+        u.speed = base.speed;
+        u.range = base.range;
+        u.cd = base.cd;
+        u.currentCD = 0;
+        u.upgrades = 0;
+        u.stars = 0;
+        u.will = null;
+        u.willChosen = false;
+        u.willName = '';
+        u.extraSpawns = 0;
+    });
+    playerPhoenixStacks = 0;
+    enemyPhoenixStacks = 0;
+    playerLastPhoenixBuff = '';
+    enemyLastPhoenixBuff = '';
+    playerPhoenixAtkStacks = 0;
+    playerPhoenixDpsStacks = 0;
+    enemyPhoenixAtkStacks = 0;
+    enemyPhoenixDpsStacks = 0;
+    playerHasUniqueWill = false;
+    enemyHasUniqueWill = false;
+    playerUniqueStacks = 0;
+    enemyUniqueStacks = 0;
+    playerLastUniqueBuff = '';
+    enemyLastUniqueBuff = '';
+    playerUniqueHpStacks = 0;
+    playerUniqueAtkStacks = 0;
+    enemyUniqueHpStacks = 0;
+    enemyUniqueAtkStacks = 0;
+    guardHealTimer = 0;
+    // 確保永久疊加顯示重置，僅限當局
+    const phoenixDisplay = document.getElementById('phoenixStacksDisplay');
+    if (phoenixDisplay) phoenixDisplay.style.display = 'none';
+    const uniqueDisplay = document.getElementById('uniqueWillDisplay');
+    if (uniqueDisplay) uniqueDisplay.style.display = 'none';
+    
+    enemyUnits.forEach((u, i) => {
+        const base = unitConfig[i];
+        u.hp = base.hp;
+        u.atk = base.atk;
+        u.dps = base.dps;
+        u.speed = base.speed;
+        u.range = base.range;
+        u.cd = base.cd;
+        u.currentCD = 0;
+        u.upgrades = 0;
+        u.stars = 0;
+        u.will = null;
+        u.willChosen = false;
+        u.willName = '';
+        u.extraSpawns = 0;
+    });
+
+    // 調整底部卡牌區顯示（非對決單位隱藏）
+    for (let i = 0; i < 5; i++) {
+        const card = document.getElementById('card' + i);
+        if (activeUnitIndices.includes(i)) {
+            card.style.display = 'block';
+        } else {
+            card.style.display = 'none';
+        }
+    }
+
+    // 調整法術卡牌顯示（只顯示已選擇的法術）
+    for (let i = 0; i < 4; i++) {
+        const sCard = document.getElementById('spellCard' + (i+1));
+        if (sCard) {
+            sCard.style.display = activeSpellIndices.includes(i) ? 'block' : 'none';
+        }
+    }
+    
+    resizeCanvas();
+    showScreen('gameScreen');
+    updateUI();
+    
+    document.getElementById('speedBtn').textContent = '1️⃣';
+    
+    // 開局立即召喚第一波選定的單位！
+    activeUnitIndices.forEach(i => {
+        spawnUnit(i, true);  // 玩家第一波
+        spawnUnit(i, false); // AI第一波
+    });
+
+    gameRunning = true;
+    lastTime = 0;
+    requestAnimationFrame(gameLoop);
+}
+
+// ===== 遊戲主迴圈 =====
+let lastTime = 0;
+function gameLoop(timestamp = 0) {
+    if (!gameRunning) return;
+    
+    if (lastTime === 0) {
+        lastTime = timestamp;
+    }
+    
+    const deltaTime = (timestamp - lastTime) / 1000;
+    lastTime = timestamp;
+    
+    const safeDeltaTime = Math.min(deltaTime, 0.1);
+    
+    if (safeDeltaTime > 0) {
+        update(safeDeltaTime * gameSpeed);
+        render();
+    }
+    
+    animationId = requestAnimationFrame(gameLoop);
+}
+
+// ===== 倍速切換 =====
+function toggleSpeed() {
+    gameSpeed = gameSpeed === 1 ? 3 : 1;
+    document.getElementById('speedBtn').textContent = gameSpeed === 1 ? '1️⃣' : '3️⃣';
+}
+
+// ===== 更新邏輯 =====
+function update(dt) {
+    // 更新特效生命週期
+    for (let i = attackEffects.length - 1; i >= 0; i--) {
+        const fx = attackEffects[i];
+        fx.life -= dt;
+        if (fx.life <= 0) {
+            attackEffects.splice(i, 1);
+        }
+    }
+
+    // 更新城堡攻擊機制 (每5秒攻擊一次，ATK 100, 射程 10 = 285px)
+    updateCastleAttack(gameState.playerCastle, true, dt);
+    updateCastleAttack(gameState.enemyCastle, false, dt);
+
+    // 更新單位CD
+    updateCooldowns(dt);
+
+    // 更新自動法術系統
+    updateSpells(dt);
+    // 更新意志效果（巨人守護）
+    updateWillEffects(dt);
+    
+    // 更新所有單位
+    for (let i = gameState.units.length - 1; i >= 0; i--) {
+        const unit = gameState.units[i];
+        updateUnit(unit, dt);
+        
+        // 移除死亡單位
+        if (unit.hp <= 0) {
+            handleUnitDeath(unit);
+            if (unit.hp <= 0) {
+                gameState.units.splice(i, 1);
+            }
+        }
+    }
+    
+    // 檢查遊戲結束
+    if (gameState.playerCastle.hp <= 0) {
+        endGame(false);
+    } else if (gameState.enemyCastle.hp <= 0) {
+        endGame(true);
+    }
+    
+    updateUI();
+}
+
+// ===== 自動法術邏輯（僅處理已選擇的法術）=====
+function updateSpells(dt) {
+    // 法術 1：每 30 秒對全體敵軍造成 20% MaxHP 傷害
+    if (activeSpellIndices.includes(0)) {
+        spellState.spell1.timer += dt;
+        if (spellState.spell1.timer >= spellState.spell1.cd) {
+            spellState.spell1.timer -= spellState.spell1.cd;
+            castSpell1();
+        }
+    }
+
+    // 法術 2：每 40 秒觸發 5 秒 Buff (移速與射程 +1)
+    if (activeSpellIndices.includes(1)) {
+        if (spellState.spell2.activeTimer > 0) {
+            spellState.spell2.activeTimer -= dt;
+        }
+        spellState.spell2.timer += dt;
+        if (spellState.spell2.timer >= spellState.spell2.cd) {
+            spellState.spell2.timer -= spellState.spell2.cd;
+            castSpell2();
+        }
+    } else {
+        // 未選擇時確保Buff不生效
+        spellState.spell2.activeTimer = 0;
+    }
+
+    // 法術 3：每 100 秒城堡恢復最大HP的10%
+    if (activeSpellIndices.includes(2)) {
+        spellState.spell3.timer += dt;
+        if (spellState.spell3.timer >= spellState.spell3.cd) {
+            spellState.spell3.timer -= spellState.spell3.cd;
+            castSpell3();
+        }
+    }
+
+    // 法術 4：每 20 秒+10%經驗值
+    if (activeSpellIndices.includes(3)) {
+        spellState.spell4.timer += dt;
+        if (spellState.spell4.timer >= spellState.spell4.cd) {
+            spellState.spell4.timer -= spellState.spell4.cd;
+            castSpell4();
+        }
+    }
+
+    // ===== AI 法術（全部擁有，CD+5秒）=====
+    enemySpellState.spell1.timer += dt;
+    if (enemySpellState.spell1.timer >= enemySpellState.spell1.cd) {
+        enemySpellState.spell1.timer -= enemySpellState.spell1.cd;
+        castEnemySpell1();
+    }
+    if (enemySpellState.spell2.activeTimer > 0) {
+        enemySpellState.spell2.activeTimer -= dt;
+    }
+    enemySpellState.spell2.timer += dt;
+    if (enemySpellState.spell2.timer >= enemySpellState.spell2.cd) {
+        enemySpellState.spell2.timer -= enemySpellState.spell2.cd;
+        castEnemySpell2();
+    }
+    enemySpellState.spell3.timer += dt;
+    if (enemySpellState.spell3.timer >= enemySpellState.spell3.cd) {
+        enemySpellState.spell3.timer -= enemySpellState.spell3.cd;
+        castEnemySpell3();
+    }
+    enemySpellState.spell4.timer += dt;
+    if (enemySpellState.spell4.timer >= enemySpellState.spell4.cd) {
+        enemySpellState.spell4.timer -= enemySpellState.spell4.cd;
+        castEnemySpell4();
+    }
+}
+
+// 施放法術 1：天雷轟頂
+function castSpell1() {
+    let affectedCount = 0;
+    gameState.units.forEach(unit => {
+        if (!unit.isPlayer && unit.hp > 0 && !unit.invincible) {
+            unit.hp -= unit.maxHp * 0.2;
+            affectedCount++;
+            // 閃電打擊特效
+            attackEffects.push({
+                x1: unit.x,
+                y1: Math.max(0, unit.y - 80),
+                x2: unit.x,
+                y2: unit.y,
+                color: '#FFD700',
+                life: 0.35,
+                maxLife: 0.35
+            });
+        }
+    });
+    // [已移除] 法術日誌不顯示於Exp欄
+}
+
+// 施放法術 2：疾風神速
+function castSpell2() {
+    spellState.spell2.activeTimer = 5;
+    // [已移除] 法術日誌不顯示於Exp欄
+}
+
+// 施放法術 3：城堡回春 - 每100秒城堡恢復10000HP
+function castSpell3() {
+    const castle = gameState.playerCastle;
+    const healAmount = 10000;
+    castle.hp = Math.min(castle.maxHp, castle.hp + healAmount);
+}
+
+// 施放法術 4：經驗湧現 - 每20秒+10%經驗值 (Exp相關，需顯示於Exp欄)
+function castSpell4() {
+    addExp(10, true);
+    addExpLog(`Exp+10%`, true);
+}
+
+// ===== AI 法術施放 =====
+function castEnemySpell1() {
+    gameState.units.forEach(unit => {
+        if (unit.isPlayer && unit.hp > 0 && !unit.invincible) {
+            unit.hp -= unit.maxHp * 0.2;
+            attackEffects.push({
+                x1: unit.x,
+                y1: Math.max(0, unit.y - 80),
+                x2: unit.x,
+                y2: unit.y,
+                color: '#FFD700',
+                life: 0.35,
+                maxLife: 0.35
+            });
+        }
+    });
+}
+
+function castEnemySpell2() {
+    enemySpellState.spell2.activeTimer = 5;
+}
+
+function castEnemySpell3() {
+    const castle = gameState.enemyCastle;
+    const healAmount = 10000;
+    castle.hp = Math.min(castle.maxHp, castle.hp + healAmount);
+}
+
+function castEnemySpell4() {
+    addExp(10, false);
+    addExpLog(`Exp+10%`, false);
+}
+
+// ===== 城堡攻擊機制 =====
+function updateCastleAttack(castle, isPlayer, dt) {
+    if (castle.hp <= 0) return;
+    
+    castle.attackTimer = (castle.attackTimer || 0) + dt;
+    if (castle.attackTimer >= 5) {
+        castle.attackTimer -= 5;
+        
+        // 城堡射程：10（即 35 + 10 * 25 = 285px）
+        const castleRange = 285;
+        let target = null;
+        let minDist = Infinity;
+        
+        // 尋找射程內的敵人
+        for (const unit of gameState.units) {
+            if (unit.isPlayer !== isPlayer && unit.hp > 0) {
+                const dist = distance(castle.x, castle.y, unit.x, unit.y);
+                if (dist <= castleRange && dist < minDist) {
+                    minDist = dist;
+                    target = unit;
+                }
+            }
+        }
+        
+        // 若無敵方單位在射程內，嘗試攻擊對手城堡
+        if (!target) {
+            const oppCastle = isPlayer ? gameState.enemyCastle : gameState.playerCastle;
+            const dist = distance(castle.x, castle.y, oppCastle.x, oppCastle.y);
+            if (dist <= castleRange) {
+                target = oppCastle;
+            }
+        }
+        
+        if (target) {
+            // 無敵狀態免疫城堡傷害
+            if (target.invincible) {
+                return;
+            }
+            // 成仁意志護盾免疫城堡傷害
+            if (target.will === 'martyr' && target.martyrShield > 0) {
+                target.martyrShield--;
+                attackEffects.push({
+                    x1: target.x,
+                    y1: target.y,
+                    x2: target.x,
+                    y2: target.y - 20,
+                    color: '#00FFFF',
+                    life: 0.2,
+                    maxLife: 0.2
+                });
+            } else {
+                target.hp -= 100;
+                if (target !== gameState.playerCastle && target !== gameState.enemyCastle) {
+                    target.lastAttacker = { isCastle: true, isPlayer: isPlayer, name: '城堡' };
+                    // 巨人反傷城堡
+                    if (target.ability === 'reflect') {
+                        castle.hp = Math.max(0, castle.hp - 10);
+                        attackEffects.push({
+                            x1: target.x,
+                            y1: target.y,
+                            x2: castle.x,
+                            y2: castle.y,
+                            color: '#FFD700',
+                            life: 0.2,
+                            maxLife: 0.2
+                        });
+                    }
+                }
+            }
+            attackEffects.push({
+                x1: castle.x,
+                y1: castle.y,
+                x2: target.x,
+                y2: target.y,
+                color: isPlayer ? '#50C878' : '#E24A4A',
+                life: 0.2,
+                maxLife: 0.2
+            });
+        }
+    }
+}
+
+// ===== 單位CD更新與自動召喚 =====
+function updateCooldowns(dt) {
+    activeUnitIndices.forEach(index => {
+        const pUnit = playerUnits[index];
+        pUnit.currentCD += dt;
+        if (pUnit.currentCD >= pUnit.cd) {
+            spawnUnit(index, true);
+            pUnit.currentCD = 0;
+        }
+        
+        const eUnit = enemyUnits[index];
+        eUnit.currentCD += dt;
+        if (eUnit.currentCD >= eUnit.cd) {
+            spawnUnit(index, false);
+            eUnit.currentCD = 0;
+        }
+    });
+}
+
+// ===== 召喚單位 =====
+function spawnUnit(unitIndex, isPlayer) {
+    const unitData = isPlayer ? playerUnits[unitIndex] : enemyUnits[unitIndex];
+    const castle = isPlayer ? gameState.playerCastle : gameState.enemyCastle;
+    
+    const selectedPath = Math.random() < 0.5 ? 'left' : 'right';
+    const pathData = isPlayer ? paths.player : paths.enemy;
+    
+    if (!pathData || !pathData[selectedPath]) return;
+    
+    const pathArray = [...pathData[selectedPath]];
+    
+    const unit = {
+        id: gameState.nextUnitId++,
+        type: unitIndex,
+        isPlayer: isPlayer,
+        hp: unitData.hp,
+        maxHp: unitData.hp,
+        atk: unitData.atk,
+        dps: unitData.dps,
+        speed: unitData.speed,
+        range: unitData.range,
+        ability: unitData.ability,
+        icon: unitData.icon,
+        name: unitData.name,
+        will: unitData.will || null,
+        willName: unitData.willName || '',
+        martyrShield: (unitData.will === 'martyr' ? 50 : 0),
+        x: castle.x,
+        y: castle.y,
+        pathIndex: 0,
+        pathBranch: selectedPath,
+        currentPath: pathArray,
+        target: null,
+        attackTimer: 0,
+        abilityData: {},
+        invincible: false,
+        invincibleTimer: 0,
+        isFlying: unitData.ability === 'flying',
+        isGrounded: false,
+        isSplit: false,
+        lastAttacker: null
+    };
+    
+    if (unit.ability === 'retreat') {
+        unit.abilityData.attackCount = 0;
+    } else if (unit.ability === 'teleport') {
+        unit.abilityData.hasRebirthed = false;
+        unit.abilityData.rushTimer = 0;
+    }
+
+    // 復仇意志：根據ATK/DPS分開疊加
+    if (unit.will === 'revenge' && unit.name === '鳳刺') {
+        const atkStacks = isPlayer ? playerPhoenixAtkStacks : enemyPhoenixAtkStacks;
+        const dpsStacks = isPlayer ? playerPhoenixDpsStacks : enemyPhoenixDpsStacks;
+        if (atkStacks > 0) {
+            const multAtk = 1 + atkStacks * 0.02;
+            unit.atk = Math.round(unit.atk * multAtk);
+        }
+        if (dpsStacks > 0) {
+            const multDps = 1 + dpsStacks * 0.02;
+            unit.dps = Math.round(unit.dps * multDps);
+        }
+    }
+    
+    gameState.units.push(unit);
+
+    // 滿級後額外召喚：每次生成時額外召喚
+    if (unitData.extraSpawns && unitData.extraSpawns > 0) {
+        for (let e = 0; e < unitData.extraSpawns; e++) {
+            const extra = {
+                ...unit,
+                id: gameState.nextUnitId++,
+                x: unit.x + (Math.random()*20-10),
+                y: unit.y + (Math.random()*20-10)
+            };
+            gameState.units.push(extra);
+        }
+    }
+
+    // 史萊姆王教育意志：額外召喚多1隻
+    if (unitData.will === 'eduWill' && unitData.name === '史萊姆王') {
+        const extraUnit = {
+            ...unit,
+            id: gameState.nextUnitId++,
+            x: unit.x + (Math.random()*20-10),
+            y: unit.y + (Math.random()*20-10)
+        };
+        gameState.units.push(extraUnit);
+    }
+}
+
+// ===== 單位更新與戰鬥 =====
+function updateUnit(unit, dt) {
+    if (unit.invincible) {
+        unit.invincibleTimer -= dt;
+        if (unit.invincibleTimer <= 0) {
+            unit.invincible = false;
+        }
+    }
+
+    if (unit.abilityData && unit.abilityData.rushTimer > 0) {
+        unit.abilityData.rushTimer -= dt;
+    }
+    
+    // 魔導士墜落檢查 - 由HP<200改為HP少於50%
+    if (unit.isFlying && !unit.isGrounded && unit.hp / unit.maxHp < 0.5) {
+        unit.isFlying = false;
+        unit.isGrounded = true;
+        // 爆胎意志：墮落時於原地產出10個👻
+        if (unit.will === 'burstWill') {
+            spawnGhosts(unit);
+        }
+    }
+    
+    // 搜尋敵方目標
+    unit.target = findTarget(unit);
+    
+    let isAttacking = false;
+    
+    if (unit.target && unit.target.hp > 0) {
+        const dist = distance(unit.x, unit.y, unit.target.x, unit.target.y);
+        const effRange = getEffectiveRange(unit);
+        
+        // 城堡體積較大，攻擊城堡額外獲得 25px 判定範圍
+        const isTargetCastle = (unit.target === gameState.playerCastle || unit.target === gameState.enemyCastle);
+        const maxAttackDist = effRange + (isTargetCastle ? 25 : 0);
+        
+        if (dist <= maxAttackDist) {
+            isAttacking = true; // 進入攻擊範圍，暫停移動並開始攻擊
+            
+            if (unit.atk > 0 && unit.dps > 0) {
+                unit.attackTimer += dt;
+                // 率先意志：無敵時DPS+1000% (11倍)
+                let effDps = unit.dps;
+                if (unit.will === 'leading' && unit.invincible && unit.name === '鳳刺') {
+                    effDps = unit.dps * 11;
+                }
+                const attackInterval = unit.atk / effDps;
+                
+                if (unit.attackTimer >= attackInterval) {
+                    unit.attackTimer = 0;
+                    attackTarget(unit, unit.target);
+                    
+                    // 弓箭手後退能力
+                    if (unit.ability === 'retreat') {
+                        unit.abilityData.attackCount++;
+                        if (unit.abilityData.attackCount >= 10) {
+                            unit.abilityData.attackCount = 0;
+                            retreat(unit);
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    // 只有在未攻擊狀態下，才繼續向前移動
+    if (!isAttacking) {
+        moveAlongPath(unit, dt);
+    }
+}
+
+// ===== 尋找攻擊目標 =====
+function findTarget(unit) {
+    let closestEnemy = null;
+    let closestDist = Infinity;
+    const effRange = getEffectiveRange(unit);
+    
+    const isGiant = (unit.type === 0 || unit.ability === 'reflect');
+    const isPhoenixRushing = (unit.abilityData && unit.abilityData.rushTimer > 0);
+    const isGhost = (unit.ability === 'ghost' || unit.name === '👻' || unit.icon === '👻');
+    const isInvinciblePhoenix = (unit.invincible && unit.name === '鳳刺');
+
+    // 1. 巨人 / 衝鋒狀態下的鳳刺 / 👻 / 無敵鳳刺：無視所有敵方單位，唯一目標是敵方城堡
+    if (isGiant || isPhoenixRushing || isGhost || isInvinciblePhoenix) {
+        const enemyCastle = unit.isPlayer ? gameState.enemyCastle : gameState.playerCastle;
+        const castleDist = distance(unit.x, unit.y, enemyCastle.x, enemyCastle.y);
+        // 巨人/幽靈直奔城堡，接近至城堡門口 60px 內才視為進入敵城堡攻擊半徑
+        const stopDist = (isGiant || isGhost) ? 60 : (effRange + 25);
+        if (castleDist <= stopDist) {
+            return enemyCastle;
+        }
+        return null; // 在未抵達城堡前，target 始終為 null，繼續沿路線前進
+    }
+
+    // 2. 普通單位：優先搜尋射程內的敵方單位
+    if (unit.atk > 0) {
+        for (const other of gameState.units) {
+            if (other.isPlayer !== unit.isPlayer && other.hp > 0) {
+                // 無敵單位不應被選為目標（鳳刺無敵互無視）
+                if (other.invincible) continue;
+                // 魔導士飛行時免疫射程≤2的單位攻擊 (近戰單位 effectiveRange <= 85)
+                if (other.isFlying && effRange <= 85) continue;
+                
+                const dist = distance(unit.x, unit.y, other.x, other.y);
+                if (dist <= effRange && dist < closestDist) {
+                    closestDist = dist;
+                    closestEnemy = other;
+                }
+            }
+        }
+    }
+    
+    if (closestEnemy) return closestEnemy;
+    
+    // 3. 檢查敵方城堡
+    const enemyCastle = unit.isPlayer ? gameState.enemyCastle : gameState.playerCastle;
+    const castleDist = distance(unit.x, unit.y, enemyCastle.x, enemyCastle.y);
+    
+    if (castleDist <= effRange + 25) {
+        return enemyCastle;
+    }
+    
+    return null;
+}
+
+// ===== 攻擊目標 =====
+function attackTarget(attacker, target) {
+    if (target.invincible) return;
+
+    // 成仁意志：免疫50次傷害護盾
+    if (target.will === 'martyr' && target.martyrShield > 0) {
+        target.martyrShield--;
+        // 護盾特效
+        attackEffects.push({
+            x1: target.x,
+            y1: target.y,
+            x2: target.x,
+            y2: target.y - 20,
+            color: '#00FFFF',
+            life: 0.2,
+            maxLife: 0.2
+        });
+        return;
+    }
+    
+    target.hp -= attacker.atk;
+    if (target !== gameState.playerCastle && target !== gameState.enemyCastle) {
+        target.lastAttacker = attacker;
+    }
+    
+    // 建立攻擊特效光束
+    attackEffects.push({
+        x1: attacker.x,
+        y1: attacker.y,
+        x2: target.x,
+        y2: target.y,
+        color: attacker.isPlayer ? '#50C878' : '#E24A4A',
+        life: 0.15,
+        maxLife: 0.15
+    });
+    
+    // 巨人反傷
+    if (target.ability === 'reflect' && !attacker.invincible) {
+        // 若攻擊者也有成仁護盾則免疫反傷
+        if (attacker.will === 'martyr' && attacker.martyrShield > 0) {
+            attacker.martyrShield--;
+        } else {
+            attacker.hp -= 10;
+        }
+        attacker.lastAttacker = target;
+        attackEffects.push({
+            x1: target.x,
+            y1: target.y,
+            x2: attacker.x,
+            y2: attacker.y,
+            color: '#FFD700',
+            life: 0.15,
+            maxLife: 0.15
+        });
+    }
+    
+    // 城堡被攻擊
+    if (target === gameState.playerCastle || target === gameState.enemyCastle) {
+        target.hp = Math.max(0, target.hp);
+    }
+}
+
+// ===== 新增經驗值訊息紀錄 =====
+function addExpLog(text, isPlayer) {
+    gameState.expLogs.push({
+        text: text,
+        isPlayer: isPlayer,
+        time: Date.now()
+    });
+    if (gameState.expLogs.length > 7) {
+        gameState.expLogs.shift();
+    }
+}
+
+// ===== 單位死亡處理 =====
+function handleUnitDeath(unit) {
+    // 鳳刺疊加統計（復仇意志）- 隨機ATK或DPS
+    if ((unit.name === '鳳刺' || unit.name.includes('鳳刺')) && unit.will === 'revenge') {
+        const isAtk = Math.random() < 0.5;
+        if (unit.isPlayer) {
+            playerPhoenixStacks++;
+            if (isAtk) { playerPhoenixAtkStacks++; playerLastPhoenixBuff = 'ATK'; }
+            else { playerPhoenixDpsStacks++; playerLastPhoenixBuff = 'DPS'; }
+        } else {
+            enemyPhoenixStacks++;
+            if (isAtk) { enemyPhoenixAtkStacks++; enemyLastPhoenixBuff = 'ATK'; }
+            else { enemyPhoenixDpsStacks++; enemyLastPhoenixBuff = 'DPS'; }
+        }
+        if (typeof updatePhoenixStacksDisplay === 'function') { updatePhoenixStacksDisplay(); }
+    }
+
+    // 重製「鳳刺」重生能力：受致命傷時保留1點血，獲得無敵並無視敵軍攻城
+    if (unit.ability === 'teleport' && unit.abilityData && !unit.abilityData.hasRebirthed) {
+        unit.hp = 1;
+        unit.abilityData.hasRebirthed = true;
+        unit.invincible = true;
+        const isLeading = unit.will === 'leading';
+        unit.invincibleTimer = isLeading ? 3 : 10;
+        unit.abilityData.rushTimer = isLeading ? 3 : 10;
+        
+        // [已移除] 單位能力日誌不顯示於Exp欄
+        return; // 不會死，保留在畫面上繼續戰鬥
+    }
+    
+    // 史萊姆王分裂 / 進化
+    if (unit.ability === 'split' && !unit.isSplit) {
+        // 瀕危意志：不分裂，進化成大史萊姆王 HP 300%
+        if (unit.will === 'endangeredWill') {
+            const bigSlime = {
+                id: gameState.nextUnitId++,
+                type: unit.type,
+                isPlayer: unit.isPlayer,
+                hp: unit.maxHp * 3,
+                maxHp: unit.maxHp * 3,
+                atk: unit.atk,
+                dps: unit.dps,
+                speed: unit.speed,
+                range: unit.range,
+                ability: 'split',
+                icon: '👑',
+                name: '大史萊姆王',
+                x: unit.x,
+                y: unit.y,
+                pathIndex: unit.pathIndex,
+                pathBranch: unit.pathBranch,
+                currentPath: unit.currentPath ? [...unit.currentPath] : null,
+                target: null,
+                attackTimer: 0,
+                abilityData: {},
+                invincible: false,
+                invincibleTimer: 0,
+                isFlying: false,
+                isGrounded: false,
+                isSplit: true,
+                will: unit.will,
+                willName: unit.willName,
+                lastAttacker: null
+            };
+            gameState.units.push(bigSlime);
+            return;
+        }
+        // 教育意志：分裂成3隻，否則2隻
+        const isEdu = unit.will === 'eduWill';
+        const count = isEdu ? 3 : 2;
+        const ratio = 0.5;
+        for (let i = 0; i < count; i++) {
+            const slime = {
+                id: gameState.nextUnitId++,
+                type: unit.type,
+                isPlayer: unit.isPlayer,
+                hp: unit.maxHp * ratio,
+                maxHp: unit.maxHp * ratio,
+                atk: unit.atk * ratio,
+                dps: unit.dps,
+                speed: unit.speed,
+                range: unit.range,
+                ability: 'split',
+                icon: '🟢',
+                name: '小史萊姆',
+                x: unit.x + (Math.random()*20-10),
+                y: unit.y + (Math.random()*20-10),
+                pathIndex: unit.pathIndex,
+                pathBranch: unit.pathBranch,
+                currentPath: unit.currentPath ? [...unit.currentPath] : null,
+                target: null,
+                attackTimer: 0,
+                abilityData: {},
+                invincible: false,
+                invincibleTimer: 0,
+                isFlying: false,
+                isGrounded: false,
+                isSplit: true,
+                lastAttacker: null
+            };
+            gameState.units.push(slime);
+        }
+    }
+    
+    // 經驗值計算與日誌發送
+    const killer = unit.lastAttacker;
+    const killExp = Math.floor(Math.random() * 6) + 2; // 2% ~ 7%
+    const deathExp = 3; // 3%
+    const victimName = unit.name;
+
+    // 1. 擊殺獎勵 EXP
+    if (killer) {
+        if (killer.isPlayer) {
+            addExp(killExp, true);
+            let msg = '';
+            if (killer.isCastle) {
+                msg = `Exp+${killExp}%`;
+            } else {
+                msg = `Exp+${killExp}%`;
+            }
+            addExpLog(msg, true);
+        } else {
+            addExp(killExp, false);
+            let msg = '';
+            if (killer.isCastle) {
+                msg = `Exp+${killExp}%`;
+            } else {
+                msg = `Exp+${killExp}%`;
+            }
+            addExpLog(msg, false);
+        }
+    }
+
+    // 唯一意志：我方全體友軍每擊敗對方，我方全體友軍除了「魔導士」外都能永久疊加HP與ATK+1%
+    if (killer && killer.isPlayer && !unit.isPlayer) {
+        if (playerHasUniqueWill) {
+            applyUniqueWillBuff(true);
+        }
+    } else if (killer && !killer.isPlayer && unit.isPlayer) {
+        if (enemyHasUniqueWill) {
+            applyUniqueWillBuff(false);
+        }
+    }
+
+    // 2. 死亡安慰 EXP
+    if (unit.isPlayer) {
+        addExp(deathExp, true);
+        let msg = '';
+        if (killer && killer.isCastle) {
+            msg = `Exp+${deathExp}%`;
+        } else {
+            msg = `Exp+${deathExp}%`;
+        }
+        addExpLog(msg, true);
+    } else {
+        addExp(deathExp, false);
+        let msg = '';
+        if (killer && killer.isCastle) {
+            msg = `Exp+${deathExp}%`;
+        } else {
+            msg = `Exp+${deathExp}%`;
+        }
+        addExpLog(msg, false);
+    }
+
+    // 巨人意志額外效果
+    // 守護意志：友軍死亡時巨人立即恢復200HP
+    // 成仁意志：友軍死亡時巨人CD-1秒
+    if (unit.isPlayer) {
+        // 我方單位死亡，觸發我方巨人
+        gameState.units.forEach(u => {
+            if (u.isPlayer && u.name === '巨人' && u.will === 'guard') {
+                u.hp = Math.min(u.maxHp, u.hp + 200);
+            }
+        });
+        // 成仁意志CD-1秒（對應playerUnits模板）
+        playerUnits.forEach(pu => {
+            if (pu.name === '巨人' && pu.will === 'martyr') {
+                pu.currentCD = Math.min(pu.cd, pu.currentCD + 1);
+            }
+        });
+    } else {
+        // 敵方單位死亡，觸發敵方巨人
+        gameState.units.forEach(u => {
+            if (!u.isPlayer && u.name === '巨人' && u.will === 'guard') {
+                u.hp = Math.min(u.maxHp, u.hp + 200);
+            }
+        });
+        enemyUnits.forEach(eu => {
+            if (eu.name === '巨人' && eu.will === 'martyr') {
+                eu.currentCD = Math.min(eu.cd, eu.currentCD + 1);
+            }
+        });
+    }
+}
+
+// ===== 沿路徑移動 =====
+function moveAlongPath(unit, dt) {
+    if (!unit.currentPath || unit.currentPath.length === 0) return;
+    
+    if (unit.pathIndex >= unit.currentPath.length) {
+        return; // 到達路徑終點（城堡位置）
+    }
+    
+    const targetPoint = unit.currentPath[unit.pathIndex];
+    const dist = distance(unit.x, unit.y, targetPoint.x, targetPoint.y);
+    
+    if (dist < 5) {
+        unit.pathIndex++;
+        if (unit.pathIndex < unit.currentPath.length) {
+            unit.x = targetPoint.x;
+            unit.y = targetPoint.y;
+        }
+    } else {
+        moveTowards(unit, targetPoint.x, targetPoint.y, dt);
+        
+        if (unit.pathIndex > 0) {
+            const prevPoint = unit.currentPath[unit.pathIndex - 1];
+            const correction = getPathCorrection(unit.x, unit.y, prevPoint, targetPoint);
+            if (correction.distance > 25) {
+                unit.x = correction.x;
+                unit.y = correction.y;
+            }
+        }
+    }
+}
+
+function getPathCorrection(x, y, pathStart, pathEnd) {
+    const dx = pathEnd.x - pathStart.x;
+    const dy = pathEnd.y - pathStart.y;
+    const lenSq = dx * dx + dy * dy;
+    
+    if (lenSq === 0) {
+        return { x: pathStart.x, y: pathStart.y, distance: distance(x, y, pathStart.x, pathStart.y) };
+    }
+    
+    let t = ((x - pathStart.x) * dx + (y - pathStart.y) * dy) / lenSq;
+    t = Math.max(0, Math.min(1, t));
+    
+    const nearestX = pathStart.x + t * dx;
+    const nearestY = pathStart.y + t * dy;
+    const dist = distance(x, y, nearestX, nearestY);
+    
+    return { x: nearestX, y: nearestY, distance: dist };
+}
+
+function moveTowards(unit, targetX, targetY, dt) {
+    const dx = targetX - unit.x;
+    const dy = targetY - unit.y;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    
+    if (dist > 5) {
+        const moveSpeed = getUnitSpeed(unit);
+        const moveDistance = moveSpeed * dt * 20;
+        unit.x += (dx / dist) * moveDistance;
+        unit.y += (dy / dist) * moveDistance;
+    }
+}
+
+// ===== 弓箭手退回城堡 =====
+function retreat(unit) {
+    const castle = unit.isPlayer ? gameState.playerCastle : gameState.enemyCastle;
+    unit.x = castle.x;
+    unit.y = castle.y;
+    unit.pathIndex = 0;
+    
+    const pathData = unit.isPlayer ? paths.player : paths.enemy;
+    const selectedPath = Math.random() < 0.5 ? 'left' : 'right';
+    unit.pathBranch = selectedPath;
+    unit.currentPath = [...pathData[selectedPath]];
+    unit.abilityData.attackCount = 0;
+}
+
+// ===== 經驗值系統 =====
+function addExp(amount, isPlayer = true) {
+    // 唯一意志：不能再獲取任何EXP
+    if (isPlayer && playerHasUniqueWill) return;
+    if (!isPlayer && enemyHasUniqueWill) return;
+    if (isPlayer) {
+        gameState.playerExp += amount;
+        if (gameState.playerExp >= 100) {
+            gameState.playerExp = 0;
+            showUpgradeScreen();
+        }
+    } else {
+        gameState.enemyExp += amount;
+        if (gameState.enemyExp >= 100) {
+            gameState.enemyExp = 0;
+            aiUpgrade();
+        }
+    }
+}
+
+// ===== AI 自動升級 =====
+function aiUpgrade() {
+    let availableUnits = enemyUnits.filter((u, idx) => activeUnitIndices.includes(idx) && u.upgrades < 5);
+    if (availableUnits.length === 0) return;
+    
+    // 優先集齊意志：按升級次數降序，接近🌟的優先
+    availableUnits.sort((a,b) => b.upgrades - a.upgrades);
+    // 若有4級的單位，優先升級它以獲取意志
+    const nearMax = availableUnits.filter(u => u.upgrades === 4);
+    const unit = nearMax.length > 0 ? nearMax[0] : availableUnits[0];
+    let upgradeTypes = ['hp', 'dmg', 'dps', 'cd'];
+    if (unit.atk === 0) {
+        upgradeTypes = upgradeTypes.filter(t => t !== 'dmg' && t !== 'dps');
+    }
+    const type = upgradeTypes[Math.floor(Math.random() * upgradeTypes.length)];
+    
+    switch (type) {
+        case 'hp':
+            unit.hp = Math.round(unit.hp * 1.3);
+            unit.maxHp = Math.round(unit.maxHp * 1.3);
+            break;
+        case 'dmg':
+            unit.atk = Math.round(unit.atk * 1.3);
+            break;
+        case 'dps':
+            unit.dps = Math.round(unit.dps * 1.3);
+            break;
+        case 'cd':
+            unit.cd = Math.max(1, unit.cd - 2);
+            break;
+    }
+    
+    unit.upgrades++;
+    unit.stars++;
+    
+    const typeText = {
+        'hp': 'HP+30%',
+        'dmg': 'DMG+30%',
+        'dps': 'DPS+30%',
+        'cd': 'CD-2s'
+    };
+    upgradeHistory.enemy.push({
+        icon: unit.icon,
+        name: unit.name,
+        type: typeText[type]
+    });
+    
+    // AI 達到5星時觸發意志，優先集齊意志
+    if (unit.stars >= 5) {
+        unit.stars = 5;
+        if (!unit.willChosen && (unit.name === '弓箭手' || unit.name === '巨人' || unit.name === '史萊姆王' || unit.name === '鳳刺' || unit.name === '魔導士')) {
+            aiChooseWill(unit);
+        }
+    }
+}
+
+// ===== 三選一升級畫面 =====
+let currentUpgradeOptions = [];
+let hasRerolled = false;
+
+function showUpgradeScreen() {
+    // 檢查是否全部已達🌟，若是則不再顯示升級介面，改為隨機一個單位每次生成時額外+1
+    const availableCheck = playerUnits.filter((u, idx) => activeUnitIndices.includes(idx) && u.upgrades < 5);
+    if (availableCheck.length === 0) {
+        const randomIdx = activeUnitIndices[Math.floor(Math.random() * activeUnitIndices.length)];
+        const targetUnit = playerUnits[randomIdx];
+        targetUnit.extraSpawns = (targetUnit.extraSpawns || 0) + 1;
+        // 立即額外召喚（不重啟gameLoop，避免雙重循環導致EXP翻倍）
+        spawnUnit(randomIdx, true);
+        addExpLog(`🌟滿級 ${targetUnit.name} 召喚+1 (現額外+${targetUnit.extraSpawns})！`, true);
+        return;
+    }
+    gameRunning = false;
+    if (animationId) {
+        cancelAnimationFrame(animationId);
+    }
+    hasRerolled = false;
+    generateUpgradeOptions();
+    showScreen('upgradeScreen');
+}
+
+function generateUpgradeOptions() {
+    currentUpgradeOptions = [];
+    const availableUnits = playerUnits.filter((u, idx) => activeUnitIndices.includes(idx) && u.upgrades < 5);
+    
+    if (availableUnits.length === 0) {
+        // 已滿級，不應進入此函數，由 showUpgradeScreen 處理額外召喚
+        return;
+    }
+    
+    const shuffled = [...availableUnits].sort(() => Math.random() - 0.5);
+    const selected = shuffled.slice(0, Math.min(3, shuffled.length));
+    const upgradeTypes = ['hp', 'dmg', 'dps', 'cd'];
+    
+    selected.forEach(unit => {
+        let availableTypes = [...upgradeTypes];
+        if (unit.atk === 0) {
+            availableTypes = availableTypes.filter(t => t !== 'dmg' && t !== 'dps');
+        }
+        
+        const type = availableTypes[Math.floor(Math.random() * availableTypes.length)];
+        currentUpgradeOptions.push({ unit: unit, type: type });
+    });
+    
+    renderUpgradeOptions();
+}
+
+function renderUpgradeOptions() {
+    const container = document.getElementById('upgradeOptions');
+    container.innerHTML = '';
+    
+    currentUpgradeOptions.forEach((option, index) => {
+        const div = document.createElement('div');
+        div.className = 'upgrade-option';
+        div.onclick = () => selectUpgrade(index);
+        
+        const typeText = {
+            'hp': 'HP +30%',
+            'dmg': 'DMG +30%',
+            'dps': 'DPS +30%',
+            'cd': 'CD -2秒'
+        };
+        
+        div.innerHTML = `
+            <div class="upgrade-unit-name">${option.unit.icon} ${option.unit.name}</div>
+            <div class="upgrade-effect">${typeText[option.type]}</div>
+        `;
+        
+        container.appendChild(div);
+    });
+    
+    document.getElementById('rerollBtn').disabled = hasRerolled;
+}
+
+function selectUpgrade(index) {
+    const option = currentUpgradeOptions[index];
+    const unit = option.unit;
+    
+    switch (option.type) {
+        case 'hp':
+            unit.hp = Math.round(unit.hp * 1.3);
+            unit.maxHp = Math.round(unit.maxHp * 1.3);
+            break;
+        case 'dmg':
+            unit.atk = Math.round(unit.atk * 1.3);
+            break;
+        case 'dps':
+            unit.dps = Math.round(unit.dps * 1.3);
+            break;
+        case 'cd':
+            unit.cd = Math.max(1, unit.cd - 2);
+            break;
+    }
+    
+    unit.upgrades++;
+    unit.stars++;
+    
+    const typeText = {
+        'hp': 'HP+30%',
+        'dmg': 'DMG+30%',
+        'dps': 'DPS+30%',
+        'cd': 'CD-2s'
+    };
+    upgradeHistory.player.push({
+        icon: unit.icon,
+        name: unit.name,
+        type: typeText[option.type]
+    });
+    
+    // 檢查是否達到5星 (🌟) 並觸發意志
+    if (unit.stars >= 5) {
+        unit.stars = 5; // 鎖定為5
+        // 弓箭手與巨人有意志
+        if ((unit.name === '弓箭手' || unit.name === '巨人' || unit.name === '史萊姆王' || unit.name === '鳳刺' || unit.name === '魔導士') && !unit.willChosen) {
+            showWillSelection(unit);
+            return;
+        }
+        // 其他單位達到🌟即為滿級，不再出現升級
+    }
+    
+    showScreen('gameScreen');
+    gameRunning = true;
+    requestAnimationFrame(gameLoop);
+}
+
+// ===== 意志系統 =====
+let currentWillUnit = null;
+let currentWillOptions = [];
+
+function showWillSelection(unit) {
+    currentWillUnit = unit;
+    gameRunning = false;
+    if (animationId) cancelAnimationFrame(animationId);
+    
+    if (unit.name === '弓箭手') {
+        currentWillOptions = [
+            {
+                id: 'sniper',
+                name: '狙擊意志',
+                icon: '🎯',
+                desc: '射程為7，ATK+200%，但DPS-50%',
+                apply: (u) => {
+                    u.range = 7;
+                    u.atk = Math.round(u.atk * 3);
+                    u.dps = Math.round(u.dps * 0.6);
+                }
+            },
+            {
+                id: 'ranger',
+                name: '遊俠意志',
+                icon: '🏹',
+                desc: 'DPS+200%，但射程為3',
+                apply: (u) => {
+                    u.dps = Math.round(u.dps * 3);
+                    u.range = 3;
+                }
+            }
+        ];
+    } else if (unit.name === '鳳刺') {
+        currentWillOptions = [
+            {
+                id: 'revenge',
+                name: '復仇意志',
+                icon: '🔥',
+                desc: '鳳刺每死亡1次，就為下隻的鳳刺永久疊加ATK或DPS+2%',
+                apply: (u) => {}
+            },
+            {
+                id: 'leading',
+                name: '率先意志',
+                icon: '⚡',
+                desc: '移速為10，無敵時額外+30且DPS+1000%，但無敵時間由10秒變為3秒',
+                apply: (u) => { u.speed = 10; }
+            }
+        ];
+    } else if (unit.name === '史萊姆王') {
+        currentWillOptions = [
+            {
+                id: 'eduWill',
+                name: '教育意志',
+                icon: '📚',
+                desc: '每次生成時額外召喚多1隻史萊姆王，且死亡時能分裂成3隻小史萊姆，但CD+3',
+                apply: (u) => {
+                    u.cd = u.cd + 3;
+                }
+            },
+            {
+                id: 'endangeredWill',
+                name: '瀕危意志',
+                icon: '⚠️',
+                desc: '死亡時不分裂，進化成大史萊姆王，HP為原300%',
+                apply: (u) => {
+                    // 進化效果在死亡時處理
+                }
+            }
+        ];
+    } else if (unit.name === '巨人') {
+        currentWillOptions = [
+            {
+                id: 'guard',
+                name: '守護意志',
+                icon: '🛡️',
+                desc: '每1秒恢復全體友軍5HP(可疊加)，且友軍死亡時巨人立即恢復200HP',
+                apply: (u) => {
+                    u.will = 'guard';
+                    // 守護效果由全局定時處理，無需立即改數值
+                }
+            },
+            {
+                id: 'martyr',
+                name: '成仁意志',
+                icon: '💠',
+                desc: 'HP+1234%，且每當我方友軍死亡時，巨人的CD瞬間-1秒(非永久)',
+                apply: (u) => {
+                    u.will = 'martyr';
+                    u.hp = Math.round(u.hp * 13.34);
+                    u.maxHp = Math.round((u.maxHp || u.hp) * 13.34);
+                }
+            }
+        ];
+    } else if (unit.name === '魔導士') {
+        currentWillOptions = [
+            {
+                id: 'burstWill',
+                name: '爆胎意志',
+                icon: '👻',
+                desc: '墮落時於原地產出10個👻 (👻HP：1 | ATK：1000 | DPS：200 | 移速：2 | 射程：1，無視敵軍直接攻城)',
+                apply: (u) => {
+                    u.will = 'burstWill';
+                }
+            },
+            {
+                id: 'uniqueWill',
+                name: '唯一意志',
+                icon: '🌟',
+                desc: '我方全體友軍每擊敗對方，我方全體友軍除了「魔導士」外都能永久疊加HP或ATK+1%，但不能再獲取任何EXP',
+                apply: (u) => {
+                    u.will = 'uniqueWill';
+                }
+            }
+        ];
+    } else {
+        // 其他單位意志待定，直接滿級
+        currentWillOptions = [];
+        showScreen('gameScreen');
+        gameRunning = true;
+        requestAnimationFrame(gameLoop);
+        return;
+    }
+    
+    document.getElementById('willUnitName').textContent = `${unit.icon} ${unit.name} 達到 🌟 滿級！選擇意志：`;
+    renderWillOptions();
+    showScreen('willScreen');
+}
+
+function renderWillOptions() {
+    const container = document.getElementById('willOptions');
+    container.innerHTML = '';
+    currentWillOptions.forEach((opt, idx) => {
+        const div = document.createElement('div');
+        div.className = 'upgrade-option';
+        div.onclick = () => selectWill(idx);
+        div.innerHTML = `
+            <div class="upgrade-unit-name">${opt.icon} ${opt.name}</div>
+            <div class="upgrade-effect" style="font-size:14px; margin-top:6px;">${opt.desc}</div>
+        `;
+        container.appendChild(div);
+    });
+}
+
+function selectWill(index) {
+    const opt = currentWillOptions[index];
+    const unit = currentWillUnit;
+    if (!opt || !unit) return;
+    
+    // 套用意志效果
+    opt.apply(unit);
+    unit.will = opt.id;
+    unit.willChosen = true;
+    unit.willName = opt.name;
+    
+    // 魔導士唯一意志：標記不能再獲取EXP
+    if (unit.name === '魔導士' && opt.id === 'uniqueWill') {
+        playerHasUniqueWill = true;
+    }
+    
+    // 巨人特殊處理
+    if (unit.name === '巨人' && opt.id === 'martyr') {
+        // 成仁意志的護盾在生成時賦予，這裡僅標記，實際單位生成時會賦予50次
+        unit.martyrShield = 50;
+    }
+    
+    upgradeHistory.player.push({
+        icon: unit.icon,
+        name: unit.name,
+        type: opt.name
+    });
+    
+    // 意志選擇後即為滿級，不再出現🌟升級
+    currentWillUnit = null;
+    currentWillOptions = [];
+    
+    showScreen('gameScreen');
+    gameRunning = true;
+    requestAnimationFrame(gameLoop);
+}
+
+// 巨人意志全局效果
+let guardHealTimer = 0;
+function updateWillEffects(dt) {
+    // 守護意志：每1秒恢復全體友軍5HP，可疊加
+    guardHealTimer += dt;
+    if (guardHealTimer >= 1) {
+        guardHealTimer -= 1;
+        // 玩家方守護巨人數量
+        const playerGuardCount = gameState.units.filter(u => u.isPlayer && u.name === '巨人' && u.will === 'guard').length;
+        if (playerGuardCount > 0) {
+            const healAmount = 5 * playerGuardCount;
+            gameState.units.forEach(u => {
+                if (u.isPlayer && u.hp > 0) {
+                    u.hp = Math.min(u.maxHp, u.hp + healAmount);
+                }
+            });
+            // 城堡也回血?
+            // 僅單位回血，按需求
+        }
+        // 敵方守護巨人
+        const enemyGuardCount = gameState.units.filter(u => !u.isPlayer && u.name === '巨人' && u.will === 'guard').length;
+        if (enemyGuardCount > 0) {
+            const healAmount = 5 * enemyGuardCount;
+            gameState.units.forEach(u => {
+                if (!u.isPlayer && u.hp > 0) {
+                    u.hp = Math.min(u.maxHp, u.hp + healAmount);
+                }
+            });
+        }
+    }
+}
+
+
+// ===== 魔導士意志：爆胎與唯一 =====
+function spawnGhosts(parentUnit) {
+    const count = 10;
+    for (let i = 0; i < count; i++) {
+        const ghost = {
+            id: gameState.nextUnitId++,
+            type: -1,
+            isPlayer: parentUnit.isPlayer,
+            hp: 1,
+            maxHp: 1,
+            atk: 1000,
+            dps: 200,
+            speed: 2,
+            range: 1,
+            ability: 'ghost',
+            icon: '👻',
+            name: '👻',
+            will: null,
+            willName: '',
+            martyrShield: 0,
+            x: parentUnit.x + (Math.random()*20-10),
+            y: parentUnit.y + (Math.random()*20-10),
+            pathIndex: parentUnit.pathIndex,
+            pathBranch: parentUnit.pathBranch,
+            currentPath: parentUnit.currentPath ? [...parentUnit.currentPath] : null,
+            target: null,
+            attackTimer: 0,
+            abilityData: {},
+            invincible: false,
+            invincibleTimer: 0,
+            isFlying: false,
+            isGrounded: false,
+            isSplit: false,
+            lastAttacker: null
+        };
+        gameState.units.push(ghost);
+    }
+}
+
+function applyUniqueWillBuff(isPlayer) {
+    const isHpBuff = Math.random() < 0.5;
+    if (isPlayer) {
+        playerUniqueStacks++;
+        if (isHpBuff) {
+            playerUniqueHpStacks++;
+            playerLastUniqueBuff = 'HP';
+            playerUnits.forEach(u => {
+                if (u.name !== '魔導士') {
+                    u.hp = Math.round(u.hp * 1.01);
+                }
+            });
+            gameState.units.forEach(u => {
+                if (u.isPlayer && u.name !== '魔導士') {
+                    u.maxHp = Math.round(u.maxHp * 1.01);
+                    u.hp = Math.round(u.hp * 1.01);
+                }
+            });
+        } else {
+            playerUniqueAtkStacks++;
+            playerLastUniqueBuff = 'ATK';
+            playerUnits.forEach(u => {
+                if (u.name !== '魔導士') {
+                    u.atk = Math.round(u.atk * 1.01);
+                }
+            });
+            gameState.units.forEach(u => {
+                if (u.isPlayer && u.name !== '魔導士') {
+                    u.atk = Math.round(u.atk * 1.01);
+                }
+            });
+        }
+        if (typeof updateUniqueWillDisplay === 'function') { updateUniqueWillDisplay(); }
+    } else {
+        enemyUniqueStacks++;
+        if (isHpBuff) {
+            enemyUniqueHpStacks++;
+            enemyLastUniqueBuff = 'HP';
+            enemyUnits.forEach(u => {
+                if (u.name !== '魔導士') {
+                    u.hp = Math.round(u.hp * 1.01);
+                }
+            });
+            gameState.units.forEach(u => {
+                if (!u.isPlayer && u.name !== '魔導士') {
+                    u.maxHp = Math.round(u.maxHp * 1.01);
+                    u.hp = Math.round(u.hp * 1.01);
+                }
+            });
+        } else {
+            enemyUniqueAtkStacks++;
+            enemyLastUniqueBuff = 'ATK';
+            enemyUnits.forEach(u => {
+                if (u.name !== '魔導士') {
+                    u.atk = Math.round(u.atk * 1.01);
+                }
+            });
+            gameState.units.forEach(u => {
+                if (!u.isPlayer && u.name !== '魔導士') {
+                    u.atk = Math.round(u.atk * 1.01);
+                }
+            });
+        }
+        if (typeof updateUniqueWillDisplay === 'function') { updateUniqueWillDisplay(); }
+    }
+}
+
+function aiChooseWill(unit) {
+    if (!unit.willChosen) {
+        if (unit.name === '弓箭手') {
+            const isSniper = Math.random() < 0.5;
+            if (isSniper) {
+                unit.range = 7;
+                unit.atk = Math.round(unit.atk * 3);
+                unit.dps = Math.round(unit.dps * 0.5);
+                unit.will = 'sniper';
+                unit.willName = '狙擊意志';
+            } else {
+                unit.dps = Math.round(unit.dps * 3);
+                unit.range = 3;
+                unit.will = 'ranger';
+                unit.willName = '遊俠意志';
+            }
+            unit.willChosen = true;
+            upgradeHistory.enemy.push({
+                icon: unit.icon,
+                name: unit.name,
+                type: unit.willName
+            });
+        } else if (unit.name === '巨人') {
+            const isGuard = Math.random() < 0.5;
+            if (isGuard) {
+                unit.will = 'guard';
+                unit.willName = '守護意志';
+            } else {
+                unit.will = 'martyr';
+                unit.willName = '成仁意志';
+                unit.hp = Math.round(unit.hp * 13.34);
+                unit.maxHp = Math.round((unit.maxHp || unit.hp) * 13.34);
+            }
+            unit.willChosen = true;
+            upgradeHistory.enemy.push({
+                icon: unit.icon,
+                name: unit.name,
+                type: unit.willName
+            });
+        } else if (unit.name === '鳳刺') {
+            const isRevenge = Math.random() < 0.5;
+            if (isRevenge) {
+                unit.will = 'revenge';
+                unit.willName = '復仇意志';
+            } else {
+                unit.will = 'leading';
+                unit.willName = '率先意志';
+                unit.speed = 10;
+            }
+            unit.willChosen = true;
+            upgradeHistory.enemy.push({
+                icon: unit.icon,
+                name: unit.name,
+                type: unit.willName
+            });
+        } else if (unit.name === '史萊姆王') {
+            const isEdu = Math.random() < 0.5;
+            if (isEdu) {
+                unit.will = 'eduWill';
+                unit.willName = '教育意志';
+                unit.cd = unit.cd + 3;
+            } else {
+                unit.will = 'endangeredWill';
+                unit.willName = '瀕危意志';
+            }
+            unit.willChosen = true;
+            upgradeHistory.enemy.push({
+                icon: unit.icon,
+                name: unit.name,
+                type: unit.willName
+            });
+        } else if (unit.name === '魔導士') {
+            const isBurst = Math.random() < 0.5;
+            if (isBurst) {
+                unit.will = 'burstWill';
+                unit.willName = '爆胎意志';
+            } else {
+                unit.will = 'uniqueWill';
+                unit.willName = '唯一意志';
+                enemyHasUniqueWill = true;
+            }
+            unit.willChosen = true;
+            upgradeHistory.enemy.push({
+                icon: unit.icon,
+                name: unit.name,
+                type: unit.willName
+            });
+        }
+    }
+}
+
+function rerollUpgrades() {
+    if (hasRerolled) return;
+    hasRerolled = true;
+    
+    const previousOptions = currentUpgradeOptions.map(o => o.unit.id + '-' + o.type);
+    let attempts = 0;
+    
+    while (attempts < 50) {
+        generateUpgradeOptions();
+        const newOptions = currentUpgradeOptions.map(o => o.unit.id + '-' + o.type);
+        const hasDuplicate = newOptions.some(opt => previousOptions.includes(opt));
+        
+        if (!hasDuplicate) break;
+        attempts++;
+    }
+    
+    renderUpgradeOptions();
+}
+
+// ===== 遊戲結束 =====
+function endGame(isVictory) {
+    gameRunning = false;
+    if (animationId) cancelAnimationFrame(animationId);
+    
+    const title = document.getElementById('gameOverTitle');
+    title.textContent = isVictory ? '🎉 勝利！🎉' : '💀 失敗 💀';
+    title.className = isVictory ? 'gameover-title victory' : 'gameover-title defeat';
+    
+    showScreen('gameOverScreen');
+}
+
+// ===== UI 更新 =====
+function updateUI() {
+    const playerHP = gameState.playerCastle.hp;
+    const enemyHP = gameState.enemyCastle.hp;
+    const maxHP = gameState.playerCastle.maxHp;
+    
+    document.getElementById('playerCastleHPBar').style.width = (playerHP / maxHP * 100) + '%';
+    document.getElementById('playerCastleHPText').textContent = Math.max(0, Math.round(playerHP));
+    
+    document.getElementById('enemyCastleHPBar').style.width = (enemyHP / maxHP * 100) + '%';
+    document.getElementById('enemyCastleHPText').textContent = Math.max(0, Math.round(enemyHP));
+    
+    // 更新單位卡牌 CD
+    activeUnitIndices.forEach((index) => {
+        const unit = playerUnits[index];
+        const card = document.getElementById('card' + index);
+        const cdPercent = (unit.currentCD / unit.cd) * 100;
+        const isReady = unit.currentCD >= unit.cd;
+        
+        card.classList.toggle('ready', isReady);
+        
+        const cdText = card.querySelector('.unit-cd');
+        if (isReady) {
+            cdText.textContent = '就緒';
+            cdText.className = 'unit-cd ready-text';
+        } else {
+            const remaining = Math.ceil(unit.cd - unit.currentCD);
+            cdText.textContent = remaining + 's';
+            cdText.className = 'unit-cd';
+        }
+        
+        const progressBar = card.querySelector('.cd-progress-bar');
+        progressBar.style.width = cdPercent + '%';
+        
+        const stars = card.querySelector('.unit-stars');
+        if (unit.stars >= 5) {
+            stars.textContent = '🌟';
+        } else {
+            stars.textContent = '⭐'.repeat(unit.stars);
+        }
+    });
+
+    // 更新法術 1 (天雷轟頂 30s)
+    if (activeSpellIndices.includes(0)) {
+        const s1Rem = Math.max(0, Math.ceil(spellState.spell1.cd - spellState.spell1.timer));
+        document.getElementById('spell1CD').textContent = s1Rem > 0 ? (s1Rem + 's') : '釋放!';
+        document.getElementById('spell1Bar').style.width = ((spellState.spell1.timer / spellState.spell1.cd) * 100) + '%';
+    }
+
+    // 更新法術 2 (疾風神速 40s)
+    if (activeSpellIndices.includes(1)) {
+        const spell2Card = document.getElementById('spellCard2');
+        if (spellState.spell2.activeTimer > 0) {
+            spell2Card.classList.add('active-buff');
+            document.getElementById('spell2CD').textContent = '⚡ ' + Math.ceil(spellState.spell2.activeTimer) + 's';
+            document.getElementById('spell2Bar').style.width = '100%';
+        } else {
+            spell2Card.classList.remove('active-buff');
+            const s2Rem = Math.max(0, Math.ceil(spellState.spell2.cd - spellState.spell2.timer));
+            document.getElementById('spell2CD').textContent = s2Rem > 0 ? (s2Rem + 's') : '釋放!';
+            document.getElementById('spell2Bar').style.width = ((spellState.spell2.timer / spellState.spell2.cd) * 100) + '%';
+        }
+    }
+
+    // 更新法術 3 (城堡回春 100s)
+    if (activeSpellIndices.includes(2)) {
+        const s3Rem = Math.max(0, Math.ceil(spellState.spell3.cd - spellState.spell3.timer));
+        document.getElementById('spell3CD').textContent = s3Rem > 0 ? (s3Rem + 's') : '釋放!';
+        document.getElementById('spell3Bar').style.width = ((spellState.spell3.timer / spellState.spell3.cd) * 100) + '%';
+    }
+
+    // 更新法術 4 (經驗湧現 20s)
+    if (activeSpellIndices.includes(3)) {
+        const s4Rem = Math.max(0, Math.ceil(spellState.spell4.cd - spellState.spell4.timer));
+        document.getElementById('spell4CD').textContent = s4Rem > 0 ? (s4Rem + 's') : '釋放!';
+        document.getElementById('spell4Bar').style.width = ((spellState.spell4.timer / spellState.spell4.cd) * 100) + '%';
+    }
+}
+
+// ===== 渲染 =====
+function render() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    // 繪製路徑
+    drawPaths();
+    
+    // 繪製城堡
+    drawCastle(gameState.playerCastle, true);
+    drawCastle(gameState.enemyCastle, false);
+    
+    // 繪製單位
+    gameState.units.forEach(unit => drawUnit(unit));
+    
+    // 繪製攻擊特效
+    drawAttackEffects();
+    
+    // 繪製中間信息板
+    drawCenterInfo();
+
+    // 繪製左側Exp訊息欄
+    drawExpLogs();
+}
+
+function drawPaths() {
+    ctx.strokeStyle = 'rgba(100, 150, 200, 0.3)';
+    ctx.lineWidth = 30;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    
+    // 左路
+    ctx.beginPath();
+    paths.player.left.forEach((point, index) => {
+        if (index === 0) ctx.moveTo(point.x, point.y);
+        else ctx.lineTo(point.x, point.y);
+    });
+    ctx.stroke();
+    
+    // 右路
+    ctx.beginPath();
+    paths.player.right.forEach((point, index) => {
+        if (index === 0) ctx.moveTo(point.x, point.y);
+        else ctx.lineTo(point.x, point.y);
+    });
+    ctx.stroke();
+    
+    // 中線
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([10, 10]);
+    ctx.beginPath();
+    ctx.moveTo(canvas.width / 2, 0);
+    ctx.lineTo(canvas.width / 2, canvas.height);
+    ctx.stroke();
+    ctx.setLineDash([]);
+}
+
+function drawCastle(castle, isPlayer) {
+    const size = 40;
+    
+    ctx.fillStyle = isPlayer ? '#4A90E2' : '#E24A4A';
+    ctx.fillRect(castle.x - size/2, castle.y - size/2, size, size);
+    
+    ctx.font = '32px Arial';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(isPlayer ? '🛡️' : '🤖', castle.x, castle.y);
+}
+
+function drawUnit(unit) {
+    const size = 24;
+    
+    if (unit.invincible) {
+        ctx.save();
+        ctx.globalAlpha = 0.5 + Math.sin(Date.now() / 100) * 0.3;
+    }
+    
+    ctx.fillStyle = unit.isPlayer ? 'rgba(80, 200, 120, 0.6)' : 'rgba(226, 74, 74, 0.6)';
+    ctx.beginPath();
+    ctx.arc(unit.x, unit.y, size/2, 0, Math.PI * 2);
+    ctx.fill();
+    
+    ctx.font = '20px Arial';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(unit.icon, unit.x, unit.y);
+    
+    // HP條與數字血量
+    const hpBarWidth = 32;
+    const hpBarHeight = 4;
+    const hpPercent = Math.max(0, unit.hp / unit.maxHp);
+    const barX = unit.x - hpBarWidth / 2;
+    const barY = unit.y - size / 2 - 6;
+    
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+    ctx.fillRect(barX, barY, hpBarWidth, hpBarHeight);
+    
+    ctx.fillStyle = hpPercent > 0.5 ? '#50C878' : hpPercent > 0.25 ? '#FFB347' : '#E24A4A';
+    ctx.fillRect(barX, barY, hpBarWidth * hpPercent, hpBarHeight);
+    
+    // 數字血量標示
+    const displayHp = Math.max(0, Math.ceil(unit.hp));
+    ctx.font = 'bold 11px Arial';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'bottom';
+    ctx.strokeStyle = '#000000';
+    ctx.lineWidth = 2;
+    ctx.strokeText(displayHp, unit.x, barY - 2);
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText(displayHp, unit.x, barY - 2);
+
+    if (unit.isFlying) {
+        ctx.font = '14px Arial';
+        ctx.fillText('✨', unit.x + size/2, unit.y - size/2);
+    }
+
+    // 鳳刺衝鋒標誌
+    if (unit.abilityData && unit.abilityData.rushTimer > 0) {
+        ctx.font = '12px Arial';
+        ctx.fillText('🔥', unit.x - size/2, unit.y - size/2);
+    }
+    
+    if (unit.invincible) {
+        ctx.restore();
+    }
+}
+
+function drawAttackEffects() {
+    attackEffects.forEach(fx => {
+        ctx.strokeStyle = fx.color;
+        ctx.lineWidth = 3;
+        ctx.globalAlpha = fx.life / fx.maxLife;
+        ctx.beginPath();
+        ctx.moveTo(fx.x1, fx.y1);
+        ctx.lineTo(fx.x2, fx.y2);
+        ctx.stroke();
+        ctx.globalAlpha = 1.0;
+    });
+}
+
+function drawCenterInfo() {
+    const centerX = canvas.width / 2;
+    const centerY = canvas.height / 2;
+    
+    // 重製：只顯示雙方 Lv 與 Exp%，符合比例不覆蓋路線
+    const isSmall = canvas.width < 600;
+    const boxWidth = Math.min(isSmall ? canvas.width * 0.32 : 200, canvas.width * 0.28);
+    const boxHeight = Math.min(isSmall ? 90 : 110, canvas.height * 0.26);
+    const halfW = boxWidth / 2;
+    const halfH = boxHeight / 2;
+    
+    // 保存供雙擊檢測使用
+    gameState.centerBox = { x: centerX - halfW, y: centerY - halfH, w: boxWidth, h: boxHeight, cx: centerX, cy: centerY };
+    
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.82)';
+    ctx.fillRect(centerX - halfW, centerY - halfH, boxWidth, boxHeight);
+    
+    ctx.strokeStyle = 'rgba(74, 144, 226, 0.9)';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(centerX - halfW, centerY - halfH, boxWidth, boxHeight);
+    
+    const titleFont = isSmall ? 'bold 12px Arial' : 'bold 14px Arial';
+    const infoFont = isSmall ? 'bold 11px Arial' : 'bold 12px Arial';
+    
+    // AI
+    ctx.fillStyle = '#FF6B6B';
+    ctx.font = titleFont;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('🤖 AI  Lv.' + getEnemyLevel(), centerX, centerY - halfH + (isSmall ? 18 : 24));
+    
+    ctx.fillStyle = '#FFFFFF';
+    ctx.font = infoFont;
+    ctx.fillText('EXP ' + Math.floor(gameState.enemyExp) + '%', centerX, centerY - halfH + (isSmall ? 36 : 44));
+    
+    // 分割線
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(centerX - halfW + 8, centerY);
+    ctx.lineTo(centerX + halfW - 8, centerY);
+    ctx.stroke();
+    
+    // 玩家
+    ctx.fillStyle = '#50C878';
+    ctx.font = titleFont;
+    ctx.fillText('🛡️ 玩家  Lv.' + getPlayerLevel(), centerX, centerY + (isSmall ? 8 : 14));
+    
+    ctx.fillStyle = '#FFFFFF';
+    ctx.font = infoFont;
+    ctx.fillText('EXP ' + Math.floor(gameState.playerExp) + '%', centerX, centerY + (isSmall ? 26 : 34));
+    
+    // 提示可雙擊
+    ctx.fillStyle = 'rgba(255,255,255,0.5)';
+    ctx.font = isSmall ? '8px Arial' : '9px Arial';
+    ctx.fillText('雙擊查看升級', centerX, centerY + halfH - 6);
+}
+
+// ===== 繪製地圖左側經驗日誌 =====
+function drawExpLogs() {
+    // 改為 HTML 面板渲染，支援捲動與自動換行，Canvas 不再繪製
+    const panel = document.getElementById('expLogsPanel');
+    if (!panel) return;
+    if (!gameState.expLogs || gameState.expLogs.length === 0) {
+        panel.innerHTML = '';
+        panel.style.display = 'none';
+        return;
+    }
+    panel.style.display = 'flex';
+    panel.innerHTML = '';
+    // 只顯示最近的7筆，但保留捲動可查看全部? 按原本邏輯保留7筆
+    gameState.expLogs.forEach((log) => {
+        const div = document.createElement('div');
+        div.className = 'exp-log-item ' + (log.isPlayer ? 'player' : 'enemy');
+        div.textContent = log.text;
+        panel.appendChild(div);
+    });
+    // 自動捲到最底部
+    panel.scrollTop = panel.scrollHeight;
+}
+
+function distance(x1, y1, x2, y2) {
+    return Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2);
+}
+
+window.addEventListener('resize', () => {
+    if (gameRunning) {
+        resizeCanvas();
+    }
+});
+
+resizeCanvas();
+initCenterDoubleClick();
+</script>
+
+
+<!-- 升級歷史一覽彈窗 (雙擊中間觸發) -->
+<div id="upgradeHistoryModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.85); z-index:200; align-items:center; justify-content:center;">
+    <div style="background: linear-gradient(135deg, #16213e, #0f3460); border:2px solid #4A90E2; border-radius:12px; padding:16px; max-width:90%; width:400px; max-height:80vh; overflow-y:auto;">
+        <h3 style="text-align:center; color:#FFD700; margin-bottom:12px; font-size:18px;">📜 雙方升級一覽</h3>
+        <div style="display:flex; gap:12px;">
+            <div style="flex:1;">
+                <h4 style="color:#50C878; text-align:center; margin-bottom:8px; font-size:14px;">🛡️ 玩家</h4>
+                <div id="playerHistoryList" style="font-size:12px; line-height:1.6;"></div>
+            </div>
+            <div style="flex:1;">
+                <h4 style="color:#FF6B6B; text-align:center; margin-bottom:8px; font-size:14px;">🤖 AI</h4>
+                <div id="enemyHistoryList" style="font-size:12px; line-height:1.6;"></div>
+            </div>
+        </div>
+        <div style="text-align:center; margin-top:14px;">
+            <button class="menu-btn secondary" style="padding:8px 20px; min-width:120px; font-size:14px;" onclick="closeUpgradeHistoryModal()">關閉</button>
+        </div>
+    </div>
+</div>
+
+</body>
+</html>
