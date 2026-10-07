@@ -1,0 +1,1632 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#05060a">
+<title>箭影試煉 - 25 關弓箭手 Roguelike</title>
+<style>
+/* =========================================================
+   基礎樣式：所有文字永遠 >= 16px（用 * 設定下限，其餘 class 只會更大）
+   ========================================================= */
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;-webkit-user-select:none;user-select:none;touch-action:none;font-size:16px;font-family:"PingFang TC","Microsoft JhengHei","Noto Sans TC",system-ui,sans-serif;margin:0;padding:0}
+html,body{background:#05060a;overflow:hidden;overscroll-behavior:none;color:#fff}
+/* body 固定在可視區域；高度由 JS 以 visualViewport 動態設定，避免被手機瀏覽器底部導航列遮住 */
+body{position:fixed;top:0;left:0;width:100%;height:100vh;height:100dvh;display:flex;align-items:center;justify-content:center}
+/* 舞台：永遠 9:16，尺寸由 JS 計算 */
+#stage{position:relative;overflow:hidden;border-radius:14px;background:#0b1020;box-shadow:0 0 0 1px rgba(255,255,255,.08),0 20px 60px rgba(0,0,0,.7);width:300px;height:533px}
+#cv{position:absolute;left:0;top:0;width:100%;height:100%;display:block}
+#stage[data-mode="menu"] .gameui{display:none !important}
+
+/* ---------- 頂部 HUD ---------- */
+#hud{position:absolute;left:0;right:0;top:0;padding:8px 10px 6px;display:flex;flex-direction:column;gap:6px;pointer-events:none;z-index:5;background:linear-gradient(#050810cc,#05081000)}
+#hud .row1{display:flex;gap:8px;align-items:center}
+#hpWrap{position:relative;flex:1;height:26px;border-radius:13px;background:rgba(0,0,0,.55);border:1px solid rgba(255,255,255,.18);overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.4)}
+#hpFill{position:absolute;left:0;top:0;bottom:0;width:100%;background:linear-gradient(90deg,#ef4444,#f97316);transition:width .15s}
+#hpText{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-weight:800;line-height:1;text-shadow:0 1px 3px #000}
+.iconBtn{pointer-events:auto;width:36px;height:36px;border-radius:12px;border:1px solid rgba(255,255,255,.2);background:rgba(20,28,55,.65);color:#fff;font-size:18px;line-height:1;cursor:pointer;backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;padding:0;touch-action:manipulation}
+.iconBtn:active{transform:scale(.92)}
+#hud .row2{display:flex;align-items:center;gap:8px;line-height:1;font-weight:700;text-shadow:0 1px 3px #000}
+#prog{flex:1;display:flex;gap:1px;height:8px}
+#prog i{flex:1;border-radius:2px;background:rgba(255,255,255,.18)}
+#prog i.done{background:#4ade80}
+#prog i.cur{background:#fff;box-shadow:0 0 6px #fff}
+#prog i.elite{background:rgba(251,191,36,.55)}
+#prog i.elite.done{background:#fbbf24}
+#bossbar{position:absolute;left:12px;right:12px;top:78px;height:22px;border-radius:11px;background:rgba(0,0,0,.6);border:1px solid rgba(255,255,255,.2);overflow:hidden;z-index:5;display:none;pointer-events:none}
+#bossFill{position:absolute;left:0;top:0;bottom:0;width:100%;background:linear-gradient(90deg,#7c3aed,#db2777)}
+#bossName{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-weight:800;line-height:1;text-shadow:0 1px 3px #000}
+
+/* ---------- 關卡橫幅 ---------- */
+#banner{position:absolute;left:0;right:0;top:30%;text-align:center;pointer-events:none;z-index:8;opacity:0}
+#banner b{display:block;font-size:34px;font-weight:900;letter-spacing:2px;text-shadow:0 4px 18px rgba(0,0,0,.8)}
+#banner span{display:block;font-size:18px;font-weight:700;margin-top:6px;text-shadow:0 2px 8px #000}
+#banner.pop{animation:bn 2s ease forwards}
+@keyframes bn{0%{opacity:0;transform:scale(.7)}15%{opacity:1;transform:scale(1.05)}25%{transform:scale(1)}75%{opacity:1}100%{opacity:0;transform:translateY(-14px)}}
+
+/* ---------- 技能快捷欄（左下，不阻擋觸控） ---------- */
+#quick{position:absolute;left:6px;bottom:10px;width:112px;display:flex;flex-wrap:wrap-reverse;flex-direction:row;gap:2px;pointer-events:none;z-index:4;max-height:250px;align-content:flex-start}
+.qi{position:relative;width:34px;height:34px;border-radius:10px;background:rgba(10,14,30,.6);border:2px solid var(--c,#888);display:flex;align-items:center;justify-content:center;font-size:18px;line-height:1}
+.qi .qe{font-size:18px;line-height:1}
+.qi .qb{position:absolute;right:1px;bottom:-1px;font-size:16px;font-weight:900;line-height:1;text-shadow:0 0 3px #000,0 0 3px #000,0 0 3px #000}
+
+/* ---------- 虛擬搖桿（底部中間）---------- */
+#joyZone{position:absolute;left:50%;bottom:0;width:200px;height:190px;margin-left:-100px;z-index:3;display:flex;align-items:center;justify-content:center}
+#joyBase{position:relative;width:120px;height:120px;border-radius:50%;background:rgba(255,255,255,.10);border:2px solid rgba(255,255,255,.28);box-shadow:inset 0 0 24px rgba(255,255,255,.08),0 6px 20px rgba(0,0,0,.35);margin-top:30px}
+#joyKnob{position:absolute;left:50%;top:50%;width:52px;height:52px;margin:-26px 0 0 -26px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#fff,#9db4ff);opacity:.85;box-shadow:0 4px 14px rgba(0,0,0,.5)}
+
+/* ---------- 技能鍵（右下）---------- */
+#skillBtn{position:absolute;right:12px;bottom:56px;width:78px;height:78px;border-radius:50%;border:3px solid rgba(255,255,255,.7);background:radial-gradient(circle at 35% 30%,#fbbf24,#ea580c);color:#fff;z-index:6;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;overflow:hidden;cursor:pointer;box-shadow:0 8px 22px rgba(234,88,12,.5);touch-action:manipulation;padding:0}
+#skillBtn #skIcon{font-size:26px;line-height:1}
+#skillBtn #skTxt{font-size:16px;font-weight:800;line-height:1;text-shadow:0 1px 3px #000}
+#skCd{position:absolute;inset:0;border-radius:50%;background:conic-gradient(rgba(0,0,0,.72) var(--deg,0deg),transparent 0);display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:900}
+#skillBtn.ready{animation:rdy 1.2s infinite}
+@keyframes rdy{50%{box-shadow:0 0 0 8px rgba(251,191,36,.25),0 8px 22px rgba(234,88,12,.5)}}
+
+/* ---------- 全螢幕面板 ---------- */
+.screen{position:absolute;inset:0;display:none;flex-direction:column;align-items:center;padding:16px;background:rgba(5,8,20,.72);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);z-index:20;overflow-y:auto;overflow-x:hidden;touch-action:pan-y}
+.screen *{touch-action:pan-y}
+.screen.show{display:flex;animation:fadeIn .25s ease}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+.panel{margin:auto;width:100%;background:rgba(22,30,60,.72);border:1px solid rgba(255,255,255,.14);border-radius:24px;padding:18px;box-shadow:0 14px 44px rgba(0,0,0,.5);display:flex;flex-direction:column;align-items:center;gap:12px;text-align:center}
+.title{font-size:40px;font-weight:900;line-height:1.1;background:linear-gradient(135deg,#fde68a,#fb923c,#f43f5e);-webkit-background-clip:text;background-clip:text;color:transparent;filter:drop-shadow(0 4px 12px rgba(244,63,94,.4))}
+.h2{font-size:28px;font-weight:900;line-height:1.2}
+.big{font-size:60px;line-height:1}
+.txt{font-size:16px;line-height:1.5;color:#dbe4ff}
+.btn{font-size:22px;font-weight:900;padding:16px 36px;border-radius:999px;border:0;color:#fff;background:linear-gradient(135deg,#f59e0b,#ef4444);box-shadow:0 10px 28px rgba(239,68,68,.5);cursor:pointer;touch-action:manipulation;transition:transform .1s}
+.btn:active{transform:scale(.95)}
+.btn.sec{font-size:18px;padding:12px 26px;background:rgba(255,255,255,.14);box-shadow:none;border:1px solid rgba(255,255,255,.25);font-weight:700}
+.btn.big2{font-size:28px;padding:20px 48px;animation:pulse 1.6s infinite}
+@keyframes pulse{50%{transform:scale(1.05)}}
+.stat{display:flex;gap:14px;flex-wrap:wrap;justify-content:center;font-weight:700}
+.stat span{background:rgba(255,255,255,.1);padding:6px 12px;border-radius:12px}
+
+/* ---------- 升級三選一 ---------- */
+#cards{display:flex;flex-direction:column;gap:10px;width:100%}
+.card{display:grid;grid-template-columns:48px 1fr;gap:10px;align-items:center;text-align:left;width:100%;padding:10px 12px;border-radius:18px;border:2px solid var(--c);background:linear-gradient(135deg,rgba(255,255,255,.10),rgba(255,255,255,.03));color:#fff;cursor:pointer;box-shadow:0 8px 22px rgba(0,0,0,.4),inset 0 0 22px color-mix(in srgb,var(--c) 22%,transparent);touch-action:manipulation;transition:transform .12s;animation:cardIn .35s ease backwards}
+.card:nth-child(2){animation-delay:.07s}.card:nth-child(3){animation-delay:.14s}
+@keyframes cardIn{from{opacity:0;transform:translateY(24px) scale(.95)}}
+.card:active{transform:scale(.97)}
+.cIcon{font-size:38px;line-height:1;text-align:center}
+.cTop{display:flex;justify-content:space-between;align-items:center;gap:6px}
+.cName{font-size:19px;font-weight:900}
+.cLv{font-size:16px;font-weight:800;color:var(--c)}
+.cDesc{font-size:16px;line-height:1.35;color:#e5ebff;margin-top:2px}
+.cTag{font-size:16px;color:var(--c);margin-top:2px;font-weight:700}
+
+/* ---------- 暫停：技能樹總覽 ---------- */
+.pb{width:100%;text-align:left;border-left:4px solid var(--c);padding-left:10px}
+.pbT{font-weight:900;font-size:18px;color:var(--c)}
+.pbL{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
+.chip{font-size:16px;padding:3px 8px;border-radius:10px;background:rgba(255,255,255,.07);color:#8b94b8;line-height:1.3}
+.chip.on{background:rgba(255,255,255,.2);color:#fff;font-weight:700}
+.row{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+
+/* ---------- 技能樹（升級解鎖 / 技能圖鑑共用）---------- */
+.tpanel{flex:1;min-height:0;margin:0;padding:12px;gap:8px;width:100%}
+.tHead{display:flex;align-items:center;gap:10px;width:100%}
+.tHead .h2{flex:1;text-align:left}
+.treeWrap{flex:1;min-height:0;width:100%;overflow-y:auto;overflow-x:hidden;display:flex;flex-direction:column;align-items:center;gap:10px;padding:2px 0;touch-action:pan-y}
+.tb{flex:none;width:100%;display:flex;flex-direction:column;align-items:center;gap:4px;padding:8px 0;border-radius:18px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08)}
+.tbT{font-weight:900;font-size:18px;color:var(--c)}
+.tree{position:relative;flex:none}
+.tree svg{position:absolute;left:0;top:0;overflow:visible;pointer-events:none}
+.tn{position:absolute;width:46px;height:46px;border-radius:16px;border:2px solid var(--c);background:rgba(10,14,30,.85);color:#fff;font-size:24px;line-height:1;display:flex;align-items:center;justify-content:center;padding:0;cursor:pointer;touch-action:manipulation;transition:transform .12s}
+.tn .tnb{position:absolute;right:-8px;bottom:-9px;font-size:16px;font-weight:900;line-height:1;padding:2px 5px;border-radius:9px;background:#0b1020;border:1px solid var(--c);color:#fff;white-space:nowrap;pointer-events:none}
+.tn .tnb:empty{display:none}
+.tn.hub{border-radius:50%;background:var(--c);cursor:default;pointer-events:none;box-shadow:0 0 14px var(--c)}
+.tn.locked{opacity:.5;filter:grayscale(.85);border-style:dashed}
+.tn.avail{box-shadow:0 0 12px var(--c);animation:nodeGlow 1.6s infinite}
+.tn.learned{background:color-mix(in srgb,var(--c) 38%,#0b1020);box-shadow:0 0 10px var(--c)}
+.tn.maxed{border-color:#fde047;background:color-mix(in srgb,#fde047 30%,#0b1020);box-shadow:0 0 12px #fde047}
+.tn.ult{border-radius:50%;font-size:28px;box-shadow:0 0 16px var(--c)}
+.tn.codex{box-shadow:0 0 8px var(--c)}
+.tn.sel{transform:scale(1.14);outline:3px solid #fff;outline-offset:2px;z-index:2}
+@keyframes nodeGlow{50%{box-shadow:0 0 20px var(--c),0 0 4px var(--c)}}
+.infoBox{flex:none;width:100%;min-height:96px;border-radius:16px;padding:10px 12px;background:rgba(0,0,0,.3);border:1px solid rgba(255,255,255,.14);text-align:left;display:flex;flex-direction:column;gap:6px}
+.ifTop{display:flex;align-items:center;gap:10px}
+.ifTop .grow{flex:1}
+.ifIcon{font-size:34px;line-height:1}
+.ifReq{font-size:16px;line-height:1.4;color:#cbd5ff}
+.ifReq .ok{color:#86efac;font-weight:700}
+.ifReq .no{color:#fca5a5;font-weight:700}
+.infoBox .btn{font-size:18px;padding:10px 20px;width:100%}
+.btn:disabled{opacity:.45;box-shadow:none;filter:grayscale(.6);cursor:not-allowed}
+
+/* ---------- 怪物圖鑑 ---------- */
+.mc{flex:none;display:grid;grid-template-columns:56px 1fr;gap:10px;align-items:center;width:100%;text-align:left;padding:10px;border-radius:16px;border:2px solid var(--c);background:rgba(255,255,255,.06)}
+.mIcon{width:56px;height:56px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:30px;background:color-mix(in srgb,var(--c) 40%,#0b1020);box-shadow:0 0 14px var(--c)}
+.mName{font-size:19px;font-weight:900}
+.mSt{display:flex;flex-wrap:wrap;gap:2px 10px;margin-top:4px;font-weight:700;color:#fff}
+</style>
+</head>
+<body>
+<div id="stage" data-mode="menu">
+  <canvas id="cv"></canvas>
+
+  <!-- 遊戲中 HUD -->
+  <div id="hud" class="gameui">
+    <div class="row1">
+      <div id="hpWrap"><div id="hpFill"></div><div id="hpText">100/100</div></div>
+      <button class="iconBtn" id="btnMute" aria-label="音效">🔊</button>
+      <button class="iconBtn" id="btnPause" aria-label="暫停">⏸</button>
+    </div>
+    <div class="row2">
+      <span id="lvText">第 1 關</span>
+      <div id="prog"></div>
+      <span id="foeText">👾 0</span>
+      <span id="shieldText"></span>
+    </div>
+  </div>
+  <div id="bossbar"><div id="bossFill"></div><div id="bossName">☠ 深淵魔王</div></div>
+  <div id="banner"><b></b><span></span></div>
+  <div id="quick" class="gameui"></div>
+  <div id="joyZone" class="gameui"><div id="joyBase"><div id="joyKnob"></div></div></div>
+  <button id="skillBtn" class="gameui ready"><span id="skIcon">🌟</span><span id="skTxt">技能</span><div id="skCd"></div></button>
+
+  <!-- 主選單 -->
+  <div class="screen show" id="scMenu">
+    <div class="panel">
+      <div class="big">🏹</div>
+      <div class="title">箭影試煉</div>
+      <div class="txt">5 大局內技能樹・無永久成長</div>
+      <div class="row" style="width:100%;justify-content:center;gap:10px;flex-wrap:wrap">
+        <button class="btn big2" id="btnStart1" style="font-size:22px;padding:16px 28px">Lv.1 試煉</button>
+        <button class="btn big2" id="btnStart99" style="font-size:22px;padding:16px 28px">Lv.99 試煉</button>
+      </div>
+      <div class="row">
+        <button class="btn sec" id="btnSkillDex" style="padding:12px 18px">📖 技能圖鑑</button>
+        <button class="btn sec" id="btnMonDex" style="padding:12px 18px">👹 怪物圖鑑</button>
+      </div>
+      <div class="txt">🕹 底部搖桿移動　🎯 自動瞄準射擊<br>🌟 右下角施放技能（電腦：WASD / 空白鍵）<br>
+      <b>Lv.1</b>：2 關（史萊姆→最終Boss），通關第一關直接滿級全技能<br>
+      <b>Lv.99</b>：25 關・第 5/10/15/20 精英・第 25 最終 Boss</div>
+      <button class="btn sec" id="btnSoundMenu">🔊 音效：開</button>
+    </div>
+  </div>
+
+  <!-- 升級選擇 -->
+  <div class="screen" id="scUp">
+    <div class="panel tpanel">
+      <div class="h2">🌳 技能樹</div>
+      <div class="txt" id="upSub"></div>
+      <div class="treeWrap" id="upTree"></div>
+      <div class="infoBox" id="upInfo"></div>
+    </div>
+  </div>
+
+  <!-- 技能圖鑑（主選單） -->
+  <div class="screen" id="scSkillDex">
+    <div class="panel tpanel">
+      <div class="tHead"><button class="btn sec" id="btnDexBack" style="font-size:18px;padding:8px 16px">← 返回</button><div class="h2">📖 技能圖鑑</div></div>
+      <div class="treeWrap" id="dexTree"></div>
+      <div class="infoBox" id="dexInfo"></div>
+    </div>
+  </div>
+
+  <!-- 怪物圖鑑（主選單） -->
+  <div class="screen" id="scMon">
+    <div class="panel tpanel">
+      <div class="tHead"><button class="btn sec" id="btnMonBack" style="font-size:18px;padding:8px 16px">← 返回</button><div class="h2">👹 怪物圖鑑</div></div>
+      <div class="treeWrap" id="monList"></div>
+    </div>
+  </div>
+
+  <!-- 暫停 -->
+  <div class="screen" id="scPause">
+    <div class="panel">
+      <div class="h2">⏸ 暫停中</div>
+      <div class="txt">本局技能樹（亮色為已習得）</div>
+      <div id="pauseTree" style="display:flex;flex-direction:column;gap:10px;width:100%"></div>
+      <div class="row">
+        <button class="btn" id="btnResume" style="font-size:20px;padding:12px 28px">繼續</button>
+        <button class="btn sec" id="btnQuit">放棄本局</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 死亡結算 -->
+  <div class="screen" id="scOver">
+    <div class="panel">
+      <div class="big">💀</div>
+      <div class="h2">挑戰失敗</div>
+      <div class="txt" id="overTxt"></div>
+      <div class="stat" id="overStat"></div>
+      <button class="btn" id="btnRetry">再來一次</button>
+      <button class="btn sec" id="btnMenu1">回主選單</button>
+    </div>
+  </div>
+
+  <!-- 勝利 -->
+  <div class="screen" id="scWin">
+    <div class="panel">
+      <div class="big">🏆</div>
+      <div class="title" style="font-size:36px">試煉通關！</div>
+      <div class="txt">你擊敗了深淵魔王，成為傳說中的神射手！</div>
+      <div class="stat" id="winStat"></div>
+      <button class="btn" id="btnRetry2">再來一次</button>
+      <button class="btn sec" id="btnMenu2">回主選單</button>
+    </div>
+  </div>
+</div>
+
+<script>
+"use strict";
+/* =========================================================
+   一、基礎工具與畫面自適應（永遠 9:16、不超出螢幕）
+   ========================================================= */
+const $ = id => document.getElementById(id);
+const stage = $('stage'), cv = $('cv'), ctx = cv.getContext('2d');
+const W = 360, H = 640;                       // 遊戲邏輯座標（9:16）
+const AX0 = 12, AY0 = 92, AX1 = 348, AY1 = 612; // 競技場範圍
+let K = 1, VS = 1;                              // K: canvas 像素倍率；VS: CSS 像素 / 邏輯單位
+const FS = px => px / VS;                       // 讓 canvas 文字換算後永遠 >= 指定 CSS px（>=16）
+const rand = (a, b) => a + Math.random() * (b - a);
+const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
+const TAU = Math.PI * 2;
+
+/* 以 visualViewport 動態計算「安全高度」，避免被瀏覽器底部導航列遮住 */
+function fit() {
+  const vv = window.visualViewport;
+  const vw = vv ? vv.width : window.innerWidth;
+  const vh = vv ? vv.height : window.innerHeight;
+  document.body.style.width = vw + 'px';
+  document.body.style.height = vh + 'px';
+  let w = Math.min(vw * 0.98, vh * 0.98 * 9 / 16);   // 上下左右留安全邊距
+  w = Math.max(200, Math.floor(w));
+  const h = Math.floor(w * 16 / 9);
+  stage.style.width = w + 'px';
+  stage.style.height = h + 'px';
+  const dpr = Math.min(window.devicePixelRatio || 1, 2.5);
+  cv.width = Math.round(w * dpr);
+  cv.height = Math.round(h * dpr);
+  K = cv.width / W; VS = w / W;
+}
+window.addEventListener('resize', fit);
+window.addEventListener('orientationchange', () => setTimeout(fit, 200));
+if (window.visualViewport) { visualViewport.addEventListener('resize', fit); visualViewport.addEventListener('scroll', fit); }
+document.addEventListener('fullscreenchange', () => setTimeout(fit, 100));
+fit(); setTimeout(fit, 300);
+
+/* =========================================================
+   二、音效（Web Audio API 合成，可靜音）
+   ========================================================= */
+let AC = null, muted = false, lastSfx = {};
+function initAudio() {
+  if (!AC) { try { AC = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { AC = null; } }
+  if (AC && AC.state === 'suspended') AC.resume();
+}
+function tone(f, d, type = 'square', vol = 0.05, slide = 0, delay = 0) {
+  if (muted || !AC) return;
+  const t = AC.currentTime + delay;
+  const o = AC.createOscillator(), g = AC.createGain();
+  o.type = type; o.frequency.setValueAtTime(f, t);
+  if (slide) o.frequency.exponentialRampToValueAtTime(Math.max(30, f + slide), t + d);
+  g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0001, t + d);
+  o.connect(g); g.connect(AC.destination); o.start(t); o.stop(t + d + 0.02);
+}
+function sfx(n) {
+  const now = performance.now();
+  const gap = { shoot: 90, hit: 50, kill: 40, hurt: 100 }[n] || 0;
+  if (gap && lastSfx[n] && now - lastSfx[n] < gap) return;
+  lastSfx[n] = now;
+  switch (n) {
+    case 'shoot': tone(560, .07, 'triangle', .03, -240); break;
+    case 'hit': tone(240, .05, 'square', .025, -80); break;
+    case 'kill': tone(180, .15, 'sawtooth', .05, -120); break;
+    case 'hurt': tone(150, .22, 'sawtooth', .08, -90); break;
+    case 'skill': tone(300, .35, 'sawtooth', .06, 600); break;
+    case 'pick': tone(520, .1, 'triangle', .07); tone(780, .14, 'triangle', .07, 0, .09); break;
+    case 'clear': [523, 659, 784, 1046].forEach((f, i) => tone(f, .18, 'triangle', .07, 0, i * .09)); break;
+    case 'portal': tone(400, .4, 'sine', .07, 500); break;
+    case 'dodge': tone(900, .08, 'sine', .05, 300); break;
+    case 'shield': tone(700, .15, 'triangle', .07, -300); break;
+    case 'zap': tone(1200, .12, 'sawtooth', .04, -900); break;
+    case 'over': [330, 262, 196, 130].forEach((f, i) => tone(f, .3, 'sawtooth', .07, 0, i * .18)); break;
+    case 'win': [523, 659, 784, 1046, 1318].forEach((f, i) => tone(f, .25, 'triangle', .08, 0, i * .12)); break;
+  }
+}
+function setMuted(m) {
+  muted = m;
+  $('btnMute').textContent = m ? '🔇' : '🔊';
+  $('btnSoundMenu').textContent = m ? '🔇 音效：關' : '🔊 音效：開';
+}
+
+/* =========================================================
+   三、技能樹資料（五大分支，僅限局內）
+   req：前置條件（技能樹分支關係）
+   ========================================================= */
+const BR = {
+  atk:  { name: '攻擊', icon: '⚔️', color: '#f87171' },
+  rate: { name: '射速與彈藥', icon: '🏹', color: '#fbbf24' },
+  def:  { name: '防禦與生存', icon: '🛡️', color: '#4ade80' },
+  mov:  { name: '移動與控制', icon: '👟', color: '#60a5fa' },
+  spc:  { name: '特殊技能', icon: '✨', color: '#c084fc' }
+};
+const SK = [
+  // ---- 攻擊分支 ----
+  { id: 'atk_dmg', br: 'atk', icon: '💪', name: '強力箭矢', max: 5, desc: '箭矢傷害 +123%' },
+  { id: 'crit', br: 'atk', icon: '🎯', name: '致命一擊', max: 5, desc: '暴擊率 +10%' },
+  { id: 'crit_dmg', br: 'atk', icon: '💥', name: '弱點洞察', max: 3, req: { crit: 1 }, desc: '暴擊傷害 +50%（需致命一擊）' },
+  { id: 'pierce', br: 'atk', icon: '🗡️', name: '穿透箭', max: 2, req: { atk_dmg: 1 }, desc: '箭矢多穿透 1 名敵人（Lv.2 穿透全部）' },
+  { id: 'wall_bounce', br: 'atk', icon: '↩️', name: '反彈牆壁', max: 1, req: { atk_dmg: 5, pierce: 1 }, desc: '箭矢能反彈牆壁 1 次' },
+  { id: 'multi', br: 'atk', icon: '🔱', name: '多重箭', max: 4, req: { atk_dmg: 2 }, desc: '每次多射出 1 支箭（扇形）' },
+  { id: 'devour', br: 'atk', icon: '☠️', name: '吞噬箭', max: 5, desc: '每擊敗 21 隻怪物，傷害永久疊加 2 點（每級減少 2 隻）' },
+  { id: 'ult_atk', br: 'atk', icon: '✨', name: '奇蹟矢', max: 1, ult: true, desc: '每次攻擊時有1%機率額外射出「奇蹟矢」額外造成100%傷害，若目標為Boss則額外造成1234%（需該分支總等級 ≥20）' },
+  // ---- 射速與彈藥分支 ----
+  { id: 'aspd', br: 'rate', icon: '⚡', name: '疾速射擊', max: 5, desc: '攻擊速度 +30%' },
+  { id: 'arrow_speed', br: 'rate', icon: '💨', name: '迅捷箭', max: 5, desc: '箭矢飛行速度 +50%' },
+  { id: 'double', br: 'rate', icon: '🔁', name: '連珠箭', max: 2, req: { aspd: 5 }, desc: '每次攻擊追加 1 輪齊射' },
+  { id: 'bounce', br: 'rate', icon: '🏀', name: '彈射箭', max: 1, req: { focus: 1 }, desc: '命中後彈射至另一敵人' },
+  { id: 'focus', br: 'rate', icon: '🧘', name: '靜心凝神', max: 5, desc: '站立不動時傷害 +8%' },
+  { id: 'focus_aspd', br: 'rate', icon: '⏱️', name: '全神貫注', max: 3, req: { double: 1, bounce: 1 }, desc: '受傷後攻速 +50%，持續 2 秒（每級 +1 秒）' },
+  { id: 'ult_rate', br: 'rate', icon: '♾️', name: '萬箭歸宗', max: 1, ult: true, desc: '每發射1000支箭矢，使攻速永久疊加1%（需該分支總等級 ≥20）' },
+  // ---- 防禦與生存分支 ----
+  { id: 'hp', br: 'def', icon: '❤️', name: '強健體魄', max: 5, desc: '最大生命 +321 並回復 321' },
+  { id: 'shield', br: 'def', icon: '🔰', name: '能量護盾', max: 5, desc: '多 1 層護盾，擋下一次傷害並自動充能' },
+  { id: 'regen', br: 'def', icon: '🌿', name: '生命回復', max: 5, req: { hp: 1 }, desc: '每秒回復 1 點生命' },
+  { id: 'armor', br: 'def', icon: '🧱', name: '堅韌護甲', max: 4, req: { hp: 1 }, desc: '受到傷害 -8%' },
+  { id: 'lifesteal', br: 'def', icon: '🩸', name: '嗜血獵手', max: 1, req: { regen: 1 }, desc: '擊殺敵人回復最大生命 1%' },
+  { id: 'revive', br: 'def', icon: '♻️', name: '不滅意志', max: 5, desc: '自身死亡時，復活最大生命的 10%（每級 +10%）' },
+  { id: 'ult_def', br: 'def', icon: '🛡️', name: '生生不息', max: 1, ult: true, desc: '每回復100點生命，防禦力+1（需該分支總等級 ≥20）' },
+  // ---- 移動與控制分支 ----
+  { id: 'speed', br: 'mov', icon: '👟', name: '輕盈步伐', max: 5, desc: '移動速度 +10%' },
+  { id: 'dodge', br: 'mov', icon: '🌀', name: '靈巧閃避', max: 5, desc: '閃避機率 +8%' },
+  { id: 'dodge_speed', br: 'mov', icon: '🏃', name: '閃身步', max: 3, req: { dodge: 3 }, desc: '閃避時移速額外再 +50%，持續 1 秒（每級 +50%）' },
+  { id: 'knockback', br: 'mov', icon: '🌬️', name: '強力擊退', max: 5, desc: '箭矢命中擊退敵人' },
+  { id: 'slow', br: 'mov', icon: '❄️', name: '寒冰箭', max: 3, req: { knockback: 1 }, desc: '每支箭矢有 0.5% 機率凍結敵人 0.1 秒（每級 +0.1 秒）' },
+  { id: 'freeze_chance', br: 'mov', icon: '🧊', name: '極寒強化', max: 2, req: { slow: 1 }, desc: '使凍結機率 +0.5%' },
+  // ---- 特殊技能分支 ----
+  { id: 'fire', br: 'spc', icon: '🔥', name: '烈焰箭', max: 5, desc: '命中點燃敵人3秒，每秒造成100%傷害（每級+10%）' },
+  { id: 'explode', br: 'spc', icon: '💣', name: '爆裂箭', max: 1, req: { fire: 1 }, desc: '命中產生範圍爆炸傷害' },
+  { id: 'summon', br: 'spc', icon: '👻', name: '幽靈弓手', max: 5, desc: '召喚 1 名環繞並自動射擊的幽靈（70%~210% 傷害）' },
+  { id: 'lightning', br: 'spc', icon: '⚡', name: '雷鳴', max: 3, req: { summon: 1 }, desc: '每 8 秒降下閃電劈擊隨機敵人，造成怪物最大生命 1%（每級 -1 秒）' },
+  { id: 'clown', br: 'spc', icon: '🤡', name: '我是小丑', max: 1, req: { explode: 1, lightning: 2, skill_homing: 1 }, desc: '每15秒自動在附近設置一個小丑吸引敵人攻擊5秒' },
+  { id: 'skill_boost', br: 'spc', icon: '🌟', name: '箭雨精通', max: 5, desc: '技能鍵「箭雨」傷害 +25%、冷卻 -1 秒' },
+  { id: 'skill_homing', br: 'spc', icon: '🌧️', name: '矢如雨下', max: 1, req: { skill_boost: 1 }, desc: '箭雨數量翻倍' },
+  { id: 'ult_spc', br: 'spc', icon: '💥', name: '箭雨連發', max: 1, ult: true, desc: '發動箭雨時有80%機率連續發動數次（需該分支總等級 ≥20）' },
+  // ---- 移動與控制分支 終極技 ----
+  { id: 'ult_mov', br: 'mov', icon: '🧊', name: '絕對零度', max: 1, ult: true, desc: '成功閃避時立即凍結全場所有怪物2秒（需該分支總等級 ≥20）' }
+];
+const SKMAP = {}; SK.forEach(s => SKMAP[s.id] = s);
+
+/* =========================================================
+   四、敵人資料
+   ========================================================= */
+const ET = {
+  slime:  { r: 12, hp: 55,  spd: 46, dmg: 16, color: '#4ade80', unlock: 1 },
+  bat:    { r: 9,  hp: 32,  spd: 175, dmg: 13, color: '#a78bfa', fly: true, unlock: 2 },
+  archer: { r: 11, hp: 45,  spd: 50, dmg: 15, color: '#fb923c', unlock: 3 },
+  golem:  { r: 16, hp: 160, spd: 34, dmg: 24, color: '#a8a29e', unlock: 4 },
+  turret: { r: 13, hp: 110, spd: 0,  dmg: 15, color: '#f472b6', unlock: 5 },
+  mage:   { r: 12, hp: 58,  spd: 38, dmg: 17, color: '#38bdf8', unlock: 6 },
+  boss:   { r: 36, hp: 666777, spd: 42, dmg: 888, color: '#7c3aed', unlock: 99 }
+};
+
+/* =========================================================
+   五、遊戲狀態
+   ========================================================= */
+let state = 'menu';                 // menu / play / upgrade / paused / over / win
+let G, P;                           // G: 本局資料；P: 玩家
+let enemies = [], arrows = [], eb = [], parts = [], rings = [], bolts = [], texts = [], comps = [], obs = [], clowns = [];
+let portal = null, shakeT = 0;
+const joy = { x: 0, y: 0 };
+const keys = { left: 0, right: 0, up: 0, down: 0 };
+
+function lvl(id) { return G.lv[id] || 0; }
+
+/* 依目前技能等級重新計算玩家屬性 */
+function recalc() {
+  const L = lvl;
+  P.dmgMul = 1 + 1.23 * L('atk_dmg');
+  P.crit = 0.05 + 0.1 * L('crit');
+  P.critMul = 1.6 + 0.5 * L('crit_dmg');
+  P.pierce = L('pierce');
+  P.wallBounce = L('wall_bounce');
+  P.multi = 1 + L('multi');
+  P.interval = 0.62 / ((1 + 0.3 * L('aspd')) * (1 + (P.aspdStacks || 0) * 0.01));
+  P.bounce = L('bounce');
+  P.arrowSpeed = 300 * (1 + 0.5 * L('arrow_speed'));
+  P.volleys = 1 + L('double');
+  P.focus = 0.08 * L('focus');
+  P.focusAspdDur = L('focus_aspd') > 0 ? (1 + L('focus_aspd')) : 0; // Lv1=2s, Lv2=3s, Lv3=4s
+  P.maxHp = 100 + 321 * L('hp');
+  P.regen = 1 * L('regen');
+  P.shieldMax = L('shield');
+  P.shieldRecharge = 10 - 1.5 * L('shield');
+  P.armor = Math.min(0.9, 0.08 * L('armor') + 0.01 * (P.armorStacks || 0));
+  P.killHealPct = 0.01 * L('lifesteal');
+  P.revivePct = 0.1 * L('revive');
+  P.devourThresh = L('devour') > 0 ? (23 - 2 * L('devour')) : 0; // Lv1=21, Lv5=13
+  P.speed = 118 * (1 + 0.1 * L('speed'));
+  P.dodge = Math.min(0.5, 0.08 * L('dodge'));
+  P.dodgeSpeedMul = 0.5 * L('dodge_speed'); // Lv1 +50%, Lv2 +100%, Lv3 +150%
+  P.knock = L('knockback');
+  P.freezeChance = 0.005 + 0.005 * L('freeze_chance'); // base 0.5% + 0.5% per level of freeze_chance
+  P.freezeDur = L('slow') > 0 ? (0.1 + 0.1 * (L('slow') - 1)) : 0; // 0.1s +0.1s per level
+  P.burn = L('fire');
+  P.explode = L('explode');
+  P.summon = L('summon');
+  P.lightning = L('lightning');
+  P.ltInterval = L('lightning') > 0 ? Math.max(5, 9 - L('lightning')) : 0; // Lv1=8s, Lv2=7s, Lv3=6s
+  P.sb = L('skill_boost');
+  P.skillHoming = L('skill_homing');
+  P.skillMaxCd = Math.max(5, 14 - 1 * P.sb); // -1s per level
+  P.clown = L('clown');
+  P.ultSpc = L('ult_spc');
+  P.ultMov = L('ult_mov');
+  P.ultAtk = L('ult_atk');
+  P.ultRate = L('ult_rate');
+  P.ultDef = L('ult_def');
+  if (P.hp > P.maxHp) P.hp = P.maxHp;
+}
+
+function applyHeal(amt) {
+  if (amt <= 0) return;
+  const before = P.hp;
+  P.hp = Math.min(P.maxHp, P.hp + amt);
+  const gained = P.hp - before;
+  if (gained > 0 && P.ultDef) {
+    P.healAccum = (P.healAccum || 0) + gained;
+    while (P.healAccum >= 100) {
+      P.healAccum -= 100;
+      P.armorStacks = (P.armorStacks || 0) + 1;
+      recalc();
+      addText(P.x, P.y - 30, '防禦+' + P.armorStacks, '#86efac');
+    }
+  }
+}
+/* 開始新的一局 */
+function newGame() {
+  G = { level: 1, kills: 0, time: 0, lv: {}, picks: 0, cleared: false, clearTimer: 0, portalOpen: false, hurt: 0, upLock: 0, devourKills: 0, diff: G && G.diff ? G.diff : 99 };
+  P = { x: 180, y: 560, r: 11, hp: 100, maxHp: 100, atk: 14, cd: 0.3, inv: 0, shield: 0, shT: 0, skillCd: 0,
+        aim: -Math.PI / 2, moving: false, volleyQ: [], ltT: 2, compT: 0, compAng: 0, focusAspdT: 0, devourStacks: 0, dodgeSpeedT: 0, reviveUsed: false, clownT: 0, arrowFired: 0, aspdStacks: 0, armorStacks: 0, healAccum: 0 };
+  comps = [];
+  recalc(); P.hp = P.maxHp;
+  buildProg(); renderQuick();
+  startLevel(1);
+}
+
+/* =========================================================
+   六、關卡生成
+   ========================================================= */
+function maxLevel() { return (G && G.diff === 1) ? 2 : 25; }
+function isElite(n) { return G && G.diff !== 1 && n % 5 === 0 && n < 25; }
+function isBoss(n) { return n === maxLevel(); }
+
+function startLevel(n) {
+  G.level = n; G.cleared = false; G.clearTimer = 0; G.portalOpen = false; portal = null;
+  enemies = []; arrows = []; eb = []; parts = []; rings = []; bolts = []; texts = []; clowns = []; comps = [];
+  P.x = 180; P.y = 560; P.inv = 1; P.volleyQ = []; P.cd = 0.5;
+  genObstacles(n); spawnWave(n);
+  const bossBar = $('bossbar'); bossBar.style.display = isBoss(n) ? 'block' : 'none';
+  if (state === 'play') {
+    if (isBoss(n)) showBanner('第 ' + n + ' 關', '☠ 最終 Boss 戰 ☠');
+    else if (isElite(n)) showBanner('第 ' + n + ' 關', '⚠ 精英關 ⚠');
+    else showBanner('第 ' + n + ' 關', '清除所有怪物');
+  }
+  updateProg();
+}
+
+/* 隨機障礙物（岩石） */
+function genObstacles(n) {
+  obs = [];
+  if (isBoss(n)) return;
+  const cnt = 2 + Math.floor(Math.random() * 3);
+  for (let t = 0; t < 60 && obs.length < cnt; t++) {
+    const w = rand(40, 80), h = rand(24, 44);
+    const x = rand(AX0 + 30, AX1 - 30 - w), y = rand(AY0 + 100, AY1 - 190 - h);
+    if (obs.some(b => x < b.x + b.w + 40 && x + w + 40 > b.x && y < b.y + b.h + 40 && y + h + 40 > b.y)) continue;
+    obs.push({ x, y, w, h });
+  }
+}
+function inObs(x, y, r) { return obs.some(b => x > b.x - r && x < b.x + b.w + r && y > b.y - r && y < b.y + b.h + r); }
+
+function findSpot(r) {
+  for (let t = 0; t < 60; t++) {
+    const x = rand(AX0 + 30, AX1 - 30), y = rand(AY0 + 30, AY0 + (AY1 - AY0) * 0.55);
+    if (Math.hypot(x - P.x, y - P.y) < 170) continue;
+    if (inObs(x, y, r + 8)) continue;
+    if (enemies.some(e => Math.hypot(e.x - x, e.y - y) < e.r + r + 10)) continue;
+    return { x, y };
+  }
+  return { x: rand(AX0 + 40, AX1 - 40), y: AY0 + 60 };
+}
+
+function spawnWave(n) {
+  if (isBoss(n)) { addEnemy('boss', 180, 190, { boss: true }); return; }
+  if (G.diff === 1 && n === 1) {
+    // Lv.1 第一關：僅史萊姆
+    for (let i = 0; i < 5; i++) { const s = findSpot(ET.slime.r); addEnemy('slime', s.x, s.y, {}); }
+    return;
+  }
+  const pool = Object.keys(ET).filter(k => k !== 'boss' && ET[k].unlock <= n);
+  let cnt = Math.min(9, 3 + Math.floor((n - 1) / 2.2));
+  if (isElite(n)) {
+    const ne = n >= 15 ? 2 : 1;
+    const ep = pool.filter(k => k !== 'bat');
+    for (let i = 0; i < ne; i++) { const t = ep[Math.floor(Math.random() * ep.length)]; const s = findSpot(24); addEnemy(t, s.x, s.y, { elite: true }); }
+    cnt = Math.max(2, cnt - 3);
+  }
+  // 本關新解鎖的怪物至少出現 1 隻（例如第 2 關必有蝙蝠）
+  const newTypes = pool.filter(k => ET[k].unlock === n);
+  for (const t of newTypes) {
+    if (cnt <= 0) break;
+    const s = findSpot(ET[t].r); addEnemy(t, s.x, s.y, {});
+    cnt--;
+  }
+  for (let i = 0; i < cnt; i++) {
+    const t = pool[Math.floor(Math.random() * pool.length)];
+    const s = findSpot(ET[t].r); addEnemy(t, s.x, s.y, {});
+  }
+}
+
+function addEnemy(type, x, y, o) {
+  const d = ET[type], n = G.level;
+  const el = !!o.elite, bs = !!o.boss;
+  // 指數成長：血量 ×1.3^(關卡-1)、傷害 ×1.2^(關卡-1)；Boss 固定不套用
+  const hpm = bs ? 1 : Math.pow(1.3, n - 1);
+  const dmgm = bs ? 1 : Math.pow(1.2, n - 1);
+  const e = {
+    type, x, y, r: d.r * (el ? 1.5 : 1),
+    hp: d.hp * hpm * (el ? 5 : 1), maxHp: 0,
+    spd: d.spd * (el ? 0.9 : 1) * (1 + n * 0.006),
+    dmg: d.dmg * dmgm * (el ? 10 : 1),
+    color: d.color, fly: !!d.fly, elite: el, boss: bs,
+    spawnT: 0.7 + Math.random() * 0.4, cd: 1 + Math.random() * 1.5, ecd: 3 + Math.random() * 2,
+    st: 'walk', stT: 2 + Math.random() * 1.5, kx: 0, ky: 0, slow: 0, freezeT: 0, burn: 0, burnT: 0, burnDps: 0,
+    flash: 0, ang: Math.random() * TAU, dir: Math.random() < .5 ? 1 : -1, dead: false,
+    acts: [], pi: -1, pt: 2, dx: 0, dy: 0
+  };
+  e.maxHp = e.hp;
+  enemies.push(e);
+  return e;
+}
+
+/* =========================================================
+   七、碰撞與移動
+   ========================================================= */
+function pushOut(o, b) {
+  const cx = clamp(o.x, b.x, b.x + b.w), cy = clamp(o.y, b.y, b.y + b.h);
+  const dx = o.x - cx, dy = o.y - cy, d2 = dx * dx + dy * dy;
+  if (d2 >= o.r * o.r) return;
+  if (d2 < 1e-6) {
+    const l = o.x - b.x, r = b.x + b.w - o.x, t = o.y - b.y, bt = b.y + b.h - o.y, m = Math.min(l, r, t, bt);
+    if (m === l) o.x = b.x - o.r; else if (m === r) o.x = b.x + b.w + o.r;
+    else if (m === t) o.y = b.y - o.r; else o.y = b.y + b.h + o.r;
+  } else { const d = Math.sqrt(d2); o.x = cx + dx / d * o.r; o.y = cy + dy / d * o.r; }
+}
+function moveEnt(o, dx, dy, fly) {
+  o.x = clamp(o.x + dx, AX0 + o.r, AX1 - o.r);
+  o.y = clamp(o.y + dy, AY0 + o.r, AY1 - o.r);
+  if (!fly) for (const b of obs) pushOut(o, b);
+}
+function nearestEnemy(x, y, exclude, maxD) {
+  let best = null, bd = maxD || 1e9;
+  for (const e of enemies) {
+    if (e.dead || e.spawnT > 0 || (exclude && exclude.has(e))) continue;
+    const d = Math.hypot(e.x - x, e.y - y);
+    if (d < bd) { bd = d; best = e; }
+  }
+  return best;
+}
+
+/* =========================================================
+   八、玩家：移動、射擊、受傷
+   ========================================================= */
+function calcShot() {
+  let dmg = (P.atk + (P.devourStacks || 0)) * P.dmgMul;
+  if (!P.moving && P.focus) dmg *= 1 + P.focus;
+  const crit = Math.random() < P.crit;
+  if (crit) dmg *= P.critMul;
+  return { dmg, crit };
+}
+function spawnArrow(x, y, ang, dmg, crit, o) {
+  o = o || {};
+  const sp = o.speed || P.arrowSpeed;
+  const pr = o.pierce !== undefined ? o.pierce : (P.pierce >= 2 ? 999 : P.pierce);
+  arrows.push({ x, y, vx: Math.cos(ang) * sp, vy: Math.sin(ang) * sp, dmg, crit,
+    pierce: pr,
+    bounce: o.bounce !== undefined ? o.bounce : P.bounce,
+    wallB: o.wallB !== undefined ? o.wallB : P.wallBounce,
+    homing: !!o.homing,
+    hit: new Set(), life: o.miracle ? 12 : 1.8, r: o.miracle ? 12 : 4, small: !!o.small, miracle: !!o.miracle, dead: false });
+  if (P.ultRate) {
+    P.arrowFired = (P.arrowFired || 0) + 1;
+    if (P.arrowFired >= 1000) {
+      P.arrowFired = 0;
+      P.aspdStacks = (P.aspdStacks || 0) + 1;
+      recalc();
+      addText(P.x, P.y - 30, '攻速+' + P.aspdStacks + '%', '#fbbf24');
+    }
+  }
+}
+/* 射出一輪齊射（扇形多重箭） */
+function fireVolley() {
+  const t = nearestEnemy(P.x, P.y);
+  if (!t) return;
+  P.aim = Math.atan2(t.y - P.y, t.x - P.x);
+  const n = P.multi, spread = 0.15;
+  for (let i = 0; i < n; i++) {
+    const a = P.aim + (i - (n - 1) / 2) * spread;
+    const s = calcShot();
+    spawnArrow(P.x + Math.cos(a) * 14, P.y + Math.sin(a) * 14, a, s.dmg, s.crit);
+  }
+  if (P.ultAtk && Math.random() < 0.01) {
+    const mul = t.boss ? 12.34 : 1;
+    const s = calcShot();
+    spawnArrow(P.x + Math.cos(P.aim) * 14, P.y + Math.sin(P.aim) * 14, P.aim, s.dmg * mul, true, { speed: 300, wallB: 42, miracle: true });
+    addText(P.x, P.y - 36, '奇蹟矢!', '#fde047', true);
+  }
+  sfx('shoot');
+}
+function hurtPlayer(d) {
+  if (P.inv > 0 || state !== 'play') return;
+  if (Math.random() < P.dodge) {
+    P.inv = 0.3;
+    if (P.dodgeSpeedMul > 0) { P.dodgeSpeedT = 1; }
+    if (P.ultMov) {
+      for (const e of enemies) if (!e.dead && e.spawnT <= 0) e.freezeT = Math.max(e.freezeT || 0, 2);
+      addText(P.x, P.y - 36, '絕對零度!', '#7dd3fc', true);
+      ring(P.x, P.y, 80, '#7dd3fc');
+    }
+    addText(P.x, P.y - 20, '閃避', '#7dd3fc'); sfx('dodge'); return;
+  }
+  if (P.shield > 0) { P.shield--; P.shT = 0; P.inv = 0.6; addText(P.x, P.y - 20, '護盾', '#67e8f9'); ring(P.x, P.y, 34, '#67e8f9'); sfx('shield'); return; }
+  d *= (1 - P.armor);
+  P.hp -= d; P.inv = 0.7; G.hurt = 0.35; shakeT = 0.2;
+  addText(P.x, P.y - 20, '-' + Math.round(d), '#fca5a5', true);
+  sfx('hurt');
+  if (P.focusAspdDur > 0) { P.focusAspdT = P.focusAspdDur; }
+  if (P.hp <= 0) {
+    if (P.revivePct > 0 && !P.reviveUsed) {
+      P.reviveUsed = true;
+      const revAmt = Math.max(1, Math.floor(P.maxHp * P.revivePct)) - P.hp;
+      applyHeal(Math.max(0, revAmt));
+      if (P.hp < 1) P.hp = 1;
+      P.inv = 1.5;
+      addText(P.x, P.y - 28, '復活!', '#86efac', true);
+      ring(P.x, P.y, 50, '#86efac');
+      sfx('pick');
+    } else {
+      P.hp = 0; gameOver();
+    }
+  }
+}
+
+function updatePlayer(dt) {
+  let ix = joy.x + keys.right - keys.left, iy = joy.y + keys.down - keys.up;
+  const l = Math.hypot(ix, iy);
+  if (l > 1) { ix /= l; iy /= l; }
+  P.moving = l > 0.12;
+  if (P.dodgeSpeedT > 0) P.dodgeSpeedT -= dt;
+  const spdMul = 1 + (P.dodgeSpeedT > 0 ? P.dodgeSpeedMul : 0);
+  if (P.moving) moveEnt(P, ix * P.speed * spdMul * dt, iy * P.speed * spdMul * dt, false);
+  if (P.inv > 0) P.inv -= dt;
+  if (P.focusAspdT > 0) P.focusAspdT -= dt;
+  if (P.regen > 0 && P.hp < P.maxHp) applyHeal(P.regen * dt);
+  if (P.shield < P.shieldMax) { P.shT += dt; if (P.shT >= P.shieldRecharge) { P.shield++; P.shT = 0; } }
+  if (P.skillCd > 0) P.skillCd -= dt;
+  // 自動射擊
+  P.cd -= dt;
+  if (P.cd <= 0 && nearestEnemy(P.x, P.y)) {
+    const interval = P.focusAspdT > 0 ? P.interval / 1.5 : P.interval;
+    P.cd = interval;
+    for (let i = 0; i < P.volleys; i++) P.volleyQ.push({ t: i * 0.13 });
+  }
+  for (let i = P.volleyQ.length - 1; i >= 0; i--) {
+    const q = P.volleyQ[i]; q.t -= dt;
+    if (q.t <= 0) { fireVolley(); P.volleyQ.splice(i, 1); }
+  }
+  // 閃電：造成怪物最大生命 1%
+  if (P.lightning > 0) {
+    P.ltT -= dt;
+    if (P.ltT <= 0) {
+      P.ltT = P.ltInterval;
+      const alive = enemies.filter(e => !e.dead && e.spawnT <= 0);
+      if (alive.length) {
+        const e = alive[Math.floor(Math.random() * alive.length)];
+        bolts.push({ x: e.x, y: e.y, life: 0.3 });
+        dmgEnemy(e, e.maxHp * 0.01, false); sfx('zap');
+        burst(e.x, e.y, '#fde047', 10, 120, .4, 3);
+      }
+    }
+  }
+  // 小丑：每15秒在附近放置吸引敵人的小丑，持續3秒
+  if (P.clown > 0) {
+    P.clownT -= dt;
+    if (P.clownT <= 0) {
+      P.clownT = 15;
+      const cx = clamp(P.x + rand(-80, 80), AX0 + 30, AX1 - 30);
+      const cy = clamp(P.y + rand(-80, 80), AY0 + 30, AY1 - 30);
+      clowns.push({ x: cx, y: cy, life: 5 });
+      ring(cx, cy, 40, '#fbbf24');
+      sfx('pick');
+    }
+  }
+  for (let i = clowns.length - 1; i >= 0; i--) {
+    clowns[i].life -= dt;
+    if (clowns[i].life <= 0) clowns.splice(i, 1);
+  }
+  // 幽靈弓手：70%~210% 角色傷害，不受攻速影響
+  P.compAng += dt * 2.2;
+  while (comps.length > P.summon) comps.pop();
+  while (comps.length < P.summon) comps.push({ cd: rand(0.3, 1), x: P.x, y: P.y });
+  comps.forEach((c, i) => {
+    const a = P.compAng + i * TAU / Math.max(1, P.summon);
+    c.x = P.x + Math.cos(a) * 36; c.y = P.y + Math.sin(a) * 36;
+    c.cd -= dt;
+    if (c.cd <= 0) {
+      const t = nearestEnemy(c.x, c.y);
+      if (t) {
+        c.cd = 1.1;
+        const mul = 0.7 + Math.random() * 1.4; // 70%~210%
+        const dmg = (P.atk + (P.devourStacks || 0)) * P.dmgMul * mul;
+        spawnArrow(c.x, c.y, Math.atan2(t.y - c.y, t.x - c.x), dmg, false, { pierce: 0, bounce: 0, small: true, speed: 320 });
+      } else c.cd = 0.3;
+    }
+  });
+}
+
+/* 技能鍵：箭雨（環形爆發箭） */
+function fireRain() {
+  const n = (16 + 4 * P.sb) * (P.skillHoming ? 2 : 1), dmg = (P.atk + (P.devourStacks || 0)) * P.dmgMul * (1.8 + 0.45 * P.sb);
+  for (let i = 0; i < n; i++) spawnArrow(P.x, P.y, i * TAU / n, dmg, false, { pierce: 3, bounce: 0, speed: 300, homing: false });
+  ring(P.x, P.y, 90, '#fbbf24'); ring(P.x, P.y, 60, '#fff');
+  burst(P.x, P.y, '#fbbf24', 20, 200, .6, 3);
+}
+function useSkill() {
+  if (state !== 'play' || P.skillCd > 0) return;
+  P.skillCd = P.skillMaxCd;
+  fireRain();
+  sfx('skill'); shakeT = 0.15;
+  // 終極技：80% 機率連續發動數次
+  if (P.ultSpc && Math.random() < 0.8) {
+    const extra = 1 + Math.floor(Math.random() * 2); // 1~2 次額外
+    for (let k = 1; k <= extra; k++) {
+      setTimeout(() => { if (state === 'play') { fireRain(); sfx('skill'); } }, k * 220);
+    }
+  }
+}
+
+/* =========================================================
+   九、箭矢、傷害與擊殺
+   ========================================================= */
+function dmgEnemy(e, d, crit, silent) {
+  if (e.dead || e.spawnT > 0) return;
+  if (e.boss) d *= 0.5; // Boss 受到傷害減半
+  e.hp -= d; e.flash = 0.08;
+  if (!silent) addText(e.x + rand(-8, 8), e.y - e.r - 6, Math.round(d) + (crit ? '!' : ''), crit ? '#fbbf24' : '#fff', crit);
+  sfx('hit');
+  if (e.hp <= 0) killEnemy(e);
+}
+function killEnemy(e) {
+  if (e.dead) return;
+  e.dead = true; G.kills++;
+  burst(e.x, e.y, e.color, e.boss ? 60 : e.elite ? 26 : 12, e.boss ? 260 : 130, .7, e.boss ? 5 : 3);
+  ring(e.x, e.y, e.r * 2.2, e.color);
+  sfx('kill');
+  if (P.killHealPct > 0) applyHeal(P.maxHp * P.killHealPct);
+  if (P.devourThresh > 0) {
+    G.devourKills = (G.devourKills || 0) + 1;
+    if (G.devourKills >= P.devourThresh) {
+      G.devourKills = 0;
+      P.devourStacks = (P.devourStacks || 0) + 2;
+      addText(P.x, P.y - 30, '吞噬+' + P.devourStacks, '#fbbf24');
+    }
+  }
+  if (e.boss) { shakeT = 0.6; enemies.forEach(o => { if (o !== e && !o.dead) { o.dead = true; burst(o.x, o.y, o.color, 10, 120, .5, 3); } }); }
+}
+function explode(x, y, rad, dmg, skip) {
+  ring(x, y, rad, '#fb923c'); burst(x, y, '#fb923c', 10, 140, .4, 3);
+  for (const e of enemies) if (!e.dead && e !== skip && e.spawnT <= 0 && Math.hypot(e.x - x, e.y - y) < rad + e.r) dmgEnemy(e, dmg, false, true);
+}
+function onArrowHit(a, e) {
+  a.hit.add(e);
+  dmgEnemy(e, a.dmg, a.crit);
+  const l = Math.hypot(a.vx, a.vy) || 1;
+  if (P.knock && !a.small) { const f = P.knock * 70 * (e.boss ? 0.12 : e.elite ? 0.5 : 1); e.kx += a.vx / l * f; e.ky += a.vy / l * f; }
+  if (P.freezeDur > 0 && Math.random() < P.freezeChance) { e.freezeT = Math.max(e.freezeT || 0, P.freezeDur); }
+  if (P.burn && !e.dead) { e.burn = 3; e.burnT = 0; e.burnDps = Math.max(e.burnDps || 0, (P.atk + (P.devourStacks || 0)) * P.dmgMul * (1 + 0.1 * (P.burn - 1))); }
+  if (P.explode) explode(e.x, e.y, 34 + 8 * P.explode, a.dmg * 0.45, e);
+  burst(a.x, a.y, '#fde68a', 3, 70, .25, 2);
+  if (a.pierce > 0) a.pierce--;
+  else if (a.bounce > 0) {
+    a.bounce--;
+    const t = nearestEnemy(a.x, a.y, a.hit, 280);
+    if (t) { const sp = Math.hypot(a.vx, a.vy), an = Math.atan2(t.y - a.y, t.x - a.x); a.vx = Math.cos(an) * sp; a.vy = Math.sin(an) * sp; }
+    else a.dead = true;
+  } else a.dead = true;
+}
+function updateArrows(dt) {
+  for (const a of arrows) {
+    a.life -= dt; if (a.life <= 0) { a.dead = true; continue; }
+    if (a.homing) {
+      const t = nearestEnemy(a.x, a.y, a.hit, 400);
+      if (t) {
+        const ang = Math.atan2(t.y - a.y, t.x - a.x);
+        const cur = Math.atan2(a.vy, a.vx);
+        let diff = ang - cur;
+        while (diff > Math.PI) diff -= TAU;
+        while (diff < -Math.PI) diff += TAU;
+        const turn = Math.max(-0.12, Math.min(0.12, diff));
+        const nsp = Math.hypot(a.vx, a.vy);
+        a.vx = Math.cos(cur + turn) * nsp;
+        a.vy = Math.sin(cur + turn) * nsp;
+      }
+    }
+    const sp = Math.hypot(a.vx, a.vy), steps = Math.max(1, Math.ceil(sp * dt / 8)), sdt = dt / steps;
+    for (let s = 0; s < steps && !a.dead; s++) {
+      a.x += a.vx * sdt; a.y += a.vy * sdt;
+      if (a.x < AX0 || a.x > AX1 || a.y < AY0 || a.y > AY1) {
+        if (a.wallB > 0) {
+          if (a.x < AX0) { a.x = AX0; a.vx = Math.abs(a.vx); }
+          else if (a.x > AX1) { a.x = AX1; a.vx = -Math.abs(a.vx); }
+          if (a.y < AY0) { a.y = AY0; a.vy = Math.abs(a.vy); }
+          else if (a.y > AY1) { a.y = AY1; a.vy = -Math.abs(a.vy); }
+          a.wallB--;
+        } else { a.dead = true; burst(a.x, a.y, '#ccc', 3, 50, .2, 2); break; }
+      } else if (inObs(a.x, a.y, 2)) { a.dead = true; burst(a.x, a.y, '#ccc', 3, 50, .2, 2); break; }
+      for (const e of enemies) {
+        if (e.dead || e.spawnT > 0 || a.hit.has(e)) continue;
+        if (Math.hypot(a.x - e.x, a.y - e.y) < e.r + a.r) { onArrowHit(a, e); if (a.dead) break; }
+      }
+    }
+  }
+  arrows = arrows.filter(a => !a.dead);
+}
+
+/* =========================================================
+   十、敵人 AI 與敵方子彈
+   ========================================================= */
+function fireEB(x, y, ang, sp, dmg, color, r) { eb.push({ x, y, vx: Math.cos(ang) * sp, vy: Math.sin(ang) * sp, dmg, color, r: r || 5, life: 6 }); }
+function fireRing(e, n, sp, off, dmg) { for (let i = 0; i < n; i++) fireEB(e.x, e.y, off + i * TAU / n, sp, dmg !== undefined ? dmg : e.dmg * 0.9, e.color); }
+
+function updateEnemy(e, dt) {
+  if (e.spawnT > 0) { e.spawnT -= dt; return; }
+  if (e.burn > 0) { e.burn -= dt; e.burnT -= dt; if (e.burnT <= 0) { e.burnT = 0.5; dmgEnemy(e, e.burnDps * 0.5, false, false); if (e.dead) return; } }
+  if (e.freezeT > 0) e.freezeT -= dt;
+  if (e.flash > 0) e.flash -= dt;
+  if (e.freezeT > 0) {
+    // 凍結中：無法移動與攻擊
+    e.kx *= Math.max(0, 1 - dt * 8); e.ky *= Math.max(0, 1 - dt * 8);
+    moveEnt(e, e.kx * dt, e.ky * dt, e.fly);
+    return;
+  }
+  const sp = e.spd;
+  let tx = P.x, ty = P.y;
+  if (clowns.length) {
+    let best = clowns[0], bd = Math.hypot(e.x - best.x, e.y - best.y);
+    for (let i = 1; i < clowns.length; i++) {
+      const dd = Math.hypot(e.x - clowns[i].x, e.y - clowns[i].y);
+      if (dd < bd) { bd = dd; best = clowns[i]; }
+    }
+    tx = best.x; ty = best.y;
+  }
+  const dx = tx - e.x, dy = ty - e.y, d = Math.hypot(dx, dy) || 1, nx = dx / d, ny = dy / d;
+  let mx = 0, my = 0;
+  switch (e.type) {
+    case 'slime': mx = nx * sp; my = ny * sp; break;
+    case 'bat': e.ang += dt * 5; mx = nx * sp + (-ny) * Math.sin(e.ang) * sp * 0.9; my = ny * sp + nx * Math.sin(e.ang) * sp * 0.9; break;
+    case 'archer':
+      if (d > 210) { mx = nx * sp; my = ny * sp; } else if (d < 150) { mx = -nx * sp; my = -ny * sp; } else { mx = -ny * sp * e.dir * 0.7; my = nx * sp * e.dir * 0.7; }
+      e.cd -= dt; if (e.cd <= 0) { e.cd = 2; fireEB(e.x, e.y, Math.atan2(dy, dx), 140, e.dmg, e.color); }
+      break;
+    case 'mage':
+      if (d > 230) { mx = nx * sp; my = ny * sp; }
+      e.cd -= dt; if (e.cd <= 0) { e.cd = 2.6; const b = Math.atan2(dy, dx); for (let i = -1; i <= 1; i++) fireEB(e.x, e.y, b + i * 0.28, 120, e.dmg, e.color, 6); }
+      break;
+    case 'golem':
+      if (e.st === 'walk') { mx = nx * sp; my = ny * sp; e.stT -= dt; if (e.stT <= 0) { e.st = 'wind'; e.stT = 0.6; } }
+      else if (e.st === 'wind') { e.stT -= dt; if (e.stT <= 0) { e.st = 'dash'; e.stT = 0.7; e.dx = nx; e.dy = ny; } }
+      else { mx = e.dx * 260; my = e.dy * 260; e.stT -= dt; if (e.stT <= 0) { e.st = 'walk'; e.stT = 2.5; } }
+      break;
+    case 'turret':
+      e.cd -= dt; if (e.cd <= 0) { e.cd = 2.8; e.ang += 0.4; fireRing(e, 8, 105, e.ang); }
+      break;
+    case 'boss': { const r = bossAI(e, dt, nx, ny, d, sp); mx = r[0]; my = r[1]; break; }
+  }
+  // 精英額外攻擊：週期性環形彈幕
+  if (e.elite && e.type !== 'turret') { e.ecd -= dt; if (e.ecd <= 0) { e.ecd = 3.6; fireRing(e, 10, 100, Math.random() * TAU, e.dmg * 0.7); } }
+  e.kx *= Math.max(0, 1 - dt * 8); e.ky *= Math.max(0, 1 - dt * 8);
+  moveEnt(e, (mx + e.kx) * dt, (my + e.ky) * dt, e.fly);
+  // 敵人互相推開
+  for (const o of enemies) {
+    if (o === e || o.dead || o.spawnT > 0) continue;
+    const ox = e.x - o.x, oy = e.y - o.y, od = Math.hypot(ox, oy), min = (e.r + o.r) * 0.85;
+    if (od > 0 && od < min) { const p = (min - od) * 0.5; e.x += ox / od * p * 0.5; e.y += oy / od * p * 0.5; }
+  }
+  // 接觸傷害
+  if (Math.hypot(P.x - e.x, P.y - e.y) < e.r + P.r - 2) hurtPlayer(e.dmg);
+}
+
+/* Boss：多階段攻擊模式 */
+function bossAI(e, dt, nx, ny, d, sp) {
+  const enr = e.hp < e.maxHp * 0.55;
+  for (let i = e.acts.length - 1; i >= 0; i--) { const a = e.acts[i]; a.t -= dt; if (a.t <= 0) { a.fn(); e.acts.splice(i, 1); } }
+  const bd = 14;
+  if (e.st === 'wind') { e.stT -= dt; if (e.stT <= 0) { e.st = 'dash'; e.stT = 0.8; e.dx = nx; e.dy = ny; } return [0, 0]; }
+  if (e.st === 'dash') { e.stT -= dt; if (e.stT <= 0) { e.st = 'walk'; } return [e.dx * 290, e.dy * 290]; }
+  e.pt -= dt;
+  if (e.pt <= 0) {
+    e.pi = (e.pi + 1) % 5;
+    if (e.pi === 0) { fireRing(e, enr ? 28 : 20, 120, Math.random() * TAU, bd); e.pt = enr ? 1.1 : 1.6; }
+    else if (e.pi === 1) {
+      for (let i = 0; i < 3; i++) e.acts.push({ t: i * 0.4, fn: () => { const b = Math.atan2(P.y - e.y, P.x - e.x), n = enr ? 4 : 2; for (let k = -n; k <= n; k++) fireEB(e.x, e.y, b + k * 0.2, 150, bd, '#f0abfc', 6); } });
+      e.pt = 2.0;
+    }
+    else if (e.pi === 2) {
+      const base = Math.random() * TAU;
+      for (let i = 0; i < 30; i++) e.acts.push({ t: i * (enr ? 0.07 : 0.1), fn: () => { const a = base + i * 0.45; fireEB(e.x, e.y, a, 120, bd, '#fb7185'); fireEB(e.x, e.y, a + Math.PI, 120, bd, '#fb7185'); } });
+      e.pt = 3.4;
+    }
+    else if (e.pi === 3) { e.st = 'wind'; e.stT = 0.7; e.pt = enr ? 1.4 : 2.2; ring(e.x, e.y, 60, '#ff5a5a'); }
+    else {
+      if (e.hp < e.maxHp * 0.75 && enemies.filter(o => !o.dead && !o.boss).length < 5) {
+        const pool = Object.keys(ET).filter(k => k !== 'boss');
+        pool.forEach((t, i) => {
+          const ang = (i / pool.length) * Math.PI * 2;
+          const se = addEnemy(t, clamp(e.x + Math.cos(ang) * 60, AX0 + 20, AX1 - 20), clamp(e.y + Math.sin(ang) * 60 + 20, AY0 + 20, AY1 - 20), {});
+          se.hp = se.maxHp = 54321;
+        });
+        e.hp = Math.min(e.maxHp, e.hp + e.maxHp * 0.05); // 召喚時回復最大生命 5%
+        ring(e.x, e.y, 80, '#c084fc');
+        addText(e.x, e.y - e.r - 20, '回復!', '#86efac', true);
+      } else fireRing(e, 16, 140, 0, bd);
+      e.pt = 1.8;
+    }
+  }
+  const mv = d > 120 ? sp * 0.7 : 0;
+  return [nx * mv, ny * mv];
+}
+
+function updateEB(dt) {
+  for (const b of eb) {
+    b.x += b.vx * dt; b.y += b.vy * dt; b.life -= dt;
+    if (b.life <= 0 || b.x < AX0 - 10 || b.x > AX1 + 10 || b.y < AY0 - 10 || b.y > AY1 + 10) { b.dead = true; continue; }
+    if (inObs(b.x, b.y, b.r * 0.5)) { b.dead = true; burst(b.x, b.y, b.color, 3, 50, .2, 2); continue; }
+    if (Math.hypot(b.x - P.x, b.y - P.y) < P.r * 0.75 + b.r) { b.dead = true; hurtPlayer(b.dmg); }
+  }
+  eb = eb.filter(b => !b.dead);
+}
+
+/* =========================================================
+   十一、特效（粒子、圓環、浮動文字）
+   ========================================================= */
+function burst(x, y, color, n, sp, life, size) {
+  for (let i = 0; i < n && parts.length < 500; i++) {
+    const a = Math.random() * TAU, s = rand(sp * 0.3, sp);
+    parts.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, life, max: life, color, size });
+  }
+}
+function ring(x, y, r, color) { rings.push({ x, y, r: 0, max: r, life: 0.4, ml: 0.4, color }); }
+function addText(x, y, txt, color, big) { if (texts.length < 40) texts.push({ x, y, txt, color, big, life: 0.7 }); }
+function updateFx(dt) {
+  for (const p of parts) { p.x += p.vx * dt; p.y += p.vy * dt; p.vx *= 0.94; p.vy *= 0.94; p.life -= dt; }
+  parts = parts.filter(p => p.life > 0);
+  for (const r of rings) { r.life -= dt; r.r = r.max * (1 - r.life / r.ml); }
+  rings = rings.filter(r => r.life > 0);
+  for (const b of bolts) b.life -= dt;
+  bolts = bolts.filter(b => b.life > 0);
+  for (const t of texts) { t.life -= dt; t.y -= 28 * dt; }
+  texts = texts.filter(t => t.life > 0);
+  if (shakeT > 0) shakeT -= dt;
+  if (G.hurt > 0) G.hurt -= dt;
+}
+
+/* =========================================================
+   十二、主更新、過關流程
+   ========================================================= */
+function update(dt) {
+  G.time += dt;
+  updatePlayer(dt);
+  for (const e of enemies) if (!e.dead) updateEnemy(e, dt);
+  enemies = enemies.filter(e => !e.dead);
+  updateArrows(dt);
+  updateEB(dt);
+  updateFx(dt);
+  // 清場判定
+  if (!G.cleared && enemies.length === 0 && state === 'play') clearLevel();
+  if (G.cleared && G.clearTimer > 0) {
+    G.clearTimer -= dt;
+    if (G.clearTimer <= 0) {
+      if (G.level >= maxLevel()) showWin(); else if (G.picks > 0) openUpgrade(); else finishPicks();
+    }
+  }
+  // 傳送門
+  if (portal && G.portalOpen && Math.hypot(P.x - portal.x, P.y - portal.y) < 28) {
+    sfx('portal'); state = 'play'; startLevel(G.level + 1);
+  }
+}
+function clearLevel() {
+  G.cleared = true; eb = [];
+  applyHeal(P.maxHp * 0.2);
+  sfx('clear');
+  const ml = maxLevel();
+  G.clearTimer = G.level >= ml ? 1.6 : 0.9;
+  if (G.diff === 1 && G.level === 1) {
+    // Lv.1：第一關結束直接滿級全技能，不開升級介面
+    G.picks = 0;
+    SK.forEach(s => { G.lv[s.id] = s.max; });
+    recalc(); checkAutoUlts(); renderQuick();
+    P.hp = P.maxHp;
+    showBanner('房間已清空', '已獲得全部滿級技能！');
+  } else {
+    G.picks = isElite(G.level) ? 10 : 1;
+    if (G.level >= ml) showBanner('Boss 已擊敗！', '🎉 勝利 🎉');
+    else showBanner('房間已清空', '準備選擇強化');
+  }
+}
+
+/* =========================================================
+   十三、升級三選一
+   ========================================================= */
+function available() {
+  return SK.filter(s => !s.ult && lvl(s.id) < s.max && (!s.req || Object.keys(s.req).every(k => lvl(k) >= s.req[k])));
+}
+function checkAutoUlts() {
+  let changed = false;
+  SK.filter(s => s.ult).forEach(s => {
+    if (lvl(s.id) < s.max && branchTotal(s.br) >= 20) {
+      G.lv[s.id] = s.max;
+      changed = true;
+    }
+  });
+  if (changed) { recalc(); renderQuick(); }
+}
+/* ---------- 技能樹：節點座標 [欄, 列]（欄 0 為各分支的起點樞紐，由程式自動放置）---------- */
+const TREE_POS = {
+  atk_dmg: [1, 0], crit: [1, 2], pierce: [2, 0], multi: [2, 1], crit_dmg: [2, 2], wall_bounce: [3, 0], devour: [1, 1], ult_atk: [4, 1],
+  aspd: [1, 0], arrow_speed: [1, 1], focus: [1, 2], double: [2, 0], bounce: [2, 1], focus_aspd: [3, 0], ult_rate: [4, 1],
+  hp: [1, 0], shield: [1, 2], regen: [2, 0], armor: [2, 1], lifesteal: [3, 0], revive: [1, 1], ult_def: [4, 1],
+  speed: [1, 0], dodge: [1, 1], dodge_speed: [2, 1], knockback: [1, 2], slow: [2, 2], freeze_chance: [3, 2], ult_mov: [4, 1],
+  fire: [1, 0], explode: [2, 0], summon: [1, 1], lightning: [2, 1], clown: [3, 1], skill_boost: [1, 2], skill_homing: [2, 2], ult_spc: [4, 1]
+};
+const COLW = 64, ROWH = 58, NS = 46, PAD = 10;   // 欄距、列距、節點大小、邊距
+function branchTotal(br) { return SK.filter(s => s.br === br && !s.ult).reduce((a, s) => a + lvl(s.id), 0); }
+function reqOk(s) {
+  if (s.ult) return branchTotal(s.br) >= 20;
+  return !s.req || Object.keys(s.req).every(k => lvl(k) >= s.req[k]);
+}
+function skState(s) {   // 節點狀態：maxed 滿級 / locked 未解鎖前置 / learned 已學可升級 / avail 可解鎖
+  const l = lvl(s.id);
+  if (l >= s.max) return 'maxed';
+  if (!reqOk(s)) return 'locked';
+  return l > 0 ? 'learned' : 'avail';
+}
+
+/* 建立技能樹（mode：'up' 升級解鎖 / 'codex' 圖鑑瀏覽）。點擊節點可在下方資訊欄查看技能資訊 */
+function buildTree(treeEl, infoEl, mode, allowedBrs) {
+  treeEl.innerHTML = '';
+  infoEl.innerHTML = '<div class="txt">' + (mode === 'up' ? '點擊技能節點查看資訊，再按「解鎖」按鈕。需先解鎖前置技能的節點會呈現鎖定狀態。本次僅可升級顯示的分支。' : '點擊任一技能節點，即可查看該技能資訊。') + '</div>';
+  const nodes = [], lines = [];
+  let sel = null;
+  const NSV = 'http://www.w3.org/2000/svg';
+
+  for (const k in BR) {
+    if (allowedBrs && !allowedBrs.includes(k)) continue;
+    const list = SK.filter(s => s.br === k);
+    let maxC = 0, maxR = 0;
+    list.forEach(s => { const p = TREE_POS[s.id]; maxC = Math.max(maxC, p[0]); maxR = Math.max(maxR, p[1]); });
+    const roots = list.filter(s => !s.req);
+    const hubRow = roots.reduce((a, s) => a + TREE_POS[s.id][1], 0) / roots.length;
+    const w = maxC * COLW + NS + PAD * 2, h = maxR * ROWH + NS + PAD * 2;
+    const cx = c => c * COLW + NS / 2 + PAD, cy = r => r * ROWH + NS / 2 + PAD;
+
+    const sec = document.createElement('div'); sec.className = 'tb'; sec.style.setProperty('--c', BR[k].color);
+    sec.innerHTML = '<div class="tbT">' + BR[k].icon + ' ' + BR[k].name + '</div>';
+    const tree = document.createElement('div'); tree.className = 'tree';
+    tree.style.width = w + 'px'; tree.style.height = h + 'px';
+    const svg = document.createElementNS(NSV, 'svg'); svg.setAttribute('width', w); svg.setAttribute('height', h);
+    tree.appendChild(svg);
+
+    // 連線：樞紐 → 起始技能；前置技能 → 後續技能
+    const addLine = (x1, y1, x2, y2, from, need) => {
+      const ln = document.createElementNS(NSV, 'line');
+      ln.setAttribute('x1', x1); ln.setAttribute('y1', y1); ln.setAttribute('x2', x2); ln.setAttribute('y2', y2);
+      ln.setAttribute('stroke-linecap', 'round');
+      svg.appendChild(ln); lines.push({ ln, from, need, color: BR[k].color });
+    };
+    roots.forEach(s => { const p = TREE_POS[s.id]; addLine(cx(0), cy(hubRow), cx(p[0]), cy(p[1]), null, 0); });
+    list.forEach(s => {
+      if (!s.req) return;
+      for (const rk in s.req) { const a = TREE_POS[rk], b = TREE_POS[s.id]; addLine(cx(a[0]), cy(a[1]), cx(b[0]), cy(b[1]), rk, s.req[rk]); }
+    });
+
+    // 分支樞紐（不可點擊）
+    const hub = document.createElement('div'); hub.className = 'tn hub';
+    hub.style.left = (cx(0) - NS / 2) + 'px'; hub.style.top = (cy(hubRow) - NS / 2) + 'px';
+    hub.textContent = BR[k].icon; tree.appendChild(hub);
+
+    // 技能節點
+    list.forEach(s => {
+      const p = TREE_POS[s.id], b = document.createElement('button');
+      const size = s.ult ? 56 : NS;
+      b.style.left = (cx(p[0]) - size / 2) + 'px'; b.style.top = (cy(p[1]) - size / 2) + 'px';
+      b.style.width = size + 'px'; b.style.height = size + 'px';
+      if (s.ult) { b.style.borderRadius = '50%'; b.style.fontSize = '28px'; }
+      b.innerHTML = '<span>' + s.icon + '</span><b class="tnb"></b>';
+      b.onclick = () => { sel = s; refresh(); showInfo(s); };
+      tree.appendChild(b); nodes.push({ s, b, badge: b.querySelector('.tnb') });
+    });
+    sec.appendChild(tree); treeEl.appendChild(sec);
+  }
+
+  // 重新整理節點狀態、徽章、連線亮暗
+  function refresh() {
+    nodes.forEach(n => {
+      const st = mode === 'codex' ? 'codex' : skState(n.s);
+      n.b.className = 'tn ' + st + (n.s.ult ? ' ult' : '') + (sel === n.s ? ' sel' : '');
+      n.b.style.setProperty('--c', BR[n.s.br].color);
+      n.badge.textContent = mode === 'codex' ? '' : st === 'locked' ? '🔒' : st === 'maxed' ? '已滿級' : lvl(n.s.id) + '/' + n.s.max;
+    });
+    lines.forEach(l => {
+      const lit = mode === 'codex' || l.from === null || lvl(l.from) >= l.need;
+      l.ln.setAttribute('stroke', lit ? l.color : 'rgba(255,255,255,.22)');
+      l.ln.setAttribute('stroke-width', lit ? 3 : 2);
+      l.ln.setAttribute('stroke-dasharray', lit ? '' : '4 5');
+    });
+  }
+
+  // 技能資訊欄
+  function showInfo(s) {
+    const cur = lvl(s.id);
+    let req = '無前置技能，可直接解鎖';
+    if (s.ult) {
+      const tot = branchTotal(s.br);
+      req = '該分支總等級需 ≥20（目前 ' + tot + '），達標自動解鎖、不消耗升級次數';
+      if (mode !== 'codex') req = '<span class="' + (tot >= 20 ? 'ok' : 'no') + '">' + (tot >= 20 ? '✔ ' : '✖ ') + req + '</span>';
+    } else if (s.req) {
+      req = '前置技能：' + Object.keys(s.req).map(k => {
+        const t = SKMAP[k].icon + SKMAP[k].name + ' Lv' + s.req[k];
+        if (mode === 'codex') return t;
+        return '<span class="' + (lvl(k) >= s.req[k] ? 'ok' : 'no') + '">' + (lvl(k) >= s.req[k] ? '✔ ' : '✖ ') + t + '</span>';
+      }).join('、');
+    }
+    infoEl.innerHTML =
+      '<div class="ifTop"><span class="ifIcon">' + s.icon + '</span><div class="grow"><div class="cName">' + s.name + '</div><div class="cTag" style="color:' + BR[s.br].color + '">' + BR[s.br].icon + ' ' + BR[s.br].name + '</div></div>' +
+      '<span class="cLv" style="color:' + BR[s.br].color + '">' + (mode === 'up' ? 'Lv ' + cur + '/' + s.max : '最高 Lv ' + s.max) + '</span></div>' +
+      '<div class="cDesc">' + s.desc + '</div><div class="ifReq">' + req + '</div>' +
+      (mode === 'up' ? '<button class="btn" id="btnUnlock"></button>' : '');
+    if (mode !== 'up') return;
+    const btn = infoEl.querySelector('#btnUnlock'), st = skState(s);
+    if (s.ult) {
+      if (st === 'maxed' || st === 'learned') { btn.disabled = true; btn.textContent = '已自動解鎖'; }
+      else { btn.disabled = true; btn.textContent = '🔒 需該分支總等級 ≥20（達標自動解鎖）'; }
+    } else if (st === 'maxed') { btn.disabled = true; btn.textContent = '已達最高等級'; }
+    else if (st === 'locked') { btn.disabled = true; btn.textContent = '🔒 需先解鎖前置技能'; }
+    else { btn.textContent = cur === 0 ? '解鎖技能' : '升級技能'; btn.onclick = () => { if (performance.now() < G.upLock) return; pickSkill(s); }; }
+  }
+  refresh();
+}
+
+function openUpgrade() {
+  const av = available();
+  if (!av.length) { applyHeal(P.maxHp - P.hp); finishPicks(); return; }
+  state = 'upgrade';
+  // 隨機抽取 2 個分支，本次只能升級這 2 個分支的技能（優先有可升級技能的分支）
+  const brsWithAv = [...new Set(av.map(s => s.br))];
+  let selected;
+  if (brsWithAv.length <= 2) {
+    selected = brsWithAv;
+  } else {
+    const shuffled = brsWithAv.slice().sort(() => Math.random() - 0.5);
+    selected = shuffled.slice(0, 2);
+  }
+  // 若不足 2 個有技能的，補隨機空分支（僅顯示）
+  while (selected.length < 2) {
+    const rest = Object.keys(BR).filter(k => !selected.includes(k));
+    if (!rest.length) break;
+    selected.push(rest[Math.floor(Math.random() * rest.length)]);
+  }
+  const selNames = selected.map(k => BR[k].icon + BR[k].name).join('、');
+  const isStart = !G.cleared && G.kills === 0 && G.level === 1;
+  $('upSub').textContent = (isStart ? '開局強化' : ('第 ' + G.level + ' 關完成')) + '・本次可升級：' + selNames + '（剩餘 ' + G.picks + ' 次）';
+  buildTree($('upTree'), $('upInfo'), 'up', selected);
+  G.upLock = performance.now() + 350;
+  showScreen('scUp'); $('upTree').scrollTop = 0;
+}
+
+/* ---------- 怪物圖鑑 ---------- */
+const MON_INFO = {
+  slime:  { icon: '🟢', name: '史萊姆', desc: '會直接追著你跑的黏液怪，只有接觸傷害。' },
+  bat:    { icon: '🦇', name: '蝙蝠', desc: '飛行怪物，以蛇行軌跡高速逼近，可飛越岩石障礙。' },
+  archer: { icon: '🏹', name: '弓手', desc: '與你保持距離並繞圈走位，定時朝你射箭。' },
+  golem:  { icon: '🗿', name: '巨像', desc: '生命值厚實，蓄力閃紅光後會朝你高速衝撞。' },
+  turret: { icon: '🎯', name: '炮塔', desc: '固定不動，定時向四面八方發射環形彈幕。' },
+  mage:   { icon: '🧙', name: '法師', desc: '在遠處施法，一次射出三連發扇形魔彈。' },
+  boss:   { icon: '👹', name: '深淵魔王', desc: '第 25 關最終 Boss。擁有環形、扇形、螺旋彈幕與衝撞攻擊，還會召喚小怪，血量低於 55% 時進入狂暴。' }
+};
+function buildMonDex() {
+  const box = $('monList'); box.innerHTML = '';
+  for (const k in MON_INFO) {
+    const m = MON_INFO[k], d = ET[k], c = document.createElement('div');
+    c.className = 'mc'; c.style.setProperty('--c', d.color);
+    c.innerHTML = '<div class="mIcon">' + m.icon + '</div><div><div class="mName">' + m.name + '</div><div class="cDesc">' + m.desc + '</div>' +
+      '<div class="mSt"><span>❤ ' + d.hp + '</span><span>👟 ' + (d.spd ? d.spd : '不動') + '</span><span>⚔ ' + d.dmg + '</span><span>📍 ' + (k === 'boss' ? '第 25 關' : '第 ' + d.unlock + ' 關起') + '</span></div></div>';
+    box.appendChild(c);
+  }
+  const e = document.createElement('div');
+  e.className = 'mc'; e.style.setProperty('--c', '#fbbf24');
+  e.innerHTML = '<div class="mIcon">⭐</div><div><div class="mName">精英怪</div><div class="cDesc">第 5、10、15、20 關出現。體型 ×1.5、生命 ×5、傷害 ×10，並會定時發射環形彈幕。擊敗後額外升級 8 次技能。</div></div>';
+  box.appendChild(e);
+}
+function pickSkill(s) {
+  if (s.ult) return; // 終極技不消耗升級次數，達標自動解鎖
+  G.lv[s.id] = lvl(s.id) + 1;
+  if (s.id === 'shield') P.shield++;
+  recalc();
+  if (s.id === 'hp') applyHeal(321);
+  checkAutoUlts();
+  renderQuick(); sfx('pick');
+  G.picks--;
+  if (G.picks > 0) openUpgrade(); else finishPicks();
+}
+function finishPicks() {
+  hideScreens(); state = 'play';
+  if (G.cleared) {
+    G.portalOpen = true; portal = { x: 180, y: AY0 + 46 };
+    showBanner('傳送門已開啟', '前往上方進入下一關'); sfx('portal');
+  }
+}
+
+/* =========================================================
+   十四、HUD 與介面
+   ========================================================= */
+function buildProg() {
+  const p = $('prog'); p.innerHTML = '';
+  const ml = maxLevel();
+  for (let i = 1; i <= ml; i++) {
+    const c = document.createElement('i');
+    if (G.diff !== 1 && i % 5 === 0) c.className = 'elite';
+    p.appendChild(c);
+  }
+}
+function updateProg() {
+  const cs = $('prog').children;
+  for (let i = 0; i < cs.length; i++) {
+    cs[i].classList.toggle('done', i < G.level - 1);
+    cs[i].classList.toggle('cur', i === G.level - 1);
+  }
+  $('lvText').textContent = '第 ' + G.level + ' 關';
+}
+function renderQuick() {
+  const q = $('quick'); q.innerHTML = '';
+  SK.forEach(s => {
+    const l = lvl(s.id); if (!l) return;
+    const d = document.createElement('div'); d.className = 'qi'; d.style.setProperty('--c', BR[s.br].color);
+    d.innerHTML = '<span class="qe">' + s.icon + '</span><b class="qb">' + l + '</b>';
+    q.appendChild(d);
+  });
+}
+let hudCache = {};
+function setTxt(id, v) { if (hudCache[id] !== v) { hudCache[id] = v; $(id).textContent = v; } }
+function hudFrame() {
+  if (!G) return;
+  $('hpFill').style.width = (P.hp / P.maxHp * 100) + '%';
+  setTxt('hpText', '❤ ' + Math.ceil(P.hp) + ' / ' + P.maxHp);
+  setTxt('foeText', '👾 ' + enemies.length);
+  setTxt('shieldText', P.shieldMax > 0 ? '🛡' + P.shield : '');
+  const cd = $('skCd');
+  if (P.skillCd > 0) { cd.style.setProperty('--deg', (P.skillCd / P.skillMaxCd * 360) + 'deg'); setTxt('skCd', Math.ceil(P.skillCd) + ''); $('skillBtn').classList.remove('ready'); }
+  else { cd.style.setProperty('--deg', '0deg'); setTxt('skCd', ''); $('skillBtn').classList.add('ready'); }
+  const boss = enemies.find(e => e.boss);
+  if (boss) $('bossFill').style.width = Math.max(0, boss.hp / boss.maxHp * 100) + '%';
+}
+function showBanner(t, s) {
+  const b = $('banner'); b.querySelector('b').textContent = t; b.querySelector('span').textContent = s;
+  b.classList.remove('pop'); void b.offsetWidth; b.classList.add('pop');
+}
+function hideScreens() { document.querySelectorAll('.screen').forEach(s => s.classList.remove('show')); }
+function showScreen(id) { hideScreens(); $(id).classList.add('show'); }
+
+/* 暫停頁：完整技能樹總覽 */
+function renderPause() {
+  let h = '';
+  for (const k in BR) {
+    const list = SK.filter(s => s.br === k);
+    h += '<div class="pb" style="--c:' + BR[k].color + '"><div class="pbT">' + BR[k].icon + ' ' + BR[k].name + '</div><div class="pbL">' +
+      list.map(s => { const l = lvl(s.id); return '<span class="chip' + (l ? ' on' : '') + '">' + s.icon + s.name + (l ? ' Lv' + l : '') + '</span>'; }).join('') + '</div></div>';
+  }
+  $('pauseTree').innerHTML = h;
+}
+function pauseGame() { if (state !== 'play') return; state = 'paused'; renderPause(); showScreen('scPause'); $('scPause').scrollTop = 0; }
+function resumeGame() { if (state !== 'paused') return; hideScreens(); state = 'play'; last = performance.now(); }
+
+/* 結算 */
+function statHtml() {
+  return '<span>⏱ 遊玩時長 ' + Math.floor(G.time / 60) + ':' + String(Math.floor(G.time % 60)).padStart(2, '0') + '</span>';
+}
+function gameOver() {
+  state = 'over'; sfx('over');
+  $('overTxt').textContent = '你倒在第 ' + G.level + ' 關。';
+  $('overStat').innerHTML = statHtml();
+  setTimeout(() => { if (state === 'over') showScreen('scOver'); }, 500);
+}
+function showWin() {
+  state = 'win'; sfx('win');
+  $('winStat').innerHTML = statHtml();
+  showScreen('scWin');
+}
+
+/* 開始遊戲：進入遊戲並請求全螢幕 */
+function requestFS() {
+  const el = document.documentElement;
+  try {
+    const f = el.requestFullscreen || el.webkitRequestFullscreen || el.msRequestFullscreen;
+    if (f) { const p = f.call(el); if (p && p.catch) p.catch(() => {}); }
+    if (screen.orientation && screen.orientation.lock) screen.orientation.lock('portrait').catch(() => {});
+  } catch (e) {}
+}
+function startGame(diff) {
+  initAudio(); requestFS();
+  hideScreens(); stage.dataset.mode = 'game'; hudCache = {};
+  state = 'play';
+  G = G || {}; G.diff = diff || 99;
+  newGame();
+  G.picks = 3;
+  openUpgrade();
+  setTimeout(fit, 200); setTimeout(fit, 600);
+}
+function goMenu() {
+  state = 'menu'; stage.dataset.mode = 'menu'; newGame(); enemies = []; $('bossbar').style.display = 'none'; showScreen('scMenu');
+}
+
+/* =========================================================
+   十五、輸入：虛擬搖桿、技能鍵、鍵盤
+   ========================================================= */
+const zone = $('joyZone'), knob = $('joyKnob'), base = $('joyBase');
+let joyId = null;
+function joyMove(e) {
+  const r = base.getBoundingClientRect(), cx = r.left + r.width / 2, cy = r.top + r.height / 2, lim = r.width / 2;
+  let dx = e.clientX - cx, dy = e.clientY - cy; const d = Math.hypot(dx, dy);
+  if (d > lim) { dx *= lim / d; dy *= lim / d; }
+  joy.x = dx / lim; joy.y = dy / lim;
+  if (Math.hypot(joy.x, joy.y) < 0.12) { joy.x = 0; joy.y = 0; }
+  knob.style.transform = 'translate(' + dx + 'px,' + dy + 'px)';
+}
+function joyEnd() { joyId = null; joy.x = 0; joy.y = 0; knob.style.transform = 'translate(0,0)'; }
+zone.addEventListener('pointerdown', e => { e.preventDefault(); joyId = e.pointerId; try { zone.setPointerCapture(e.pointerId); } catch (x) {} joyMove(e); });
+zone.addEventListener('pointermove', e => { if (e.pointerId === joyId) joyMove(e); });
+zone.addEventListener('pointerup', e => { if (e.pointerId === joyId) joyEnd(); });
+zone.addEventListener('pointercancel', e => { if (e.pointerId === joyId) joyEnd(); });
+$('skillBtn').addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); useSkill(); });
+
+const keyMap = { ArrowLeft: 'left', a: 'left', A: 'left', ArrowRight: 'right', d: 'right', D: 'right', ArrowUp: 'up', w: 'up', W: 'up', ArrowDown: 'down', s: 'down', S: 'down' };
+window.addEventListener('keydown', e => {
+  if (keyMap[e.key]) { keys[keyMap[e.key]] = 1; e.preventDefault(); }
+  if (e.key === ' ') { e.preventDefault(); useSkill(); }
+  if (e.key === 'Escape' || e.key === 'p' || e.key === 'P') { state === 'play' ? pauseGame() : resumeGame(); }
+});
+window.addEventListener('keyup', e => { if (keyMap[e.key]) keys[keyMap[e.key]] = 0; });
+document.addEventListener('visibilitychange', () => { if (document.hidden) pauseGame(); });
+
+$('btnStart1').onclick = () => startGame(1);
+$('btnStart99').onclick = () => startGame(99);
+$('btnRetry').onclick = () => startGame(G.diff || 99); $('btnRetry2').onclick = () => startGame(G.diff || 99);
+$('btnMenu1').onclick = goMenu; $('btnMenu2').onclick = goMenu;
+$('btnPause').onclick = pauseGame; $('btnResume').onclick = resumeGame;
+$('btnQuit').onclick = goMenu;
+// 主選單：技能圖鑑 / 怪物圖鑑
+$('btnSkillDex').onclick = () => { buildTree($('dexTree'), $('dexInfo'), 'codex'); showScreen('scSkillDex'); $('dexTree').scrollTop = 0; };
+$('btnMonDex').onclick = () => { buildMonDex(); showScreen('scMon'); $('monList').scrollTop = 0; };
+$('btnDexBack').onclick = () => showScreen('scMenu');
+$('btnMonBack').onclick = () => showScreen('scMenu');
+$('btnMute').onclick = () => { initAudio(); setMuted(!muted); };
+$('btnSoundMenu').onclick = () => { initAudio(); setMuted(!muted); };
+
+/* =========================================================
+   十六、繪圖
+   ========================================================= */
+function rr(x, y, w, h, r) {
+  ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
+}
+function drawArena() {
+  const th = Math.floor((G.level - 1) / 5), hue = [210, 150, 270, 20, 330][th % 5];
+  const g = ctx.createLinearGradient(0, AY0, 0, AY1);
+  g.addColorStop(0, 'hsl(' + hue + ',32%,17%)'); g.addColorStop(1, 'hsl(' + hue + ',30%,11%)');
+  ctx.fillStyle = g; rr(AX0, AY0, AX1 - AX0, AY1 - AY0, 16); ctx.fill();
+  ctx.save(); rr(AX0, AY0, AX1 - AX0, AY1 - AY0, 16); ctx.clip();
+  ctx.strokeStyle = 'hsla(' + hue + ',40%,60%,.07)'; ctx.lineWidth = 1; ctx.beginPath();
+  for (let x = AX0; x <= AX1; x += 40) { ctx.moveTo(x, AY0); ctx.lineTo(x, AY1); }
+  for (let y = AY0; y <= AY1; y += 40) { ctx.moveTo(AX0, y); ctx.lineTo(AX1, y); }
+  ctx.stroke(); ctx.restore();
+  ctx.strokeStyle = 'hsla(' + hue + ',70%,60%,.65)'; ctx.lineWidth = 3; ctx.shadowColor = 'hsl(' + hue + ',80%,55%)'; ctx.shadowBlur = 12;
+  rr(AX0, AY0, AX1 - AX0, AY1 - AY0, 16); ctx.stroke(); ctx.shadowBlur = 0;
+}
+function drawObs() {
+  for (const b of obs) {
+    ctx.fillStyle = 'rgba(0,0,0,.35)'; rr(b.x + 3, b.y + 6, b.w, b.h, 8); ctx.fill();
+    const g = ctx.createLinearGradient(0, b.y, 0, b.y + b.h); g.addColorStop(0, '#78839e'); g.addColorStop(1, '#434b63');
+    ctx.fillStyle = g; rr(b.x, b.y, b.w, b.h, 8); ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,.22)'; ctx.lineWidth = 2; rr(b.x + 1, b.y + 1, b.w - 2, b.h - 2, 7); ctx.stroke();
+  }
+}
+function drawPortal() {
+  if (!portal) return;
+  const t = G.time, x = portal.x, y = portal.y;
+  const g = ctx.createRadialGradient(x, y, 2, x, y, 48); g.addColorStop(0, 'rgba(125,211,252,.7)'); g.addColorStop(1, 'rgba(125,211,252,0)');
+  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, 48, 0, TAU); ctx.fill();
+  for (let i = 0; i < 4; i++) {
+    ctx.strokeStyle = 'rgba(' + (140 + i * 30) + ',220,255,' + (0.9 - i * 0.15) + ')'; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.ellipse(x, y, 26 - i * 5 + Math.sin(t * 4 + i) * 2, 34 - i * 6, 0, t * (i % 2 ? 2 : -2) + i, t * (i % 2 ? 2 : -2) + i + 4.5); ctx.stroke();
+  }
+}
+function eyes(x, y, r, e) {
+  const dx = P.x - x, dy = P.y - y, d = Math.hypot(dx, dy) || 1;
+  for (const s of [-1, 1]) {
+    const ex = x + s * r * 0.36, ey = y - r * 0.12;
+    ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(ex, ey, r * 0.24, 0, TAU); ctx.fill();
+    ctx.fillStyle = e && e.boss ? '#f43f5e' : '#111'; ctx.beginPath(); ctx.arc(ex + dx / d * r * 0.09, ey + dy / d * r * 0.09, r * 0.12, 0, TAU); ctx.fill();
+  }
+}
+function drawEnemy(e) {
+  const r = e.r; ctx.save();
+  ctx.globalAlpha = e.spawnT > 0 ? 0.3 + 0.25 * Math.sin(G.time * 20) : 1;
+  ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.beginPath(); ctx.ellipse(e.x, e.y + r * 0.85, r * 0.9, r * 0.35, 0, 0, TAU); ctx.fill();
+  let col = e.flash > 0 ? '#fff' : e.color;
+  if ((e.st === 'wind') && Math.floor(G.time * 14) % 2 === 0) col = '#ff5a5a';
+  const x = e.x, y = e.y + (e.fly ? Math.sin(G.time * 6 + e.x) * 2 - 6 : 0);
+  if (e.elite) { ctx.strokeStyle = 'rgba(251,191,36,.95)'; ctx.lineWidth = 3; ctx.shadowColor = '#fbbf24'; ctx.shadowBlur = 10; ctx.beginPath(); ctx.arc(x, y, r + 4 + Math.sin(G.time * 5) * 1.5, 0, TAU); ctx.stroke(); ctx.shadowBlur = 0; }
+  ctx.fillStyle = col;
+  switch (e.type) {
+    case 'slime': { const sq = 1 + Math.sin(G.time * 8 + e.x) * 0.08; ctx.beginPath(); ctx.ellipse(x, y + 2, r * sq, r / sq * 0.9, 0, 0, TAU); ctx.fill(); break; }
+    case 'bat': {
+      const f = Math.sin(G.time * 22) * 0.6;
+      for (const s of [-1, 1]) { ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + s * r * 2.2, y - r * (0.5 + f)); ctx.lineTo(x + s * r * 1.2, y + r * 0.7); ctx.closePath(); ctx.fill(); }
+      ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.fill(); break;
+    }
+    case 'archer': {
+      ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.fill();
+      const a = Math.atan2(P.y - y, P.x - x); ctx.strokeStyle = '#78350f'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(x, y, r + 4, a - 0.9, a + 0.9); ctx.stroke(); break;
+    }
+    case 'mage': {
+      ctx.beginPath(); ctx.arc(x, y + 2, r, 0, TAU); ctx.fill();
+      ctx.fillStyle = e.flash > 0 ? '#fff' : '#1e3a8a'; ctx.beginPath(); ctx.moveTo(x - r, y - r * 0.3); ctx.lineTo(x, y - r * 2); ctx.lineTo(x + r, y - r * 0.3); ctx.closePath(); ctx.fill(); break;
+    }
+    case 'golem': { rr(x - r, y - r, r * 2, r * 2, r * 0.35); ctx.fill(); ctx.strokeStyle = 'rgba(0,0,0,.35)'; ctx.lineWidth = 2; ctx.stroke(); break; }
+    case 'turret': {
+      ctx.beginPath(); for (let i = 0; i < 8; i++) { const a = i * TAU / 8 + e.ang; ctx.lineTo(x + Math.cos(a) * r, y + Math.sin(a) * r); } ctx.closePath(); ctx.fill();
+      ctx.fillStyle = 'rgba(0,0,0,.4)'; ctx.beginPath(); ctx.arc(x, y, r * 0.5, 0, TAU); ctx.fill(); break;
+    }
+    case 'boss': {
+      const pulse = 1 + Math.sin(G.time * 3) * 0.03;
+      ctx.shadowColor = '#a855f7'; ctx.shadowBlur = 24;
+      ctx.beginPath(); ctx.arc(x, y, r * pulse, 0, TAU); ctx.fill(); ctx.shadowBlur = 0;
+      ctx.fillStyle = e.flash > 0 ? '#fff' : '#4c1d95';
+      for (const s of [-1, 1]) { ctx.beginPath(); ctx.moveTo(x + s * r * 0.5, y - r * 0.7); ctx.lineTo(x + s * r * 1.1, y - r * 1.5); ctx.lineTo(x + s * r * 0.9, y - r * 0.4); ctx.closePath(); ctx.fill(); }
+      ctx.strokeStyle = 'rgba(244,114,182,.6)'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(x, y, r * 0.7, 0.3, 2.8); ctx.stroke(); break;
+    }
+  }
+  if (e.type !== 'bat' || true) eyes(x, y, r, e);
+  if (e.freezeT > 0) { ctx.strokeStyle = 'rgba(125,211,252,.95)'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(x, y, r + 3, 0, TAU); ctx.stroke(); ctx.fillStyle = 'rgba(186,230,253,.25)'; ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.fill(); }
+  if (e.burn > 0) {
+    ctx.save();
+    // 燃燒光暈
+    ctx.globalAlpha = 0.35 + 0.2 * Math.sin(G.time * 10);
+    ctx.fillStyle = '#fb923c';
+    ctx.beginPath(); ctx.arc(x, y, r + 4 + Math.sin(G.time * 8) * 2, 0, TAU); ctx.fill();
+    // 多層火焰粒子
+    ctx.globalAlpha = 0.9;
+    for (let fi = 0; fi < 5; fi++) {
+      const fa = G.time * 6 + fi * 1.3 + e.x;
+      const fx = x + Math.cos(fa) * r * 0.55;
+      const fy = y - r * 0.5 - (fi % 3) * 4 - Math.abs(Math.sin(G.time * 9 + fi)) * 6;
+      const fs = 3 + (fi % 2) * 2;
+      ctx.fillStyle = fi % 2 ? '#fbbf24' : '#ef4444';
+      ctx.beginPath(); ctx.arc(fx, fy, fs, 0, TAU); ctx.fill();
+    }
+    ctx.restore();
+  }
+  if (!e.boss && (e.hp < e.maxHp || e.elite)) {
+    const bw = r * 2; ctx.fillStyle = 'rgba(0,0,0,.6)'; ctx.fillRect(x - bw / 2, y - r - 11, bw, 4);
+    ctx.fillStyle = e.elite ? '#fbbf24' : '#f87171'; ctx.fillRect(x - bw / 2, y - r - 11, bw * Math.max(0, e.hp / e.maxHp), 4);
+  }
+  ctx.restore();
+}
+function drawPlayer() {
+  ctx.save();
+  const x = P.x, y = P.y;
+  if (P.inv > 0 && Math.floor(G.time * 16) % 2 === 0) ctx.globalAlpha = 0.45;
+  ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.beginPath(); ctx.ellipse(x, y + 10, 11, 4, 0, 0, TAU); ctx.fill();
+  if (P.shield > 0) { ctx.strokeStyle = 'rgba(103,232,249,.9)'; ctx.lineWidth = 2.5; ctx.shadowColor = '#22d3ee'; ctx.shadowBlur = 10; ctx.beginPath(); ctx.arc(x, y, 18, 0, TAU); ctx.stroke(); ctx.shadowBlur = 0; }
+  // 弓
+  ctx.save(); ctx.translate(x, y); ctx.rotate(P.aim);
+  ctx.strokeStyle = '#d97706'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(6, 0, 14, -1.15, 1.15); ctx.stroke();
+  ctx.strokeStyle = 'rgba(255,255,255,.8)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(6 + Math.cos(-1.15) * 14, Math.sin(-1.15) * 14); ctx.lineTo(6 + Math.cos(1.15) * 14, Math.sin(1.15) * 14); ctx.stroke();
+  ctx.restore();
+  // 身體
+  const g = ctx.createRadialGradient(x - 3, y - 4, 2, x, y, 13); g.addColorStop(0, '#93c5fd'); g.addColorStop(1, '#2563eb');
+  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, P.r, 0, TAU); ctx.fill();
+  ctx.fillStyle = '#1e3a8a'; ctx.beginPath(); ctx.arc(x, y - 3, P.r * 0.95, Math.PI, TAU); ctx.fill();   // 兜帽
+  ctx.fillStyle = '#fde0c4'; ctx.beginPath(); ctx.arc(x, y + 1, 6, 0, TAU); ctx.fill();
+  const ax = Math.cos(P.aim), ay = Math.sin(P.aim);
+  ctx.fillStyle = '#111'; for (const s of [-1, 1]) { ctx.beginPath(); ctx.arc(x + s * 2.6 + ax * 1.4, y + 1 + ay * 1.4, 1.3, 0, TAU); ctx.fill(); }
+  ctx.restore();
+}
+function drawArrow(a) {
+  const l = Math.hypot(a.vx, a.vy) || 1, ux = a.vx / l, uy = a.vy / l;
+  const len = a.miracle ? 42 : a.small ? 9 : 14;
+  const tip = a.miracle ? 15 : 5, side = a.miracle ? 9 : 3;
+  ctx.strokeStyle = a.miracle ? '#fde047' : a.crit ? '#fb923c' : a.small ? '#c4b5fd' : '#fde68a';
+  ctx.lineWidth = a.miracle ? 6.6 : a.crit ? 3 : 2.2; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(a.x - ux * len, a.y - uy * len); ctx.lineTo(a.x, a.y); ctx.stroke();
+  ctx.fillStyle = a.miracle ? '#fbbf24' : a.crit ? '#ef4444' : '#fff';
+  ctx.beginPath(); ctx.moveTo(a.x + ux * tip, a.y + uy * tip); ctx.lineTo(a.x - uy * side, a.y + ux * side); ctx.lineTo(a.x + uy * side, a.y - ux * side); ctx.closePath(); ctx.fill();
+}
+function draw() {
+  ctx.setTransform(K, 0, 0, K, 0, 0);
+  ctx.fillStyle = '#080c18'; ctx.fillRect(0, 0, W, H);
+  if (!G) return;
+  ctx.save();
+  if (shakeT > 0) ctx.translate(rand(-3, 3), rand(-3, 3));
+  drawArena(); drawObs(); drawPortal();
+  if (state !== 'menu') {
+    const list = enemies.slice().sort((a, b) => a.y - b.y);
+    list.forEach(drawEnemy);
+  }
+  comps.forEach(c => {
+    if (state === 'menu') return;
+    ctx.fillStyle = 'rgba(196,181,253,.85)'; ctx.shadowColor = '#a78bfa'; ctx.shadowBlur = 10;
+    ctx.beginPath(); ctx.arc(c.x, c.y, 6, 0, TAU); ctx.fill(); ctx.shadowBlur = 0;
+  });
+  clowns.forEach(c => {
+    if (state === 'menu') return;
+    ctx.save();
+    ctx.globalAlpha = Math.min(1, c.life);
+    ctx.fillStyle = '#fbbf24'; ctx.shadowColor = '#f59e0b'; ctx.shadowBlur = 12;
+    ctx.beginPath(); ctx.arc(c.x, c.y, 14, 0, TAU); ctx.fill();
+    ctx.shadowBlur = 0;
+    ctx.font = '20px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('🤡', c.x, c.y);
+    ctx.restore();
+  });
+  drawPlayer();
+  arrows.forEach(drawArrow);
+  for (const b of eb) {
+    const g = ctx.createRadialGradient(b.x, b.y, 1, b.x, b.y, b.r * 2); g.addColorStop(0, '#fff'); g.addColorStop(0.35, b.color); g.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(b.x, b.y, b.r * 2, 0, TAU); ctx.fill();
+  }
+  for (const p of parts) { ctx.globalAlpha = Math.max(0, p.life / p.max); ctx.fillStyle = p.color; ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, TAU); ctx.fill(); }
+  ctx.globalAlpha = 1;
+  for (const r of rings) { ctx.globalAlpha = Math.max(0, r.life / r.ml); ctx.strokeStyle = r.color; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(r.x, r.y, r.r, 0, TAU); ctx.stroke(); }
+  ctx.globalAlpha = 1;
+  for (const b of bolts) {
+    ctx.strokeStyle = '#fef08a'; ctx.lineWidth = 3; ctx.shadowColor = '#facc15'; ctx.shadowBlur = 12; ctx.globalAlpha = Math.min(1, b.life * 4);
+    ctx.beginPath(); let cx = b.x + rand(-10, 10), cy = AY0 - 10; ctx.moveTo(cx, cy);
+    for (let i = 1; i <= 5; i++) { cx = b.x + rand(-12, 12) * (1 - i / 5); cy = AY0 - 10 + (b.y - AY0 + 10) * i / 5; ctx.lineTo(cx, cy); }
+    ctx.stroke(); ctx.shadowBlur = 0; ctx.globalAlpha = 1;
+  }
+  // 浮動文字：字級以 CSS 像素 >= 16 換算
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.lineJoin = 'round';
+  for (const t of texts) {
+    ctx.globalAlpha = clamp(t.life / 0.3, 0, 1);
+    ctx.font = '800 ' + FS(t.big ? 20 : 16) + 'px sans-serif';
+    ctx.lineWidth = FS(3); ctx.strokeStyle = 'rgba(0,0,0,.85)'; ctx.strokeText(t.txt, t.x, t.y);
+    ctx.fillStyle = t.color; ctx.fillText(t.txt, t.x, t.y);
+  }
+  ctx.globalAlpha = 1;
+  ctx.restore();
+  if (G.hurt > 0) { ctx.fillStyle = 'rgba(239,68,68,' + (G.hurt * 0.6) + ')'; ctx.fillRect(0, 0, W, H); }
+}
+
+/* =========================================================
+   十七、主迴圈
+   ========================================================= */
+let last = performance.now();
+function loop(t) {
+  const dt = Math.min(0.05, (t - last) / 1000); last = t;
+  if (state === 'play') update(dt);
+  else if (state === 'menu') { G.time += dt; }
+  draw();
+  if (state !== 'menu') hudFrame();
+  requestAnimationFrame(loop);
+}
+// 初始化：先建立一局作為主選單背景，但不顯示怪物
+setMuted(false);
+newGame(); enemies = []; $('bossbar').style.display = 'none';
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
