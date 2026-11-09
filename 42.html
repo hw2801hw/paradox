@@ -1,0 +1,734 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#050a1f">
+<title>收線配速 · 馬拉松配速教育小遊戲</title>
+<style>
+  :root{
+    --green:#31e58a; --orange:#ff9a2e; --pink:#ff3d8b; --blue:#3db8ff;
+    --bg:#050a1f; --panel:rgba(10,16,38,.72); --c:#31e58a;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;height:100%;background:var(--bg);color:#eaf2ff;overflow:hidden;
+    font-family:system-ui,-apple-system,"Segoe UI","PingFang TC","Microsoft JhengHei",sans-serif;
+    touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;overscroll-behavior:none;}
+  #app{position:fixed;inset:0;}
+  canvas#scene{position:absolute;inset:0;width:100%;height:100%;display:block;transition:filter .5s;}
+
+  /* ===== HUD ===== */
+  #hud{position:absolute;left:0;right:0;top:0;padding:max(8px,env(safe-area-inset-top)) 10px 0;pointer-events:none;
+    background:linear-gradient(180deg,rgba(5,10,31,.88),rgba(5,10,31,.55) 70%,transparent);padding-bottom:14px;}
+  .cards{display:grid;grid-template-columns:1.15fr 1.2fr 1fr;gap:6px;}
+  .card{background:var(--panel);border:1px solid rgba(255,255,255,.1);border-radius:12px;padding:5px 8px 6px;backdrop-filter:blur(6px);min-width:0;}
+  .card .lb{font-size:10px;letter-spacing:.08em;color:#8fa3c9;white-space:nowrap}
+  .card .vl{font-size:clamp(17px,5.2vw,26px);font-weight:800;font-variant-numeric:tabular-nums;line-height:1.1;white-space:nowrap}
+  .card .sub{font-size:10px;color:#8fa3c9;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #paceTag{font-weight:700}
+  .bars{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:7px;}
+  .barbox{background:var(--panel);border:1px solid rgba(255,255,255,.1);border-radius:12px;padding:5px 8px 7px;}
+  .barhead{display:flex;justify-content:space-between;font-size:11px;color:#b5c4e6;margin-bottom:4px;font-weight:600}
+  .barhead b{font-variant-numeric:tabular-nums;color:#fff}
+  .bar{position:relative;height:13px;border-radius:8px;overflow:hidden;background:#0b1020;border:1px solid rgba(255,255,255,.12)}
+  .bar .fill{position:absolute;left:0;top:0;bottom:0;width:100%;border-radius:8px;transition:background .2s}
+  #tenBar{background:linear-gradient(90deg,#31e58a 0%,#ffb02e 55%,#ff3d8b 85%,#ff1744 100%)}
+  #tenMask{position:absolute;right:0;top:0;bottom:0;width:100%;background:#0b1020}
+  .tick{position:absolute;top:0;bottom:0;width:2px;background:rgba(255,255,255,.55)}
+  #tensionBox.shake{animation:shk .18s infinite;border-color:var(--pink);box-shadow:0 0 14px rgba(255,61,139,.7)}
+  #tensionBox.danger{animation:shk .08s infinite;border-color:#ff1744;box-shadow:0 0 22px rgba(255,23,68,.95)}
+  @keyframes shk{0%{transform:translate(0,0)}25%{transform:translate(-2px,1px)}50%{transform:translate(2px,-1px)}75%{transform:translate(-1px,-1px)}100%{transform:translate(1px,1px)}}
+  .track{position:relative;height:8px;border-radius:6px;background:rgba(255,255,255,.12);margin-top:7px;overflow:visible}
+  #trkFill{position:absolute;left:0;top:0;bottom:0;border-radius:6px;background:linear-gradient(90deg,var(--blue),var(--green));width:0}
+  #trkDot{position:absolute;top:50%;width:14px;height:14px;border-radius:50%;background:#fff;box-shadow:0 0 10px var(--blue);transform:translate(-50%,-50%);left:0}
+  .gm{position:absolute;top:-3px;width:6px;height:14px;border-radius:3px;background:var(--pink);transform:translateX(-50%);opacity:.9}
+
+  /* ===== Messages ===== */
+  #warn{position:absolute;left:0;right:0;top:34%;text-align:center;font-weight:900;font-size:clamp(22px,7vw,40px);
+    letter-spacing:.04em;pointer-events:none;opacity:0;transition:opacity .15s;text-shadow:0 0 18px currentColor,0 2px 0 #000;}
+  #warn.on{opacity:1;animation:pulse .35s infinite alternate}
+  @keyframes pulse{from{transform:scale(1)}to{transform:scale(1.07)}}
+  #coach{position:absolute;left:50%;top:calc(env(safe-area-inset-top) + 176px);transform:translateX(-50%);max-width:92vw;
+    padding:6px 14px;border-radius:999px;font-size:clamp(12px,3.6vw,15px);font-weight:700;background:rgba(10,16,38,.78);
+    border:1px solid rgba(255,255,255,.18);pointer-events:none;white-space:nowrap;transition:color .2s,border-color .2s}
+  #coach.ok{color:var(--green);border-color:rgba(49,229,138,.6)}
+  #coach.mid{color:var(--orange);border-color:rgba(255,154,46,.6)}
+  #coach.bad{color:var(--pink);border-color:rgba(255,61,139,.7)}
+  #toast{position:absolute;left:50%;top:calc(env(safe-area-inset-top) + 214px);transform:translate(-50%,-10px);opacity:0;
+    padding:8px 16px;border-radius:14px;background:linear-gradient(90deg,rgba(61,184,255,.9),rgba(49,229,138,.9));color:#04101f;
+    font-weight:800;font-size:clamp(13px,3.8vw,16px);transition:all .3s;pointer-events:none;max-width:92vw;text-align:center}
+  #toast.on{opacity:1;transform:translate(-50%,0)}
+  #vignette{position:absolute;inset:0;pointer-events:none;opacity:0;
+    background:radial-gradient(ellipse at center,transparent 45%,rgba(255,23,68,.75) 100%)}
+
+  /* ===== Bottom controls ===== */
+  #bottom{position:absolute;left:0;right:0;bottom:0;padding:10px 12px max(12px,env(safe-area-inset-bottom));
+    background:linear-gradient(0deg,rgba(5,10,31,.96),rgba(5,10,31,.8) 65%,transparent);
+    display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:8px;}
+  #bottom .side{display:flex;flex-direction:column;align-items:center;gap:6px;min-width:0}
+  .pwrWrap{width:100%;max-width:92px;text-align:center}
+  .pwrWrap .lb{font-size:11px;color:#8fa3c9;font-weight:600}
+  .pwrWrap .num{font-size:20px;font-weight:800;font-variant-numeric:tabular-nums}
+  .pwr{height:12px;border-radius:8px;background:#0b1020;border:1px solid rgba(255,255,255,.14);overflow:hidden}
+  #pwrFill{height:100%;width:0;background:linear-gradient(90deg,var(--green),var(--orange) 55%,var(--pink))}
+  #gelBtn{width:clamp(70px,20vw,92px);height:clamp(70px,20vw,92px);border-radius:50%;border:2px solid rgba(255,255,255,.2);
+    background:radial-gradient(circle at 35% 30%,#4a5578,#1a2140);color:#8fa3c9;font-weight:800;font-size:12px;line-height:1.2;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;touch-action:none;cursor:pointer;opacity:.55}
+  #gelBtn .em{font-size:26px}
+  #gelBtn.ready{opacity:1;color:#04101f;border-color:#fff;background:radial-gradient(circle at 35% 30%,#ffd1e6,var(--pink));
+    animation:gel .5s infinite alternate;box-shadow:0 0 24px var(--pink)}
+  @keyframes gel{from{transform:scale(1)}to{transform:scale(1.12)}}
+
+  #reelWrap{position:relative;--rs:clamp(130px,min(44vw,30vh),200px);width:var(--rs);height:var(--rs);flex:none}
+  #reelRing{position:absolute;inset:0;border-radius:50%;--t:0;
+    background:conic-gradient(var(--tc,#31e58a) calc(var(--t)*1%),rgba(255,255,255,.1) 0);
+    box-shadow:0 0 28px -4px var(--c),0 8px 24px rgba(0,0,0,.6);transition:box-shadow .2s}
+  #reelRing::after{content:"";position:absolute;inset:7%;border-radius:50%;background:#0a1026}
+  #reelHit{position:absolute;inset:11%;border-radius:50%;cursor:pointer;touch-action:none;
+    background:radial-gradient(circle at 35% 30%,#3a4670,#121832 70%);border:2px solid rgba(255,255,255,.18);
+    transition:transform .06s;z-index:2}
+  #reelHit.press{transform:scale(.94)}
+  #spin{position:absolute;inset:4%;border-radius:50%;
+    background:repeating-conic-gradient(from 0deg,#2d3860 0 15deg,#151c38 15deg 30deg);
+    -webkit-mask:radial-gradient(circle,transparent 24%,#000 25%);mask:radial-gradient(circle,transparent 24%,#000 25%);}
+  #spin::before{content:"";position:absolute;left:50%;top:5%;width:15%;height:15%;margin-left:-7.5%;border-radius:50%;
+    background:radial-gradient(circle at 35% 30%,#ffd29a,var(--orange));box-shadow:0 0 10px var(--orange)}
+  #hub{position:absolute;inset:34%;border-radius:50%;z-index:3;pointer-events:none;
+    background:radial-gradient(circle at 35% 30%,#fff,#9fb2d9 55%,#5a6a92);display:flex;align-items:center;justify-content:center;
+    color:#0a1026;font-weight:900;font-size:calc(var(--rs)*.13);box-shadow:inset 0 -3px 6px rgba(0,0,0,.35)}
+  #reelWrap.locked #reelHit{filter:grayscale(1) brightness(.6)}
+  #reelWrap.shake{animation:shk .1s infinite}
+  #reelLabel{margin-top:4px;text-align:center;font-size:12px;font-weight:700;color:var(--c);min-height:16px;position:absolute;left:0;right:0;bottom:-18px;pointer-events:none;white-space:nowrap}
+  #hint{position:absolute;left:0;right:0;bottom:calc(max(12px,env(safe-area-inset-bottom)) - 10px);text-align:center;font-size:10px;color:#6f84ad;pointer-events:none}
+
+  /* ===== Overlays ===== */
+  .overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:16px;
+    background:radial-gradient(ellipse at 50% 30%,rgba(30,20,80,.88),rgba(3,6,20,.96));z-index:20;overflow:auto;touch-action:pan-y}
+  .overlay.hide{display:none}
+  .modal{max-width:460px;width:100%;background:linear-gradient(180deg,rgba(22,30,64,.95),rgba(10,14,36,.95));
+    border:1px solid rgba(255,255,255,.14);border-radius:22px;padding:20px 18px;box-shadow:0 20px 60px rgba(0,0,0,.6),0 0 40px -10px var(--blue)}
+  .modal h1{margin:0 0 4px;font-size:clamp(24px,7vw,32px);font-weight:900;background:linear-gradient(90deg,var(--green),var(--blue),var(--pink));
+    -webkit-background-clip:text;background-clip:text;color:transparent}
+  .modal .sb{color:#9fb2d9;font-size:13px;margin-bottom:12px}
+  .rule{display:flex;align-items:center;gap:10px;padding:7px 10px;border-radius:10px;margin:5px 0;background:rgba(255,255,255,.05);font-size:13.5px}
+  .rule i{font-style:normal;font-weight:900;min-width:64px;padding:2px 8px;border-radius:8px;text-align:center;color:#04101f;font-size:13px}
+  .modal ul{padding-left:18px;margin:10px 0;color:#b8c7e8;font-size:13px;line-height:1.55}
+  .btn{display:block;width:100%;margin-top:14px;padding:14px;border:0;border-radius:14px;font-size:18px;font-weight:900;color:#04101f;cursor:pointer;
+    background:linear-gradient(90deg,var(--green),var(--blue));box-shadow:0 8px 24px -6px var(--green);touch-action:manipulation}
+  .btn:active{transform:scale(.97)}
+  .stats{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:12px 0}
+  .stat{background:rgba(255,255,255,.06);border-radius:12px;padding:8px 10px}
+  .stat .k{font-size:11px;color:#8fa3c9}.stat .v{font-size:19px;font-weight:800;font-variant-numeric:tabular-nums}
+  #resTitle{font-size:clamp(22px,6.5vw,28px);font-weight:900;margin:0}
+  #resBody{font-size:14px;line-height:1.6;color:#cdd9f3;margin:8px 0}
+  .moral{padding:10px 12px;border-left:4px solid var(--green);background:rgba(49,229,138,.1);border-radius:8px;font-size:13.5px;font-weight:700;color:#bff5d8}
+  @media (max-height:600px){ #coach{top:calc(env(safe-area-inset-top) + 160px)} #toast{top:calc(env(safe-area-inset-top) + 196px)} #hint{display:none} }
+</style>
+</head>
+<body>
+<div id="app">
+  <canvas id="scene"></canvas>
+  <div id="vignette"></div>
+
+  <div id="hud">
+    <div class="cards">
+      <div class="card"><div class="lb">📍 距離</div><div class="vl"><span id="km">0.00</span><span style="font-size:11px;color:#8fa3c9"> /42.2km</span></div><div class="sub" id="kmSub">起跑線</div></div>
+      <div class="card"><div class="lb">⏱ 大會時間</div><div class="vl" id="clock">0:00:00</div><div class="sub" id="clockSub">目標 Sub-5</div></div>
+      <div class="card"><div class="lb">👟 配速</div><div class="vl"><span id="pace">--:--</span></div><div class="sub" id="paceTag">/km</div></div>
+    </div>
+    <div class="bars">
+      <div class="barbox"><div class="barhead"><span>🔋 肝醣油箱</span><b id="fuelTxt">100%</b></div>
+        <div class="bar"><div class="fill" id="fuelFill"></div></div></div>
+      <div class="barbox" id="tensionBox"><div class="barhead"><span>🧵 線張力</span><b id="tenTxt">0%</b></div>
+        <div class="bar" id="tenBar"><div id="tenMask"></div><div class="tick" style="left:65%"></div><div class="tick" style="left:85%"></div></div></div>
+    </div>
+    <div class="track" id="track"><div id="trkFill"></div><div id="trkDot"></div></div>
+  </div>
+
+  <div id="coach" class="ok">準備出發</div>
+  <div id="toast"></div>
+  <div id="warn"></div>
+
+  <div id="bottom">
+    <div class="side">
+      <div class="pwrWrap"><div class="lb">收線力度</div><div class="num" id="pwrNum">0%</div><div class="pwr"><div id="pwrFill"></div></div></div>
+    </div>
+    <div id="reelWrap">
+      <div id="reelRing"></div>
+      <div id="reelHit"><div id="spin"></div></div>
+      <div id="hub">收</div>
+      <div id="reelLabel">長按 / 連點收線</div>
+    </div>
+    <div class="side">
+      <button id="gelBtn" type="button"><span class="em">🧪</span><span id="gelTxt">能量膠 ×3</span></button>
+    </div>
+  </div>
+  <div id="hint">長按＝持續收線　連點＝節奏收線　空白鍵 / G 鍵也可操作</div>
+
+  <div class="overlay" id="startOv">
+    <div class="modal">
+      <h1>收線配速 🏃</h1>
+      <div class="sb">用「手動收線」的手感，學會馬拉松配速管理</div>
+      <div class="rule"><i style="background:var(--green)">輕收</i>偶爾點擊 → 約 <b>7 分速</b>，黃金配速、張力下降</div>
+      <div class="rule"><i style="background:var(--orange)">中收</i>穩定連點 → 約 <b>6 分速</b>，油耗明顯</div>
+      <div class="rule"><i style="background:var(--pink)">猛收</i>長按太久／狂點 → <b>5 分速</b>，油與張力暴增</div>
+      <ul>
+        <li>張力滿條或肝醣歸零 → <b>撞牆</b>，被鎖成 12 分速步兵一小段時間。</li>
+        <li>每 5～7 公里會出現 <b>能量膠</b> 提示（共 3 包），點粉紅按鈕回油並大幅降張力。</li>
+        <li>約 1～2 分鐘跑完 42.195K，Sub-5（≤5 小時）是目標！</li>
+      </ul>
+      <button class="btn" id="startBtn">🏁 出發！</button>
+    </div>
+  </div>
+
+  <div class="overlay hide" id="endOv">
+    <div class="modal">
+      <div id="resEmoji" style="font-size:44px">🏅</div>
+      <h2 id="resTitle"></h2>
+      <div class="stats">
+        <div class="stat"><div class="k">完賽時間</div><div class="v" id="rTime"></div></div>
+        <div class="stat"><div class="k">平均配速</div><div class="v" id="rPace"></div></div>
+        <div class="stat"><div class="k">撞牆次數</div><div class="v" id="rWall"></div></div>
+        <div class="stat"><div class="k">能量膠使用</div><div class="v" id="rGel"></div></div>
+      </div>
+      <div id="resBody"></div>
+      <div class="moral">🎯 戰術重點：穩定輕收、適時放手。收得越猛不代表越快，張力爆掉只會被迫變步兵。</div>
+      <button class="btn" id="againBtn">🔁 再跑一次</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+'use strict';
+const $ = id => document.getElementById(id);
+const DIST = 42.195, TS = 160;              // 全馬距離、時間加速倍率
+const clamp = (v,a,b) => Math.max(a, Math.min(b, v));
+const lerp = (a,b,t) => a + (b-a)*t;
+function interp(tbl, x){
+  if (x <= tbl[0][0]) return tbl[0][1];
+  for (let i=1;i<tbl.length;i++){
+    if (x <= tbl[i][0]){ const a=tbl[i-1], b=tbl[i]; return lerp(a[1], b[1], (x-a[0])/(b[0]-a[0])); }
+  }
+  return tbl[tbl.length-1][1];
+}
+// 收線力度 -> 配速(分/公里)
+const PACE_T = [[0,7.5],[0.25,7.0],[0.55,6.0],[0.9,5.0],[1.2,4.8]];
+// 配速 -> 油耗(每真實秒)
+const FUEL_T = [[4.8,-4.0],[5,-3.6],[6,-1.1],[6.5,-0.5],[7,0.12],[7.5,0.35],[12,0.5]];
+// 收線力度 -> 張力變化(每真實秒)
+const TEN_T  = [[0,-16],[0.2,-9],[0.3,-4],[0.4,-0.5],[0.55,3],[0.7,9],[0.9,22],[1.2,34]];
+
+function fmtTime(s){ s=Math.max(0,Math.floor(s)); const h=Math.floor(s/3600), m=Math.floor(s%3600/60), x=s%60;
+  return h+':'+String(m).padStart(2,'0')+':'+String(x).padStart(2,'0'); }
+function fmtPace(p){ let m=Math.floor(p), s=Math.round((p-m)*60); if(s===60){m++;s=0;} return m+':'+String(s).padStart(2,'0'); }
+
+/* ================= 遊戲狀態 ================= */
+let state = 'ready';
+let G;
+function reset(){
+  G = { dist:0, time:0, fuel:100, tension:0, power:0, pace:7.5, wall:false, wallT:0, walls:0,
+        gelsLeft:3, gelUsed:0, gelMiss:0, gelOffer:false, offerT:0, marks:[], nextMark:0, maxT:0,
+        ms:{}, cam:0, ph:0, flash:0 };
+  let m=0; for(let i=0;i<3;i++){ m += 5 + Math.random()*2; G.marks.push(m); }
+}
+reset();
+
+const pointers = new Set(); let keyHold = false;
+let spinAngle = 0, tapKick = 0;
+
+/* ================= DOM refs ================= */
+const el = {
+  km:$('km'), kmSub:$('kmSub'), clock:$('clock'), clockSub:$('clockSub'), pace:$('pace'), paceTag:$('paceTag'),
+  fuelFill:$('fuelFill'), fuelTxt:$('fuelTxt'), tenMask:$('tenMask'), tenTxt:$('tenTxt'), tBox:$('tensionBox'),
+  trkFill:$('trkFill'), trkDot:$('trkDot'), track:$('track'),
+  warn:$('warn'), coach:$('coach'), toast:$('toast'), vig:$('vignette'),
+  pwrNum:$('pwrNum'), pwrFill:$('pwrFill'), gel:$('gelBtn'), gelTxt:$('gelTxt'),
+  reelWrap:$('reelWrap'), reelRing:$('reelRing'), reelHit:$('reelHit'), spin:$('spin'), reelLabel:$('reelLabel'),
+  startOv:$('startOv'), endOv:$('endOv'), canvas:$('scene')
+};
+// gel markers on track
+G.marks.forEach(()=>{});
+let markEls = [];
+function buildMarks(){
+  markEls.forEach(e=>e.remove()); markEls=[];
+  G.marks.forEach(m=>{ const d=document.createElement('div'); d.className='gm'; d.style.left=(m/DIST*100)+'%'; el.track.appendChild(d); markEls.push(d); });
+}
+buildMarks();
+
+let toastTimer=0;
+function toast(msg, ms=2600){
+  el.toast.textContent = msg; el.toast.classList.add('on');
+  clearTimeout(toastTimer); toastTimer = setTimeout(()=>el.toast.classList.remove('on'), ms);
+}
+function vib(p){ try{ if(navigator.vibrate) navigator.vibrate(p); }catch(e){} }
+
+/* ================= 輸入 ================= */
+function tap(){
+  tapKick += 34;
+  if (state!=='run' || G.wall) return;
+  G.power = Math.min(1.2, G.power + 0.10);
+}
+const hit = el.reelHit;
+hit.addEventListener('pointerdown', e=>{
+  e.preventDefault();
+  try{ hit.setPointerCapture(e.pointerId); }catch(_){}
+  pointers.add(e.pointerId); hit.classList.add('press'); tap();
+});
+const rel = e => { pointers.delete(e.pointerId); if(!pointers.size) hit.classList.remove('press'); };
+hit.addEventListener('pointerup', rel);
+hit.addEventListener('pointercancel', rel);
+hit.addEventListener('lostpointercapture', rel);
+hit.addEventListener('contextmenu', e=>e.preventDefault());
+document.addEventListener('contextmenu', e=>e.preventDefault());
+window.addEventListener('blur', ()=>{ pointers.clear(); keyHold=false; hit.classList.remove('press'); });
+window.addEventListener('keydown', e=>{
+  if (e.code==='Space'){ e.preventDefault(); if(!e.repeat){ keyHold=true; hit.classList.add('press'); tap(); } }
+  else if (e.code==='KeyG'){ useGel(); }
+});
+window.addEventListener('keyup', e=>{ if(e.code==='Space'){ keyHold=false; hit.classList.remove('press'); } });
+
+el.gel.addEventListener('pointerdown', e=>{ e.preventDefault(); useGel(); });
+
+function useGel(){
+  if (state!=='run' || !G.gelOffer) return;
+  G.gelOffer=false; G.gelsLeft--; G.gelUsed++;
+  G.fuel = Math.min(100, G.fuel + 35);
+  G.tension = Math.max(0, G.tension - 45);
+  if (G.wall) G.wallT = Math.max(0.6, G.wallT - 3);
+  G.flash = 1;
+  toast('🧪 能量膠！油箱 +35、張力大幅下降'); vib(40);
+}
+
+/* ================= 遊戲邏輯 ================= */
+function enterWall(){
+  G.wall = true; G.wallT = 9; G.walls++; G.power = 0; G.tension = 100; G.fuel = Math.max(0, G.fuel);
+  el.canvas.style.filter = 'grayscale(.9) brightness(.8)';
+  toast('🧱 撞牆了！被鎖定 12 分速步兵', 3000); vib([120,60,120]);
+}
+function exitWall(){
+  G.wall = false; G.tension = Math.min(G.tension, 45); G.fuel = Math.max(G.fuel, 25);
+  el.canvas.style.filter = '';
+  toast('💪 重新站起來！回到輕收節奏');
+}
+
+function update(dt){
+  if (state!=='run'){
+    G.power *= Math.exp(-2*dt);
+    G.pace += ((state==='done'?12:7.5) - G.pace) * Math.min(1, dt*2);
+    return;
+  }
+  const holding = pointers.size>0 || keyHold;
+  let target;
+  if (G.wall){
+    G.power = 0; G.wallT -= dt;
+    G.tension = Math.max(40, G.tension - 6*dt);
+    G.fuel = Math.min(100, G.fuel + 1.2*dt);
+    target = 12;
+    if (G.wallT <= 0) exitWall();
+  } else {
+    if (holding) G.power = Math.min(1.2, G.power + 0.4*dt); else G.power *= Math.exp(-1.6*dt);
+    target = interp(PACE_T, G.power);
+    let fr = interp(FUEL_T, G.pace); if (fr<0 && G.dist>30) fr*=1.25;
+    G.fuel = clamp(G.fuel + fr*dt, 0, 100);
+    let tr = interp(TEN_T, G.power); if (G.fuel<25 && G.power>0.4) tr += 3;
+    G.tension = clamp(G.tension + tr*dt, 0, 100);
+    G.maxT = Math.max(G.maxT, G.tension);
+    if (G.tension>=100 || G.fuel<=0) enterWall();
+  }
+  G.pace += (target - G.pace) * Math.min(1, dt*5);
+
+  // 前進
+  const step = dt*TS/60/G.pace;
+  G.dist += step; G.time += dt*TS;
+
+  // 能量膠提示
+  if (G.nextMark < G.marks.length && G.dist >= G.marks[G.nextMark]){
+    if (G.gelOffer){ G.gelsLeft--; G.gelMiss++; }
+    G.nextMark++; G.gelOffer = true; G.offerT = 10;
+    toast('🧪 能量膠補給站！點粉紅按鈕補給', 3000); vib(60);
+  }
+  if (G.gelOffer){
+    G.offerT -= dt;
+    if (G.offerT<=0){ G.gelOffer=false; G.gelsLeft--; G.gelMiss++; toast('😬 錯過補給，這包能量膠浪費了'); }
+  }
+  // 里程提示
+  const ms = [[10,'10K 通過！節奏很重要，別被興奮帶著衝'],[21.1,'半馬點！後半段才是真正的比賽'],
+              [30,'30K！撞牆區開始，油耗 ×1.25'],[35,'35K！穩住輕收，不要硬撐'],[40,'40K！最後 2K，放手去跑吧！']];
+  for (const [k,msg] of ms){ if (G.dist>=k && !G.ms[k]){ G.ms[k]=1; toast('📍 '+msg, 3200); } }
+
+  if (G.dist >= DIST){
+    G.time -= (G.dist - DIST) * G.pace * 60; G.dist = DIST;
+    finish();
+  }
+}
+
+function finish(){
+  state='done'; el.canvas.style.filter='';
+  setTimeout(showResult, 900);
+  toast('🏁 衝線！', 3000); vib([80,40,80,40,200]);
+}
+
+function showResult(){
+  const t = G.time, h = t/3600, avg = t/60/DIST;
+  let emoji, title, body;
+  if (h <= 4.5){
+    emoji='🏆'; title='傳奇配速大師！';
+    body = G.walls===0 ? '配速和張力控制得近乎完美，全程沒有撞牆，這就是教科書級的後程有力。'
+                       : '速度很驚人，雖然撞過牆，但仍然跑進 4:30 內。如果能再少撞一次，成績更好。';
+  } else if (h <= 5){
+    emoji='🥇'; title='Sub-5 達成！';
+    body = G.walls===0 ? '穩穩收線、適時放手，全程沒有撞牆，順利在 5 小時內完賽。'
+                       : '成功跑進 5 小時，但撞牆 '+G.walls+' 次吃掉了不少時間。下次在張力 65% 前就先放手，成績還能更好。';
+  } else {
+    emoji='🐢'; title='超過 5 小時，再試一次';
+    body = G.walls>0 ? '撞牆 '+G.walls+' 次，每次都被鎖成 12 分速，時間就這樣流失。前半別衝太快，張力一發抖就先放手。'
+                     : '沒有撞牆很好，但整體偏保守。7 分速是黃金區間，偶爾連點把配速維持在 7 分左右，才能 Sub-5。';
+  }
+  if (G.gelMiss>0) body += ' 另外有 '+G.gelMiss+' 包能量膠錯過了，補給要及時。';
+  $('resEmoji').textContent = emoji; $('resTitle').textContent = title;
+  $('rTime').textContent = fmtTime(t); $('rPace').textContent = fmtPace(avg)+' /km';
+  $('rWall').textContent = G.walls+' 次'; $('rGel').textContent = G.gelUsed+' / 3 包';
+  $('resBody').textContent = body;
+  el.endOv.classList.remove('hide');
+}
+
+function startGame(){
+  reset(); buildMarks(); state='run';
+  el.canvas.style.filter='';
+  el.startOv.classList.add('hide'); el.endOv.classList.add('hide');
+  pointers.clear(); keyHold=false;
+  toast('🏁 開始！輕點收線，把配速穩在 7 分', 2800);
+}
+$('startBtn').addEventListener('click', startGame);
+$('againBtn').addEventListener('click', startGame);
+
+/* ================= HUD 更新 ================= */
+function zoneInfo(p){
+  if (G.wall) return {txt:'撞牆・12分速步兵', col:'#8a90a3', key:'wall'};
+  if (p < 5.5) return {txt:'5 分速・衝刺區', col:'#ff3d8b', key:'hard'};
+  if (p < 6.5) return {txt:'6 分速・消耗區', col:'#ff9a2e', key:'mid'};
+  if (p <= 7.25) return {txt:'7 分速・黃金配速', col:'#31e58a', key:'gold'};
+  return {txt:'偏慢・提高一點', col:'#3db8ff', key:'slow'};
+}
+let coachLast='';
+function updateHUD(dt){
+  const z = zoneInfo(G.pace);
+  el.km.textContent = G.dist.toFixed(2);
+  el.kmSub.textContent = G.dist<1 ? '起跑線' : (G.dist>=DIST ? '終點！' : '剩 '+(DIST-G.dist).toFixed(1)+' km');
+  el.clock.textContent = fmtTime(G.time);
+  const proj = G.dist>0.3 ? G.time/G.dist*DIST : 0;
+  el.clockSub.textContent = proj ? '預估 '+fmtTime(proj) : '目標 Sub-5';
+  el.clockSub.style.color = proj && proj>18000 ? '#ff9a2e' : '#8fa3c9';
+  el.pace.textContent = fmtPace(G.pace);
+  el.paceTag.textContent = z.txt; el.paceTag.style.color = z.col;
+  el.pace.style.color = z.col;
+
+  const f = G.fuel;
+  el.fuelFill.style.width = f+'%';
+  el.fuelFill.style.background = f>50 ? 'linear-gradient(90deg,#1fbf6f,#31e58a)' : f>25 ? 'linear-gradient(90deg,#e0801a,#ff9a2e)' : 'linear-gradient(90deg,#d01c63,#ff3d8b)';
+  el.fuelTxt.textContent = Math.round(f)+'%';
+  el.fuelTxt.style.color = f<25 ? '#ff3d8b' : '#fff';
+
+  const t = G.tension;
+  el.tenMask.style.width = (100-t)+'%';
+  el.tenTxt.textContent = Math.round(t)+'%';
+  el.tenTxt.style.color = t>=85 ? '#ff1744' : t>=65 ? '#ff3d8b' : '#fff';
+  el.tBox.classList.toggle('shake', t>=65 && t<85);
+  el.tBox.classList.toggle('danger', t>=85);
+
+  const pr = clamp(G.dist/DIST,0,1)*100;
+  el.trkFill.style.width = pr+'%'; el.trkDot.style.left = pr+'%';
+
+  // 底部
+  const pw = clamp(G.power/1.1,0,1)*100;
+  el.pwrNum.textContent = Math.round(pw)+'%'; el.pwrFill.style.width = pw+'%';
+  el.gel.classList.toggle('ready', G.gelOffer && state==='run');
+  el.gelTxt.textContent = G.gelOffer ? '吃！'+Math.ceil(G.offerT)+'s' : '能量膠 ×'+Math.max(0,G.gelsLeft);
+  el.reelWrap.classList.toggle('locked', G.wall);
+  el.reelWrap.classList.toggle('shake', t>=65 && !G.wall);
+  document.documentElement.style.setProperty('--c', z.col);
+  const tc = t>=85 ? '#ff1744' : t>=65 ? '#ff3d8b' : t>=40 ? '#ff9a2e' : '#31e58a';
+  el.reelRing.style.setProperty('--t', t); el.reelRing.style.setProperty('--tc', tc);
+  el.reelLabel.textContent = G.wall ? '🔒 撞牆鎖定 '+Math.max(0,Math.ceil(G.wallT))+'s'
+    : (state!=='run' ? '長按 / 連點收線' : G.power<0.08 ? '放手中・張力回落' : G.power<0.38 ? '輕收・黃金配速' : G.power<0.7 ? '中收・開始燒油' : '猛收！小心斷線');
+
+  // 警告
+  let w='', wc='#ff3d8b';
+  if (state==='run'){
+    if (G.wall){ w='🧱 撞牆！12 分速步兵'; wc='#aab0c4'; }
+    else if (t>=85){ w='⚠ 快斷線了！立刻放手！'; wc='#ff1744'; }
+    else if (t>=65){ w='線在發抖！快放開！'; wc='#ff3d8b'; }
+  }
+  if (w){ el.warn.textContent=w; el.warn.style.color=wc; el.warn.classList.add('on'); }
+  else el.warn.classList.remove('on');
+  const vigT = G.wall ? 0.45 : clamp((t-60)/40,0,1)*0.9;
+  el.vig.style.opacity = vigT;
+  if (!G.wall) el.vig.style.background = 'radial-gradient(ellipse at center,transparent 45%,rgba(255,23,68,.75) 100%)';
+  else el.vig.style.background = 'radial-gradient(ellipse at center,transparent 40%,rgba(10,10,20,.9) 100%)';
+
+  // 教練語
+  let c, cc;
+  if (state==='ready'){ c='準備好了嗎？'; cc='ok'; }
+  else if (state==='done'){ c='完賽！🎉'; cc='ok'; }
+  else if (G.wall){ c='撞牆中…等待恢復，可吃能量膠縮短'; cc='bad'; }
+  else if (t>=65){ c='放開捲線器，讓張力降下來！'; cc='bad'; }
+  else if (f<20){ c='油箱快見底！輕收回油，並留意能量膠'; cc='bad'; }
+  else if (G.gelOffer){ c='補給站！快點粉紅能量膠 🧪'; cc='mid'; }
+  else if (G.pace>=7.28 && state==='run' && G.time>20){ c='有點慢，輕點幾下把配速拉回 7 分'; cc='mid'; }
+  else if (G.pace<6.5){ c='6 分以內在燒油，別撐太久'; cc='mid'; }
+  else { c='黃金 7 分速，穩住輕收 👍'; cc='ok'; }
+  if (c!==coachLast){ el.coach.textContent=c; el.coach.className=cc; coachLast=c; }
+}
+
+/* ================= 3D 場景繪製 ================= */
+const ctx = el.canvas.getContext('2d');
+let W=0,H=0,DPR=1, hz=0, runnerBase=0;
+let skyG, hazeG, stars=[], blds=[], bTotal=1400, rays=[], parts=[];
+function rnd(a,b){ return a + Math.random()*(b-a); }
+function resize(){
+  DPR = Math.min(window.devicePixelRatio||1, 2);
+  W = window.innerWidth; H = window.innerHeight;
+  el.canvas.width = Math.round(W*DPR); el.canvas.height = Math.round(H*DPR);
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+  hz = H*0.40;
+  skyG = ctx.createLinearGradient(0,0,0,hz);
+  skyG.addColorStop(0,'#04081c'); skyG.addColorStop(.55,'#1b1355'); skyG.addColorStop(.85,'#7a2c78'); skyG.addColorStop(1,'#ff7a3c');
+  hazeG = ctx.createLinearGradient(0,hz,0,hz+H*0.16);
+  hazeG.addColorStop(0,'rgba(255,122,60,.55)'); hazeG.addColorStop(1,'rgba(255,122,60,0)');
+  stars = Array.from({length:60},()=>({x:rnd(0,W),y:rnd(0,hz*0.7),r:rnd(.4,1.4),p:rnd(0,6)}));
+  bTotal = Math.max(W*1.6,1400); blds=[]; let x=0;
+  while (x<bTotal){
+    const w=rnd(30,80), h=rnd(hz*0.06,hz*0.34), wins=[];
+    for(let i=0;i<Math.floor(w*h/260);i++) wins.push([rnd(4,w-6),rnd(6,h-4),Math.random()]);
+    blds.push({x,w,h,wins,neon:Math.random()<0.3?(Math.random()<.5?'#3db8ff':'#ff3d8b'):null});
+    x += w + rnd(-6,10);
+  }
+  rays = Array.from({length:22},()=>({a:rnd(0,Math.PI*2),o:Math.random(),s:rnd(.7,1.3)}));
+  const bb = document.getElementById('reelWrap').getBoundingClientRect();
+  runnerBase = Math.max(hz+40, bb.top - 26);
+}
+window.addEventListener('resize', resize);
+window.addEventListener('orientationchange', ()=>setTimeout(resize,200));
+
+const RL = 1; // row height multiplier
+function curve(){ return Math.sin(G.cam*0.035)*W*0.16; }
+function drawScene(t, speedF){
+  // 天空
+  ctx.fillStyle = skyG; ctx.fillRect(0,0,W,hz+2);
+  for (const s of stars){ ctx.globalAlpha = .4+.5*Math.sin(t*2+s.p); ctx.fillStyle='#fff'; ctx.fillRect(s.x,s.y,s.r,s.r); }
+  ctx.globalAlpha = 1;
+  const sg = ctx.createRadialGradient(W*0.68,hz,0,W*0.68,hz,W*0.55);
+  sg.addColorStop(0,'rgba(255,170,80,.55)'); sg.addColorStop(1,'rgba(255,120,60,0)');
+  ctx.fillStyle=sg; ctx.fillRect(0,0,W,hz+2);
+  // 天際線 (視差)
+  const off = (G.cam*5) % bTotal;
+  for (const b of blds){
+    for (let rep=0; rep<2; rep++){
+      const bx = b.x - off + rep*bTotal;
+      if (bx > W || bx+b.w < 0) continue;
+      ctx.fillStyle = '#0c1130'; ctx.fillRect(bx, hz-b.h, b.w, b.h+1);
+      if (b.neon){ ctx.fillStyle=b.neon; ctx.globalAlpha=.8; ctx.fillRect(bx, hz-b.h, b.w, 2); ctx.globalAlpha=1; }
+      for (const w of b.wins){ if (w[2]<0.45){ ctx.fillStyle = w[2]<0.2 ? 'rgba(255,220,150,.7)' : 'rgba(120,190,255,.45)'; ctx.fillRect(bx+w[0], hz-b.h+w[1], 2, 3); } }
+    }
+  }
+  // 地面逐行 (偽 3D 透視)
+  const cv = curve(), cam = G.cam, hh = H-hz;
+  for (let y=hz+1; y<H; y+=3){
+    const tt = (y-hz)/hh, z = 1/(tt+0.03);
+    const ph = Math.floor((z + cam)/2) & 1;
+    const hw = W*(0.02 + 0.82*tt);
+    const cx = W/2 + cv*(1-tt)*(1-tt);
+    ctx.fillStyle = ph ? '#0b2a20' : '#0d3226'; ctx.fillRect(0,y,W,4);
+    ctx.fillStyle = ph ? '#232840' : '#2a2f49'; ctx.fillRect(cx-hw, y, hw*2, 4);
+    ctx.fillStyle = ph ? '#ff3d8b' : '#f2f6ff'; ctx.fillRect(cx-hw, y, hw*0.045, 4); ctx.fillRect(cx+hw*0.955, y, hw*0.045, 4);
+    ctx.fillStyle = 'rgba(61,184,255,.55)'; ctx.fillRect(cx-hw*0.9, y, hw*0.012, 4); ctx.fillRect(cx+hw*0.888, y, hw*0.012, 4);
+    if (ph){ ctx.fillStyle='rgba(255,255,255,.8)'; ctx.fillRect(cx-hw*0.012, y, hw*0.024, 4); }
+  }
+  ctx.fillStyle = hazeG; ctx.fillRect(0,hz,W,H*0.16);
+
+  // 路燈 / 拱門 (遠到近)
+  const nMax = Math.floor((cam+34)/8), nMin = Math.ceil((cam+1)/8);
+  for (let n=nMax; n>=nMin; n--){
+    const z = n*8 - cam, tt = 1/z - 0.03;
+    if (tt<=0.004 || tt>1.05) continue;
+    const y = hz + tt*hh, hw = W*(0.02+0.82*tt), cx = W/2 + cv*(1-tt)*(1-tt);
+    const ph = tt*H*0.5 + 2, a = clamp(1 - z/34, 0, 1);
+    ctx.globalAlpha = a;
+    for (const sd of [-1,1]){
+      const x = cx + sd*hw*1.16;
+      ctx.strokeStyle = '#1a2040'; ctx.lineWidth = Math.max(1,tt*7);
+      ctx.beginPath(); ctx.moveTo(x,y); ctx.lineTo(x,y-ph); ctx.lineTo(x-sd*hw*0.14,y-ph); ctx.stroke();
+      const lx = x-sd*hw*0.14, ly = y-ph, r = tt*16+1.5;
+      ctx.fillStyle='rgba(190,230,255,.22)'; ctx.beginPath(); ctx.arc(lx,ly,r*2.4,0,6.3); ctx.fill();
+      ctx.fillStyle='#e6f6ff'; ctx.beginPath(); ctx.arc(lx,ly,r*.7,0,6.3); ctx.fill();
+      // 路邊旗幟 / 錐筒
+      if (n%2===0){
+        ctx.fillStyle = (n%4===0) ? '#ff9a2e' : '#31e58a';
+        const cxp = cx + sd*hw*1.04, cs = tt*30+1;
+        ctx.beginPath(); ctx.moveTo(cxp-cs*.5,y); ctx.lineTo(cxp+cs*.5,y); ctx.lineTo(cxp,y-cs*1.5); ctx.fill();
+      }
+    }
+    if (n%12===0){ // 拱門
+      const ay = y - ph*1.5;
+      ctx.strokeStyle='#ff3d8b'; ctx.lineWidth=Math.max(2,tt*14);
+      ctx.beginPath(); ctx.moveTo(cx-hw*1.05,y); ctx.lineTo(cx-hw*1.05,ay); ctx.lineTo(cx+hw*1.05,ay); ctx.lineTo(cx+hw*1.05,y); ctx.stroke();
+      ctx.strokeStyle='#3db8ff'; ctx.lineWidth=Math.max(1,tt*5);
+      ctx.beginPath(); ctx.moveTo(cx-hw*1.05,ay+tt*10); ctx.lineTo(cx+hw*1.05,ay+tt*10); ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  // 速度線 (動態模糊感)
+  if (speedF > 0.25){
+    ctx.lineCap='round';
+    const maxR = Math.hypot(W,H);
+    for (const r of rays){
+      const p = ((t*0.6*r.s*(0.6+speedF) + r.o) % 1);
+      const r0 = p*p*maxR*0.9 + 40, r1 = r0 + (30 + p*220)*speedF;
+      const dx = Math.cos(r.a), dy = Math.sin(r.a)*0.7;
+      const y0 = hz + dy*r0*0.6, y1 = hz + dy*r1*0.6;
+      if (y0 < hz-2 && y1 < hz-2) continue;
+      ctx.strokeStyle = 'rgba(180,225,255,'+(0.05+0.3*speedF*p)+')'; ctx.lineWidth = 1+p*2.5;
+      ctx.beginPath(); ctx.moveTo(W/2+dx*r0, y0); ctx.lineTo(W/2+dx*r1, y1); ctx.stroke();
+    }
+  }
+}
+
+function drawRunner(dt, t, z){
+  const u = Math.min(H*0.0031, W*0.0058);
+  const speedF = clamp((7.5-G.pace)/2.7, 0, 1);
+  const wall = G.wall;
+  G.ph += dt * (wall ? 5 : 8.5 + (7.5-G.pace)*2.6);
+  const ph = G.ph;
+  const col = wall ? '#7a8090' : z.col;
+  const jersey = wall ? ['#8a90a3','#5a6070'] : (z.key==='hard' ? ['#ff6fae','#d01c63'] : z.key==='mid' ? ['#ffc46b','#e0801a'] : ['#6dffb4','#17a85f']);
+  // 抖動
+  const shakeAmp = (G.tension>60 && !wall ? (G.tension-60)/40*5 : 0) + G.power*1.6 + (wall?0.6:0);
+  const sx = (Math.random()-.5)*shakeAmp*2*u*0.9, sy = (Math.random()-.5)*shakeAmp*u*0.9;
+  const x = W/2, baseY = runnerBase;
+
+  // 地面光暈
+  const gg = ctx.createRadialGradient(x,baseY,0,x,baseY,60*u);
+  gg.addColorStop(0,col+'88'); gg.addColorStop(1,col+'00');
+  ctx.save(); ctx.translate(0,0); ctx.scale(1,0.28); ctx.fillStyle=gg;
+  ctx.beginPath(); ctx.arc(x, baseY/0.28, 60*u, 0, 6.3); ctx.fill(); ctx.restore();
+  // 背後光暈
+  const ag = ctx.createRadialGradient(x,baseY-50*u,0,x,baseY-50*u,95*u);
+  ag.addColorStop(0,col+(wall?'22':'3a')); ag.addColorStop(1,col+'00');
+  ctx.fillStyle = ag; ctx.fillRect(x-100*u, baseY-150*u, 200*u, 170*u);
+
+  ctx.save();
+  ctx.translate(x+sx, baseY+sy); ctx.scale(u,u);
+  ctx.lineCap='round'; ctx.lineJoin='round';
+  // 陰影
+  ctx.fillStyle='rgba(0,0,0,.5)'; ctx.beginPath(); ctx.ellipse(0,2,28,6,0,0,6.3); ctx.fill();
+
+  const bob = -Math.abs(Math.cos(ph))*(wall?1.2:3.2) + (wall?5:0);
+  const lean = wall ? 6 : 0;
+  const skin = wall ? '#c9a98c' : '#f1c7a0';
+  // 腿
+  for (const side of [-1,1]){
+    const sp = side<0 ? ph : ph+Math.PI;
+    const lift = Math.max(0, Math.sin(sp)) * (wall?4:17) * (0.65+speedF*0.6);
+    const back = Math.max(0, -Math.sin(sp)) * 4;
+    ctx.strokeStyle = skin; ctx.lineWidth = 8;
+    ctx.beginPath(); ctx.moveTo(side*5, -44+bob);
+    ctx.lineTo(side*6.5, -27+bob - lift*0.45);
+    ctx.lineTo(side*7.5, -4 - lift + back*0.2); ctx.stroke();
+    // 鞋
+    ctx.fillStyle = wall ? '#666b7b' : '#ff3d8b';
+    ctx.beginPath(); ctx.ellipse(side*7.5, -3-lift+ (lift>2?3:0), 6, 3.6, 0, 0, 6.3); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,.85)'; ctx.fillRect(side*7.5-3, -3-lift+ (lift>2?3:0)+1.5, 6, 1.4);
+  }
+  // 短褲
+  ctx.fillStyle = wall ? '#363b4c' : '#1b2a6b';
+  ctx.beginPath(); ctx.roundRect ? ctx.roundRect(-13,-55+bob,26,15,5) : ctx.rect(-13,-55+bob,26,15); ctx.fill();
+  ctx.fillStyle = wall ? '#555b6e' : '#3db8ff'; ctx.fillRect(-0.8,-55+bob,1.6,14);
+
+  // 手臂 (後層)
+  const arm = (side)=>{
+    const fw = Math.sin(side<0 ? ph+Math.PI : ph);
+    ctx.strokeStyle = skin; ctx.lineWidth = 6;
+    ctx.beginPath(); ctx.moveTo(side*13, -78+bob+lean*0.2);
+    ctx.lineTo(side*(19+fw*1.5), -66+bob - fw*3 + (wall?6:0));
+    ctx.lineTo(side*(16 - fw*3), -57+bob - fw*8*(wall?0.3:1) + (wall?12:0)); ctx.stroke();
+  };
+  arm(-1);
+  // 軀幹
+  const tg = ctx.createLinearGradient(0,-84,0,-50);
+  tg.addColorStop(0,jersey[0]); tg.addColorStop(1,jersey[1]);
+  ctx.shadowColor = col; ctx.shadowBlur = wall?0:14;
+  ctx.fillStyle = tg;
+  ctx.beginPath(); ctx.roundRect ? ctx.roundRect(-13,-83+bob+lean*0.2,26,34,9) : ctx.rect(-13,-83+bob,26,34); ctx.fill();
+  ctx.shadowBlur = 0;
+  // 背號
+  ctx.fillStyle='#fff'; ctx.fillRect(-6.5,-74+bob+lean*0.2,13,9);
+  ctx.fillStyle='#10163a'; ctx.font='bold 7.5px system-ui,sans-serif'; ctx.textAlign='center'; ctx.fillText('42',0,-67.2+bob+lean*0.2);
+  // 反光條
+  ctx.fillStyle='rgba(255,255,255,.55)'; ctx.fillRect(-13,-55+bob,26,2);
+  arm(1);
+  // 頭
+  const hy = -92 + bob + (wall?7:0) + lean*0.3;
+  ctx.fillStyle = skin; ctx.fillRect(-3.2,hy+6,6.4,6);
+  ctx.fillStyle = wall ? '#2b2b33' : '#1f1722'; ctx.beginPath(); ctx.arc(0,hy,9,0,6.3); ctx.fill();
+  ctx.fillStyle = wall ? '#777c8c' : '#ff9a2e';
+  ctx.beginPath(); ctx.arc(0,hy-0.5,9.3,Math.PI*0.92,Math.PI*2.08); ctx.closePath(); ctx.fill();
+  ctx.fillStyle='rgba(255,255,255,.6)'; ctx.fillRect(-1,hy-9,2,6);
+  // 馬尾
+  ctx.strokeStyle = wall?'#2b2b33':'#1f1722'; ctx.lineWidth=3.5;
+  ctx.beginPath(); ctx.moveTo(0,hy+3); ctx.quadraticCurveTo(Math.sin(ph)*5, hy+11, Math.sin(ph)*7, hy+15); ctx.stroke();
+  ctx.restore();
+
+  // 汗滴
+  if (G.tension>55 && state==='run' && Math.random() < dt*(G.tension-50)*0.5){
+    parts.push({x:x+rnd(-8,8)*u,y:baseY-92*u,vx:rnd(-90,90),vy:rnd(-120,-30),l:0.7});
+  }
+  for (let i=parts.length-1;i>=0;i--){
+    const p=parts[i]; p.l-=dt; if(p.l<=0){parts.splice(i,1);continue;}
+    p.vy += 420*dt; p.x+=p.vx*dt; p.y+=p.vy*dt;
+    ctx.fillStyle='rgba(150,220,255,'+clamp(p.l*1.4,0,1)+')'; ctx.beginPath(); ctx.arc(p.x,p.y,2.2,0,6.3); ctx.fill();
+  }
+}
+
+/* ================= 主迴圈 ================= */
+let last = performance.now();
+function frame(now){
+  const dt = Math.min(0.05, (now-last)/1000); last = now;
+  const t = now/1000;
+  update(dt);
+  // 視覺速度
+  const vis = G.wall ? 2.4 : 6*Math.pow(7/G.pace,1.6);
+  G.cam += (state==='ready' ? 2 : vis) * dt;
+  const speedF = clamp((7.5-G.pace)/2.7,0,1) * (state==='done'?0:1);
+
+  // 捲線器旋轉
+  const holding = pointers.size>0 || keyHold;
+  const av = G.wall ? 0 : (G.power*900 + (holding && state==='run' ? 160 : 0));
+  spinAngle += av*dt + tapKick; tapKick = 0;
+  el.spin.style.transform = 'rotate('+spinAngle+'deg)';
+
+  const z = zoneInfo(G.pace);
+  // 場景
+  ctx.save();
+  if (G.tension>65 && !G.wall && state==='run'){
+    const a = (G.tension-65)/35*5; ctx.translate((Math.random()-.5)*a, (Math.random()-.5)*a);
+  }
+  drawScene(t, speedF);
+  drawRunner(dt, t, z);
+  ctx.restore();
+  // 能量膠閃光
+  if (G.flash>0){
+    ctx.fillStyle='rgba(255,120,190,'+(G.flash*0.35)+')'; ctx.fillRect(0,0,W,H); G.flash = Math.max(0, G.flash-dt*2.5);
+  }
+  updateHUD(dt);
+  requestAnimationFrame(frame);
+}
+resize();
+// 版面穩定後重新量測跑者位置
+setTimeout(resize, 120); setTimeout(resize, 600);
+requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
