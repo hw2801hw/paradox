@@ -1,0 +1,942 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#0b1020">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>反向塔防｜怪物攻城</title>
+<style>
+/* =====================================================================
+   ★★★ 所有字體大小永久不得低於 16px ★★★
+   （CSS、Canvas 文字、動態產生的 HTML 一律適用；新增樣式時請務必遵守）
+   ===================================================================== */
+:root{
+  --bg:#0b1020; --panel:#141b34; --panel2:#1c2547; --line:#2b3768;
+  --text:#eef2ff; --muted:#aab4d9; --accent:#7c5cff; --accent2:#22d3ee;
+  --gold:#fbbf24; --good:#34d399; --bad:#f87171;
+  /* 安全區域：避免被瀏海 / 手機底部系統導航列遮住 */
+  --sat:env(safe-area-inset-top,0px);
+  --sar:env(safe-area-inset-right,0px);
+  --sab:env(safe-area-inset-bottom,0px);
+  --sal:env(safe-area-inset-left,0px);
+  --pad-b:calc(var(--sab) + 16px);
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{
+  margin:0;height:100%;overflow:hidden;background:var(--bg);color:var(--text);
+  font:16px/1.45 system-ui,-apple-system,"Noto Sans TC","PingFang TC","Microsoft JhengHei",sans-serif; /* 基準 16px */
+  overscroll-behavior:none;touch-action:manipulation;
+  -webkit-user-select:none;user-select:none;
+}
+button{font:inherit;font-size:16px;color:inherit;border:0;cursor:pointer;background:none}
+h1,h2,h3,p{margin:0}
+
+#app{position:fixed;left:0;top:0;width:100%;height:100%;height:100dvh;overflow:hidden;
+  background:radial-gradient(120% 80% at 50% 0%,#1a2150 0%,#0b1020 60%)}
+
+/* ---------- 通用畫面容器（含轉場動畫） ---------- */
+.screen{
+  position:absolute;inset:0;display:flex;flex-direction:column;
+  padding:calc(var(--sat) + 12px) calc(var(--sar) + 14px) var(--pad-b) calc(var(--sal) + 14px);
+  opacity:0;visibility:hidden;transform:scale(.97) translateY(12px);
+  transition:opacity .35s ease,transform .35s ease,visibility 0s linear .35s;
+}
+.screen.show{opacity:1;visibility:visible;transform:none;
+  transition:opacity .35s ease,transform .35s ease,visibility 0s}
+#game{z-index:1;opacity:1;visibility:visible;transform:none}
+#menu{z-index:5}#codex{z-index:6}#upgrade{z-index:7}#win{z-index:8}#confirm{z-index:9}
+#codex,#upgrade{background:linear-gradient(180deg,#10163a,#0b1020)}
+#win,#confirm{background:rgba(5,8,20,.82);backdrop-filter:blur(6px);align-items:center;justify-content:center}
+
+/* ---------- 按鈕 ---------- */
+.btn{
+  min-height:56px;padding:12px 22px;border-radius:18px;font-size:18px;font-weight:800;
+  background:linear-gradient(180deg,#27315f,#1b2350);border:1px solid var(--line);
+  box-shadow:0 8px 20px rgba(0,0,0,.4),inset 0 1px 0 rgba(255,255,255,.08);
+  transition:transform .15s ease,filter .15s ease,box-shadow .15s ease;
+}
+.btn:active{transform:scale(.96);filter:brightness(1.15)}
+.btn.primary{background:linear-gradient(180deg,#8f73ff,#5b3fe0);border-color:#a592ff;
+  box-shadow:0 10px 26px rgba(124,92,255,.5),inset 0 1px 0 rgba(255,255,255,.25)}
+.btn.gold{background:linear-gradient(180deg,#fcd34d,#f59e0b);color:#2b1a00;border-color:#fde68a}
+.btn.big{min-height:68px;font-size:22px;border-radius:22px;width:100%}
+.btn[disabled]{opacity:.5;filter:grayscale(.6);cursor:not-allowed;transform:none}
+
+/* ---------- 主選單 ---------- */
+.float-bg{position:absolute;inset:0;overflow:hidden;pointer-events:none}
+.float-bg span{position:absolute;bottom:-60px;font-size:32px;opacity:.28;animation:floatUp linear infinite}
+@keyframes floatUp{to{transform:translateY(-120vh) rotate(25deg)}}
+.menu-center{position:relative;flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;text-align:center}
+.logo{font-size:84px;line-height:1;filter:drop-shadow(0 10px 24px rgba(124,92,255,.6));animation:bob 3s ease-in-out infinite}
+@keyframes bob{50%{transform:translateY(-10px)}}
+.menu-center h1{font-size:52px;font-weight:900;letter-spacing:4px;
+  background:linear-gradient(90deg,#c4b5fd,#22d3ee,#fbbf24);-webkit-background-clip:text;background-clip:text;color:transparent}
+.sub{color:var(--muted);font-size:18px}
+.menu-btns{width:min(420px,100%);display:flex;flex-direction:column;gap:16px;margin-top:22px}
+.tip{position:relative;text-align:center;color:var(--muted);font-size:16px}
+
+/* ---------- 遊戲 HUD ---------- */
+.hud{display:flex;gap:8px;justify-content:space-between;flex:none}
+.pill{flex:1;min-width:0;background:var(--panel);border:1px solid var(--line);border-radius:999px;
+  padding:8px 10px;font-weight:800;font-size:16px;display:flex;gap:6px;align-items:center;justify-content:center;
+  white-space:nowrap;box-shadow:0 6px 16px rgba(0,0,0,.35)}
+.pill.gold{color:var(--gold)}
+#stage{position:relative;flex:1;min-height:0;margin:10px 0;overflow:hidden;border-radius:18px}
+#cv{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);border-radius:14px;
+  box-shadow:0 12px 40px rgba(0,0,0,.55);touch-action:none}
+.bar{display:flex;gap:10px;align-items:center;flex:none}
+.bar .btn{min-height:52px;padding:8px 16px;border-radius:16px;font-size:18px}
+.prog{flex:1;height:52px;border-radius:16px;background:var(--panel);border:1px solid var(--line);position:relative;overflow:hidden}
+.prog i{position:absolute;left:0;top:0;bottom:0;width:0;background:linear-gradient(90deg,#7c5cff,#22d3ee);transition:width .25s}
+.prog b{position:absolute;inset:0;display:grid;place-items:center;font-size:16px;text-shadow:0 1px 3px #000}
+#banner{position:absolute;left:0;right:0;top:34%;z-index:3;text-align:center;pointer-events:none;
+  opacity:0;transform:scale(.8);transition:opacity .35s,transform .35s}
+#banner.show{opacity:1;transform:none}
+#banner h2{font-size:48px;font-weight:900;text-shadow:0 6px 24px rgba(124,92,255,.9)}
+#banner p{font-size:18px;color:#dbe4ff;text-shadow:0 2px 8px #000}
+
+/* ---------- 技能樹 ---------- */
+.head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex:none;margin-bottom:10px}
+.head h2{font-size:24px;font-weight:900}
+.head .gold{font-size:20px;font-weight:900;color:var(--gold);background:var(--panel);border:1px solid var(--line);
+  padding:6px 14px;border-radius:999px}
+.hint{color:var(--muted);font-size:16px;margin-bottom:8px;flex:none}
+.tree-wrap{flex:1;min-height:0;overflow:auto;background:var(--panel);border:1px solid var(--line);
+  border-radius:20px;padding:10px;touch-action:pan-x pan-y;-webkit-overflow-scrolling:touch}
+.tree{position:relative;min-width:340px;height:680px}
+.tree svg{position:absolute;left:0;top:0;width:100%;height:100%;pointer-events:none}
+.ln{fill:none;stroke:#34417a;stroke-width:3;stroke-linecap:round}
+.ln.ok{stroke:var(--good);filter:drop-shadow(0 0 4px rgba(52,211,153,.8))}
+.node{position:absolute;width:20%;display:flex;flex-direction:column;align-items:center;cursor:pointer}
+.nbtn{position:relative;width:60px;height:60px;border-radius:50%;font-size:28px;line-height:1;
+  display:grid;place-items:center;background:linear-gradient(145deg,#2a3566,#182044);
+  border:2px solid var(--line);box-shadow:0 6px 14px rgba(0,0,0,.4);
+  transition:transform .2s,box-shadow .2s,border-color .2s}
+.nname{margin-top:6px;font-size:16px;font-weight:700;white-space:nowrap;background:var(--panel);padding:0 4px;border-radius:8px}
+.badge{position:absolute;right:-12px;bottom:-6px;min-width:26px;height:26px;padding:0 6px;border-radius:13px;
+  background:#0b1020;border:1px solid var(--line);font-size:16px;line-height:24px;font-weight:800}
+.node.locked .nbtn{filter:grayscale(1) brightness(.65)}
+.node.avail .nbtn{border-color:var(--accent2);animation:glow 1.8s ease-in-out infinite}
+.node.owned .nbtn{border-color:var(--good);box-shadow:0 0 14px rgba(52,211,153,.5)}
+.node.maxed .nbtn{border-color:var(--gold);box-shadow:0 0 18px rgba(251,191,36,.7)}
+.node.sel .nbtn{transform:scale(1.15);outline:3px solid rgba(255,255,255,.75)}
+@keyframes glow{50%{box-shadow:0 0 18px rgba(34,211,238,.8)}}
+.detail{flex:none;margin-top:10px;background:var(--panel);border:1px solid var(--line);border-radius:20px;
+  padding:12px 14px;max-height:40%;overflow:auto;animation:pop .25s ease}
+@keyframes pop{from{opacity:.4;transform:translateY(8px)}}
+.detail h3{font-size:20px;font-weight:900;display:flex;justify-content:space-between;gap:8px;align-items:center}
+.detail h3 em{font-style:normal;font-size:16px;color:var(--gold)}
+.detail p{color:#c9d3f5;font-size:16px;margin:4px 0}
+.detail .row{margin:4px 0;font-size:16px}
+.detail .row b{color:var(--muted);font-weight:700}
+.chip{display:inline-block;margin:3px 4px 0 0;padding:2px 10px;border-radius:999px;font-size:16px;
+  background:#222c58;border:1px solid var(--line)}
+.chip.ok{border-color:var(--good);color:#a7f3d0}
+.buy{width:100%;margin-top:10px;min-height:52px}
+.go-btn{margin-top:10px;flex:none;min-height:60px;font-size:20px}
+
+/* ---------- 勝利 / 確認 彈窗 ---------- */
+.card{width:min(420px,100%);background:linear-gradient(180deg,#1d2655,#121936);border:1px solid var(--line);
+  border-radius:28px;padding:28px 22px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.6);
+  animation:cardIn .5s cubic-bezier(.2,1.4,.4,1)}
+@keyframes cardIn{from{opacity:0;transform:scale(.8) translateY(30px)}}
+.card .ico{font-size:72px;line-height:1.1}
+.card h2{font-size:26px;font-weight:900;margin:10px 0 18px;line-height:1.35}
+.card .btns{display:flex;flex-direction:column;gap:12px}
+#win .card h2{color:var(--gold)}
+
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- ===== 遊戲主畫面 ===== -->
+  <section class="screen" id="game">
+    <div class="hud">
+      <div class="pill" id="hWave">🌊 第 1 波</div>
+      <div class="pill gold" id="hGold">💰 0</div>
+      <div class="pill" id="hTowers" style="color:#fb923c">🔥 +0%</div>
+    </div>
+    <div id="stage">
+      <canvas id="cv"></canvas>
+      <div id="banner"><h2 id="bnTitle">第 1 波</h2><p id="bnSub">AI 正在布防…</p></div>
+    </div>
+    <div class="bar">
+      <button class="btn" id="btnHome" aria-label="離開">🏠</button>
+      <div class="prog"><i id="pFill"></i><b id="pTxt">👾 0</b></div>
+      <button class="btn" id="btnSpeed">⏩ 1x</button>
+    </div>
+  </section>
+
+  <!-- ===== 主選單 ===== -->
+  <section class="screen show" id="menu">
+    <div class="float-bg" id="floatBg" aria-hidden="true"></div>
+    <div class="menu-center">
+      <div class="logo">🏰</div>
+      <h1>反向塔防</h1>
+      <p class="sub">養成怪物軍團・突破 AI 城牆</p>
+      <div class="menu-btns">
+        <button class="btn primary big" id="btnStart">⚔️ 開始遊戲</button>
+        <button class="btn big" id="btnCodex">🌳 怪樹圖鑑</button>
+      </div>
+    </div>
+    <p class="tip">只要任何一隻怪物抵達城牆，立刻獲勝！</p>
+  </section>
+
+  <!-- ===== 怪樹圖鑑 ===== -->
+  <section class="screen" id="codex">
+    <div class="head">
+      <button class="btn" id="cxBack">← 返回</button>
+      <h2>🌳 怪樹圖鑑</h2>
+    </div>
+    <p class="hint">點選節點查看技能效果與前置條件</p>
+    <div class="tree-wrap" id="cxWrap"></div>
+    <div class="detail" id="cxDetail"></div>
+  </section>
+
+  <!-- ===== 波次結束：技能升級 ===== -->
+  <section class="screen" id="upgrade">
+    <div class="head">
+      <h2 id="upTitle">第 1 波 完成！</h2>
+      <div class="gold" id="upGold">💰 0</div>
+    </div>
+    <p class="hint" id="upInfo"></p>
+    <div class="tree-wrap" id="upWrap"></div>
+    <div class="detail" id="upDetail"></div>
+    <button class="btn primary go-btn" id="btnGo">出擊！</button>
+  </section>
+
+  <!-- ===== 勝利 ===== -->
+  <section class="screen" id="win">
+    <div class="card">
+      <div class="ico">🏆</div>
+      <h2 id="winMsg">恭喜你！</h2>
+      <div class="btns">
+        <button class="btn primary" id="btnAgain">再玩一次</button>
+        <button class="btn" id="btnMenu">回主選單</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== 離開確認 ===== -->
+  <section class="screen" id="confirm">
+    <div class="card">
+      <div class="ico">🏠</div>
+      <h2>要離開本局嗎？</h2>
+      <div class="btns">
+        <button class="btn primary" id="cfStay">繼續遊戲</button>
+        <button class="btn" id="cfLeave">離開</button>
+      </div>
+    </div>
+  </section>
+</div>
+
+<script>
+/* =====================================================================
+   反向塔防 — 單檔 HTML5 遊戲（無框架、無外部依賴）
+   規則提醒：所有字體大小永久不得低於 16px（含 Canvas 文字）。
+   結構：1.常數與資料 2.路徑與地形 3.遊戲狀態 4.AI 防禦 5.模擬更新
+         6.繪圖 7.技能樹 UI 8.流程與事件
+   ===================================================================== */
+(() => {
+'use strict';
+
+/* ------------------------------------------------------------------ *
+ * 1. 常數與資料
+ * ------------------------------------------------------------------ */
+const COLS = 9, LANES = 8, ROWS = LANES * 2 - 1;   // 9 x 15 格；8 條橫向車道 → 高度蛇形
+const MIN_FONT = 16;                               // 字體下限（px）
+const $ = id => document.getElementById(id);
+const rand = (a, b) => a + Math.random() * (b - a);
+const PI2 = Math.PI * 2;
+
+/* 怪物種類 */
+const MON = {
+  slime: { hp: 50,   spd: 2.0, size: .30, dr: 0,   gold: 10, color: '#4ade80' },
+  bat:   { hp: 30,   spd: 3.2, size: .28, dr: 0,   gold: 10, color: '#a78bfa' },
+  golem: { hp: 140,  spd: 1.3, size: .34, dr: .15, gold: 10, color: '#94a3b8' },
+  elite: { hp: 260,  spd: 1.6, size: .38, dr: .20, gold: 20, color: '#e11d74' },
+  boss:  { hp: 1300, spd: 1.3, size: .52, dr: .10, gold: 50, color: '#7c3aed' }
+};
+
+/* AI 防禦塔種類 */
+const TT = {
+  arrow:  { range: 2.6, dmg: 7,  cd: .8,  color: '#4ade80', barrel: [.38, .10], pspeed: 9 },
+  cannon: { range: 2.5, dmg: 16, cd: 1.7, color: '#fb923c', barrel: [.34, .18], pspeed: 6, splash: 1.0 },
+  frost:  { range: 2.5, dmg: 3,  cd: .9,  color: '#60a5fa', barrel: [0, 0],      pspeed: 8 },
+  sniper: { range: 4.6, dmg: 34, cd: 2.4, color: '#f472b6', barrel: [.52, .07], pspeed: 16 }
+};
+const TOWER_DMG_MUL = 5;                           // AI 塔攻擊力倍率（難度調整：5 倍）
+/* AI 攻擊加成：我方每被擊敗 10 隻 +1%，每完成一波 +1%（全體塔共用） */
+const aiBonusPct = () => Math.floor(G.kills / 10) + G.waveBonus;
+const aiBuff = () => 1 + .01 * aiBonusPct();
+const tDmg = t => TT[t.type].dmg * TOWER_DMG_MUL * aiBuff() * Math.pow(1.15, t.lvl - 1);
+const tRange = t => TT[t.type].range + Math.min(1.5, .04 * (t.lvl - 1));   // 射程加成設上限
+const tCd = t => TT[t.type].cd * Math.max(.5, 1 - .02 * (t.lvl - 1));      // 攻速加成設上限
+
+/* 技能樹資料（row/col 為樹上位置；req 為前置條件） */
+const SKILLS = [
+  { id:'hp', icon:'❤️', name:'強健體魄', max:8, col:1, row:0, req:[], base:25, step:.5,
+    desc:'讓所有怪物更耐打，提高最大生命值。面對 AI 越來越強的火力，血量是撐過火線的根本。',
+    eff:l=>`生命值 +${25*l}%` },
+  { id:'count', icon:'👾', name:'怪物數量', max:8, col:3, row:0, req:[], base:20, step:.6,
+    desc:'每波多派出怪物。數量越多，AI 的炮火越分散，只要一隻突破就贏！',
+    eff:l=>`每波基礎數量 ${10+3*l} 隻` },
+  { id:'speed', icon:'💨', name:'疾行', max:5, col:0, row:1, req:[{id:'hp',lv:1}], base:30, step:.6,
+    desc:'提升全體怪物移動速度，縮短暴露在防禦塔射程內的時間。',
+    eff:l=>`移動速度 +${8*l}%` },
+  { id:'armor', icon:'🛡️', name:'堅固護甲', max:6, col:2, row:1, req:[{id:'hp',lv:2}], base:35, step:.7,
+    desc:'減少受到的傷害，讓防禦塔的每一發攻擊都打折。',
+    eff:l=>`受到傷害 -${7*l}%` },
+  { id:'gold', icon:'💰', name:'賞金', max:5, col:4, row:1, req:[{id:'count',lv:1}], base:30, step:.8,
+    desc:'提高每隻怪物被擊敗後的金幣獲取量（基礎為 10 金幣）。',
+    eff:l=>`金幣獲取 +${15*l}%` },
+  { id:'bat', icon:'🦇', name:'蝙蝠', max:1, col:0, row:2, req:[{id:'speed',lv:2}], base:60, step:0,
+    desc:'解鎖新怪物「蝙蝠」：生命低、速度極快，能迅速衝過火線。',
+    eff:l=>l?'已解鎖：快速型怪物':'未解鎖' },
+  { id:'golem', icon:'🗿', name:'石像鬼', max:1, col:2, row:2, req:[{id:'armor',lv:2}], base:70, step:0,
+    desc:'解鎖新怪物「石像鬼」：高生命、天生減傷 15%，是前線的肉盾。',
+    eff:l=>l?'已解鎖：坦克型怪物':'未解鎖' },
+  { id:'loot', icon:'🏦', name:'紅利', max:3, col:4, row:2, req:[{id:'gold',lv:2}], base:50, step:1,
+    desc:'每波結束時額外獲得固定金幣，不論戰況如何都有收入。',
+    eff:l=>`每波結束 +${20*l} 金幣` },
+  { id:'elite', icon:'⭐', name:'精英怪', max:1, col:1, row:3, req:[{id:'bat',lv:1},{id:'golem',lv:1}], base:150, step:0,
+    desc:'解鎖精英怪物：生命高、減傷 20%，每波約 12% 的怪物會成為精英（擊敗得 20 金幣）。',
+    eff:l=>l?'已解鎖：精英怪物':'未解鎖' },
+  { id:'regen', icon:'💚', name:'自癒', max:3, col:3, row:3, req:[{id:'golem',lv:1},{id:'loot',lv:1}], base:80, step:1,
+    desc:'所有怪物持續回復生命，在塔的間隙中恢復狀態。',
+    eff:l=>`每秒回復 ${1.5*l}% 最大生命` },
+  { id:'boss', icon:'👑', name:'魔王', max:1, col:2, row:4, req:[{id:'elite',lv:1},{id:'regen',lv:1}], base:300, step:0,
+    desc:'解鎖「有能力的 Boss」：每波一隻魔王，擁有治療與加速光環，並週期性展開護盾（受傷 -70%）。擊敗得 50 金幣。',
+    eff:l=>l?'已解鎖：每波一隻魔王':'未解鎖' },
+  { id:'awaken', icon:'🔥', name:'覺醒', max:3, col:2, row:5, req:[{id:'boss',lv:1}], base:200, step:1,
+    desc:'強化魔王：提升生命值、光環治療量，並延長護盾時間。',
+    eff:l=>`魔王生命 +${40*l}%・光環 +${50*l}%・護盾 +${.5*l}s` }
+];
+const BY_ID = Object.fromEntries(SKILLS.map(s => [s.id, s]));
+
+/* ------------------------------------------------------------------ *
+ * 2. 路徑與地形（8 條車道，左右交替，連接段在兩端）
+ * ------------------------------------------------------------------ */
+const WP = [];
+for (let i = 0; i < LANES; i++) {
+  const y = 2 * i + .5, a = i % 2 === 0 ? .5 : COLS - .5, b = i % 2 === 0 ? COLS - .5 : .5;
+  WP.push({ x: a, y }, { x: b, y });
+}
+const SEG = []; let PL = 0;                         // PL = 路徑總長（格）
+for (let i = 0; i < WP.length - 1; i++) {
+  const len = Math.hypot(WP[i+1].x - WP[i].x, WP[i+1].y - WP[i].y);
+  SEG.push({ a: WP[i], b: WP[i+1], len, start: PL }); PL += len;
+}
+function posAt(d) {                                  // 依路徑距離取得座標
+  d = Math.max(0, Math.min(PL, d));
+  for (const s of SEG) if (d <= s.start + s.len) {
+    const t = (d - s.start) / s.len;
+    return { x: s.a.x + (s.b.x - s.a.x) * t, y: s.a.y + (s.b.y - s.a.y) * t };
+  }
+  return { ...WP[WP.length - 1] };
+}
+const SAMPLES = []; for (let d = 0; d <= PL; d += .2) SAMPLES.push(posAt(d));
+const SLOTS = [];                                    // 可建塔位置：奇數列（非連接格）
+for (let r = 1; r < ROWS; r += 2) {
+  const conn = ((r - 1) / 2) % 2 === 0 ? COLS - 1 : 0;
+  for (let c = 0; c < COLS; c++) if (c !== conn) SLOTS.push({ c, r, x: c + .5, y: r + .5, used: false });
+}
+const CASTLE = WP[WP.length - 1];
+
+/* ------------------------------------------------------------------ *
+ * 3. 遊戲狀態
+ * ------------------------------------------------------------------ */
+const G = {
+  phase: 'menu',            // menu | prep | wave | upgrade | win
+  wave: 0, gold: 0, time: 0, speed: 1, paused: false,
+  monsters: [], towers: [], projs: [], fx: [], floats: [], queue: [],
+  skills: {}, prepT: 0, spawnT: 0, waveTotal: 0,
+  kills: 0, waveBonus: 0, towerTarget: 0
+};
+const lv = id => G.skills[id] || 0;
+const reqMet = s => s.req.every(r => lv(r.id) >= r.lv);
+const skillCost = s => Math.round(s.base * (1 + s.step * lv(s.id)));
+const stats = () => ({
+  hp: 1 + .25 * lv('hp'), speed: 1 + .08 * lv('speed'), armor: .07 * lv('armor'),
+  goldMul: 1 + .15 * lv('gold'), count: 10 + 3 * lv('count')
+});
+
+/* ------------------------------------------------------------------ *
+ * 4. AI 防禦：依波次增加塔數量與等級，並挑選覆蓋路徑最多的位置
+ * ------------------------------------------------------------------ */
+/* 第 1 波 5 座；之後每波隨機再增設 2~5 座（上限為全部塔位） */
+function growTowerTarget(w) {
+  G.towerTarget = w === 1 ? 5 : Math.min(SLOTS.length, G.towerTarget + 2 + Math.floor(Math.random() * 4));
+}
+/* 每擊敗 25 隻怪物，隨機一座 AI 塔升級 */
+function upgradeRandomTower() {
+  if (!G.towers.length) return;
+  const t = G.towers[Math.floor(Math.random() * G.towers.length)];
+  t.lvl++; t.up = .9;
+  G.floats.push({ x: t.x, y: t.y - .5, t: 1.4, text: '塔升級 Lv' + t.lvl, color: '#fb923c' });
+}
+const aiLevel = w => Math.min(10, 1 + Math.floor((w - 1) / 4));
+
+function aiPickType(w) {
+  const bag = [['arrow', 5]];
+  if (w >= 3) bag.push(['frost', 2]);
+  if (w >= 5) bag.push(['cannon', 2]);
+  if (w >= 8) bag.push(['sniper', 1.5]);
+  let total = bag.reduce((a, b) => a + b[1], 0), r = Math.random() * total;
+  for (const [t, wt] of bag) { if ((r -= wt) <= 0) return t; }
+  return 'arrow';
+}
+function aiPlace(order) {
+  const type = aiPickType(G.wave), rg = TT[type].range;
+  let best = null, bs = -1e9;
+  for (const s of SLOTS) {
+    if (s.used) continue;
+    let cov = 0;
+    for (const p of SAMPLES) if ((p.x - s.x) ** 2 + (p.y - s.y) ** 2 <= rg * rg) cov++;
+    let near = 0;
+    for (const t of G.towers) if (Math.hypot(t.x - s.x, t.y - s.y) <= 1.5) near++;
+    const sc = cov - near * 8 + Math.random() * 10;   // 覆蓋率高、避免過度擁擠
+    if (sc > bs) { bs = sc; best = s; }
+  }
+  if (!best) return;
+  best.used = true;
+  G.towers.push({ type, x: best.x, y: best.y, lvl: aiLevel(G.wave), cd: rand(0, .5),
+    age: -order * .18, ang: Math.PI / 2, recoil: 0, up: 0 });
+}
+function aiBuild() {
+  const lvl = aiLevel(G.wave);
+  for (const t of G.towers) if (t.lvl < lvl) { t.lvl = lvl; t.up = .9; }
+  let k = 0;
+  growTowerTarget(G.wave);
+  while (G.towers.length < G.towerTarget) { const n = G.towers.length; aiPlace(k); if (G.towers.length === n) break; k++; }
+  return k;
+}
+
+/* ------------------------------------------------------------------ *
+ * 5. 模擬更新
+ * ------------------------------------------------------------------ */
+function buildQueue() {
+  const n = stats().count, pool = ['slime', 'slime'];
+  if (lv('bat')) pool.push('bat');
+  if (lv('golem')) pool.push('golem');
+  const q = [];
+  for (let i = 0; i < n; i++) q.push(pool[Math.floor(Math.random() * pool.length)]);
+  if (lv('elite')) for (let k = 0, ne = Math.max(1, Math.floor(n * .12)); k < ne; k++) q[Math.floor(Math.random() * n)] = 'elite';
+  if (lv('boss')) q.splice(Math.floor(n * .3), 0, 'boss');
+  G.queue = q; G.waveTotal = q.length;
+}
+function spawnMonster(type) {
+  const T = MON[type], S = stats();
+  let hp = T.hp * S.hp;
+  if (type === 'boss') hp *= 1 + .4 * lv('awaken');
+  const p = posAt(0);
+  G.monsters.push({ type, hp, maxHp: hp, spd: T.spd * S.speed, prog: 0, x: p.x, y: p.y,
+    dr: T.dr, gold: T.gold, size: T.size, slowT: 0, boostT: 0, shieldT: 0, shieldCd: 4,
+    flash: 0, dead: false, phase: Math.random() * 6 });
+}
+function hurt(m, dmg) {
+  if (m.dead) return;
+  let d = dmg * (1 - stats().armor) * (1 - m.dr);
+  if (m.shieldT > 0) d *= .3;
+  m.hp -= d; m.flash = .1;
+  /* 彈出傷害數字（護盾中以青色顯示） */
+  G.floats.push({ x: m.x + rand(-.25, .25), y: m.y - m.size - .45, t: .8,
+    text: '-' + Math.max(1, Math.round(d)), color: m.shieldT > 0 ? '#67e8f9' : '#ff6b6b' });
+  if (m.hp <= 0) kill(m);
+}
+function kill(m) {
+  m.dead = true;
+  const g = Math.round(m.gold * stats().goldMul);
+  G.gold += g;
+  G.kills++;
+  G.floats.push({ x: m.x, y: m.y - .3, t: 1, text: '+' + g, color: '#fbbf24' });
+  if (G.kills % 10 === 0) G.floats.push({ x: COLS / 2, y: 1.2, t: 1.4, text: '🔥 AI 攻擊力 +1%', color: '#fb923c' });
+  if (G.kills % 25 === 0) upgradeRandomTower();
+  for (let i = 0; i < 8; i++) G.fx.push({ k: 'p', x: m.x, y: m.y, vx: rand(-2, 2), vy: rand(-2, 2),
+    life: .5, max: .5, r: rand(.04, .09), color: MON[m.type].color });
+}
+function findTarget(t) {
+  const rg = tRange(t); let best = null, bv = -1;
+  for (const m of G.monsters) {
+    if (m.dead) continue;
+    if (Math.hypot(m.x - t.x, m.y - t.y) > rg + m.size * .5) continue;
+    const v = t.type === 'sniper' ? m.hp : m.prog;      // 狙擊塔優先打血最多的
+    if (v > bv) { bv = v; best = m; }
+  }
+  return best;
+}
+function fire(t, tg) {
+  const T = TT[t.type];
+  G.projs.push({ type: t.type, x: t.x, y: t.y, tg, lx: tg.x, ly: tg.y, dmg: tDmg(t), speed: T.pspeed, done: false });
+  t.recoil = .12;
+}
+function impact(p, x, y) {
+  const T = TT[p.type];
+  if (p.type === 'cannon') {
+    G.fx.push({ k: 'r', x, y, r: 0, max: T.splash, life: .35, mx: .35, color: '#fb923c' });
+    for (const m of G.monsters) if (!m.dead && Math.hypot(m.x - x, m.y - y) <= T.splash)
+      hurt(m, p.dmg * (m === p.tg ? 1 : .6));
+  } else if (p.type === 'frost') {
+    G.fx.push({ k: 'r', x, y, r: 0, max: .7, life: .3, mx: .3, color: '#93c5fd' });
+    for (const m of G.monsters) if (!m.dead && Math.hypot(m.x - x, m.y - y) <= .7) m.slowT = 1.6;
+    if (!p.tg.dead) hurt(p.tg, p.dmg);
+  } else if (!p.tg.dead) hurt(p.tg, p.dmg);
+}
+
+function update(dt) {
+  G.time += dt;
+  for (const t of G.towers) { t.age += dt; if (t.up > 0) t.up -= dt; if (t.recoil > 0) t.recoil -= dt; }
+
+  if (G.phase === 'prep') {                         // 備戰：AI 布防動畫
+    G.prepT -= dt;
+    if (G.prepT <= 0) { G.phase = 'wave'; G.spawnT = 0; $('banner').classList.remove('show'); }
+    return;
+  }
+  /* 生成怪物 */
+  G.spawnT -= dt;
+  while (G.queue.length && G.spawnT <= 0) { spawnMonster(G.queue.shift()); G.spawnT += .45; }
+
+  const ms = G.monsters, aw = lv('awaken'), rg = lv('regen');
+  /* 魔王光環：治療並加速附近怪物 */
+  for (const b of ms) {
+    if (b.type !== 'boss' || b.dead) continue;
+    const heal = .02 * (1 + .5 * aw);
+    for (const m of ms) {
+      if (m === b || m.dead) continue;
+      if ((m.x - b.x) ** 2 + (m.y - b.y) ** 2 <= 4.84) { m.hp = Math.min(m.maxHp, m.hp + m.maxHp * heal * dt); m.boostT = .3; }
+    }
+  }
+  /* 怪物移動 */
+  for (const m of ms) {
+    if (m.dead) continue;
+    m.flash -= dt; m.slowT -= dt; m.boostT -= dt;
+    if (m.type === 'boss') {
+      if (m.shieldT > 0) m.shieldT -= dt;
+      else { m.shieldCd -= dt; if (m.shieldCd <= 0) { m.shieldT = 2 + .5 * aw; m.shieldCd = 7; } }
+    }
+    if (rg) m.hp = Math.min(m.maxHp, m.hp + m.maxHp * .015 * rg * dt);
+    const v = m.spd * (m.slowT > 0 ? .65 : 1) * (m.boostT > 0 ? 1.2 : 1);
+    m.prog += v * dt;
+    const p = posAt(m.prog); m.x = p.x; m.y = p.y;
+    if (m.prog >= PL - .35) { doWin(); return; }       // ★ 任何一隻抵達城牆 → 立即勝利
+  }
+  /* 防禦塔攻擊 */
+  for (const t of G.towers) {
+    if (t.age < .45) continue;
+    t.cd -= dt;
+    const tg = findTarget(t);
+    if (tg) {
+      t.ang = Math.atan2(tg.y - t.y, tg.x - t.x);
+      if (t.cd <= 0) { fire(t, tg); t.cd = tCd(t); }
+    }
+  }
+  /* 投射物 */
+  for (const p of G.projs) {
+    if (!p.tg.dead) { p.lx = p.tg.x; p.ly = p.tg.y; }
+    const dx = p.lx - p.x, dy = p.ly - p.y, d = Math.hypot(dx, dy), st = p.speed * dt;
+    if (d <= st + .05) { impact(p, p.lx, p.ly); p.done = true; }
+    else { p.x += dx / d * st; p.y += dy / d * st; p.dx = dx / d; p.dy = dy / d; }
+  }
+  G.projs = G.projs.filter(p => !p.done);
+  G.monsters = G.monsters.filter(m => !m.dead);
+  if (!G.queue.length && !G.monsters.length) waveClear();
+}
+function updateFx(dt) {                              // 特效（與遊戲速度無關）
+  for (const f of G.fx) {
+    f.life -= dt;
+    if (f.k === 'p') { f.x += f.vx * dt; f.y += f.vy * dt; }
+    else if (f.k === 'r') f.r = f.max * (1 - f.life / f.mx);
+  }
+  G.fx = G.fx.filter(f => f.life > 0);
+  for (const f of G.floats) { f.t -= dt * 1.1; f.y -= dt * .8; }
+  G.floats = G.floats.filter(f => f.t > 0);
+}
+
+/* ------------------------------------------------------------------ *
+ * 6. 繪圖
+ * ------------------------------------------------------------------ */
+const cv = $('cv'), ctx = cv.getContext('2d'), stage = $('stage');
+const bg = document.createElement('canvas');
+let cell = 30, dpr = 1;
+
+function rr(g, x, y, w, h, r) {
+  g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r);
+  g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath();
+}
+/* Canvas 文字：以像素字級繪製，永遠不低於 16px */
+function text(s, x, y, px, color, outline) {
+  ctx.save(); ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.font = `800 ${Math.max(MIN_FONT, px)}px system-ui,"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif`;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  if (outline) { ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(0,0,0,.75)'; ctx.lineJoin = 'round'; ctx.strokeText(s, x * cell, y * cell); }
+  ctx.fillStyle = color || '#fff'; ctx.fillText(s, x * cell, y * cell);
+  ctx.restore();
+}
+function resize() {
+  const w = stage.clientWidth, h = stage.clientHeight;
+  if (w < 10 || h < 10) return;
+  cell = Math.max(16, Math.floor(Math.min(w / COLS, h / ROWS)));
+  dpr = Math.min(window.devicePixelRatio || 1, 3);
+  cv.style.width = cell * COLS + 'px'; cv.style.height = cell * ROWS + 'px';
+  cv.width = Math.round(cell * COLS * dpr); cv.height = Math.round(cell * ROWS * dpr);
+  buildBg();
+}
+/* 靜態底圖：草地 + 塔位 + 蛇形道路 + 出生門 */
+function buildBg() {
+  bg.width = cv.width; bg.height = cv.height;
+  const b = bg.getContext('2d');
+  b.setTransform(dpr * cell, 0, 0, dpr * cell, 0, 0);
+  let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) {
+    b.fillStyle = (r + c) % 2 ? '#14291f' : '#163123'; b.fillRect(c, r, 1, 1);
+    for (let k = 0; k < 2; k++) { b.fillStyle = 'rgba(120,200,120,.12)'; b.fillRect(c + rnd(), r + rnd(), .05, .05); }
+  }
+  for (const s of SLOTS) {
+    rr(b, s.c + .08, s.r + .08, .84, .84, .16);
+    b.fillStyle = 'rgba(255,255,255,.05)'; b.fill();
+    b.strokeStyle = 'rgba(255,255,255,.1)'; b.lineWidth = .02; b.stroke();
+  }
+  b.lineCap = b.lineJoin = 'round';
+  b.beginPath(); WP.forEach((p, i) => i ? b.lineTo(p.x, p.y) : b.moveTo(p.x, p.y));
+  b.strokeStyle = '#241c18'; b.lineWidth = .98; b.stroke();
+  b.strokeStyle = '#6d5a47'; b.lineWidth = .8; b.stroke();
+  b.strokeStyle = 'rgba(255,255,255,.1)'; b.lineWidth = .05; b.setLineDash([.18, .22]); b.stroke(); b.setLineDash([]);
+  const s0 = WP[0], gr = b.createRadialGradient(s0.x, s0.y, .05, s0.x, s0.y, .55);
+  gr.addColorStop(0, '#e9d5ff'); gr.addColorStop(.5, '#8b5cf6'); gr.addColorStop(1, 'rgba(76,29,149,0)');
+  b.fillStyle = gr; b.beginPath(); b.arc(s0.x, s0.y, .55, 0, PI2); b.fill();
+}
+
+const easeBack = t => { const c = 1.7; return 1 + (c + 1) * Math.pow(t - 1, 3) + c * Math.pow(t - 1, 2); };
+
+function drawTower(t) {
+  if (t.age < 0) return;
+  const sc = easeBack(Math.min(1, t.age / .45)), T = TT[t.type];
+  ctx.save(); ctx.translate(t.x, t.y); ctx.scale(sc, sc);
+  if (t.up > 0) { ctx.beginPath(); ctx.arc(0, 0, .5 + (.9 - t.up) * .6, 0, PI2); ctx.strokeStyle = `rgba(251,191,36,${t.up})`; ctx.lineWidth = .06; ctx.stroke(); }
+  rr(ctx, -.42, -.42, .84, .84, .16); ctx.fillStyle = '#1f2937'; ctx.fill();
+  ctx.strokeStyle = T.color; ctx.lineWidth = .04; ctx.stroke();
+  ctx.save(); ctx.rotate(t.ang);
+  if (T.barrel[0] > 0) { const len = T.barrel[0] - (t.recoil > 0 ? .08 : 0); ctx.fillStyle = '#e5e7eb'; ctx.fillRect(0, -T.barrel[1] / 2, len, T.barrel[1]); }
+  ctx.restore();
+  ctx.fillStyle = T.color; ctx.beginPath();
+  if (t.type === 'frost') { ctx.moveTo(0, -.3); ctx.lineTo(.22, 0); ctx.lineTo(0, .3); ctx.lineTo(-.22, 0); ctx.closePath(); }
+  else ctx.arc(0, 0, t.type === 'cannon' ? .3 : .24, 0, PI2);
+  ctx.fill();
+  const dots = Math.min(t.lvl, 6);                   // 等級點（最多 6 點）
+  for (let i = 0; i < dots; i++) {
+    ctx.beginPath(); ctx.arc((i - (dots - 1) / 2) * .08, .34, .032, 0, PI2);
+    ctx.fillStyle = t.lvl > 5 ? '#fbbf24' : '#e5e7eb'; ctx.fill();
+  }
+  ctx.restore();
+  if (t.lvl > 6) text(String(t.lvl), t.x + .3, t.y - .3, MIN_FONT, '#fbbf24', true);   // 高等級顯示數字
+}
+function eyes(dx, dy, er, color) {
+  for (const s of [-1, 1]) {
+    ctx.fillStyle = color || '#fff'; ctx.beginPath(); ctx.arc(s * dx, dy, er, 0, PI2); ctx.fill();
+    if (!color) { ctx.fillStyle = '#111'; ctx.beginPath(); ctx.arc(s * dx + er * .25, dy + er * .15, er * .5, 0, PI2); ctx.fill(); }
+  }
+}
+function drawMonster(m) {
+  const T = MON[m.type], r = m.size, bob = Math.sin(G.time * 9 + m.phase) * .03;
+  ctx.save(); ctx.translate(m.x, m.y + bob);
+  if (m.type === 'boss') {                           // 光環
+    ctx.beginPath(); ctx.arc(0, 0, 2.2, 0, PI2); ctx.fillStyle = 'rgba(168,85,247,.10)'; ctx.fill();
+    ctx.strokeStyle = 'rgba(168,85,247,.35)'; ctx.lineWidth = .03; ctx.setLineDash([.15, .15]); ctx.stroke(); ctx.setLineDash([]);
+  }
+  ctx.fillStyle = 'rgba(0,0,0,.3)'; ctx.beginPath(); ctx.ellipse(0, r * .85, r * .9, r * .28, 0, 0, PI2); ctx.fill();
+  const col = m.flash > 0 ? '#fff' : T.color;
+  ctx.fillStyle = col;
+  if (m.type === 'slime') {
+    ctx.beginPath(); ctx.ellipse(0, .03, r, r * .85, 0, 0, PI2); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,.35)'; ctx.beginPath(); ctx.ellipse(-r * .4, -r * .4, r * .2, r * .12, -.5, 0, PI2); ctx.fill();
+    eyes(r * .38, -r * .1, r * .22);
+  } else if (m.type === 'bat') {
+    ctx.restore(); text('🦇', m.x, m.y + bob, cell * .72); ctx.save(); ctx.translate(m.x, m.y + bob);
+  } else if (m.type === 'golem') {
+    rr(ctx, -r, -r, r * 2, r * 2, r * .3); ctx.fill();
+    ctx.fillStyle = 'rgba(0,0,0,.2)'; ctx.fillRect(-r, r * .3, r * 2, r * .2);
+    eyes(r * .38, -r * .2, r * .17, '#fb923c');
+  } else if (m.type === 'elite') {
+    ctx.beginPath(); for (let i = 0; i < 6; i++) { const a = i * PI2 / 6; ctx.lineTo(Math.cos(a) * r, Math.sin(a) * r); }
+    ctx.closePath(); ctx.fill(); ctx.strokeStyle = '#fbbf24'; ctx.lineWidth = .06; ctx.stroke();
+    eyes(r * .36, -r * .1, r * .17, '#fde047');
+  } else {                                            // boss
+    ctx.beginPath(); ctx.moveTo(-r * .8, -r * .5); ctx.lineTo(-r * .55, -r * 1.25); ctx.lineTo(-r * .2, -r * .8);
+    ctx.moveTo(r * .8, -r * .5); ctx.lineTo(r * .55, -r * 1.25); ctx.lineTo(r * .2, -r * .8); ctx.fill();
+    ctx.beginPath(); ctx.arc(0, 0, r, 0, PI2); ctx.fill();
+    eyes(r * .38, -r * .1, r * .17, '#f87171');
+    ctx.strokeStyle = 'rgba(0,0,0,.5)'; ctx.lineWidth = .05; ctx.beginPath(); ctx.arc(0, r * .25, r * .35, .2, Math.PI - .2); ctx.stroke();
+  }
+  if (m.slowT > 0) { ctx.strokeStyle = '#60a5fa'; ctx.lineWidth = .05; ctx.beginPath(); ctx.arc(0, 0, r * 1.2, 0, PI2); ctx.stroke(); }
+  if (m.shieldT > 0) { ctx.strokeStyle = 'rgba(103,232,249,.9)'; ctx.lineWidth = .07; ctx.beginPath(); ctx.arc(0, 0, r * 1.35, 0, PI2); ctx.stroke(); }
+  ctx.restore();
+  if (m.type === 'boss') text('👑', m.x, m.y - r * 1.55, cell * .5);
+  const bw = m.type === 'boss' ? .95 : m.type === 'elite' ? .7 : .6, by = m.y - r - (m.type === 'boss' ? .42 : .2);
+  ctx.fillStyle = 'rgba(0,0,0,.6)'; rr(ctx, m.x - bw / 2 - .02, by - .02, bw + .04, .12, .05); ctx.fill();
+  const ratio = Math.max(0, m.hp / m.maxHp);
+  ctx.fillStyle = `hsl(${ratio * 120},80%,50%)`; rr(ctx, m.x - bw / 2, by, Math.max(.04, bw * ratio), .08, .04); ctx.fill();
+  /* 血條上方顯示實際血量數字（字級由 text() 保證 ≥ 16px） */
+  text(String(Math.max(0, Math.ceil(m.hp))), m.x, by - 16 / cell * .75, MIN_FONT, '#ffffff', true);
+}
+function render() {
+  const now = performance.now() / 1000;
+  ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, cv.width, cv.height);
+  ctx.setTransform(dpr * cell, 0, 0, dpr * cell, 0, 0);
+  ctx.drawImage(bg, 0, 0, COLS, ROWS);
+  /* 城牆 */
+  const pu = .5 + .5 * Math.sin(now * 3);
+  const g = ctx.createRadialGradient(CASTLE.x, CASTLE.y, .1, CASTLE.x, CASTLE.y, 1.1 + pu * .2);
+  g.addColorStop(0, 'rgba(248,113,113,.55)'); g.addColorStop(1, 'rgba(248,113,113,0)');
+  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(CASTLE.x, CASTLE.y, 1.4, 0, PI2); ctx.fill();
+  text('🏰', CASTLE.x, CASTLE.y, cell * 1.0);
+
+  for (const t of G.towers) drawTower(t);
+  const ms = G.monsters.slice().sort((a, b) => a.y - b.y);
+  for (const m of ms) drawMonster(m);
+  for (const p of G.projs) {
+    if (p.type === 'sniper') {
+      ctx.strokeStyle = '#f9a8d4'; ctx.lineWidth = .06; ctx.beginPath(); ctx.moveTo(p.x, p.y);
+      ctx.lineTo(p.x - (p.dx || 0) * .6, p.y - (p.dy || 0) * .6); ctx.stroke();
+    }
+    ctx.fillStyle = p.type === 'cannon' ? '#431407' : p.type === 'frost' ? '#bae6fd' : p.type === 'sniper' ? '#fff' : '#fef08a';
+    ctx.beginPath(); ctx.arc(p.x, p.y, p.type === 'cannon' ? .12 : .07, 0, PI2); ctx.fill();
+  }
+  for (const f of G.fx) {
+    ctx.globalAlpha = Math.max(0, f.k === 'p' ? f.life / f.max : f.life / f.mx);
+    if (f.k === 'p') { ctx.fillStyle = f.color; ctx.beginPath(); ctx.arc(f.x, f.y, f.r, 0, PI2); ctx.fill(); }
+    else { ctx.strokeStyle = f.color; ctx.lineWidth = .07; ctx.beginPath(); ctx.arc(f.x, f.y, f.r, 0, PI2); ctx.stroke(); }
+  }
+  ctx.globalAlpha = 1;
+  for (const f of G.floats) { ctx.globalAlpha = Math.min(1, f.t * 1.5); text(f.text, f.x, f.y, cell * .42, f.color, true); }
+  ctx.globalAlpha = 1;
+}
+
+/* ------------------------------------------------------------------ *
+ * 7. 技能樹 UI（圖鑑 與 升級彈窗 共用）
+ * ------------------------------------------------------------------ */
+const ROW_H = 112, TOP = 8;
+function makeView(wrapId, detId, mode) {                // mode: 'cx' 圖鑑（唯讀）/ 'up' 升級
+  const wrap = $(wrapId), det = $(detId);
+  const view = {
+    sel: 'hp',
+    render() {
+      const st = wrap.scrollTop;
+      let h = '<div class="tree"><svg></svg>';
+      for (const s of SKILLS) {
+        const l = lv(s.id), met = reqMet(s);
+        let cls = 'node', badge;
+        if (mode === 'cx') { badge = s.max > 1 ? `Lv${s.max}` : '解鎖'; }
+        else {
+          if (l >= s.max) cls += ' maxed'; else if (l > 0) cls += ' owned';
+          if (!met) { cls += ' locked'; badge = '🔒'; }
+          else { if (l < s.max && G.gold >= skillCost(s)) cls += ' avail'; badge = s.max > 1 ? `${l}/${s.max}` : (l ? '✔' : ''); }
+        }
+        if (view.sel === s.id) cls += ' sel';
+        h += `<div class="${cls}" data-id="${s.id}" style="left:${s.col * 20}%;top:${s.row * ROW_H + TOP}px">
+          <button class="nbtn" aria-label="${s.name}">${s.icon}${badge ? `<span class="badge">${badge}</span>` : ''}</button>
+          <div class="nname">${s.name}</div></div>`;
+      }
+      wrap.innerHTML = h + '</div>';
+      wrap.scrollTop = st;
+      wrap.querySelectorAll('.node').forEach(n => n.onclick = () => { view.sel = n.dataset.id; view.render(); });
+      view.lines(); view.detail();
+    },
+    lines() {
+      const tree = wrap.querySelector('.tree'); if (!tree) return;
+      const W = tree.offsetWidth, H = tree.offsetHeight, svg = tree.querySelector('svg');
+      svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+      let p = '';
+      for (const s of SKILLS) for (const r of s.req) {
+        const a = BY_ID[r.id];
+        const x1 = (a.col + .5) * W / 5, y1 = a.row * ROW_H + TOP + 30, x2 = (s.col + .5) * W / 5, y2 = s.row * ROW_H + TOP + 30;
+        const ok = mode === 'up' && lv(a.id) >= r.lv;
+        p += `<path class="ln${ok ? ' ok' : ''}" d="M${x1} ${y1} C${x1} ${y1 + 56} ${x2} ${y2 - 56} ${x2} ${y2}"/>`;
+      }
+      svg.innerHTML = p;
+    },
+    detail() {
+      const s = BY_ID[view.sel], l = lv(s.id);
+      const reqH = s.req.length ? s.req.map(r => {
+        const a = BY_ID[r.id], ok = mode === 'up' && lv(r.id) >= r.lv;
+        return `<span class="chip ${ok ? 'ok' : ''}">${a.icon} ${a.name}${a.max > 1 ? ' Lv' + r.lv : ''}${mode === 'up' ? (ok ? ' ✔' : ' ✖') : ''}</span>`;
+      }).join('') : '<span class="chip ok">無（起始技能）</span>';
+      const kids = SKILLS.filter(k => k.req.some(r => r.id === s.id))
+        .map(k => `<span class="chip">${k.icon} ${k.name}</span>`).join('') || '<span class="chip">無（終端技能）</span>';
+      let h = `<h3><span>${s.icon} ${s.name}</span><em>${mode === 'up' ? `Lv ${l}/${s.max}` : `最高 Lv ${s.max}`}</em></h3>
+        <p>${s.desc}</p>`;
+      if (mode === 'up') {
+        h += `<div class="row"><b>目前：</b>${s.eff(l)}</div>`;
+        if (l < s.max) h += `<div class="row"><b>升級後：</b>${s.eff(l + 1)}</div>`;
+      } else {
+        h += `<div class="row"><b>效果：</b>${s.max > 1 ? s.eff(1) + ' → ' + s.eff(s.max) : s.eff(1)}</div>`;
+        h += `<div class="row"><b>金幣：</b>${s.max > 1 ? `首級 ${s.base}（逐級提高）` : s.base}</div>`;
+      }
+      h += `<div class="row"><b>前置條件：</b>${reqH}</div><div class="row"><b>後置技能：</b>${kids}</div>`;
+      if (mode === 'up') {
+        const met = reqMet(s), cost = skillCost(s);
+        let label, dis = true;
+        if (l >= s.max) label = '已滿級 ✔';
+        else if (!met) label = '🔒 需先完成前置技能';
+        else if (G.gold < cost) label = `💰 ${cost}（金幣不足）`;
+        else { label = `升級 💰 ${cost}`; dis = false; }
+        h += `<button class="btn gold buy" id="buyBtn" ${dis ? 'disabled' : ''}>${label}</button>`;
+      }
+      det.innerHTML = h;
+      const bb = det.querySelector('#buyBtn');
+      if (bb) bb.onclick = () => buy(s);
+    }
+  };
+  return view;
+}
+const cxView = makeView('cxWrap', 'cxDetail', 'cx');
+const upView = makeView('upWrap', 'upDetail', 'up');
+
+function buy(s) {
+  const cost = skillCost(s);
+  if (lv(s.id) >= s.max || !reqMet(s) || G.gold < cost) return;
+  G.gold -= cost; G.skills[s.id] = lv(s.id) + 1;
+  refreshUpgrade();
+}
+function refreshUpgrade() {
+  $('upGold').textContent = '💰 ' + G.gold;
+  const nw = G.wave + 1;
+  $('upInfo').textContent = `下一波：👾 ${stats().count} 隻　🗼 AI 現有 ${G.towers.length} 座，再增設 2~5 座・🔥 攻擊力 +${aiBonusPct() + 1}%`;
+  upView.render();
+}
+function openUpgrade() {
+  $('upTitle').textContent = `第 ${G.wave} 波 完成！`;
+  $('btnGo').textContent = `⚔️ 出擊第 ${G.wave + 1} 波`;
+  const first = SKILLS.find(s => lv(s.id) < s.max && reqMet(s) && G.gold >= skillCost(s));
+  upView.sel = first ? first.id : 'hp';
+  refreshUpgrade();
+  $('upWrap').scrollTop = 0;
+  setTimeout(() => show('upgrade'), 450);
+}
+
+/* ------------------------------------------------------------------ *
+ * 8. 流程與事件
+ * ------------------------------------------------------------------ */
+const show = id => $(id).classList.add('show');
+const hide = id => $(id).classList.remove('show');
+
+function goFullscreen() {                               // 全螢幕：失敗時優雅降級（靜默忽略）
+  try {
+    const el = document.documentElement;
+    const f = el.requestFullscreen || el.webkitRequestFullscreen || el.msRequestFullscreen;
+    if (!f) return;
+    const r = f.call(el, { navigationUI: 'hide' });
+    if (r && r.catch) r.catch(() => {});
+  } catch (e) { /* 不支援（如 iOS Safari），維持一般視窗即可 */ }
+}
+function startWave() {
+  G.wave++;
+  const added = aiBuild();
+  G.phase = 'prep'; G.prepT = Math.min(2.4, 1.0 + added * .18);
+  G.monsters = []; G.projs = [];
+  buildQueue();
+  $('bnTitle').textContent = `第 ${G.wave} 波`;
+  $('bnSub').textContent = `AI 增設 ${added} 座塔・🔥 攻擊力 +${aiBonusPct()}%`;
+  $('banner').classList.add('show');
+}
+function waveClear() {
+  G.phase = 'upgrade';
+  G.waveBonus++;                                      // 每完成一波，AI 全體攻擊力 +1%
+  G.gold += 20 * lv('loot');
+  openUpgrade();
+}
+function doWin() {
+  G.phase = 'win';
+  G.fx.push({ k: 'r', x: CASTLE.x, y: CASTLE.y, r: 0, max: 2.5, life: .8, mx: .8, color: '#fbbf24' });
+  setTimeout(() => {
+    $('winMsg').textContent = `恭喜你！僅 ${G.wave} 波次就進入城牆`;
+    show('win');
+  }, 700);
+}
+function startGame() {
+  Object.assign(G, { phase: 'prep', wave: 0, gold: 0, time: 0, speed: 1, paused: false,
+    monsters: [], towers: [], projs: [], fx: [], floats: [], queue: [], skills: {},
+    kills: 0, waveBonus: 0, towerTarget: 0 });
+  SLOTS.forEach(s => s.used = false);
+  $('btnSpeed').textContent = '⏩ 1x';
+  hide('menu'); hide('win'); hide('upgrade'); hide('confirm');
+  goFullscreen();
+  resize();
+  startWave();
+}
+function toMenu() {
+  G.phase = 'menu'; G.paused = false;
+  ['win', 'upgrade', 'confirm', 'codex'].forEach(hide);
+  $('banner').classList.remove('show');
+  show('menu');
+}
+
+/* HUD（只在內容變化時更新 DOM） */
+const hc = {};
+function setTxt(id, v) { if (hc[id] !== v) { hc[id] = v; $(id).textContent = v; } }
+function updateHud() {
+  setTxt('hWave', `🌊 第 ${G.wave} 波`);
+  setTxt('hGold', `💰 ${G.gold}`);
+  setTxt('hTowers', `🔥 +${aiBonusPct()}%`);
+  const remain = G.queue.length + G.monsters.length, tot = Math.max(1, G.waveTotal);
+  setTxt('pTxt', `👾 ${remain}/${G.waveTotal}・🗼 ${G.towers.length}`);
+  const w = Math.round((1 - remain / tot) * 100) + '%';
+  if (hc.pf !== w) { hc.pf = w; $('pFill').style.width = w; }
+}
+
+/* 主迴圈 */
+let last = 0;
+function loop(ts) {
+  const dt = Math.min(.05, (ts - last) / 1000 || 0); last = ts;
+  if ((G.phase === 'prep' || G.phase === 'wave') && !G.paused) {
+    const total = dt * G.speed, n = Math.max(1, Math.ceil(total / (1 / 30)));
+    for (let i = 0; i < n; i++) { update(total / n); if (G.phase === 'win') break; }
+    updateFx(dt);
+  } else if (!G.paused) updateFx(dt);
+  render(); updateHud();
+  requestAnimationFrame(loop);
+}
+
+/* 事件綁定 */
+$('btnStart').onclick = startGame;
+$('btnCodex').onclick = () => { cxView.sel = 'hp'; cxView.render(); $('cxWrap').scrollTop = 0; show('codex'); };
+$('cxBack').onclick = () => hide('codex');
+$('btnGo').onclick = () => { hide('upgrade'); startWave(); };
+$('btnAgain').onclick = startGame;
+$('btnMenu').onclick = toMenu;
+$('btnHome').onclick = () => { G.paused = true; show('confirm'); };
+$('cfStay').onclick = () => { G.paused = false; hide('confirm'); };
+$('cfLeave').onclick = toMenu;
+$('btnSpeed').onclick = () => {
+  G.speed = G.speed === 1 ? 2 : G.speed === 2 ? 3 : 1;
+  $('btnSpeed').textContent = `⏩ ${G.speed}x`;
+};
+function onResize() { resize(); cxView.lines(); upView.lines(); }
+window.addEventListener('resize', onResize);
+window.addEventListener('orientationchange', () => setTimeout(onResize, 200));
+document.addEventListener('fullscreenchange', () => setTimeout(onResize, 100));
+document.addEventListener('webkitfullscreenchange', () => setTimeout(onResize, 100));
+if (window.ResizeObserver) new ResizeObserver(resize).observe(stage);
+document.addEventListener('contextmenu', e => e.preventDefault());
+
+/* 主選單背景飄浮怪物 */
+(function () {
+  const em = ['🦇', '👾', '🗿', '👑', '⭐', '💰', '🔥', '💚'], host = $('floatBg');
+  for (let i = 0; i < 14; i++) {
+    const s = document.createElement('span');
+    s.textContent = em[i % em.length];
+    s.style.left = rand(0, 94) + '%';
+    s.style.animationDuration = rand(9, 18) + 's';
+    s.style.animationDelay = -rand(0, 18) + 's';
+    host.appendChild(s);
+  }
+})();
+
+resize();
+requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
