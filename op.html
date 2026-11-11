@@ -1,0 +1,1473 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>元素災變：即時音效與視覺特效控制台</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
+  <style>
+    * {
+      box-sizing: border-box;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    body {
+      margin: 0;
+      padding: 0;
+      background-color: #07090f;
+      color: #f1f5f9;
+      font-family: 'Noto Sans TC', 'Inter', sans-serif;
+      overflow: hidden;
+      height: 100dvh;
+      width: 100vw;
+    }
+    canvas#fxCanvas {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 0;
+      cursor: crosshair;
+      touch-action: none;
+    }
+    /* 自訂滑桿樣式 */
+    input[type="range"] {
+      -webkit-appearance: none;
+      background: rgba(255, 255, 255, 0.15);
+      height: 6px;
+      border-radius: 999px;
+      outline: none;
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: #38bdf8;
+      cursor: pointer;
+      box-shadow: 0 0 10px rgba(56, 189, 248, 0.8);
+      transition: transform 0.15s ease;
+    }
+    input[type="range"]::-webkit-slider-thumb:hover {
+      transform: scale(1.2);
+    }
+    /* 元素卡片發光效果 */
+    .element-card {
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      transition: all 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    .element-card:active {
+      transform: scale(0.95);
+    }
+    .card-meteor.active {
+      border-color: #f97316;
+      box-shadow: 0 0 24px rgba(249, 115, 22, 0.45), inset 0 0 14px rgba(249, 115, 22, 0.2);
+      background: rgba(67, 20, 7, 0.65);
+    }
+    .card-lightning.active {
+      border-color: #a855f7;
+      box-shadow: 0 0 24px rgba(168, 85, 247, 0.45), inset 0 0 14px rgba(168, 85, 247, 0.2);
+      background: rgba(59, 7, 100, 0.65);
+    }
+    .card-frost.active {
+      border-color: #38bdf8;
+      box-shadow: 0 0 24px rgba(56, 189, 248, 0.45), inset 0 0 14px rgba(56, 189, 248, 0.2);
+      background: rgba(8, 47, 73, 0.65);
+    }
+    .card-gale.active {
+      border-color: #34d399;
+      box-shadow: 0 0 24px rgba(52, 211, 153, 0.45), inset 0 0 14px rgba(52, 211, 153, 0.2);
+      background: rgba(6, 78, 59, 0.65);
+    }
+    .card-bombardment.active {
+      border-color: #ef4444;
+      box-shadow: 0 0 24px rgba(239, 68, 68, 0.45), inset 0 0 14px rgba(239, 68, 68, 0.2);
+      background: rgba(69, 10, 10, 0.65);
+    }
+  </style>
+</head>
+<body class="flex flex-col justify-between">
+
+  <!-- 全螢幕視覺特效畫布 -->
+  <canvas id="fxCanvas"></canvas>
+
+  <!-- 頂部控制列 -->
+  <header class="relative z-10 w-full px-4 pt-4 sm:px-6 sm:pt-5 pointer-events-none">
+    <div class="max-w-6xl mx-auto flex flex-col md:flex-row md:items-center md:justify-between gap-3 bg-slate-950/75 border border-slate-800/80 backdrop-blur-md rounded-2xl px-4 py-3 sm:px-6 shadow-2xl pointer-events-auto">
+      
+      <!-- 標題與提示 -->
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 via-purple-500 to-amber-500 flex items-center justify-center shadow-lg shrink-0">
+          <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+          </svg>
+        </div>
+        <div>
+          <h1 class="text-base sm:text-lg font-extrabold tracking-wide bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent">
+            元素災變 · 聲光合成控制台
+          </h1>
+          <p class="text-xs text-slate-400 hidden sm:block">
+            點擊下方元素卡片、按鍵 <span class="text-slate-200 font-semibold">[1-5]</span> 或直接點擊畫面任意處釋放魔法音效
+          </p>
+        </div>
+      </div>
+
+      <!-- 音訊狀態與音量控制 -->
+      <div class="flex flex-wrap items-center justify-between md:justify-end gap-3 sm:gap-4">
+        
+        <!-- 連發自動模式開關 -->
+        <button id="autoToggleBtn" type="button" class="flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-bold border border-slate-700 bg-slate-900/90 text-slate-300 hover:border-slate-500 transition cursor-pointer">
+          <span id="autoIndicator" class="w-2 h-2 rounded-full bg-slate-500"></span>
+          <span>連發模式：<span id="autoStatusText">關閉</span></span>
+        </button>
+
+        <!-- 主音量控制 -->
+        <div class="flex items-center gap-2 bg-slate-900/90 border border-slate-800 px-3 py-1.5 rounded-xl">
+          <button id="muteBtn" type="button" title="靜音切換" class="text-slate-300 hover:text-white transition cursor-pointer">
+            <!-- 喇叭圖示 -->
+            <svg id="iconVolOn" class="w-5 h-5 text-sky-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M11 5L6 9H2v6h4l5 4V5zM15.54 8.46a5 5 0 010 7.07M19.07 4.93a10 10 0 010 14.14" />
+            </svg>
+            <svg id="iconVolOff" class="w-5 h-5 text-rose-500 hidden" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M11 5L6 9H2v6h4l5 4V5zM23 9l-6 6M17 9l6 6" />
+            </svg>
+          </button>
+          <input id="volumeSlider" type="range" min="0" max="1" step="0.01" value="0.8" class="w-20 sm:w-24" />
+          <span id="volumeLabel" class="text-xs font-mono text-slate-400 w-9 text-right">80%</span>
+        </div>
+
+      </div>
+    </div>
+  </header>
+
+  <!-- 中央引導浮標（首次載入提示，觸發後淡出） -->
+  <div id="centerHint" class="relative z-10 pointer-events-none flex flex-col items-center justify-center text-center px-4 transition-opacity duration-700">
+    <div class="px-4 py-2 rounded-full bg-slate-900/60 border border-slate-700/60 backdrop-blur-md text-xs sm:text-sm text-slate-300 shadow-lg">
+      ✨ 點擊畫布任意位置施放 <span id="currentElementBadge" class="font-bold text-orange-400">隕石 (Meteor)</span>
+    </div>
+  </div>
+
+  <!-- 底部控制台與即時音訊頻譜 -->
+  <footer class="relative z-10 w-full px-3 pb-4 sm:px-6 sm:pb-6 pointer-events-none">
+    <div class="max-w-6xl mx-auto flex flex-col gap-3 pointer-events-auto">
+      
+      <!-- 即時音訊視覺化頻譜條 -->
+      <div class="w-full h-12 sm:h-14 bg-slate-950/70 border border-slate-800/80 backdrop-blur-md rounded-2xl px-3 py-2 flex items-center gap-3 shadow-xl">
+        <div class="flex flex-col justify-center shrink-0 border-r border-slate-800 pr-3">
+          <span class="text-[10px] uppercase tracking-wider text-slate-500 font-bold">Web Audio</span>
+          <span id="audioStateLabel" class="text-xs font-semibold text-emerald-400">待機就緒</span>
+        </div>
+        <canvas id="visualizerCanvas" class="w-full h-full rounded-lg"></canvas>
+      </div>
+
+      <!-- 五大元素觸發按鈕列 -->
+      <div class="grid grid-cols-2 sm:grid-cols-5 gap-2.5 sm:gap-3.5">
+        
+        <!-- 1. 隕石 (Meteor) -->
+        <button type="button" data-element="meteor" class="element-card card-meteor active group relative flex flex-col items-start justify-between p-3 sm:p-4 rounded-2xl border border-slate-800 bg-slate-900/70 hover:border-orange-500/70 cursor-pointer text-left">
+          <div class="w-full flex items-center justify-between mb-1.5">
+            <span class="p-2 rounded-xl bg-orange-500/20 text-orange-400 group-hover:scale-110 transition-transform">
+              <!-- 隕石 SVG 圖示 -->
+              <svg class="w-5 h-5 sm:w-6 sm:h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M17.5 6.5L21 3m-6.5 2.5L18 2m-1 8.5L21 6.5M14.5 14.5a4.5 4.5 0 11-6.36-6.36 4.5 4.5 0 016.36 6.36z" />
+                <circle cx="10.5" cy="12.5" r="1" fill="currentColor" />
+              </svg>
+            </span>
+            <span class="text-[11px] font-mono px-2 py-0.5 rounded-md bg-slate-800/90 text-slate-400 border border-slate-700/80">1</span>
+          </div>
+          <div>
+            <div class="font-bold text-sm sm:text-base text-slate-100">隕石 <span class="text-xs font-normal text-orange-400/90">Meteor</span></div>
+            <div class="text-[11px] text-slate-400 line-clamp-1 mt-0.5">高空呼嘯墜落與重低音爆裂</div>
+          </div>
+        </button>
+
+        <!-- 2. 閃電 (Lightning) -->
+        <button type="button" data-element="lightning" class="element-card card-lightning group relative flex flex-col items-start justify-between p-3 sm:p-4 rounded-2xl border border-slate-800 bg-slate-900/70 hover:border-purple-500/70 cursor-pointer text-left">
+          <div class="w-full flex items-center justify-between mb-1.5">
+            <span class="p-2 rounded-xl bg-purple-500/20 text-purple-400 group-hover:scale-110 transition-transform">
+              <!-- 閃電 SVG 圖示 -->
+              <svg class="w-5 h-5 sm:w-6 sm:h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
+              </svg>
+            </span>
+            <span class="text-[11px] font-mono px-2 py-0.5 rounded-md bg-slate-800/90 text-slate-400 border border-slate-700/80">2</span>
+          </div>
+          <div>
+            <div class="font-bold text-sm sm:text-base text-slate-100">閃電 <span class="text-xs font-normal text-purple-400/90">Lightning</span></div>
+            <div class="text-[11px] text-slate-400 line-clamp-1 mt-0.5">高壓電弧劈裂與深沉滾雷</div>
+          </div>
+        </button>
+
+        <!-- 3. 冰霜 (Frost) -->
+        <button type="button" data-element="frost" class="element-card card-frost group relative flex flex-col items-start justify-between p-3 sm:p-4 rounded-2xl border border-slate-800 bg-slate-900/70 hover:border-sky-500/70 cursor-pointer text-left">
+          <div class="w-full flex items-center justify-between mb-1.5">
+            <span class="p-2 rounded-xl bg-sky-500/20 text-sky-400 group-hover:scale-110 transition-transform">
+              <!-- 冰霜雪花 SVG 圖示 -->
+              <svg class="w-5 h-5 sm:w-6 sm:h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 2v20M2 12h20M4.93 4.93l14.14 14.14M19.07 4.93L4.93 19.07" />
+              </svg>
+            </span>
+            <span class="text-[11px] font-mono px-2 py-0.5 rounded-md bg-slate-800/90 text-slate-400 border border-slate-700/80">3</span>
+          </div>
+          <div>
+            <div class="font-bold text-sm sm:text-base text-slate-100">冰霜 <span class="text-xs font-normal text-sky-400/90">Frost</span></div>
+            <div class="text-[11px] text-slate-400 line-clamp-1 mt-0.5">極寒氣流與水晶碎裂泛音</div>
+          </div>
+        </button>
+
+        <!-- 4. 疾風 (Gale) -->
+        <button type="button" data-element="gale" class="element-card card-gale group relative flex flex-col items-start justify-between p-3 sm:p-4 rounded-2xl border border-slate-800 bg-slate-900/70 hover:border-emerald-500/70 cursor-pointer text-left">
+          <div class="w-full flex items-center justify-between mb-1.5">
+            <span class="p-2 rounded-xl bg-emerald-500/20 text-emerald-400 group-hover:scale-110 transition-transform">
+              <!-- 疾風 SVG 圖示 -->
+              <svg class="w-5 h-5 sm:w-6 sm:h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M9.59 4.59A2 2 0 1111 8H2m10.59 11.41A2 2 0 1014 16H2m15.73-8.27A2.5 2.5 0 1119.5 12H2" />
+              </svg>
+            </span>
+            <span class="text-[11px] font-mono px-2 py-0.5 rounded-md bg-slate-800/90 text-slate-400 border border-slate-700/80">4</span>
+          </div>
+          <div>
+            <div class="font-bold text-sm sm:text-base text-slate-100">疾風 <span class="text-xs font-normal text-emerald-400/90">Gale</span></div>
+            <div class="text-[11px] text-slate-400 line-clamp-1 mt-0.5">撕裂空氣的高速渦流呼嘯</div>
+          </div>
+        </button>
+
+        <!-- 5. 轟炸 (Bombardment) -->
+        <button type="button" data-element="bombardment" class="element-card card-bombardment col-span-2 sm:col-span-1 group relative flex flex-col items-start justify-between p-3 sm:p-4 rounded-2xl border border-slate-800 bg-slate-900/70 hover:border-red-500/70 cursor-pointer text-left">
+          <div class="w-full flex items-center justify-between mb-1.5">
+            <span class="p-2 rounded-xl bg-red-500/20 text-red-400 group-hover:scale-110 transition-transform">
+              <!-- 轟炸 SVG 圖示 -->
+              <svg class="w-5 h-5 sm:w-6 sm:h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="11" cy="13" r="7" />
+                <path stroke-linecap="round" stroke-linejoin="round" d="M16 8l2.5-2.5M19 3l2 2M15 4l1 1M20 9l1 1" />
+              </svg>
+            </span>
+            <span class="text-[11px] font-mono px-2 py-0.5 rounded-md bg-slate-800/90 text-slate-400 border border-slate-700/80">5</span>
+          </div>
+          <div>
+            <div class="font-bold text-sm sm:text-base text-slate-100">轟炸 <span class="text-xs font-normal text-red-400/90">Bombardment</span></div>
+            <div class="text-[11px] text-slate-400 line-clamp-1 mt-0.5">密集連環重砲與衝擊震波</div>
+          </div>
+        </button>
+
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    /**
+     * ============================================================================
+     * 1. Web Audio API 程序化音效合成引擎 (ElementalSoundEngine)
+     *    完全透過數學波形、濾波器與噪音緩衝即時合成五大元素音效，無須任何外部音檔。
+     * ============================================================================
+     */
+    class ElementalSoundEngine {
+      constructor() {
+        this.ctx = null;
+        this.masterGain = null;
+        this.compressor = null;
+        this.analyser = null;
+        this.whiteNoiseBuffer = null;
+        this.pinkNoiseBuffer = null;
+        this.volume = 0.8;
+        this.isMuted = false;
+      }
+
+      /**
+       * 初始化 AudioContext（必須在使用者互動後呼叫以符合瀏覽器自動播放政策）
+       */
+      init() {
+        if (!this.ctx) {
+          const AudioCtx = window.AudioContext || window.webkitAudioContext;
+          this.ctx = new AudioCtx();
+
+          // 動態壓縮器：防止多發音效（如轟炸、連發模式）疊加時破音削波
+          this.compressor = this.ctx.createDynamicsCompressor();
+          this.compressor.threshold.setValueAtTime(-12, this.ctx.currentTime);
+          this.compressor.knee.setValueAtTime(18, this.ctx.currentTime);
+          this.compressor.ratio.setValueAtTime(6, this.ctx.currentTime);
+          this.compressor.attack.setValueAtTime(0.005, this.ctx.currentTime);
+          this.compressor.release.setValueAtTime(0.2, this.ctx.currentTime);
+
+          // 主音量控制
+          this.masterGain = this.ctx.createGain();
+          this.masterGain.gain.setValueAtTime(this.isMuted ? 0 : this.volume, this.ctx.currentTime);
+
+          // 頻譜分析儀（供底部視覺化波形使用）
+          this.analyser = this.ctx.createAnalyser();
+          this.analyser.fftSize = 128;
+          this.analyser.smoothingTimeConstant = 0.82;
+
+          // 連接節點：來源 -> 壓縮器 -> 主音量 -> 分析儀 -> 輸出裝置
+          this.compressor.connect(this.masterGain);
+          this.masterGain.connect(this.analyser);
+          this.analyser.connect(this.ctx.destination);
+
+          // 預先生成 3 秒的白噪音與粉紅噪音緩衝區以提升效能
+          this.whiteNoiseBuffer = this.createWhiteNoiseBuffer(3.0);
+          this.pinkNoiseBuffer = this.createPinkNoiseBuffer(3.0);
+        }
+
+        if (this.ctx.state === 'suspended') {
+          this.ctx.resume();
+        }
+      }
+
+      setVolume(val) {
+        this.volume = Math.max(0, Math.min(1, val));
+        if (this.masterGain && this.ctx) {
+          this.masterGain.gain.setTargetAtTime(this.isMuted ? 0 : this.volume, this.ctx.currentTime, 0.02);
+        }
+      }
+
+      setMuted(muted) {
+        this.isMuted = muted;
+        if (this.masterGain && this.ctx) {
+          this.masterGain.gain.setTargetAtTime(this.isMuted ? 0 : this.volume, this.ctx.currentTime, 0.02);
+        }
+      }
+
+      /**
+       * 生成白噪音 AudioBuffer
+       */
+      createWhiteNoiseBuffer(duration) {
+        const bufferSize = Math.floor(this.ctx.sampleRate * duration);
+        const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+        const data = buffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) {
+          data[i] = Math.random() * 2 - 1;
+        }
+        return buffer;
+      }
+
+      /**
+       * 生成粉紅噪音 AudioBuffer（Paul Kellet 演算法，低頻更飽滿自然，適合風聲與雷聲）
+       */
+      createPinkNoiseBuffer(duration) {
+        const bufferSize = Math.floor(this.ctx.sampleRate * duration);
+        const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+        const output = buffer.getChannelData(0);
+        let b0 = 0, b1 = 0, b2 = 0, b3 = 0, b4 = 0, b5 = 0, b6 = 0;
+        for (let i = 0; i < bufferSize; i++) {
+          const white = Math.random() * 2 - 1;
+          b0 = 0.99886 * b0 + white * 0.0555179;
+          b1 = 0.99332 * b1 + white * 0.0750759;
+          b2 = 0.96900 * b2 + white * 0.1538520;
+          b3 = 0.86650 * b3 + white * 0.3104856;
+          b4 = 0.55000 * b4 + white * 0.5329522;
+          b5 = -0.7616 * b5 - white * 0.0168980;
+          output[i] = (b0 + b1 + b2 + b3 + b4 + b5 + b6 + white * 0.5362) * 0.08;
+          b6 = white * 0.115926;
+        }
+        return buffer;
+      }
+
+      /**
+       * ------------------------------------------------------------------------
+       * 1. 隕石音效 (Meteor)
+       *    階段 A (0.0s ~ 0.48s)：高空墜落呼嘯聲（高 Q 值帶通濾波頻率急速下滑 + 音高下滑正弦嘯叫）
+       *    階段 B (0.45s ~ 2.1s)：撞擊大地重低音爆炸 + 碎石噴濺回響
+       * ------------------------------------------------------------------------
+       */
+      playMeteor() {
+        this.init();
+        const now = this.ctx.currentTime;
+        const impactDelay = 0.45; // 呼嘯墜落時間
+
+        // --- 階段 A：高空墜落破空呼嘯 ---
+        const whooshNoise = this.ctx.createBufferSource();
+        whooshNoise.buffer = this.pinkNoiseBuffer;
+
+        const whooshFilter = this.ctx.createBiquadFilter();
+        whooshFilter.type = 'bandpass';
+        whooshFilter.Q.setValueAtTime(5.5, now);
+        // 頻率從高空尖銳下滑至低沉（都卜勒效應）
+        whooshFilter.frequency.setValueAtTime(2600, now);
+        whooshFilter.frequency.exponentialRampToValueAtTime(180, now + impactDelay);
+
+        const whooshGain = this.ctx.createGain();
+        whooshGain.gain.setValueAtTime(0.01, now);
+        whooshGain.gain.linearRampToValueAtTime(0.85, now + impactDelay * 0.85);
+        whooshGain.gain.exponentialRampToValueAtTime(0.001, now + impactDelay + 0.05);
+
+        whooshNoise.connect(whooshFilter);
+        whooshFilter.connect(whooshGain);
+        whooshGain.connect(this.compressor);
+
+        whooshNoise.start(now);
+        whooshNoise.stop(now + impactDelay + 0.06);
+
+        // 附加尖銳燃燒氣流哨音
+        const whistleOsc = this.ctx.createOscillator();
+        whistleOsc.type = 'sine';
+        whistleOsc.frequency.setValueAtTime(1400, now);
+        whistleOsc.frequency.exponentialRampToValueAtTime(220, now + impactDelay);
+
+        const whistleGain = this.ctx.createGain();
+        whistleGain.gain.setValueAtTime(0.001, now);
+        whistleGain.gain.linearRampToValueAtTime(0.14, now + impactDelay * 0.8);
+        whistleGain.gain.exponentialRampToValueAtTime(0.001, now + impactDelay);
+
+        whistleOsc.connect(whistleGain);
+        whistleGain.connect(this.compressor);
+        whistleOsc.start(now);
+        whistleOsc.stop(now + impactDelay + 0.02);
+
+        // --- 階段 B：撞擊爆炸衝擊波 ---
+        const impactTime = now + impactDelay;
+
+        // 重低音震波 (Sub-bass Punch)
+        const subOsc = this.ctx.createOscillator();
+        subOsc.type = 'triangle';
+        subOsc.frequency.setValueAtTime(135, impactTime);
+        subOsc.frequency.exponentialRampToValueAtTime(26, impactTime + 0.75);
+
+        const subGain = this.ctx.createGain();
+        subGain.gain.setValueAtTime(1.2, impactTime);
+        subGain.gain.exponentialRampToValueAtTime(0.001, impactTime + 0.95);
+
+        subOsc.connect(subGain);
+        subGain.connect(this.compressor);
+        subOsc.start(impactTime);
+        subOsc.stop(impactTime + 1.0);
+
+        // 爆炸火焰與碎岩噪音
+        const blastNoise = this.ctx.createBufferSource();
+        blastNoise.buffer = this.whiteNoiseBuffer;
+
+        const blastFilter = this.ctx.createBiquadFilter();
+        blastFilter.type = 'lowpass';
+        blastFilter.frequency.setValueAtTime(1800, impactTime);
+        blastFilter.frequency.exponentialRampToValueAtTime(95, impactTime + 1.6);
+
+        const blastGain = this.ctx.createGain();
+        blastGain.gain.setValueAtTime(1.1, impactTime);
+        blastGain.gain.exponentialRampToValueAtTime(0.001, impactTime + 1.75);
+
+        blastNoise.connect(blastFilter);
+        blastFilter.connect(blastGain);
+        blastGain.connect(this.compressor);
+        blastNoise.start(impactTime);
+        blastNoise.stop(impactTime + 1.8);
+      }
+
+      /**
+       * ------------------------------------------------------------------------
+       * 2. 閃電音效 (Lightning)
+       *    層次 1：高壓電弧瞬間劈裂爆音（高通尖銳噪音 + 鋸齒波電擊脈衝）
+       *    層次 2：緊隨其後的深沉多段滾雷（低通濾波粉紅噪音 + 二次餘雷）
+       * ------------------------------------------------------------------------
+       */
+      playLightning() {
+        this.init();
+        const now = this.ctx.currentTime;
+
+        // --- 層次 1：清脆電流劈裂 (Electric Crack) ---
+        const crackNoise = this.ctx.createBufferSource();
+        crackNoise.buffer = this.whiteNoiseBuffer;
+
+        const crackFilter = this.ctx.createBiquadFilter();
+        crackFilter.type = 'bandpass';
+        crackFilter.frequency.setValueAtTime(3200, now);
+        crackFilter.Q.setValueAtTime(1.2, now);
+
+        const crackGain = this.ctx.createGain();
+        crackGain.gain.setValueAtTime(1.15, now);
+        crackGain.gain.exponentialRampToValueAtTime(0.05, now + 0.08);
+        crackGain.gain.linearRampToValueAtTime(0.75, now + 0.11); // 二次電弧跳火
+        crackGain.gain.exponentialRampToValueAtTime(0.001, now + 0.28);
+
+        crackNoise.connect(crackFilter);
+        crackFilter.connect(crackGain);
+        crackGain.connect(this.compressor);
+        crackNoise.start(now);
+        crackNoise.stop(now + 0.3);
+
+        // 高壓電弧吱吱聲 (Sawtooth Zap)
+        const zapOsc = this.ctx.createOscillator();
+        zapOsc.type = 'sawtooth';
+        zapOsc.frequency.setValueAtTime(950, now);
+        zapOsc.frequency.exponentialRampToValueAtTime(110, now + 0.16);
+
+        const zapGain = this.ctx.createGain();
+        zapGain.gain.setValueAtTime(0.35, now);
+        zapGain.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
+
+        zapOsc.connect(zapGain);
+        zapGain.connect(this.compressor);
+        zapOsc.start(now);
+        zapOsc.stop(now + 0.2);
+
+        // --- 層次 2：深沉雷鳴回響 (Rolling Thunder) ---
+        const thunderNoise = this.ctx.createBufferSource();
+        thunderNoise.buffer = this.pinkNoiseBuffer;
+
+        const thunderFilter = this.ctx.createBiquadFilter();
+        thunderFilter.type = 'lowpass';
+        thunderFilter.frequency.setValueAtTime(480, now + 0.04);
+        thunderFilter.frequency.exponentialRampToValueAtTime(75, now + 2.1);
+
+        const thunderGain = this.ctx.createGain();
+        thunderGain.gain.setValueAtTime(0.01, now);
+        thunderGain.gain.linearRampToValueAtTime(1.25, now + 0.07);
+        thunderGain.gain.exponentialRampToValueAtTime(0.28, now + 0.45);
+        // 模擬雲層間二次滾雷起伏
+        thunderGain.gain.linearRampToValueAtTime(0.55, now + 0.62);
+        thunderGain.gain.exponentialRampToValueAtTime(0.001, now + 2.2);
+
+        thunderNoise.connect(thunderFilter);
+        thunderFilter.connect(thunderGain);
+        thunderGain.connect(this.compressor);
+        thunderNoise.start(now);
+        thunderNoise.stop(now + 2.25);
+      }
+
+      /**
+       * ------------------------------------------------------------------------
+       * 3. 冰霜音效 (Frost)
+       *    層次 1：極寒氣流擴散聲（高頻帶通掃頻白噪音）
+       *    層次 2：水晶凝結與冰晶碎裂的清脆高頻叮當泛音（多組不諧和/五聲音階高頻正弦波交錯）
+       * ------------------------------------------------------------------------
+       */
+      playFrost() {
+        this.init();
+        const now = this.ctx.currentTime;
+
+        // --- 層次 1：寒氣擴散嘶嘶聲 ---
+        const chillNoise = this.ctx.createBufferSource();
+        chillNoise.buffer = this.whiteNoiseBuffer;
+
+        const chillFilter = this.ctx.createBiquadFilter();
+        chillFilter.type = 'bandpass';
+        chillFilter.Q.setValueAtTime(3.2, now);
+        chillFilter.frequency.setValueAtTime(4200, now);
+        chillFilter.frequency.exponentialRampToValueAtTime(1600, now + 0.85);
+
+        const chillGain = this.ctx.createGain();
+        chillGain.gain.setValueAtTime(0.01, now);
+        chillGain.gain.linearRampToValueAtTime(0.45, now + 0.12);
+        chillGain.gain.exponentialRampToValueAtTime(0.001, now + 0.95);
+
+        chillNoise.connect(chillFilter);
+        chillFilter.connect(chillGain);
+        chillGain.connect(this.compressor);
+        chillNoise.start(now);
+        chillNoise.stop(now + 1.0);
+
+        // --- 層次 2：水晶冰晶凝結叮當聲 (Crystalline Chimes & Shards) ---
+        const crystalFreqs = [1760, 2093, 2349, 2637, 3136, 3520, 4186, 4698];
+        const shardCount = 9;
+
+        for (let i = 0; i < shardCount; i++) {
+          const delay = i * 0.042 + Math.random() * 0.03;
+          const startTime = now + delay;
+          const baseFreq = crystalFreqs[Math.floor(Math.random() * crystalFreqs.length)] * (0.95 + Math.random() * 0.12);
+
+          const osc = this.ctx.createOscillator();
+          osc.type = i % 2 === 0 ? 'sine' : 'triangle';
+          osc.frequency.setValueAtTime(baseFreq, startTime);
+          // 細微頻率上滑模擬冰晶凍結張力
+          osc.frequency.exponentialRampToValueAtTime(baseFreq * 1.04, startTime + 0.25);
+
+          const gain = this.ctx.createGain();
+          const peak = 0.16 * (1 - i / (shardCount + 3));
+          gain.gain.setValueAtTime(0.0001, startTime);
+          gain.gain.linearRampToValueAtTime(peak, startTime + 0.008);
+          gain.gain.exponentialRampToValueAtTime(0.0001, startTime + 0.35 + Math.random() * 0.2);
+
+          osc.connect(gain);
+          gain.connect(this.compressor);
+          osc.start(startTime);
+          osc.stop(startTime + 0.6);
+        }
+      }
+
+      /**
+       * ------------------------------------------------------------------------
+       * 4. 疾風音效 (Gale)
+       *    雙層共鳴帶通濾波器（Formant Wind Filter）搭配高低起伏的頻率掃描，
+       *    模擬強勁氣流高速掠過耳際的呼嘯與風壓變化。
+       * ------------------------------------------------------------------------
+       */
+      playGale() {
+        this.init();
+        const now = this.ctx.currentTime;
+        const duration = 1.45;
+
+        // 主氣流噪音源（粉紅噪音最具自然風感）
+        const windNoise = this.ctx.createBufferSource();
+        windNoise.buffer = this.pinkNoiseBuffer;
+
+        // 雙層帶通濾波器營造立體風切共鳴
+        const filter1 = this.ctx.createBiquadFilter();
+        filter1.type = 'bandpass';
+        filter1.Q.setValueAtTime(6.0, now);
+        filter1.frequency.setValueAtTime(260, now);
+        filter1.frequency.exponentialRampToValueAtTime(1150, now + 0.38);
+        filter1.frequency.exponentialRampToValueAtTime(420, now + 0.9);
+        filter1.frequency.exponentialRampToValueAtTime(210, now + duration);
+
+        const filter2 = this.ctx.createBiquadFilter();
+        filter2.type = 'bandpass';
+        filter2.Q.setValueAtTime(8.5, now);
+        filter2.frequency.setValueAtTime(520, now);
+        filter2.frequency.exponentialRampToValueAtTime(1950, now + 0.42);
+        filter2.frequency.exponentialRampToValueAtTime(680, now + 1.0);
+        filter2.frequency.exponentialRampToValueAtTime(340, now + duration);
+
+        const gain1 = this.ctx.createGain();
+        gain1.gain.setValueAtTime(0.01, now);
+        gain1.gain.linearRampToValueAtTime(0.95, now + 0.32);
+        gain1.gain.linearRampToValueAtTime(0.55, now + 0.75);
+        gain1.gain.exponentialRampToValueAtTime(0.001, now + duration);
+
+        const gain2 = this.ctx.createGain();
+        gain2.gain.setValueAtTime(0.005, now);
+        gain2.gain.linearRampToValueAtTime(0.45, now + 0.38);
+        gain2.gain.exponentialRampToValueAtTime(0.001, now + duration * 0.95);
+
+        windNoise.connect(filter1);
+        windNoise.connect(filter2);
+        filter1.connect(gain1);
+        filter2.connect(gain2);
+        gain1.connect(this.compressor);
+        gain2.connect(this.compressor);
+
+        windNoise.start(now);
+        windNoise.stop(now + duration + 0.05);
+      }
+
+      /**
+       * ------------------------------------------------------------------------
+       * 5. 轟炸音效 (Bombardment)
+       *    連續密集的 4 發錯開時間的迫擊砲/空襲爆炸，每發包含：
+       *    短促砲彈破空聲 + 震撼重低音衝擊波 + 彈片高頻爆裂音
+       * ------------------------------------------------------------------------
+       */
+      playBombardment(onSingleBlastCallback) {
+        this.init();
+        const now = this.ctx.currentTime;
+        // 4 發錯開時間的爆炸時間點（秒）
+        const offsets = [0, 0.22, 0.46, 0.74];
+
+        offsets.forEach((offset, idx) => {
+          const t = now + offset;
+          const intensity = idx === 3 ? 1.15 : 0.85 + Math.random() * 0.2;
+
+          // 1. 重低音砲擊衝擊波
+          const boomOsc = this.ctx.createOscillator();
+          boomOsc.type = 'sine';
+          boomOsc.frequency.setValueAtTime(125 + Math.random() * 25, t);
+          boomOsc.frequency.exponentialRampToValueAtTime(24, t + 0.55);
+
+          const boomGain = this.ctx.createGain();
+          boomGain.gain.setValueAtTime(1.0 * intensity, t);
+          boomGain.gain.exponentialRampToValueAtTime(0.001, t + 0.65);
+
+          boomOsc.connect(boomGain);
+          boomGain.connect(this.compressor);
+          boomOsc.start(t);
+          boomOsc.stop(t + 0.7);
+
+          // 2. 火藥爆裂與彈片碎片噪音
+          const shrapnel = this.ctx.createBufferSource();
+          shrapnel.buffer = this.whiteNoiseBuffer;
+
+          const filter = this.ctx.createBiquadFilter();
+          filter.type = 'lowpass';
+          filter.frequency.setValueAtTime(2400, t);
+          filter.frequency.exponentialRampToValueAtTime(140, t + 0.85);
+
+          const noiseGain = this.ctx.createGain();
+          noiseGain.gain.setValueAtTime(0.85 * intensity, t);
+          noiseGain.gain.exponentialRampToValueAtTime(0.001, t + 0.95);
+
+          shrapnel.connect(filter);
+          filter.connect(noiseGain);
+          noiseGain.connect(this.compressor);
+          shrapnel.start(t);
+          shrapnel.stop(t + 1.0);
+
+          // 同步通知視覺引擎在對應時間點產生連環爆炸
+          if (typeof onSingleBlastCallback === 'function') {
+            setTimeout(() => onSingleBlastCallback(idx), offset * 1000);
+          }
+        });
+      }
+    }
+
+    /**
+     * ============================================================================
+     * 2. HTML5 Canvas 視覺光影與粒子引擎 (ElementalVisualEngine)
+     * ============================================================================
+     */
+    class ElementalVisualEngine {
+      constructor(canvas) {
+        this.canvas = canvas;
+        this.ctx = canvas.getContext('2d');
+        this.width = 0;
+        this.height = 0;
+
+        this.particles = [];
+        this.shockwaves = [];
+        this.meteors = [];
+        this.lightnings = [];
+        this.iceCrystals = [];
+        this.windStreaks = [];
+
+        this.screenShake = 0;
+        this.screenFlash = { alpha: 0, color: '255, 255, 255' };
+
+        this.resize();
+        window.addEventListener('resize', () => this.resize());
+      }
+
+      resize() {
+        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+        this.width = window.innerWidth;
+        this.height = window.innerHeight;
+        this.canvas.width = Math.floor(this.width * dpr);
+        this.canvas.height = Math.floor(this.height * dpr);
+        this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      }
+
+      addShake(amount) {
+        this.screenShake = Math.min(32, this.screenShake + amount);
+      }
+
+      flash(rgbString, alpha = 0.35) {
+        this.screenFlash = { color: rgbString, alpha };
+      }
+
+      /**
+       * 1. 隕石視覺特效：從天際斜向俯衝至目標座標 (tx, ty)，抵達時爆出火球與衝擊波
+       */
+      spawnMeteor(tx, ty) {
+        const startX = tx + (Math.random() * 240 + 180);
+        const startY = -80;
+        const durationFrames = 27; // 約 0.45 秒，精準對齊音效撞擊時間點
+
+        this.meteors.push({
+          x: startX,
+          y: startY,
+          startX,
+          startY,
+          targetX: tx,
+          targetY: ty,
+          frame: 0,
+          maxFrames: durationFrames,
+          radius: 16
+        });
+      }
+
+      createExplosion(x, y, palette, count = 45, power = 1) {
+        this.addShake(14 * power);
+        this.flash(palette.flash, 0.28 * power);
+
+        // 擴散衝擊波環
+        this.shockwaves.push({
+          x,
+          y,
+          radius: 10,
+          maxRadius: 150 * power,
+          alpha: 0.9,
+          color: palette.ring,
+          lineWidth: 5 * power
+        });
+
+        // 火星與煙塵粒子
+        for (let i = 0; i < count; i++) {
+          const angle = Math.random() * Math.PI * 2;
+          const speed = (Math.random() * 7 + 2) * power;
+          const color = palette.particles[Math.floor(Math.random() * palette.particles.length)];
+          this.particles.push({
+            x,
+            y,
+            vx: Math.cos(angle) * speed,
+            vy: Math.sin(angle) * speed,
+            size: Math.random() * 4.5 + 1.5,
+            alpha: 1,
+            decay: Math.random() * 0.025 + 0.015,
+            gravity: 0.14,
+            color,
+            glow: true
+          });
+        }
+      }
+
+      /**
+       * 2. 閃電視覺特效：從天頂劈下分形鋸齒電弧至目標座標 (tx, ty)
+       */
+      spawnLightning(tx, ty) {
+        this.addShake(12);
+        this.flash('216, 180, 254', 0.42);
+
+        const startX = tx + (Math.random() - 0.5) * 260;
+        const startY = 0;
+        const mainBolt = this.generateBoltPath(startX, startY, tx, ty, 90);
+        const branches = [];
+
+        // 生成 2~3 條分叉電弧
+        for (let i = 0; i < 3; i++) {
+          const splitIdx = Math.floor(mainBolt.length * (0.25 + Math.random() * 0.45));
+          const origin = mainBolt[splitIdx];
+          if (origin) {
+            const endX = origin.x + (Math.random() - 0.5) * 220;
+            const endY = origin.y + Math.random() * 160 + 40;
+            branches.push(this.generateBoltPath(origin.x, origin.y, endX, endY, 45));
+          }
+        }
+
+        this.lightnings.push({
+          mainBolt,
+          branches,
+          alpha: 1.0,
+          decay: 0.045
+        });
+
+        // 落雷點電火花
+        for (let i = 0; i < 28; i++) {
+          const angle = Math.random() * Math.PI * 2;
+          const speed = Math.random() * 8 + 2;
+          this.particles.push({
+            x: tx,
+            y: ty,
+            vx: Math.cos(angle) * speed,
+            vy: Math.sin(angle) * speed - 2,
+            size: Math.random() * 3 + 1,
+            alpha: 1,
+            decay: 0.04,
+            gravity: 0.2,
+            color: i % 2 === 0 ? '#e9d5ff' : '#a855f7',
+            glow: true
+          });
+        }
+      }
+
+      generateBoltPath(x1, y1, x2, y2, displace) {
+        let points = [{ x: x1, y: y1 }, { x: x2, y: y2 }];
+        let curDisplace = displace;
+        for (let iter = 0; iter < 5; iter++) {
+          const nextPoints = [];
+          for (let i = 0; i < points.length - 1; i++) {
+            const p1 = points[i];
+            const p2 = points[i + 1];
+            const midX = (p1.x + p2.x) / 2 + (Math.random() - 0.5) * curDisplace;
+            const midY = (p1.y + p2.y) / 2 + (Math.random() - 0.5) * curDisplace * 0.5;
+            nextPoints.push(p1, { x: midX, y: midY });
+          }
+          nextPoints.push(points[points.length - 1]);
+          points = nextPoints;
+          curDisplace *= 0.52;
+        }
+        return points;
+      }
+
+      /**
+       * 3. 冰霜視覺特效：六角冰晶陣圖騰展開 + 寒氣雪花四散
+       */
+      spawnFrost(tx, ty) {
+        this.flash('186, 230, 253', 0.22);
+        this.addShake(4);
+
+        // 生成六角形冰霜結界
+        this.iceCrystals.push({
+          x: tx,
+          y: ty,
+          radius: 10,
+          maxRadius: 125 + Math.random() * 35,
+          rotation: Math.random() * Math.PI,
+          alpha: 1,
+          decay: 0.018
+        });
+
+        // 冰晶碎屑與雪花粒子
+        for (let i = 0; i < 42; i++) {
+          const angle = Math.random() * Math.PI * 2;
+          const speed = Math.random() * 5.5 + 1;
+          this.particles.push({
+            x: tx,
+            y: ty,
+            vx: Math.cos(angle) * speed,
+            vy: Math.sin(angle) * speed,
+            size: Math.random() * 4 + 1.5,
+            alpha: 1,
+            decay: Math.random() * 0.018 + 0.012,
+            gravity: -0.02, // 寒氣微微飄浮
+            color: i % 3 === 0 ? '#ffffff' : i % 3 === 1 ? '#7dd3fc' : '#38bdf8',
+            glow: true
+          });
+        }
+      }
+
+      /**
+       * 4. 疾風視覺特效：高速流線型風刃與氣旋軌跡橫掃畫面
+       */
+      spawnGale(tx, ty) {
+        this.flash('167, 243, 208', 0.14);
+
+        const streakCount = 16;
+        for (let i = 0; i < streakCount; i++) {
+          const offsetY = (Math.random() - 0.5) * 260;
+          this.windStreaks.push({
+            x: tx - 260 - Math.random() * 180,
+            y: ty + offsetY,
+            vx: 24 + Math.random() * 16,
+            waveAmp: Math.random() * 18 + 6,
+            waveFreq: Math.random() * 0.03 + 0.015,
+            phase: Math.random() * Math.PI * 2,
+            length: Math.random() * 140 + 90,
+            alpha: 0.85,
+            decay: 0.022,
+            color: i % 2 === 0 ? '#6ee7b7' : '#a7f3d0'
+          });
+        }
+
+        // 氣流捲起的青色光點
+        for (let i = 0; i < 24; i++) {
+          this.particles.push({
+            x: tx + (Math.random() - 0.5) * 160,
+            y: ty + (Math.random() - 0.5) * 160,
+            vx: Math.random() * 14 + 6,
+            vy: (Math.random() - 0.5) * 4,
+            size: Math.random() * 2.5 + 1,
+            alpha: 0.9,
+            decay: 0.025,
+            gravity: 0,
+            color: '#34d399',
+            glow: true
+          });
+        }
+      }
+
+      /**
+       * 5. 轟炸單發視覺特效：在指定座標附近產生隨機偏移的連環重砲爆破
+       */
+      spawnBombardmentBlast(tx, ty, index) {
+        const spread = index === 0 ? 25 : 135;
+        const bx = Math.max(60, Math.min(this.width - 60, tx + (Math.random() - 0.5) * spread * 2));
+        const by = Math.max(80, Math.min(this.height - 120, ty + (Math.random() - 0.5) * spread * 1.5));
+
+        this.createExplosion(
+          bx,
+          by,
+          {
+            flash: '254, 202, 202',
+            ring: '#f87171',
+            particles: ['#ef4444', '#f97316', '#facc15', '#ffffff']
+          },
+          36,
+          index === 3 ? 1.25 : 0.95
+        );
+      }
+
+      /**
+       * 主動畫更新與繪製迴圈
+       */
+      render() {
+        const ctx = this.ctx;
+
+        // 半透明深空背景拖影，保留動態光軌餘暉
+        ctx.fillStyle = 'rgba(7, 9, 15, 0.28)';
+        ctx.fillRect(0, 0, this.width, this.height);
+
+        // 繪製背景微弱魔法網格
+        this.drawBackgroundGrid();
+
+        ctx.save();
+
+        // 畫面震動位移
+        if (this.screenShake > 0.2) {
+          const sx = (Math.random() - 0.5) * this.screenShake;
+          const sy = (Math.random() - 0.5) * this.screenShake;
+          ctx.translate(sx, sy);
+          this.screenShake *= 0.88;
+        } else {
+          this.screenShake = 0;
+        }
+
+        // 全螢幕元素閃光
+        if (this.screenFlash.alpha > 0.01) {
+          ctx.fillStyle = `rgba(${this.screenFlash.color}, ${this.screenFlash.alpha})`;
+          ctx.fillRect(0, 0, this.width, this.height);
+          this.screenFlash.alpha *= 0.84;
+        }
+
+        // 更新與繪製隕石本體
+        for (let i = this.meteors.length - 1; i >= 0; i--) {
+          const m = this.meteors[i];
+          m.frame++;
+          const t = Math.min(1, m.frame / m.maxFrames);
+          // 加速俯衝曲線
+          const easeT = t * t;
+          m.x = m.startX + (m.targetX - m.startX) * easeT;
+          m.y = m.startY + (m.targetY - m.startY) * easeT;
+
+          // 隕石燃燒拖尾粒子
+          for (let j = 0; j < 3; j++) {
+            this.particles.push({
+              x: m.x + (Math.random() - 0.5) * 12,
+              y: m.y + (Math.random() - 0.5) * 12,
+              vx: (Math.random() - 0.5) * 2,
+              vy: (Math.random() - 0.5) * 2 - 1,
+              size: Math.random() * 6 + 3,
+              alpha: 0.95,
+              decay: 0.045,
+              gravity: -0.05,
+              color: j === 0 ? '#fef08a' : j === 1 ? '#f97316' : '#dc2626',
+              glow: true
+            });
+          }
+
+          // 繪製隕石核心火球
+          ctx.save();
+          ctx.beginPath();
+          ctx.arc(m.x, m.y, m.radius, 0, Math.PI * 2);
+          ctx.fillStyle = '#fff7ed';
+          ctx.shadowColor = '#f97316';
+          ctx.shadowBlur = 25;
+          ctx.fill();
+          ctx.restore();
+
+          // 抵達目標引爆
+          if (m.frame >= m.maxFrames) {
+            this.createExplosion(
+              m.targetX,
+              m.targetY,
+              {
+                flash: '254, 215, 170',
+                ring: '#fb923c',
+                particles: ['#fff7ed', '#fdba74', '#f97316', '#ef4444']
+              },
+              55,
+              1.2
+            );
+            this.meteors.splice(i, 1);
+          }
+        }
+
+        // 更新與繪製閃電
+        for (let i = this.lightnings.length - 1; i >= 0; i--) {
+          const l = this.lightnings[i];
+          ctx.save();
+          ctx.lineCap = 'round';
+          ctx.lineJoin = 'round';
+
+          // 外層紫色電暈
+          ctx.strokeStyle = `rgba(168, 85, 247, ${l.alpha * 0.85})`;
+          ctx.lineWidth = 8;
+          ctx.shadowColor = '#c084fc';
+          ctx.shadowBlur = 24;
+          this.strokePolyline(l.mainBolt);
+
+          // 內層純白高壓核心
+          ctx.strokeStyle = `rgba(255, 255, 255, ${l.alpha})`;
+          ctx.lineWidth = 2.5;
+          this.strokePolyline(l.mainBolt);
+
+          // 分支電弧
+          ctx.lineWidth = 1.8;
+          ctx.strokeStyle = `rgba(216, 180, 254, ${l.alpha * 0.8})`;
+          l.branches.forEach(branch => this.strokePolyline(branch));
+
+          ctx.restore();
+          l.alpha -= l.decay;
+          if (l.alpha <= 0) this.lightnings.splice(i, 1);
+        }
+
+        // 更新與繪製冰霜六角晶陣
+        for (let i = this.iceCrystals.length - 1; i >= 0; i--) {
+          const c = this.iceCrystals[i];
+          c.radius += (c.maxRadius - c.radius) * 0.14;
+          c.rotation += 0.012;
+          c.alpha -= c.decay;
+
+          ctx.save();
+          ctx.translate(c.x, c.y);
+          ctx.rotate(c.rotation);
+          ctx.strokeStyle = `rgba(56, 189, 248, ${c.alpha})`;
+          ctx.shadowColor = '#38bdf8';
+          ctx.shadowBlur = 16;
+          ctx.lineWidth = 2;
+
+          // 繪製六芒星/雪花結晶線條
+          for (let k = 0; k < 6; k++) {
+            ctx.rotate(Math.PI / 3);
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.lineTo(c.radius, 0);
+            // 分枝冰刺
+            ctx.moveTo(c.radius * 0.55, 0);
+            ctx.lineTo(c.radius * 0.78, -c.radius * 0.22);
+            ctx.moveTo(c.radius * 0.55, 0);
+            ctx.lineTo(c.radius * 0.78, c.radius * 0.22);
+            ctx.stroke();
+          }
+          ctx.restore();
+
+          if (c.alpha <= 0) this.iceCrystals.splice(i, 1);
+        }
+
+        // 更新與繪製疾風氣流軌跡
+        for (let i = this.windStreaks.length - 1; i >= 0; i--) {
+          const w = this.windStreaks[i];
+          w.x += w.vx;
+          w.phase += 0.25;
+          w.alpha -= w.decay;
+
+          ctx.save();
+          ctx.beginPath();
+          ctx.strokeStyle = w.color;
+          ctx.globalAlpha = Math.max(0, w.alpha);
+          ctx.lineWidth = 2.2;
+          ctx.shadowColor = '#34d399';
+          ctx.shadowBlur = 12;
+
+          const steps = 12;
+          for (let s = 0; s <= steps; s++) {
+            const ratio = s / steps;
+            const px = w.x - ratio * w.length;
+            const py = w.y + Math.sin(w.phase - ratio * 4) * w.waveAmp * (1 - ratio * 0.5);
+            if (s === 0) ctx.moveTo(px, py);
+            else ctx.lineTo(px, py);
+          }
+          ctx.stroke();
+          ctx.restore();
+
+          if (w.alpha <= 0) this.windStreaks.splice(i, 1);
+        }
+
+        // 更新與繪製衝擊波圓環
+        for (let i = this.shockwaves.length - 1; i >= 0; i--) {
+          const sw = this.shockwaves[i];
+          sw.radius += (sw.maxRadius - sw.radius) * 0.16;
+          sw.alpha *= 0.89;
+
+          ctx.save();
+          ctx.beginPath();
+          ctx.arc(sw.x, sw.y, sw.radius, 0, Math.PI * 2);
+          ctx.strokeStyle = sw.color;
+          ctx.globalAlpha = Math.max(0, sw.alpha);
+          ctx.lineWidth = sw.lineWidth * sw.alpha;
+          ctx.stroke();
+          ctx.restore();
+
+          if (sw.alpha < 0.02) this.shockwaves.splice(i, 1);
+        }
+
+        // 更新與繪製通用粒子
+        for (let i = this.particles.length - 1; i >= 0; i--) {
+          const p = this.particles[i];
+          p.x += p.vx;
+          p.y += p.vy;
+          p.vy += p.gravity;
+          p.vx *= 0.97;
+          p.alpha -= p.decay;
+
+          if (p.alpha <= 0) {
+            this.particles.splice(i, 1);
+            continue;
+          }
+
+          ctx.save();
+          ctx.globalAlpha = Math.max(0, p.alpha);
+          ctx.fillStyle = p.color;
+          if (p.glow) {
+            ctx.shadowColor = p.color;
+            ctx.shadowBlur = 10;
+          }
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+        }
+
+        ctx.restore();
+      }
+
+      strokePolyline(pts) {
+        if (!pts || pts.length < 2) return;
+        this.ctx.beginPath();
+        this.ctx.moveTo(pts[0].x, pts[0].y);
+        for (let i = 1; i < pts.length; i++) {
+          this.ctx.lineTo(pts[i].x, pts[i].y);
+        }
+        this.ctx.stroke();
+      }
+
+      drawBackgroundGrid() {
+        const ctx = this.ctx;
+        const step = 64;
+        ctx.save();
+        ctx.strokeStyle = 'rgba(148, 163, 184, 0.035)';
+        ctx.lineWidth = 1;
+        for (let x = 0; x < this.width; x += step) {
+          ctx.beginPath();
+          ctx.moveTo(x, 0);
+          ctx.lineTo(x, this.height);
+          ctx.stroke();
+        }
+        for (let y = 0; y < this.height; y += step) {
+          ctx.beginPath();
+          ctx.moveTo(0, y);
+          ctx.lineTo(this.width, y);
+          ctx.stroke();
+        }
+        ctx.restore();
+      }
+    }
+
+    /**
+     * ============================================================================
+     * 3. 應用程式主控制器：整合音效、視覺、頻譜視覺化與互動事件
+     * ============================================================================
+     */
+    window.addEventListener('DOMContentLoaded', () => {
+      const fxCanvas = document.getElementById('fxCanvas');
+      const visCanvas = document.getElementById('visualizerCanvas');
+      const visCtx = visCanvas.getContext('2d');
+
+      const soundEngine = new ElementalSoundEngine();
+      const visualEngine = new ElementalVisualEngine(fxCanvas);
+
+      // 元素設定表
+      const ELEMENTS = {
+        meteor: { name: '隕石 (Meteor)', colorClass: 'text-orange-400', barColor: '#f97316' },
+        lightning: { name: '閃電 (Lightning)', colorClass: 'text-purple-400', barColor: '#a855f7' },
+        frost: { name: '冰霜 (Frost)', colorClass: 'text-sky-400', barColor: '#38bdf8' },
+        gale: { name: '疾風 (Gale)', colorClass: 'text-emerald-400', barColor: '#34d399' },
+        bombardment: { name: '轟炸 (Bombardment)', colorClass: 'text-red-400', barColor: '#ef4444' }
+      };
+
+      let currentElement = 'meteor';
+      let isAutoMode = false;
+      let autoTimer = null;
+      let hasInteracted = false;
+
+      // UI 參照
+      const elementCards = document.querySelectorAll('.element-card');
+      const volumeSlider = document.getElementById('volumeSlider');
+      const volumeLabel = document.getElementById('volumeLabel');
+      const muteBtn = document.getElementById('muteBtn');
+      const iconVolOn = document.getElementById('iconVolOn');
+      const iconVolOff = document.getElementById('iconVolOff');
+      const autoToggleBtn = document.getElementById('autoToggleBtn');
+      const autoIndicator = document.getElementById('autoIndicator');
+      const autoStatusText = document.getElementById('autoStatusText');
+      const centerHint = document.getElementById('centerHint');
+      const currentElementBadge = document.getElementById('currentElementBadge');
+      const audioStateLabel = document.getElementById('audioStateLabel');
+
+      // 切換選中元素
+      function selectElement(elKey) {
+        if (!ELEMENTS[elKey]) return;
+        currentElement = elKey;
+
+        elementCards.forEach(card => {
+          if (card.dataset.element === elKey) {
+            card.classList.add('active');
+          } else {
+            card.classList.remove('active');
+          }
+        });
+
+        currentElementBadge.textContent = ELEMENTS[elKey].name;
+        currentElementBadge.className = `font-bold ${ELEMENTS[elKey].colorClass}`;
+      }
+
+      // 觸發指定元素音效與視覺
+      function triggerElement(elKey, x, y) {
+        selectElement(elKey);
+
+        if (!hasInteracted) {
+          hasInteracted = true;
+          centerHint.style.opacity = '0';
+          audioStateLabel.textContent = '音訊引擎運作中';
+        }
+
+        // 若未指定座標，則在畫布中央偏上區域隨機生成
+        const targetX = typeof x === 'number' ? x : visualEngine.width * (0.3 + Math.random() * 0.4);
+        const targetY = typeof y === 'number' ? y : visualEngine.height * (0.32 + Math.random() * 0.28);
+
+        switch (elKey) {
+          case 'meteor':
+            soundEngine.playMeteor();
+            visualEngine.spawnMeteor(targetX, targetY);
+            break;
+          case 'lightning':
+            soundEngine.playLightning();
+            visualEngine.spawnLightning(targetX, targetY);
+            break;
+          case 'frost':
+            soundEngine.playFrost();
+            visualEngine.spawnFrost(targetX, targetY);
+            break;
+          case 'gale':
+            soundEngine.playGale();
+            visualEngine.spawnGale(targetX, targetY);
+            break;
+          case 'bombardment':
+            soundEngine.playBombardment((blastIdx) => {
+              visualEngine.spawnBombardmentBlast(targetX, targetY, blastIdx);
+            });
+            break;
+        }
+      }
+
+      // 綁定元素卡片點擊
+      elementCards.forEach(card => {
+        card.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const elKey = card.dataset.element;
+          triggerElement(elKey);
+        });
+      });
+
+      // 綁定畫布點擊 / 觸控施法
+      fxCanvas.addEventListener('pointerdown', (e) => {
+        triggerElement(currentElement, e.clientX, e.clientY);
+      });
+
+      // 綁定鍵盤快捷鍵 1~5 與空白鍵
+      window.addEventListener('keydown', (e) => {
+        if (e.repeat) return;
+        const keyMap = {
+          '1': 'meteor',
+          '2': 'lightning',
+          '3': 'frost',
+          '4': 'gale',
+          '5': 'bombardment'
+        };
+        if (keyMap[e.key]) {
+          triggerElement(keyMap[e.key]);
+        } else if (e.code === 'Space') {
+          e.preventDefault();
+          triggerElement(currentElement);
+        }
+      });
+
+      // 主音量滑桿控制
+      volumeSlider.addEventListener('input', (e) => {
+        const val = parseFloat(e.target.value);
+        soundEngine.init();
+        soundEngine.setVolume(val);
+        volumeLabel.textContent = `${Math.round(val * 100)}%`;
+
+        if (val === 0 && !soundEngine.isMuted) {
+          soundEngine.setMuted(true);
+          iconVolOn.classList.add('hidden');
+          iconVolOff.classList.remove('hidden');
+        } else if (val > 0 && soundEngine.isMuted) {
+          soundEngine.setMuted(false);
+          iconVolOn.classList.remove('hidden');
+          iconVolOff.classList.add('hidden');
+        }
+      });
+
+      // 靜音切換按鈕
+      muteBtn.addEventListener('click', () => {
+        soundEngine.init();
+        const nextMuted = !soundEngine.isMuted;
+        soundEngine.setMuted(nextMuted);
+        if (nextMuted) {
+          iconVolOn.classList.add('hidden');
+          iconVolOff.classList.remove('hidden');
+          volumeLabel.textContent = '靜音';
+        } else {
+          iconVolOn.classList.remove('hidden');
+          iconVolOff.classList.add('hidden');
+          volumeLabel.textContent = `${Math.round(soundEngine.volume * 100)}%`;
+        }
+      });
+
+      // 連發/自動模式切換
+      autoToggleBtn.addEventListener('click', () => {
+        isAutoMode = !isAutoMode;
+        if (isAutoMode) {
+          autoStatusText.textContent = '開啟中';
+          autoStatusText.classList.add('text-amber-400');
+          autoIndicator.classList.remove('bg-slate-500');
+          autoIndicator.classList.add('bg-amber-400', 'animate-ping');
+          autoToggleBtn.classList.add('border-amber-500/70', 'bg-amber-950/40');
+
+          // 立即觸發一次並啟動定時施法
+          triggerElement(currentElement);
+          autoTimer = setInterval(() => {
+            triggerElement(currentElement);
+          }, 950);
+        } else {
+          autoStatusText.textContent = '關閉';
+          autoStatusText.classList.remove('text-amber-400');
+          autoIndicator.classList.add('bg-slate-500');
+          autoIndicator.classList.remove('bg-amber-400', 'animate-ping');
+          autoToggleBtn.classList.remove('border-amber-500/70', 'bg-amber-950/40');
+          clearInterval(autoTimer);
+          autoTimer = null;
+        }
+      });
+
+      // 調整頻譜畫布尺寸
+      function resizeVisualizer() {
+        const rect = visCanvas.getBoundingClientRect();
+        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+        visCanvas.width = Math.floor(rect.width * dpr);
+        visCanvas.height = Math.floor(rect.height * dpr);
+        visCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      }
+      resizeVisualizer();
+      window.addEventListener('resize', resizeVisualizer);
+
+      // 繪製即時音訊頻譜條
+      function renderVisualizer() {
+        const rect = visCanvas.getBoundingClientRect();
+        const w = rect.width;
+        const h = rect.height;
+        visCtx.clearRect(0, 0, w, h);
+
+        const barCount = 48;
+        const gap = 3;
+        const barWidth = Math.max(2, (w - (barCount - 1) * gap) / barCount);
+        const activeColor = ELEMENTS[currentElement].barColor;
+
+        let dataArray = null;
+        if (soundEngine.analyser) {
+          dataArray = new Uint8Array(soundEngine.analyser.frequencyBinCount);
+          soundEngine.analyser.getByteFrequencyData(dataArray);
+        }
+
+        for (let i = 0; i < barCount; i++) {
+          let value = 0;
+          if (dataArray) {
+            const binIdx = Math.floor((i / barCount) * (dataArray.length * 0.75));
+            value = dataArray[binIdx] / 255;
+          }
+
+          const barHeight = Math.max(3, value * (h - 4));
+          const x = i * (barWidth + gap);
+          const y = (h - barHeight) / 2;
+
+          visCtx.fillStyle = value > 0.05 ? activeColor : 'rgba(100, 116, 139, 0.25)';
+          visCtx.beginPath();
+          visCtx.roundRect(x, y, barWidth, barHeight, 2);
+          visCtx.fill();
+        }
+      }
+
+      // 啟動主視覺動畫迴圈
+      function mainLoop() {
+        visualEngine.render();
+        renderVisualizer();
+        requestAnimationFrame(mainLoop);
+      }
+
+      window.onload = () => {
+        mainLoop();
+      };
+    });
+  </script>
+</body>
+</html>
