@@ -1,0 +1,2516 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>🌊 海洋亂鬥 - Ocean Brawl</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;-webkit-touch-callout:none;user-select:none;}
+html,body{
+  width:100%;height:100%;min-height:100svh;
+  background:#020914;overflow:hidden;
+  font-family:'Segoe UI',system-ui,-apple-system,BlinkMacSystemFont,Roboto,Arial,sans-serif;
+  touch-action:none;
+}
+body{display:flex;align-items:center;justify-content:center;}
+
+/* 16:9 aspect ratio game wrapper */
+#GW{
+  position:relative;overflow:hidden;
+  background:#020914;flex-shrink:0;
+  box-shadow:0 0 30px rgba(0,188,212,0.15);
+}
+canvas{display:block;width:100%;height:100%;}
+
+/* ===== MODE SELECT / CAPTURE / RESPAWN ===== */
+.modegrid{display:flex;gap:12px;width:92%;max-width:680px;margin-bottom:2%;}
+.mcard{flex:1;background:rgba(255,255,255,0.04);border:2px solid rgba(77,208,225,0.22);border-radius:14px;padding:14px 12px;cursor:pointer;text-align:center;transition:all .2s;}
+.mcard:hover{background:rgba(77,208,225,0.1);}
+.mcard.sel{background:rgba(77,208,225,0.18);border-color:#4dd0e1;box-shadow:0 0 20px rgba(77,208,225,0.4);}
+.mcard .mt{font-size:max(15px,1.7vw);font-weight:900;color:#fff;}
+.mcard .md{font-size:max(11px,1.05vw);color:#b0bec5;line-height:1.5;margin-top:4px;}
+#CAPBAR{display:none;flex-direction:column;gap:3px;width:min(420px,60vw);margin:0 auto 4px;}
+.caprow{display:flex;align-items:center;gap:6px;font-size:max(11px,1.2vw);font-weight:800;color:#fff;}
+.caprow .caplab{width:52px;text-align:right;white-space:nowrap;}
+.caprow .captrack{flex:1;height:12px;background:rgba(0,0,0,0.6);border-radius:6px;overflow:hidden;border:1px solid rgba(255,255,255,0.25);}
+.caprow .capfill{height:100%;width:0%;transition:width .2s;}
+#RESPAWN{display:none;position:absolute;left:50%;top:38%;transform:translate(-50%,-50%);z-index:30;background:rgba(2,9,20,0.85);border:1px solid rgba(77,208,225,0.5);border-radius:14px;padding:12px 22px;color:#fff;font-size:max(15px,1.8vw);font-weight:800;text-align:center;pointer-events:none;}
+/* ===== SELECT SCREEN ===== */
+#SS{
+  position:absolute;inset:0;z-index:100;
+  background:radial-gradient(circle at center,#081e36 0%,#040d1a 70%,#020914 100%);
+  display:flex;flex-direction:column;align-items:center;
+  padding:2% 3%;overflow-y:auto;
+}
+#SS h1{
+  color:#4dd0e1;font-size:max(20px,3.8vw);
+  text-shadow:0 0 20px rgba(0,188,212,0.6);
+  margin-top:0.5%;font-weight:900;letter-spacing:2px;
+}
+#SS .sub{color:#80deea;font-size:max(13px,1.4vw);margin-bottom:2%;letter-spacing:1px;opacity:0.9;}
+.hgrid{
+  display:grid;grid-template-columns:1fr 1fr;
+  gap:12px;width:92%;max-width:680px;margin-bottom:2%;
+}
+.hcard{
+  background:rgba(255,255,255,0.04);
+  border:2px solid rgba(77,208,225,0.22);
+  border-radius:14px;padding:24px 16px;cursor:pointer;
+  transition:all 0.2s cubic-bezier(0.25,1,0.5,1);
+  display:flex;align-items:center;justify-content:center;
+  backdrop-filter:blur(4px);
+}
+.hcard:hover{background:rgba(77,208,225,0.1);border-color:rgba(77,208,225,0.6);transform:translateY(-2px);}
+.hcard.sel{
+  background:rgba(77,208,225,0.18);border-color:#4dd0e1;
+  box-shadow:0 0 20px rgba(77,208,225,0.4);transform:scale(1.02);
+}
+.hcard .ce{font-size:max(42px,5.5vw);line-height:1;}
+
+.sbtn{
+  background:linear-gradient(135deg,#00838f 0%,#00bcd4 100%);
+  color:#fff;font-size:max(15px,1.8vw);font-weight:800;
+  border:none;border-radius:14px;padding:10px 32px;cursor:pointer;
+  letter-spacing:1px;box-shadow:0 6px 20px rgba(0,188,212,0.4);
+  transition:all 0.15s ease;
+}
+.sbtn:active{transform:scale(0.96);}
+.sbtn:disabled{opacity:0.4;cursor:not-allowed;transform:none;box-shadow:none;}
+
+/* ===== VS CONFIRMATION SCREEN ===== */
+#VS{
+  position:absolute;inset:0;z-index:150;
+  background:radial-gradient(circle at center,#09203f 0%,#040d1a 80%,#020914 100%);
+  display:none;flex-direction:column;align-items:center;justify-content:space-between;
+  padding:3% 4%;animation:fadeIn 0.3s ease-out;
+}
+@keyframes fadeIn{from{opacity:0;transform:scale(0.97);}to{opacity:1;transform:scale(1);}}
+
+#VS .vstitle{
+  color:#4dd0e1;font-size:max(18px,2.8vw);font-weight:900;
+  text-shadow:0 0 16px rgba(77,208,225,0.5);letter-spacing:2px;margin-bottom:10px;
+}
+.vslayout{
+  display:flex;align-items:center;justify-content:center;
+  width:100%;max-width:850px;gap:15px;flex:1;
+}
+.vsteam{
+  flex:1;display:flex;flex-direction:column;gap:12px;
+}
+.vscard{
+  background:rgba(255,255,255,0.05);
+  border-radius:14px;padding:12px 16px;
+  display:flex;align-items:center;gap:14px;
+  backdrop-filter:blur(8px);
+  position:relative;overflow:hidden;
+  transition:transform 0.2s;
+}
+.vscard.blue{border:2px solid rgba(0,188,212,0.5);background:linear-gradient(90deg,rgba(0,188,212,0.15),transparent);}
+.vscard.red{border:2px solid rgba(255,82,82,0.5);background:linear-gradient(90deg,transparent,rgba(255,82,82,0.15));}
+.vscard .vemj{font-size:max(32px,3.8vw);line-height:1;filter:drop-shadow(0 2px 8px rgba(0,0,0,0.5));}
+.vscard .vinfo{display:flex;flex-direction:column;gap:2px;}
+.vscard .vbadge{
+  font-size:max(10px,0.9vw);font-weight:800;padding:2px 8px;border-radius:10px;
+  display:inline-block;width:fit-content;letter-spacing:0.5px;
+}
+.vscard.blue .vbadge{background:#00838f;color:#e0f7fa;}
+.vscard.red .vbadge{background:#c62828;color:#ffebee;}
+.vscard .vname{color:#fff;font-size:max(16px,1.6vw);font-weight:800;}
+.vscard .vtype{color:#b0bec5;font-size:max(11px,1.05vw);}
+
+.vsdivider{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  font-size:max(22px,3vw);font-weight:900;color:#ffb74d;
+  text-shadow:0 0 15px rgba(255,183,77,0.8);
+  font-style:italic;padding:0 10px;
+}
+
+/* ===== RESULT SCREEN ===== */
+#RS{
+  position:absolute;inset:0;z-index:200;
+  background:rgba(2,9,20,0.88);
+  display:none;flex-direction:column;align-items:center;justify-content:center;
+  backdrop-filter:blur(8px);
+}
+#RS h2{font-size:max(26px,4.5vw);margin-bottom:2%;letter-spacing:2px;font-weight:900;}
+#RS p{color:#cfd8dc;font-size:max(14px,1.6vw);margin-bottom:1%;}
+.rbtn{
+  background:linear-gradient(135deg,#00838f,#00bcd4);
+  color:#fff;font-size:max(15px,1.8vw);font-weight:800;
+  border:none;border-radius:12px;padding:12px 36px;cursor:pointer;
+  margin-top:20px;box-shadow:0 4px 18px rgba(0,188,212,0.4);
+}
+
+
+/* ===== GOLD & SHOP ===== */
+#TOPLEFT{ position:absolute; top:8px; left:12px; z-index:12; display:none; pointer-events:none; }
+#GOLD{
+  position:absolute; top:8px; right:12px; z-index:12;
+  display:none; pointer-events:none;
+}
+#STATBTN{
+  pointer-events:all; cursor:pointer;
+  background:rgba(4,13,26,0.9); border:1px solid rgba(255,213,79,0.5);
+  border-radius:10px; padding:6px 14px; color:#ffd54f;
+  font-size:max(13px,1.5vw); font-weight:800; letter-spacing:0.5px;
+}
+#STATS{
+  position:absolute; inset:0; z-index:190;
+  background:rgba(2,9,20,0.94); backdrop-filter:blur(10px);
+  display:none; flex-direction:column; align-items:center;
+  padding:2% 3%; overflow-y:auto;
+}
+#STATS table{ border-collapse:collapse; width:96%; max-width:760px; margin:10px 0; }
+#STATS th,#STATS td{ border:1px solid rgba(77,208,225,0.3); padding:7px 8px; font-size:max(11px,1.15vw); color:#e0f7fa; text-align:left; }
+#STATS th{ background:rgba(77,208,225,0.15); color:#ffd54f; }
+#STATS .team0{ color:#4dd0e1; font-weight:800; } #STATS .team1{ color:#ff8a80; font-weight:800; }
+#SHOPBTN{
+  pointer-events:all;
+  width:max(54px,7.5vw); height:max(54px,7.5vw);
+  background:radial-gradient(circle at 40% 35%,#ffd54f,#f57f17);
+  border:2px solid rgba(255,213,79,0.7); border-radius:50%;
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  font-weight:800; color:#1a1200; cursor:pointer;
+  box-shadow:0 4px 14px rgba(0,0,0,0.6);
+}
+#SHOPBTN .aemj{font-size:max(18px,2.2vw); line-height:1;}
+#SHOPBTN .albl{font-size:max(9px,0.9vw); line-height:1; margin-top:2px;}
+#SHOP{
+  position:absolute; inset:0; z-index:180;
+  background:rgba(2,9,20,0.94); backdrop-filter:blur(10px);
+  display:none; flex-direction:column; align-items:center;
+  padding:2% 3%; overflow-y:auto;
+}
+#SHOP .shoptitle{
+  color:#ffd54f; font-size:max(18px,2.6vw); font-weight:900;
+  letter-spacing:1px; margin-bottom:6px;
+}
+#SHOP .shopgold{
+  color:#fff; font-size:max(14px,1.5vw); margin-bottom:10px;
+}
+#GOLD .goldpop{ position:absolute; right:0; top:110%; color:#ffd54f; font-size:max(14px,1.6vw); font-weight:900; text-shadow:0 0 8px rgba(255,213,79,.8); animation:goldpop 1.1s ease-out forwards; pointer-events:none; white-space:nowrap; }
+@keyframes goldpop{ 0%{opacity:0; transform:translateY(4px) scale(.8);} 15%{opacity:1; transform:translateY(0) scale(1.1);} 100%{opacity:0; transform:translateY(-18px) scale(1);} }
+.shoptabs{ display:flex; gap:8px; margin-bottom:10px; flex-wrap:wrap; justify-content:center; }
+.shoptab{ background:rgba(255,255,255,.06); color:#b0bec5; border:1.5px solid rgba(77,208,225,.3); border-radius:20px; padding:6px 16px; cursor:pointer; font-weight:800; font-size:max(12px,1.2vw); }
+.shoptab.on{ background:rgba(77,208,225,.2); color:#fff; border-color:#4dd0e1; }
+.shopgrid{
+  display:grid; grid-template-columns:1fr 1fr;
+  gap:10px; width:96%; max-width:720px; margin-bottom:12px;
+}
+.eqcard{
+  background:rgba(255,255,255,0.05);
+  border:1.5px solid rgba(77,208,225,0.3);
+  border-radius:12px; padding:10px 12px; cursor:pointer;
+  transition:all 0.15s; display:flex; gap:10px; align-items:flex-start;
+}
+.eqcard:hover{background:rgba(77,208,225,0.12); border-color:rgba(77,208,225,0.6);}
+.eqcard.owned{opacity:0.45; border-color:rgba(100,100,100,0.4); cursor:default;}
+.eqcard .eqemj{font-size:max(26px,3vw); line-height:1; flex-shrink:0;}
+.eqcard .eqinfo{flex:1; min-width:0;}
+.eqcard .eqname{color:#e0f7fa; font-weight:800; font-size:max(13px,1.3vw);}
+.eqcard .eqdesc{color:#b0bec5; font-size:max(11px,1.05vw); margin-top:2px; line-height:1.35;}
+.eqcard .eqcost{color:#ffd54f; font-weight:800; font-size:max(12px,1.15vw); margin-top:4px;}
+.eqcard .eqcat{font-size:max(10px,0.95vw); color:#80deea; margin-bottom:2px;}
+.shopclose{
+  background:linear-gradient(135deg,#00838f,#00bcd4);
+  color:#fff; font-size:max(14px,1.6vw); font-weight:800;
+  border:none; border-radius:12px; padding:10px 28px; cursor:pointer;
+  margin-top:8px; box-shadow:0 4px 14px rgba(0,188,212,0.35);
+}
+
+/* ===== HUD ===== */
+#HUD{
+  position:absolute;top:0;left:0;right:0;z-index:10;
+  display:none;pointer-events:none;
+}
+.hud-row{
+  display:flex;justify-content:center;align-items:flex-start;
+  padding:10px 14px;
+}
+
+/* timer */
+#TC{display:flex;flex-direction:column;align-items:center;gap:3px;}
+#TB{
+  background:rgba(4,13,26,0.85);border-radius:10px;
+  padding:4px 14px;color:#e0f7fa;
+  font-size:max(15px,2.2vw);font-weight:800;
+  border:1px solid rgba(255,255,255,0.1);letter-spacing:1px;
+}
+#TB.dng{color:#ff5252;animation:blk 0.6s infinite;}
+@keyframes blk{0%,100%{opacity:1}50%{opacity:0.4}}
+#LW{font-size:max(11px,1.2vw);color:#ff7043;font-weight:800;display:none;animation:blk 0.8s infinite;}
+
+/* ===== CONTROLS ===== */
+#CT{
+  position:absolute;bottom:0;left:0;right:0;z-index:10;
+  display:none;pointer-events:none;
+  align-items:flex-end;justify-content:space-between;
+  padding:12px 18px;
+  padding-bottom:max(12px,env(safe-area-inset-bottom,12px));
+}
+#JS{
+  width:max(100px,13vw);height:max(100px,13vw);
+  position:relative;pointer-events:all;flex-shrink:0;
+}
+#JB{
+  width:100%;height:100%;border-radius:50%;
+  background:rgba(255,255,255,0.08);
+  border:2px solid rgba(255,255,255,0.2);
+  position:absolute;box-shadow:inset 0 0 15px rgba(0,0,0,0.5);
+}
+#JK{
+  width:42%;height:42%;border-radius:50%;
+  background:radial-gradient(circle at 40% 35%,#4dd0e1,#006064);
+  border:2px solid rgba(77,208,225,0.9);
+  box-shadow:0 0 12px rgba(77,208,225,0.5);
+  position:absolute;top:50%;left:50%;
+  transform:translate(-50%,-50%);pointer-events:none;
+}
+#BP{display:flex;flex-direction:column;align-items:flex-end;gap:8px;pointer-events:all;}
+.br{display:flex;gap:8px;align-items:flex-end;}
+.ab{
+  border-radius:50%;border:none;cursor:pointer;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  font-weight:800;color:#fff;
+  box-shadow:0 4px 14px rgba(0,0,0,0.6);
+  transition:transform 0.08s;touch-action:manipulation;
+  position:relative;overflow:hidden;
+}
+.ab:active{transform:scale(0.88);}
+.aemj{font-size:max(18px,2.2vw);line-height:1;}
+.albl{font-size:max(10px,1vw);line-height:1;margin-top:2px;opacity:0.9;}
+#BA{
+  width:max(62px,8.5vw);height:max(62px,8.5vw);
+  background:radial-gradient(circle at 40% 35%,#42a5f5,#1a237e);
+  border:2px solid rgba(100,181,246,0.5);
+}
+#BS{
+  width:max(54px,7.5vw);height:max(54px,7.5vw);
+  background:radial-gradient(circle at 40% 35%,#ce93d8,#4a148c);
+  border:2px solid rgba(186,104,200,0.5);
+}
+#BU{
+  width:max(68px,9.5vw);height:max(68px,9.5vw);
+  background:radial-gradient(circle at 40% 35%,#ffb74d,#bf360c);
+  border:2px solid rgba(255,167,38,0.5);
+}
+#BU.rdy{
+  border-color:#ffd54f;
+  box-shadow:0 0 20px 4px rgba(255,213,79,0.7),0 4px 14px rgba(0,0,0,0.6);
+  animation:pul 1.2s infinite;
+}
+@keyframes pul{0%,100%{transform:scale(1);}50%{transform:scale(1.05);}}
+.cdo{
+  position:absolute;inset:0;border-radius:50%;
+  background:rgba(0,0,0,0.65);
+  display:none;align-items:center;justify-content:center;
+  font-size:max(13px,1.5vw);color:#fff;font-weight:800;
+  pointer-events:none;
+}
+.cdo.on{display:flex;}
+</style>
+</head>
+<body>
+<div id="GW">
+  <canvas id="GC"></canvas>
+
+  <!-- HUD -->
+  <div id="HUD">
+    <div class="hud-row">
+      <div id="TC">
+        <div id="TB">4:10</div>
+        <div id="LW">🌋 縮圈來襲！</div>
+        <div id="CONTRIBBAR" style="display:none;flex-direction:column;gap:3px;width:min(420px,60vw);margin:0 auto 4px;">
+          <div class="caprow"><span class="caplab">🔵 貢獻</span><div class="captrack"><div class="capfill" id="CONB" style="background:#00bcd4;"></div></div><span id="CONBT">0%</span></div>
+          <div class="caprow"><span class="caplab">🔴 貢獻</span><div class="captrack"><div class="capfill" id="CONR" style="background:#ff5252;"></div></div><span id="CONRT">0%</span></div>
+          <div class="caprow" id="CONIMMUNE" style="justify-content:center;color:#ffd54f;">🛡️ 尚未有人獲得反彈免疫</div>
+        </div>
+        <div id="CAPBAR">
+          <div class="caprow"><span class="caplab">🔵 我方</span><div class="captrack"><div class="capfill" id="CAPB" style="background:#00bcd4;"></div></div><span id="CAPBT">0%</span></div>
+          <div class="caprow"><span class="caplab">🔴 敵方</span><div class="captrack"><div class="capfill" id="CAPR" style="background:#ff5252;"></div></div><span id="CAPRT">0%</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div id="RESPAWN">💀 已陣亡<br><span id="RESPAWNT">10</span> 秒後復活…</div>
+  <div id="TOPLEFT"><button class="ab" id="SHOPBTN" onclick="openShop()"><span class="aemj">🛒</span><span class="albl">商店</span></button></div>
+  <div id="GOLD"><button id="STATBTN" onclick="openStats()">📊 統計</button></div>
+  <div id="STATS">
+    <div class="shoptitle">📊 對戰統計 · MOBA 戰績面板</div>
+    <div id="STATSBODY" style="width:100%;display:flex;flex-direction:column;align-items:center;"></div>
+    <button class="shopclose" onclick="closeStats()">✕ 關閉</button>
+  </div>
+
+  <!-- Shop Panel -->
+  <div id="SHOP">
+    <div class="shoptitle">🛒 裝備商店</div>
+    <div class="shopgold" id="SHOPGOLD">持有金幣：0</div>
+    <div class="shoptabs" id="SHOPTABS"></div>
+    <div class="shopgold" id="SHOPCOUNT" style="font-size:max(12px,1.2vw);color:#80deea;"></div>
+    <div class="shopgrid" id="SHOPGRID"></div>
+    <button class="shopclose" onclick="closeShop()">✕ 關閉商店</button>
+  </div>
+
+  <!-- Controls -->
+  <div id="CT">
+    <div id="JS"><div id="JB"></div><div id="JK"></div></div>
+    <div id="BP">
+      <!-- 大招在上排；技能在下排、普攻左邊 = 技能在大招的左下方 -->
+      <div class="br"><button class="ab" id="BU"><span class="aemj" id="UE">⚡</span><span class="albl">大招</span><div class="cdo" id="CU">0%</div></button></div>
+      <div class="br">
+        <button class="ab" id="BS"><span class="aemj" id="SE">💧</span><span class="albl">技能</span><div class="cdo" id="CS">0</div></button>
+        <button class="ab" id="BA"><span class="aemj">⚔️</span><span class="albl">普攻</span><div class="cdo" id="CA">0</div></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Select Screen -->
+  <div id="SS">
+    <h1>🌊 海洋亂鬥</h1>
+    <p class="sub">✦ 2v2 雙人組隊戰鬥 · 先選模式，再選英雄 ✦</p>
+    <div class="modegrid">
+      <div class="mcard sel" id="MODE_ELIM" onclick="selMode('elim')">
+        <div class="mt">💀 淘汰模式</div>
+        <div class="md"></div>
+      </div>
+      <div class="mcard" id="MODE_BOSS" onclick="selMode('boss')">
+        <div class="mt">👹 尾刀模式</div>
+        <div class="md"></div>
+      </div>
+      <div class="mcard" id="MODE_DOM" onclick="selMode('dom')">
+        <div class="mt">👑 爭霸模式</div>
+        <div class="md"></div>
+      </div>
+    </div>
+    <div class="hgrid">
+      <div class="hcard" id="HC0" onclick="selHero(0)">
+        <span class="ce">🗡️</span>
+      </div>
+      <div class="hcard" id="HC1" onclick="selHero(1)">
+        <span class="ce">🦈</span>
+      </div>
+      <div class="hcard" id="HC2" onclick="selHero(2)">
+        <span class="ce">🐙</span>
+      </div>
+      <div class="hcard" id="HC3" onclick="selHero(3)">
+        <span class="ce">🦑</span>
+      </div>
+    </div>
+    <div style="display:flex;gap:12px;align-items:center;">
+      <button class="sbtn" onclick="openCodex()" style="background:rgba(255,255,255,0.08);border:1px solid rgba(77,208,225,0.4);">📖 英雄玩法</button>
+      <button class="sbtn" id="SB" onclick="showVSConfirm()" disabled>🎮 請選擇英雄</button>
+    </div>
+  </div>
+
+  <!-- Hero Rules Modal (英雄玩法) -->
+  <div id="CX" style="display:none;position:absolute;inset:0;z-index:250;background:rgba(2,9,20,0.96);backdrop-filter:blur(10px);flex-direction:column;align-items:center;padding:3% 4%;overflow-y:auto;">
+    <div style="display:flex;justify-content:space-between;align-items:center;width:100%;max-width:720px;margin-bottom:15px;flex-shrink:0;">
+      <h2 style="color:#4dd0e1;font-size:max(20px,2.8vw);font-weight:900;letter-spacing:1px;">📖 英雄玩法與通用規則</h2>
+      <button onclick="closeCodex()" style="background:rgba(255,255,255,0.12);border:1px solid rgba(255,255,255,0.3);color:#fff;border-radius:10px;padding:6px 16px;cursor:pointer;font-size:max(14px,1.4vw);font-weight:700;">✕ 關閉</button>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:14px;width:100%;max-width:720px;">
+      
+      <!-- General Rules Section -->
+      <div style="background:rgba(77,208,225,0.08);border:1px solid rgba(77,208,225,0.4);border-radius:14px;padding:16px 20px;color:#e0f7fa;">
+        <div style="font-size:max(16px,1.8vw);font-weight:900;color:#ffd54f;margin-bottom:8px;">⚙️ 通用規則說明</div>
+        <div style="font-size:max(12px,1.1vw);line-height:1.7;color:#cfd8dc;display:flex;flex-direction:column;gap:4px;">
+          <div><b>・脫戰回血：</b>英雄在 3 秒內沒有造成傷害也沒有受到傷害時，每秒恢復最大生命的 15%。</div>
+          <div><b>・普攻能量：</b>近戰英雄 4 格、遠攻英雄 3 格，每 2 秒自動回復 1 格。</div>
+          <div><b>・技能冷卻：</b>所有英雄技能冷卻時間固定 11 秒（章魚天賦減少 8 秒為 3 秒）。</div>
+          <div><b>・大招能量：</b>每秒自動 +1%，對敵人每造成 1000 傷害 +10%，每受到 2000 傷害 +10%。尾刀模式例外：傷害獲取只對英雄生效。</div>
+          <div><b>・淘汰模式：</b>無固定時限完結；240 秒後從四邊同時縮圈（熔岩來襲約 10 秒），死後不復活。地圖正中 5×5 格為安全區；碰到熔岩瞬間降至 1 HP。勝負以全滅敵方為準。</div>
+          <div><b>・爭霸模式：</b>無熔岩，死後等 10 秒在隨機位置復活。地圖正中 3×3 格為爭奪區，進入每 2 秒 +1%，先集滿 100% 獲勝；中央 3×3 在此模式不是障礙物。每局隨機在全圖生成多條 1×5 / 5×1 障礙物（避開爭奪區與出生側）。</div>
+          <div><b>・尾刀模式：</b>中央 3×3 為 Boss（54321 HP，不移動、不主動攻擊，只反彈 100% 傷害）。Boss 每 10 秒在附近召喚 3 個小怪（1234 HP、攻擊 123）。搶到尾刀（最後一擊）的一方獲勝。頂部顯示雙方「貢獻值」：每對 Boss 造成其最大 HP 的 1% 傷害得 1% 貢獻值，率先達到 60% 的一方免疫 Boss 反彈傷（另一方無法再獲得此 Buff）。尾刀模式下，大招能量的「傷害獲取」只對英雄生效：打小怪/Boss、被 Boss/小怪打都不漲能量（每秒自動 +1% 不變）。</div>
+          <div><b>・爭霸模式 AI：</b>AI 優先直奔中央爭奪區，到了就站住佔點邊打邊守；爭奪區外圍障礙物圍成破缺方框，四面都留通道，不會被封死。</div>
+          <div><b>・爭霸爭奪值：</b>雙方同時在爭奪區內時，雙方同時累積，各算各的。</div>
+          <div><b>・裝備買賣：</b>已購買的裝備點一下可半價賣出（退回原價一半金幣，加成同步移除），再買回來要付全價。</div>
+          <div><b>・統計：</b>畫面右上角改為「📊 統計」按鈕，點按彈出視窗，顯示雙方英雄的金幣、生命值、攻擊力、移速/射程與裝備/神器統計。</div>
+          <div><b>・金幣與裝備：</b>每秒獲得 1~5 金幣；造成 1000 傷害 +50、受到 2000 傷害 +30。戰鬥中可開啟商店購買裝備或合成神器。</div>
+        </div>
+      </div>
+
+      <!-- Melee Category -->
+      <div style="font-size:max(18px,2vw);font-weight:900;color:#ffb74d;margin-top:6px;letter-spacing:1px;">⚔️ 近戰英雄</div>
+      
+      <div style="background:rgba(255,255,255,0.04);border:1px solid rgba(77,208,225,0.3);border-radius:14px;padding:14px 18px;color:#e0f7fa;">
+        <div style="font-size:max(17px,1.9vw);font-weight:900;color:#4dd0e1;margin-bottom:6px;">🗡️ 劍旗魚</div>
+        <div style="font-size:max(12px,1.1vw);line-height:1.6;color:#cfd8dc;">
+          <div><b>被動「急流破浪」：</b>自身基礎移速和射程 +1 格。受傷時移速額外 +1，持續 1 秒；HP 低於 50% 時則 +2。</div>
+          <div><b>普攻「長槍直刺」：</b>直線窄範圍，造成 100% 傷害，並附帶等同射程的位移。釋放大招後，下一次普攻的位移可穿透障礙物。</div>
+          <div><b>技能「急速流場」：</b>立即使自身移速 +1，並使全場敵人移速 -1，持續 3 秒。</div>
+          <div><b>大招「大洋風暴・千刃雨」：</b>直接對全場敵人每秒造成 50% 傷害，持續 3 秒。</div>
+          <div style="margin-top:6px;color:#80deea;font-weight:700;">基礎數值：HP 10000、攻擊 1000、移速 3、射程 2</div>
+        </div>
+      </div>
+
+      <div style="background:rgba(255,255,255,0.04);border:1px solid rgba(77,208,225,0.3);border-radius:14px;padding:14px 18px;color:#e0f7fa;">
+        <div style="font-size:max(17px,1.9vw);font-weight:900;color:#4dd0e1;margin-bottom:6px;">🦈 噬魂鯊</div>
+        <div style="font-size:max(12px,1.1vw);line-height:1.6;color:#cfd8dc;">
+          <div><b>被動「嗜血本能」：</b>每擊敗一次敵人，永久疊加 10% HP 和攻擊（最多疊加 5 次）。</div>
+          <div><b>普攻「巨齒橫掃」：</b>半圓形，造成 100% 傷害。</div>
+          <div><b>技能「深海震懾」：</b>造成 50% 傷害，並擊暈周圍的敵人 1 秒。</div>
+          <div><b>大招「獵殺時刻」：</b>瞬間傳送到最少血敵人的身後，並獲得 2 秒免控，免控完結後會恢復 20% HP。</div>
+          <div style="margin-top:6px;color:#80deea;font-weight:700;">基礎數值：HP 10000、攻擊 1000、移速 3、射程 2</div>
+        </div>
+      </div>
+
+      <!-- Ranged Category -->
+      <div style="font-size:max(18px,2vw);font-weight:900;color:#81d4fa;margin-top:6px;letter-spacing:1px;">🏹 遠攻英雄</div>
+
+      <div style="background:rgba(255,255,255,0.04);border:1px solid rgba(77,208,225,0.3);border-radius:14px;padding:14px 18px;color:#e0f7fa;">
+        <div style="font-size:max(17px,1.9vw);font-weight:900;color:#4dd0e1;margin-bottom:6px;">🐙 章魚</div>
+        <div style="font-size:max(12px,1.1vw);line-height:1.6;color:#cfd8dc;">
+          <div><b>被動「觸手連擊」：</b>自身技能冷卻時間 -8 秒。每使用 8 次技能，攻擊和 HP 都永久 +8%（最多疊加 8 次）。</div>
+          <div><b>普攻「八爪瘋狂連彈」：</b>普攻為伸出八條觸手快速攻擊，在一次普攻內造成 8 次 12.5% 傷害。</div>
+          <div><b>技能「軟體穿梭」：</b>使自身有 2 秒時間能穿過障礙物。</div>
+          <div><b>大招「擬態隱匿」：</b>使自身隱形 3 秒，期間霸體不受傷害和免控。</div>
+          <div style="margin-top:6px;color:#80deea;font-weight:700;">基礎數值：HP 5000、攻擊 500、移速 3、射程 6</div>
+        </div>
+      </div>
+
+      <div style="background:rgba(255,255,255,0.04);border:1px solid rgba(77,208,225,0.3);border-radius:14px;padding:14px 18px;color:#e0f7fa;">
+        <div style="font-size:max(17px,1.9vw);font-weight:900;color:#4dd0e1;margin-bottom:6px;">🦑 墨魚</div>
+        <div style="font-size:max(12px,1.1vw);line-height:1.6;color:#cfd8dc;">
+          <div><b>被動「墨痕禁錮」：</b>自身射程 +1 格，但普攻時 0.5 秒內不能移動。普攻有 20% 機率使敵人定身 2 秒。</div>
+          <div><b>普攻「漆黑拋射」：</b>向指定圓形區域噴出墨汁，造成 100% 傷害，並使敵人移速 -2，持續 2 秒。</div>
+          <div><b>技能「墨影迷蹤」：</b>在自身目前位置留下小範圍墨池，墨池持續 5 秒，經過墨池的敵人會眩暈 1 秒（每個墨池僅生效 1 次），同時自身位移後退 2 格。</div>
+          <div><b>大招「黑潮應激」：</b>進入應激狀態，射程再 +1，且普攻時可以移動，但威力為 90% 傷害，持續 10 秒。</div>
+          <div style="margin-top:6px;color:#80deea;font-weight:700;">基礎數值：HP 5000、攻擊 500、移速 3、射程 6</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- VS Confirmation Screen -->
+  <div id="VS">
+    <div class="vstitle">⚔️ 雙方陣容確認 ⚔️</div>
+    <div class="vslayout">
+      <!-- Team Blue -->
+      <div class="vsteam">
+        <div class="vscard blue" id="VSC_P">
+          <span class="vemj" id="VSE_P">🗡️</span>
+          <div class="vinfo">
+            <span class="vbadge">👑 我方 (玩家)</span>
+            <span class="vname" id="VSN_P">劍旗魚</span>
+            <span class="vtype" id="VST_P">近戰 · 突進型</span>
+          </div>
+        </div>
+        <div class="vscard blue" id="VSC_A">
+          <span class="vemj" id="VSE_A">🐙</span>
+          <div class="vinfo">
+            <span class="vbadge">🤝 我方 (隊友)</span>
+            <span class="vname" id="VSN_A">章魚</span>
+            <span class="vtype" id="VST_A">遠攻 · 連彈型</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="vsdivider">VS</div>
+
+      <!-- Team Red -->
+      <div class="vsteam">
+        <div class="vscard red" id="VSC_E1">
+          <span class="vemj" id="VSE_E1">🦈</span>
+          <div class="vinfo">
+            <span class="vbadge">☠️ 敵方英雄</span>
+            <span class="vname" id="VSN_E1">噬魂鯊</span>
+            <span class="vtype" id="VST_E1">近戰 · 爆發型</span>
+          </div>
+        </div>
+        <div class="vscard red" id="VSC_E2">
+          <span class="vemj" id="VSE_E2">🦑</span>
+          <div class="vinfo">
+            <span class="vbadge">☠️ 敵方英雄</span>
+            <span class="vname" id="VSN_E2">墨魚</span>
+            <span class="vtype" id="VST_E2">遠攻 · 控制型</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <button class="sbtn" onclick="startActualBattle()" style="margin-bottom:10px;">🚀 開始戰鬥</button>
+  </div>
+
+  <!-- Result Screen -->
+  <div id="RS">
+    <h2 id="RT">🏆 勝利！</h2>
+    <p id="RD">恭喜你的隊伍獲得勝利！</p>
+    <p id="RX" style="font-size:max(13px,1.4vw);color:#80deea;margin-top:4px;"></p>
+    <button class="rbtn" onclick="goSelect()">🔄 返回主選單</button>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// ■■■ CONSTANTS ■■■
+// ============================================================
+const GRID   = 31;       // 31×31 map grid
+const RLO    = 14;       // center rock bounds 14..16 (3x3)
+const RHI    = 16;
+const GSEC   = 250;      // legacy（淘汰模式已不再以此時限強制結束）
+let gameMode = 'elim'; // 'elim' 淘汰模式 | 'dom' 爭霸模式
+let capBlue = 0, capRed = 0, capAcc = 0; // 爭霸模式爭奪值
+let BOSS_OBS = []; // 尾刀模式：海量 1x1 障礙物
+let bossContrib = [0,0]; // 尾刀模式雙方貢獻值 %
+let bossImmuneTeam = -1; // 率先達 60% 貢獻的一方，免疫 Boss 反彈（-1=尚未產生）
+let bossSpawnT = 10; // Boss 召喚小怪倒數
+let bossUnit = null;
+const BOSS_MAX_HP = 54321, MINION_HP = 1234, MINION_ATK = 123;
+function isHeroUnit(u){ return !!u && !u.isBoss && !u.isMinion; }
+// 尾刀模式障礙物：海量 1x1。
+// 根因說明：舊版 drawMap 在非 elim 分支（含 boss）仍繪製 DOM_OBS 的 1x5/5x1 連牆，
+// 因此「中央附近」會看到整條連在一起的石頭——那些不是 BOSS_OBS，而是誤畫的爭霸牆。
+// 硬規則：任何兩個 1x1 不得上下左右相連（Chebyshev>=2）；中央 Boss 3x3 外圍與出生側留走廊。
+function genBossObs(){
+  BOSS_OBS=[];
+  const cells=[];
+  for(let y=1;y<GRID-1;y++) for(let x=1;x<GRID-1;x++){
+    // 中央 3x3 Boss 本體外再留 2 格淨空（12..18），避免貼邊
+    if(x>=RLO-2&&x<=RHI+2&&y>=RLO-2&&y<=RHI+2) continue;
+    if(x<=6 || x>=GRID-7) continue; // 左右出生走廊
+    cells.push({x,y});
+  }
+  for(let i=cells.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [cells[i],cells[j]]=[cells[j],cells[i]]; }
+  const occupied=new Set();
+  const key=(x,y)=>x+','+y;
+  const tooClose=(x,y)=>{
+    for(let dy=-1;dy<=1;dy++) for(let dx=-1;dx<=1;dx++){
+      if(!dx&&!dy) continue;
+      if(occupied.has(key(x+dx,y+dy))) return true;
+    }
+    return false;
+  };
+  for(const c of cells){
+    if(tooClose(c.x,c.y)) continue;
+    // 以棋盤稀疏取樣為主：約 45% 接受，確保通道充足
+    if(Math.random()<0.45){ BOSS_OBS.push(c); occupied.add(key(c.x,c.y)); }
+  }
+}
+function bossMinionCount(){ return units.filter(u=>u.isMinion&&u.alive).length; }
+let corals = []; // 淘汰模式：10 個 2x2 珊瑚 {x,y}
+let coralTimer = 0;
+// 爭霸模式障礙物：改為每局隨機生成多條 1x5 / 5x1，分佈全圖（避開爭奪區與出生點）
+let DOM_OBS = [];
+function genDomObs(){
+  DOM_OBS=[];
+  const target=10+Math.floor(Math.random()*5); // 10~14 條
+  let guard=0;
+  const cellsOf=o=>{
+    const arr=[];
+    for(let r=o.y;r<o.y+o.h;r++) for(let c=o.x;c<o.x+o.w;c++) arr.push(c+','+r);
+    return arr;
+  };
+  const used=new Set();
+  const overlaps=o=>{
+    for(const k of cellsOf(o)) if(used.has(k)) return true;
+    // 與已有牆正交相貼也略避開（留 1 格縫）
+    for(let r=o.y-1;r<o.y+o.h+1;r++) for(let c=o.x-1;c<o.x+o.w+1;c++){
+      if(r>=o.y&&r<o.y+o.h&&c>=o.x&&c<o.x+o.w) continue;
+      if(used.has(c+','+r)) return true;
+    }
+    return false;
+  };
+  const inForbidden=(x,y,w,h)=>{
+    // 爭奪區 3x3 外再留 1 格走廊
+    for(let r=y;r<y+h;r++) for(let c=x;c<x+w;c++){
+      if(c>=RLO-1&&c<=RHI+1&&r>=RLO-1&&r<=RHI+1) return true;
+      if(c<2||c>GRID-3||r<2||r>GRID-3) return true;
+      // 出生側大致淨空
+      if(c<=5||c>=GRID-6) return true;
+    }
+    return false;
+  };
+  while(DOM_OBS.length<target && guard++<400){
+    const horiz=Math.random()<0.5;
+    const len=5; // 嚴格只允許 1x5 或 5x1
+    let x,y,w,h;
+    if(horiz){ w=len; h=1; x=2+Math.floor(Math.random()*(GRID-2-w)); y=2+Math.floor(Math.random()*(GRID-2-h)); }
+    else { w=1; h=len; x=2+Math.floor(Math.random()*(GRID-2-w)); y=2+Math.floor(Math.random()*(GRID-2-h)); }
+    if(inForbidden(x,y,w,h)) continue;
+    const o={x,y,w,h};
+    if(overlaps(o)) continue;
+    DOM_OBS.push(o);
+    cellsOf(o).forEach(k=>used.add(k));
+  }
+}
+const LSTART = 240;     
+const LDUR   = 10;       // lava duration (leaves center 5x5 safe)
+const LAVA_MAX = (GRID - 5) / 2; // max shrink depth so center 5x5 (13..17) stays safe
+// --- Lava shrink: SINGLE source of truth ---
+// Root cause of the old 'top-left first' look: inset was recomputed in two
+// places (update() for damage, drawMap() for overlay) and the overlay was
+// painted row-by-row (r loop outer, c loop inner), so the top-left cells
+// were visibly painted / became lethal-looking before the bottom-right.
+// Fix: ONE scalar `lavaInset` per frame, computed once, then four borders
+// derived from that SAME value in the SAME frame for BOTH damage and render.
+// No per-side variable, no per-side timer, no staggered loop -> zero delay.
+function lavaInsetAt(t){ return t < LSTART ? 0 : Math.min(1,(t-LSTART)/LDUR) * LAVA_MAX; }
+function lavaBorders(){ const i = lavaDp; return {left:i, top:i, right:GRID-i, bottom:GRID-i}; }
+function inLava(gx,gy){ const b=lavaBorders(); return gx < b.left || gx > b.right || gy < b.top || gy > b.bottom; }
+
+// Hero definitions
+// Fixed 11s base skill cooldowns (Octopus has 11 - 8 = 3s)
+const HD = [
+  {id:0,emoji:'🗡️',name:'劍旗魚',type:'近戰 · 突進型', hp:10000,atk:1000,spd:3.2,rng:2.2,scd:11, se:'🚀',ue:'🌪️'},
+  {id:1,emoji:'🦈',name:'噬魂鯊',type:'近戰 · 爆發型', hp:10000,atk:1000,spd:2.8,rng:2.0,scd:11, se:'💥',ue:'🎯'},
+  {id:2,emoji:'🐙',name:'章魚',  type:'遠攻 · 連彈型', hp:5000, atk:500, spd:2.8,rng:6.0,scd:3,  se:'🌀',ue:'👻'},
+  {id:3,emoji:'🦑',name:'墨魚',  type:'遠攻 · 控制型', hp:5000, atk:500, spd:2.8,rng:6.5,scd:11, se:'🖤',ue:'🌑'},
+];
+
+
+// ============================================================
+// ■■■ EQUIPMENT DEFINITIONS ■■■
+// ============================================================
+// Categories: atk / def / spd / other
+const EQUIP = [
+  // Attack
+  {id:'atk1', cat:'atk', emoji:'🗡️', name:'珊瑚利刃', desc:'攻擊 +15%', cost:120,
+   apply:u=>{ u.eqAtkMul = (u.eqAtkMul||1)*1.15; }, remove:u=>{ u.eqAtkMul = (u.eqAtkMul||1)/1.15; }},
+  {id:'atk2', cat:'atk', emoji:'🔱', name:'深海三叉戟', desc:'攻擊 +25%，射程 +0.5', cost:220,
+   apply:u=>{ u.eqAtkMul = (u.eqAtkMul||1)*1.25; u.eqRngAdd = (u.eqRngAdd||0)+0.5; }, remove:u=>{ u.eqAtkMul = (u.eqAtkMul||1)/1.25; u.eqRngAdd = (u.eqRngAdd||0)-0.5; }},
+  {id:'atk3', cat:'atk', emoji:'💥', name:'潮汐爆裂核心', desc:'攻擊 +40%', cost:380,
+   apply:u=>{ u.eqAtkMul = (u.eqAtkMul||1)*1.40; }, remove:u=>{ u.eqAtkMul = (u.eqAtkMul||1)/1.40; }},
+  // Defense
+  {id:'def1', cat:'def', emoji:'🛡️', name:'海龜甲殼', desc:'最大生命 +20%', cost:130,
+   apply:u=>{ const r=u.hp/u.maxHp; u.maxHp*=1.20; u.hp=u.maxHp*r; }, remove:u=>{ const r=u.hp/u.maxHp; u.maxHp/=1.20; u.hp=Math.min(u.maxHp,u.maxHp*r); }},
+  {id:'def2', cat:'def', emoji:'🧱', name:'礁石護盾', desc:'最大生命 +35%，受傷 -5%', cost:250,
+   apply:u=>{ const r=u.hp/u.maxHp; u.maxHp*=1.35; u.hp=u.maxHp*r; u.eqDmgRed=(u.eqDmgRed||0)+0.05; }, remove:u=>{ const r=u.hp/u.maxHp; u.maxHp/=1.35; u.hp=Math.min(u.maxHp,u.maxHp*r); u.eqDmgRed=(u.eqDmgRed||0)-0.05; }},
+  {id:'def3', cat:'def', emoji:'💎', name:'珍珠屏障', desc:'最大生命 +50%，受傷 -15%', cost:400,
+   apply:u=>{ const r=u.hp/u.maxHp; u.maxHp*=1.50; u.hp=u.maxHp*r; u.eqDmgRed=(u.eqDmgRed||0)+0.15; }, remove:u=>{ const r=u.hp/u.maxHp; u.maxHp/=1.50; u.hp=Math.min(u.maxHp,u.maxHp*r); u.eqDmgRed=(u.eqDmgRed||0)-0.15; }},
+  // Move Speed
+  {id:'spd1', cat:'spd', emoji:'💨', name:'飛魚尾鰭', desc:'移速 +0.8', cost:100,
+   apply:u=>{ u.eqSpdAdd = (u.eqSpdAdd||0)+0.8; }, remove:u=>{ u.eqSpdAdd = (u.eqSpdAdd||0)-0.8; }},
+  {id:'spd2', cat:'spd', emoji:'🌊', name:'洋流加速靴', desc:'移速 +1.5', cost:200,
+   apply:u=>{ u.eqSpdAdd = (u.eqSpdAdd||0)+1.5; }, remove:u=>{ u.eqSpdAdd = (u.eqSpdAdd||0)-1.5; }},
+  {id:'spd3', cat:'spd', emoji:'⚡', name:'閃電水母鞋', desc:'移速 +2.2，技能冷卻 -1秒', cost:320,
+   apply:u=>{ u.eqSpdAdd = (u.eqSpdAdd||0)+2.2; u.sMaxCD = Math.max(1, u.sMaxCD - 1); }, remove:u=>{ u.eqSpdAdd = (u.eqSpdAdd||0)-2.2; u.sMaxCD = u.sMaxCD + 1; }},
+  // Other
+  {id:'oth1', cat:'other', emoji:'🔋', name:'能量海藻', desc:'每 5 秒額外自動 +2% 大招能量', cost:150,
+   apply:u=>{ u.eqUltRegen = (u.eqUltRegen||0) + 2; }, remove:u=>{ u.eqUltRegen = (u.eqUltRegen||0) - 2; }},
+  {id:'oth2', cat:'other', emoji:'🩸', name:'吸血水母', desc:'造成傷害的 8% 轉為治療', cost:180,
+   apply:u=>{ u.eqLifesteal = (u.eqLifesteal||0)+0.08; }, remove:u=>{ u.eqLifesteal = (u.eqLifesteal||0)-0.08; }},
+  {id:'oth3', cat:'other', emoji:'📦', name:'彈藥補給箱', desc:'普攻彈藥上限 +2，回彈加快', cost:160,
+   apply:u=>{ u.maxAmmo += 2; u.ammo = Math.min(u.maxAmmo, u.ammo+2); u.eqAmmoFast=true; }, remove:u=>{ u.maxAmmo -= 2; u.ammo = Math.min(u.ammo, u.maxAmmo); u.eqAmmoFast=false; }},
+  {id:'oth4', cat:'other', emoji:'🔮', name:'深淵護符', desc:'脫戰回血 +50%，受傷時短暫加速', cost:210,
+   apply:u=>{ u.eqHealMul = (u.eqHealMul||1)*1.50; u.eqHurtBoost=true; }, remove:u=>{ u.eqHealMul = (u.eqHealMul||1)/1.50; u.eqHurtBoost=false; }},
+  {id:'oth5', cat:'other', emoji:'🛡️', name:'免傷護盾', desc:'每 30 秒生成 1 個免傷護盾，抵擋一次傷害', cost:1,
+   apply:u=>{ u.eqShieldCycle=true; u.eqShieldT=0; }, remove:u=>{ u.eqShieldCycle=false; u.eqShield=0; }},
+];
+
+// ============================================================
+// ■■■ 神器 ARTIFACTS：由指定裝備合成，免費；合成後材料消失（可再買）
+// 神器與裝備不同，最多只能擁有 2 件。
+// ============================================================
+const MAX_ARTIFACTS = 2;
+const ARTIFACTS = [
+  {id:'artAtk', cat:'atk', emoji:'👑', name:'深海君王三叉戟', desc:'神器 · 攻擊 +50%，射程 +2', cost:0,
+   materials:['atk2','atk3'], matNames:['深海三叉戟','潮汐爆裂核心'],
+   apply:u=>{ u.eqAtkMul=(u.eqAtkMul||1)*1.50; u.eqRngAdd=(u.eqRngAdd||0)+2; },
+   remove:u=>{ u.eqAtkMul=(u.eqAtkMul||1)/1.50; u.eqRngAdd=(u.eqRngAdd||0)-2; }},
+  {id:'artDef', cat:'def', emoji:'🐢', name:'玄武珍珠甲', desc:'神器 · 最大生命 +10%，受傷 -30%', cost:0,
+   materials:['def1','def3'], matNames:['海龜甲殼','珍珠屏障'],
+   apply:u=>{ const r=u.hp/u.maxHp; u.maxHp*=1.10; u.hp=u.maxHp*r; u.eqDmgRed=(u.eqDmgRed||0)+0.30; },
+   remove:u=>{ const r=u.hp/u.maxHp; u.maxHp/=1.10; u.hp=Math.min(u.maxHp,u.maxHp*r); u.eqDmgRed=(u.eqDmgRed||0)-0.30; }},
+  {id:'artSpd', cat:'spd', emoji:'🌪️', name:'逆流疾風靴', desc:'神器 · 移速 -3，免疫任何敵人對自身的減速效果，且受傷時 50% 機率免控', cost:0,
+   materials:['spd1','spd2'], matNames:['飛魚尾鰭','洋流加速靴'],
+   apply:u=>{ u.eqSpdAdd=(u.eqSpdAdd||0)-3; u.eqSlowImmune=true; u.eqCCResist=0.5; },
+   remove:u=>{ u.eqSpdAdd=(u.eqSpdAdd||0)+3; u.eqSlowImmune=false; u.eqCCResist=0; }},
+  {id:'artOther', cat:'other', emoji:'✨', name:'深淵主宰之心', desc:'神器 · 每 5 秒無敵 1 秒，且敵人每秒自動扣 2 金幣', cost:0,
+   materials:['oth1','oth2','oth3','oth4','oth5'], matNames:['能量海藻','吸血水母','彈藥補給箱','深淵護符','免傷護盾'],
+   apply:u=>{ u.eqInvCycle=true; u.eqInvCycleT=0; u.eqGoldDrain=true; },
+   remove:u=>{ u.eqInvCycle=false; u.eqGoldDrain=false; }},
+];
+const CAT_NAME_ART = '✨ 神器';
+
+const CAT_NAME = {atk:'⚔️ 攻擊', def:'🛡️ 防護', spd:'💨 移速', other:'✨ 其他', art:'✨ 神器'};
+
+// Visible view dimensions in grid cells (approx. 16:9 ratio, centered on camera)
+const VIS_H_CELLS = 7.5; // visible height in cells
+let VIS_W_CELLS   = 13.3;
+
+// ============================================================
+// ■■■ GLOBALS ■■■
+// ============================================================
+let canvas, ctx;
+let GW=0, GH=0;       // game canvas px size
+let CS=30;            // dynamic cell size in px based on camera view
+
+let gSt='select';     // 'select'|'vs'|'playing'|'result'
+let selId=-1;
+let matchHeroes = []; // Array of 4 unique hero IDs [Player, Ally, Enemy1, Enemy2]
+let elapsed=0;
+let raf=null, lastTS=0;
+
+let units=[], projs=[], vfx=[], pools=[], atkVisuals=[], dmgTexts=[];
+let lavaDp=0;         // lava border depth in grid units
+
+let pUnit=null;       // player hero
+let joyOn=false, jDX=0, jDY=0;
+let playerGold = 0;
+const MAX_EQUIP = 7;
+let shopCat = 'atk';
+function gainGold(amt){ // ONLY entry point for gaining gold -> always shows +N in real time
+  if(!(amt > 0)) return; playerGold += amt; if(pUnit) pUnit.gold=playerGold; updateGoldHUD(); showGoldGain(amt);
+}
+function showGoldGain(amt){
+  const g = document.getElementById('GOLD'); if(!g) return;
+  const el = document.createElement('div'); el.className='goldpop'; el.textContent = '+'+Math.floor(amt);
+  g.appendChild(el); setTimeout(()=>el.remove(), 1100);
+}
+let goldTimer = 0;
+let goldDmgAcc = 0;   // damage dealt accumulator for gold
+let goldTakenAcc = 0; // damage taken accumulator for gold
+let ownedEquip = new Set(); // equipment ids owned by player
+let ownedArtifacts = new Set(); // artifact ids owned by player（最多 2 件）
+
+
+// Camera state (World grid coordinates)
+let camX = 15.5;
+let camY = 15.5;
+
+// ============================================================
+// ■■■ LAYOUT & CAMERA LOGIC ■■■
+// ============================================================
+function resize(){
+  const bw=document.body.clientWidth, bh=document.body.clientHeight;
+  let w,h;
+  if(bw/bh > 16/9){ h=bh; w=Math.round(h*16/9); }
+  else{ w=bw; h=Math.round(w*9/16); }
+  const gw=document.getElementById('GW');
+  gw.style.width=w+'px'; gw.style.height=h+'px';
+  if(canvas){ canvas.width=w; canvas.height=h; }
+  GW=w; GH=h;
+
+  CS = GH / VIS_H_CELLS;
+  VIS_W_CELLS = GW / CS;
+}
+
+// Convert World Grid to Canvas Screen Pixels
+function worldToScreen(gx, gy){
+  const halfW = VIS_W_CELLS / 2;
+  const halfH = VIS_H_CELLS / 2;
+  const sx = (gx - (camX - halfW)) * CS;
+  const sy = (gy - (camY - halfH)) * CS;
+  return {x: sx, y: sy};
+}
+
+// Update camera position smooth follow
+function updateCamera(dt){
+  const targetUnit = (pUnit && pUnit.alive) ? pUnit : units.find(u => u.team === 0 && u.alive);
+  if(!targetUnit) return;
+
+  let targetX = targetUnit.gx;
+  let targetY = targetUnit.gy;
+
+  const halfW = VIS_W_CELLS / 2;
+  const halfH = VIS_H_CELLS / 2;
+
+  targetX = Math.max(halfW, Math.min(GRID - halfW, targetX));
+  targetY = Math.max(halfH, Math.min(GRID - halfH, targetY));
+
+  const lerpFactor = Math.min(1, dt * 10);
+  camX += (targetX - camX) * lerpFactor;
+  camY += (targetY - camY) * lerpFactor;
+
+  camX = Math.max(halfW, Math.min(GRID - halfW, camX));
+  camY = Math.max(halfH, Math.min(GRID - halfH, camY));
+}
+
+// ---------- BFS 尋路：給 AI 繞過障礙物用（格子圖，8 方向可斜走） ----------
+function findPath(sx,sy,tx,ty){
+  const scx=Math.max(0,Math.min(GRID-1,Math.floor(sx))), scy=Math.max(0,Math.min(GRID-1,Math.floor(sy)));
+  const tcx=Math.max(0,Math.min(GRID-1,Math.floor(tx))), tcy=Math.max(0,Math.min(GRID-1,Math.floor(ty)));
+  if(scx===tcx&&scy===tcy) return [];
+  const key=(x,y)=>x+','+y, prev=new Map(), seen=new Set([key(scx,scy)]), q=[[scx,scy]];
+  const dirs=[[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]];
+  while(q.length){
+    const [cx,cy]=q.shift();
+    for(const [dx,dy] of dirs){
+      const nx=cx+dx, ny=cy+dy; if(nx<0||ny<0||nx>=GRID||ny>=GRID) continue;
+      if(seen.has(key(nx,ny))) continue;
+      // 斜走時不能切過障礙物的角
+      if(dx&&dy&&(isObstacle(nx,cy)||isObstacle(cx,ny))) continue;
+      if(isObstacle(nx+0.5,ny+0.5)&&!(nx===tcx&&ny===tcy)) continue;
+      seen.add(key(nx,ny)); prev.set(key(nx,ny),[cx,cy]);
+      if(nx===tcx&&ny===tcy){ const path=[]; let cur=[nx,ny]; while(!(cur[0]===scx&&cur[1]===scy)){ path.unshift(cur); cur=prev.get(key(cur[0],cur[1])); } return path; }
+      q.push([nx,ny]);
+    }
+  }
+  return null; // 無路
+}
+// AI 沿 BFS 路徑走：回傳單位方向向量；到達目標附近回傳 null
+function aiFollowPath(u,tx,ty){
+  if(!u.aiPath||u.aiPathT<=0||u.aiPathTX!==Math.floor(tx)||u.aiPathTY!==Math.floor(ty)){
+    u.aiPath=findPath(u.gx,u.gy,tx,ty); u.aiPathT=0.5; u.aiPathTX=Math.floor(tx); u.aiPathTY=Math.floor(ty); u.aiPathIdx=0;
+  } else u.aiPathT-=0.2;
+  if(!u.aiPath||!u.aiPath.length) return null;
+  // 跳過已到達的路點
+  while(u.aiPathIdx<u.aiPath.length){
+    const [cx,cy]=u.aiPath[u.aiPathIdx];
+    if(Math.hypot(cx+0.5-u.gx,cy+0.5-u.gy)<0.6) u.aiPathIdx++; else break;
+  }
+  if(u.aiPathIdx>=u.aiPath.length) return null;
+  const [cx,cy]=u.aiPath[u.aiPathIdx];
+  const dx=cx+0.5-u.gx, dy=cy+0.5-u.gy, d=Math.hypot(dx,dy)||1;
+  return {x:dx/d,y:dy/d};
+}
+
+// ============================================================
+// ■■■ UNIT CLASS ■■■
+// ============================================================
+class Unit{
+  constructor(hid,team,isPlayer,gx,gy){
+    const d=HD[hid];
+    this.hid=hid; this.d=d; this.team=team; this.isPlayer=isPlayer;
+    this.gx=gx; this.gy=gy;
+    this.radius=0.45;
+
+    // Facing direction vector for attacks without targets
+    this.facingX = (team === 0) ? 1 : -1;
+    this.facingY = 0;
+
+    // Base stats
+    this.maxHp=d.hp; this.hp=d.hp;
+    this.bAtk=d.atk; this.bSpd=d.spd; this.bRng=d.rng;
+    if(hid===0){this.bSpd+=0.8;this.bRng+=0.8;}  // 劍旗魚 passive +spd/rng
+    if(hid===3){this.bRng+=1.0;}                  // 墨魚 passive +rng
+
+    // Ammo & Skills
+    this.maxAmmo=(d.type.includes('近戰'))?4:3; this.ammo=this.maxAmmo; this.ammoT=2.0;
+    this.sCD=0; this.sMaxCD=d.scd;
+    this.ultE=0; this.ultDAcc=0; this.ultTAcc=0;
+
+    // Status timers
+    this.atkT=0;
+    this.stunT=0; this.rootT=0; this.slowT=0; this.slowV=0;
+    this.boostT=0; this.boostV=0;
+    this.invT=0; this.invisT=0; this.wallT=0;
+    this.squidLockT=0;
+    this.sfUltPassWall = false; // Swordfish special ult effect flag
+
+    // Combat tracking
+    this.lastDL=-999; this.lastTK=-999;
+    this.sharkK=0;
+    this.octSkillCount=0;
+    this.sqUltT=0;
+
+    this.isHero=true; this.isBoss=false; this.isMinion=false;
+    // AI
+    this.aiMX=0; this.aiMY=0; this.aiThT=0; this.aiPath=null; this.aiPathT=0; this.aiPathIdx=0; this.aiPathTX=-1; this.aiPathTY=-1;
+    this.hitFT=0; this.alive=true;
+    this.respawnT=0; // 爭霸模式：死後復活倒數
+
+    // Equipment modifiers (defaults)
+    this.eqAtkMul = 1;
+    this.eqRngAdd = 0;
+    this.eqSpdAdd = 0;
+    this.eqDmgRed = 0;
+    this.eqUltGain = 1;
+    this.eqUltRegen = 0; // % ult per 5s from 能量海藻
+    this.ultRegenT = 0;
+    this.eqLifesteal = 0;
+    this.eqHealMul = 1;
+    this.eqAmmoFast = false;
+    this.eqHurtBoost = false;
+    this.eqSlowImmune = false; this.eqCCResist = 0;
+    this.eqShieldCycle = false; this.eqShieldT = 0; this.eqShield = 0;
+    this.eqInvCycle = false; this.eqInvCycleT = 0; this.eqGoldDrain = false;
+    this.gold = 100; // 每位英雄各自的金幣（統計視窗用）
+    this.ownedEquip = new Set();
+    this.ownedArtifacts = new Set();
+    this.aiShopT = 1.5 + Math.random()*2; // AI 買裝倒數
+  }
+
+  spd(){
+    let s=this.bSpd + (this.eqSpdAdd||0);
+    if(this.slowT>0 && !this.eqSlowImmune) s -= (this.slowV > 0 ? this.slowV : s * 0.4);
+    if(this.boostT>0) s += this.boostV;
+    return Math.max(1,s);
+  }
+  atk(){
+    let a=this.bAtk * (this.eqAtkMul||1);
+    if(this.hid===3&&this.sqUltT>0) a*=0.9;
+    return a;
+  }
+  rng(){
+    let r=this.bRng + (this.eqRngAdd||0);
+    if(this.hid===3&&this.sqUltT>0) r += 1.0; 
+    return r;
+  }
+  // 控場結算：神器「逆流疾風靴」受傷時 50% 免控；減速免疫直接擋下減速
+  applyCC(kind, dur, val){
+    if(kind==='slow' && this.eqSlowImmune) return;
+    if((this.eqCCResist||0)>0 && Math.random()<this.eqCCResist){ vfxAt(this,'✨',0.5,1.1); return; }
+    if(kind==='stun') this.stunT=Math.max(this.stunT,dur);
+    else if(kind==='root') this.rootT=Math.max(this.rootT,dur);
+    else if(kind==='slow'){ this.slowT=Math.max(this.slowT,dur); if(val!=null) this.slowV=val; }
+  }
+  canMove(){ return this.alive && this.stunT<=0 && this.rootT<=0; }
+  canAct(){ return this.alive && this.stunT<=0; }
+
+  canSee(target){
+    if(!target || !target.alive) return false;
+    const d = dist2(this, target);
+    // MOBA 草叢：目標躲在珊瑚裡，且觀看者不在「同一叢」珊瑚裡 → 完全看不見（不限距離，貼著也看不見）
+    if(coralId(target.gx,target.gy)>=0 && !inSameCoral(this,target)) return false;
+    if(target.invisT > 0 && d > 1.5) return false;
+    if(d > 9.0) return false;
+    return true;
+  }
+
+  takeDmg(amt,src){
+    if(!this.alive||this.invT>0) return 0;
+    if(this.eqShield>0){ this.eqShield--; vfxAt(this,'🛡️',0.7,1.4); return 0; } // 免傷護盾：抵擋一次傷害
+    amt=Math.max(0,amt);
+    // Equipment damage reduction
+    if(this.eqDmgRed > 0) amt *= (1 - this.eqDmgRed);
+    const real=Math.min(amt,this.hp);
+    this.hp-=real; this.hitFT=0.3; this.lastTK=elapsed;
+
+    if(real > 0){
+      dmgTexts.push({
+        gx: this.gx + (Math.random() - 0.5) * 0.8,
+        gy: this.gy,
+        amt: Math.round(real),
+        t: 2.0, mt: 2.0,
+        dy: -0.8
+      });
+      // Gold for player when taking damage
+      if(this.isPlayer){
+        goldTakenAcc += real;
+        while(goldTakenAcc >= 2000){
+          goldTakenAcc -= 2000;
+          gainGold(30);
+        }
+      }
+      // Hurt boost equipment
+      if(this.eqHurtBoost){
+        this.boostV = Math.max(this.boostV, 1.2);
+        this.boostT = Math.max(this.boostT, 1.0);
+      }
+    }
+
+    // 尾刀模式：大招能量的傷害獲取只對英雄生效（被 Boss/小怪打不漲；Boss/小怪被打也不漲，見 dealDmg）
+    if(!(gameMode==='boss'&&(!isHeroUnit(this)||!isHeroUnit(src)))){
+      this.ultTAcc+=real;
+      while(this.ultTAcc>=200){this.ultTAcc-=200;this.ultE=Math.min(100,this.ultE+1);}
+    }
+
+    if(this.hid===0){this.boostV=(this.hp/this.maxHp<0.5)?2:1;this.boostT=1.2;}
+    if(this.hp<=0){this.hp=0;this.onDie(src);}
+    return real;
+  }
+
+  dealDmg(tgt,amt){
+    const real=tgt.takeDmg(amt,this);
+    if(real>0){
+      this.lastDL=elapsed;
+      // 尾刀模式：大招能量的傷害獲取只對英雄生效（打 Boss/小怪不漲）
+      if(!(gameMode==='boss'&&(!isHeroUnit(this)||!isHeroUnit(tgt)))){
+        const gainMul = this.eqUltGain || 1;
+        this.ultDAcc += real * gainMul;
+        while(this.ultDAcc>=100){this.ultDAcc-=100;this.ultE=Math.min(100,this.ultE+1);}
+      }
+      // 尾刀模式：Boss 反彈 100% 傷害（免疫方除外；反彈本身不計貢獻、不漲能量）
+      if(gameMode==='boss'&&tgt.isBoss&&isHeroUnit(this)&&this.alive&&bossImmuneTeam!==this.team){
+        this.takeDmg(real, tgt);
+      }
+      // 尾刀模式：貢獻值 = 對 Boss 傷害 / Boss 最大 HP
+      if(gameMode==='boss'&&tgt.isBoss&&isHeroUnit(this)){
+        bossContrib[this.team]+= real / BOSS_MAX_HP * 100;
+        if(bossImmuneTeam===-1&&bossContrib[this.team]>=60){
+          bossImmuneTeam=this.team;
+          vfxAt(this,'🛡️',1.2,1.8);
+        }
+      }
+      // Lifesteal
+      if(this.eqLifesteal > 0) this.heal(real * this.eqLifesteal);
+      // Gold for player damage dealt
+      if(this.isPlayer){
+        goldDmgAcc += real;
+        while(goldDmgAcc >= 1000){
+          goldDmgAcc -= 1000;
+          gainGold(50);
+        }
+      }
+    }
+    return real;
+  }
+
+  heal(a){ this.hp=Math.min(this.maxHp,this.hp+a); }
+
+  onDie(killer){
+    this.alive=false;
+    if(this.isBoss){ // 尾刀：被搶到尾刀的一方落敗（killer 為英雄才算）
+      if(killer&&isHeroUnit(killer)) setTimeout(()=>endGame(killer.team===0,'boss'),400);
+      return;
+    }
+    if(this.isMinion){ vfx.push({gx:this.gx,gy:this.gy,e:'💀',t:1.2,mt:1.2,sc:1.2,dx:0,dy:-0.4}); return; }
+    if(gameMode==='dom'||gameMode==='boss'){ this.respawnT=10; } // 爭霸/尾刀：固定等10秒，滿血復活（由 update() 執行）
+    vfx.push({gx:this.gx,gy:this.gy,e:'💀',t:1.8,mt:1.8,sc:1.5,dx:0,dy:-0.4});
+    // Requirement 2: Soul Shark passive stack limited to 5
+    if(killer&&killer.hid===1&&isHeroUnit(this)){
+      if (killer.sharkK < 5) killer.sharkK++;
+      killer.maxHp=HD[1].hp*(1+killer.sharkK*0.10);
+      killer.bAtk=HD[1].atk*(1+killer.sharkK*0.10);
+      killer.heal(killer.maxHp*0.10);
+      vfxAt(killer,'🦈',0.8,1.5);
+    }
+    if(gameMode==='elim') checkWin();
+  }
+  revive(){
+    // 爭霸模式復活：隨機位置（避開障礙物/爭奪區邊緣）、滿血、狀態清空
+    let gx=5.5, gy=15.5, guard=0;
+    do{ gx=1.5+Math.random()*(GRID-3); gy=1.5+Math.random()*(GRID-3); }
+    while((isObstacle(gx,gy) || inCaptureZone(gx,gy)) && guard++<100);
+    this.gx=gx; this.gy=gy; this.alive=true; this.respawnT=0;
+    this.hp=this.maxHp; this.ammo=this.maxAmmo; // 復活不清空大招能量：保留死亡前的 ultE / ultDAcc / ultTAcc
+    this.stunT=this.rootT=this.slowT=this.boostT=this.invT=this.invisT=this.wallT=0;
+    this.sCD=0; this.lastDL=-999; this.lastTK=-999;
+    vfxAt(this,'✨',0.9,1.6);
+  }
+
+  ejectFromWall(){
+    if(!isRock(this.gx, this.gy)) return;
+    for(let r = 0.5; r <= 6; r += 0.5){
+      const angles = [0, Math.PI/4, Math.PI/2, 3*Math.PI/4, Math.PI, 5*Math.PI/4, 3*Math.PI/2, 7*Math.PI/4];
+      for(let a of angles){
+        const tx = this.gx + Math.cos(a) * r;
+        const ty = this.gy + Math.sin(a) * r;
+        if(tx >= 0.5 && tx <= GRID - 0.5 && ty >= 0.5 && ty <= GRID - 0.5 && !isRock(tx, ty)){
+          this.gx = tx;
+          this.gy = ty;
+          vfxAt(this, '💨', 0.5, 1.2);
+          return;
+        }
+      }
+    }
+  }
+
+  tryMove(nx,ny){
+    nx=Math.max(0.5,Math.min(GRID-0.5,nx));
+    ny=Math.max(0.5,Math.min(GRID-0.5,ny));
+    if(!this.canPassWall()){
+      // 沿移動路徑取樣：避免一步跨過整個 1x1 障礙物（無故穿牆的主因）。
+      // 取樣點落入障礙物時，改走「只走 X / 只走 Y」的滑牆分支；兩者也撞牆就停住。
+      const steps=Math.max(1,Math.ceil(Math.hypot(nx-this.gx,ny-this.gy)/0.25));
+      let hit=false;
+      for(let i=1;i<=steps;i++){
+        const sx=this.gx+(nx-this.gx)*i/steps, sy=this.gy+(ny-this.gy)*i/steps;
+        if(isRock(sx,sy)){ hit=true; break; }
+      }
+      if(hit||isRock(nx,ny)){
+        if(!isRock(nx,this.gy)){ this.gx=nx; return; }
+        if(!isRock(this.gx,ny)){ this.gy=ny; return; }
+        return;
+      }
+    }
+    this.gx=nx; this.gy=ny;
+  }
+
+  canPassWall(){ return this.wallT>0 || this.sfUltPassWall; }
+
+  move(dx,dy,dt){
+    if(this.hid === 3 && this.squidLockT > 0 && this.sqUltT <= 0) return;
+    if(!this.canMove()) return;
+    const m=Math.hypot(dx,dy);
+    if(m<0.01) return;
+    this.facingX = dx / m;
+    this.facingY = dy / m;
+    this.tryMove(this.gx+(dx/m)*this.spd()*dt, this.gy+(dy/m)*this.spd()*dt);
+  }
+
+  tryAutoAtk(){
+    if(!this.canAct()||this.ammo<=0||this.atkT>0) return;
+    const es=units.filter(u=>u.alive&&u.team!==this.team&&this.canSee(u));
+    let tgt = null;
+    if(es.length){
+      const candidate = es.reduce((a,b)=>dist2(a,this)<dist2(b,this)?a:b);
+      if(dist2(candidate,this) <= this.rng()+0.5) tgt = candidate;
+    }
+    if(tgt) this.fireAtk(tgt);
+  }
+
+  fireAtk(tgt){
+    if(!this.canAct()||this.ammo<=0||this.atkT>0) return;
+    this.ammo--; this.atkT=0.5; this.lastDL=elapsed;
+    if(this.hid===3) this.squidLockT = 0.5; 
+
+    if(tgt){
+      const dx = tgt.gx - this.gx, dy = tgt.gy - this.gy;
+      const d = Math.hypot(dx, dy);
+      if(d > 0.01){ this.facingX = dx/d; this.facingY = dy/d; }
+    }
+
+    if(this.hid===0) this._atk0(tgt);
+    else if(this.hid===1) this._atk1(tgt);
+    else if(this.hid===2) this._atk2(tgt);
+    else if(this.hid===3) this._atk3(tgt);
+  }
+
+  _atk0(tgt){
+    // Requirement 1: Swordfish basic attack distance equals to rng, can pass wall if buffed
+    this.tryMove(this.gx + this.facingX * this.rng(), this.gy + this.facingY * this.rng());
+    if(this.sfUltPassWall) {
+      this.sfUltPassWall = false;
+      this.ejectFromWall(); // Evict if standing on rock after dash
+    }
+    atkVisuals.push({
+      type: 'thrust', gx: this.gx, gy: this.gy,
+      fx: this.facingX, fy: this.facingY, rng: this.rng(),
+      t: 0.25, mt: 0.25
+    });
+    if(tgt && dist2(tgt,this) <= this.rng()+0.5){
+      this.dealDmg(tgt,this.atk());
+      vfxAt(tgt,'⚡',0.4,1.1);
+    }
+  }
+
+  _atk1(tgt){
+    atkVisuals.push({
+      type: 'sweep', gx: this.gx, gy: this.gy,
+      fx: this.facingX, fy: this.facingY, rng: this.rng(),
+      t: 0.3, mt: 0.3
+    });
+    units.filter(u=>u.alive&&u.team!==this.team).forEach(e=>{
+      if(dist2(e,this)<=this.rng()+0.4){
+        this.dealDmg(e,this.atk());
+        vfxAt(e,'🩸',0.4,1.1);
+      }
+    });
+    vfxAt(this,'💥',0.4,1.3);
+  }
+
+  _atk2(tgt){
+    atkVisuals.push({
+      type: 'tentacles', gx: this.gx, gy: this.gy,
+      fx: this.facingX, fy: this.facingY, rng: this.rng(),
+      t: 0.35, mt: 0.35
+    });
+
+    if(tgt){
+      for(let i=0;i<8;i++){
+        setTimeout(()=>{
+          if(!this.alive||!tgt.alive) return;
+          if(dist2(tgt,this)>this.rng()+1) return;
+          this.dealDmg(tgt,this.atk()*0.125);
+          vfxAt(tgt,'🔵',0.2,0.7);
+        },i*50);
+      }
+    }
+  }
+
+  _atk3(tgt){
+    const tx = tgt ? tgt.gx : this.gx + this.facingX * this.rng();
+    const ty = tgt ? tgt.gy : this.gy + this.facingY * this.rng();
+
+    const triggersRoot = Math.random() < 0.20;
+
+    projs.push({
+      x:this.gx, y:this.gy, tx, ty, tgt, own:this, spd:9, t:'ink',
+      dmg:this.atk(), isSquid:true, triggersRoot
+    });
+  }
+
+  useSkill(){
+    if(this.sCD>0||!this.canAct()) return;
+    this.sCD=this.sMaxCD;
+
+    // Requirement 3: Octopus passive limited to 8 stacks (64 skill uses)
+    if(this.hid===2){
+      this.octSkillCount++;
+      if(this.octSkillCount % 8 === 0){
+        const stacks = this.octSkillCount / 8;
+        if (stacks <= 8) {
+          this.bAtk *= 1.08;
+          this.maxHp *= 1.08;
+          this.heal(this.maxHp * 0.08);
+          vfxAt(this, '💪', 0.8, 1.5);
+        }
+      }
+    }
+
+    if(this.hid===0) this._sk0();
+    else if(this.hid===1) this._sk1();
+    else if(this.hid===2) this._sk2();
+    else if(this.hid===3) this._sk3();
+  }
+
+  _sk0(){
+    this.boostV = 1.0;
+    this.boostT = 3.0;
+    units.filter(u => u.alive && u.team !== this.team).forEach(e => {
+      e.applyCC('slow',3.0,1.0);
+      vfxAt(e, '🐌', 0.8, 1);
+    });
+    vfxAt(this, '🚀', 0.6, 1.5);
+  }
+
+  _sk1(){
+    atkVisuals.push({
+      type: 'shark_skill', gx: this.gx, gy: this.gy,
+      fx: this.facingX, fy: this.facingY, rng: 3.5,
+      t: 0.5, mt: 0.5
+    });
+
+    units.filter(u=>u.alive&&u.team!==this.team).forEach(e=>{
+      if(dist2(e,this)<=3.5){
+        this.dealDmg(e, this.atk() * 0.5);
+        e.applyCC('stun',1.2);
+        vfxAt(e,'😵',1.1,1.1);
+      }
+    });
+    vfxAt(this,'🌊',0.6,1.8);
+  }
+
+  _sk2(){
+    this.wallT=2.0; vfxAt(this,'🌀',0.5,1.5);
+  }
+
+  _sk3(){
+    pools.push({gx:this.gx,gy:this.gy,r:1.8,t:5,own:this,hitUnits:[]});
+    const es=units.filter(u=>u.alive&&u.team!==this.team&&this.canSee(u));
+    if(es.length){
+      const ne=es.reduce((a,b)=>dist2(a,this)<dist2(b,this)?a:b);
+      const d=distV(ne,this);
+      if(d>0) this.tryMove(this.gx-(ne.gx-this.gx)/d*2, this.gy-(ne.gy-this.gy)/d*2);
+    }
+    vfxAt(this,'🖤',0.6,1.3);
+  }
+
+  useUlt(){
+    if(this.ultE<100||!this.canAct()) return;
+    this.ultE=0; this.ultDAcc=0;
+    if(this.hid===0) this._ul0();
+    else if(this.hid===1) this._ul1();
+    else if(this.hid===2) this._ul2();
+    else if(this.hid===3) this._ul3();
+  }
+  _ul0(){
+    this.sfUltPassWall = true; // Requirement 1: Allows next basic attack to pass walls
+    vfxAt(this,'🌪️',0.8,2.2);
+    let tk=0;
+    const iv=setInterval(()=>{
+      if(!this.alive||tk>=3){clearInterval(iv);return;} tk++;
+      units.filter(u=>u.alive&&u.team!==this.team).forEach(e=>{
+        this.dealDmg(e,this.d.atk*0.55); vfxAt(e,'🌪️',0.5,1.1);
+      });
+    },1000);
+  }
+  _ul1(){
+    // 尾刀模式：大招必須鎖 Boss，避免被低血小怪吸走而脫離戰場
+    let tgt=null;
+    if(gameMode==='boss'&&bossUnit&&bossUnit.alive){
+      tgt=bossUnit;
+    } else {
+      const es=units.filter(u=>u.alive&&u.team!==this.team&&isHeroUnit(u));
+      if(!es.length){
+        const any=units.filter(u=>u.alive&&u.team!==this.team);
+        if(!any.length) return;
+        tgt=any.reduce((a,b)=>a.hp<b.hp?a:b);
+      } else {
+        tgt=es.reduce((a,b)=>a.hp<b.hp?a:b);
+      }
+    }
+    const d=distV(tgt,this);
+    if(d>0) this.tryMove(tgt.gx-(tgt.gx-this.gx)/d*1.2, tgt.gy-(tgt.gy-this.gy)/d*1.2);
+    // 貼身後立刻補一刀（尤其打 Boss）
+    if(dist2(tgt,this)<=this.rng()+1.2) this.dealDmg(tgt, this.atk()*1.2);
+    this.invT=2; vfxAt(this,'🎯',0.7,1.7);
+    setTimeout(()=>{
+      if(!this.alive) return;
+      this.invT=0; this.heal(this.maxHp*0.25);
+      vfxAt(this,'💚',0.8,1.5);
+    },2000);
+  }
+  _ul2(){
+    this.invisT=3.5; this.invT=3.5; vfxAt(this,'👻',0.8,1.7);
+    setTimeout(()=>{ this.invisT=0; this.invT=0; },3500);
+  }
+  _ul3(){
+    this.sqUltT=10; vfxAt(this,'🌑',0.8,1.7);
+  }
+
+  updateAI(dt){
+    this.aiThT-=dt;
+    if(this.aiThT>0) return;
+    this.aiThT=0.2;
+    // 尾刀模式：全程以 Boss 為唯一目標（小怪不搶普攻）；BFS 貼到射程內持續輸出
+    if(gameMode==='boss'&&bossUnit&&bossUnit.alive){
+      const bx=bossUnit.gx, by=bossUnit.gy;
+      const dx=bx-this.gx, dy=by-this.gy, d=Math.hypot(dx,dy)||1;
+      // 近戰站 Boss 外緣（約 2.1），遠程站 0.75*射程；一律朝 Boss 本體尋路
+      const ideal = this.rng() <= 3 ? 2.1 : this.rng()*0.75;
+      const inAtk = d <= this.rng()+1.0; // 放寬判定，避免卡在邊界不打
+      if(d > ideal+0.25){
+        const st=aiFollowPath(this, bx, by);
+        if(st){ this.aiMX=st.x; this.aiMY=st.y; }
+        else { this.aiMX=dx/d; this.aiMY=dy/d; }
+      } else {
+        // 已在理想距離：微調面向 Boss，停住輸出
+        this.aiMX=0; this.aiMY=0;
+        this.facingX=dx/d; this.facingY=dy/d;
+      }
+      // 技能／大招只在接近 Boss 時放，避免鯊魚大招亂飛
+      if(d <= this.rng()+3.5){
+        if(this.sCD<=0) this.useSkill();
+        if(this.ultE>=100) this.useUlt();
+      }
+      if(inAtk) this.fireAtk(bossUnit);
+      return;
+    }
+    // 爭霸模式：AI 最高優先級 = 去中央爭奪區（高於追擊 / 撤退），用 BFS 繞過障礙物
+    if(gameMode==='dom'){
+      const CX=15.5, CY=15.5;
+      if(!inCaptureZone(this.gx,this.gy)){
+        const dx=CX-this.gx, dy=CY-this.gy, d=Math.hypot(dx,dy)||1;
+        const st=aiFollowPath(this, CX, CY);
+        if(st){ this.aiMX=st.x; this.aiMY=st.y; } else { this.aiMX=dx/d; this.aiMY=dy/d; }
+        if(this.sCD<=0 && d<this.rng()*1.5) this.useSkill();
+        if(this.ultE>=100) this.useUlt();
+        this.tryAutoAtk();
+        return;
+      }
+      // 已在爭奪區內：站住佔點，邊打邊守，不撤出爭奪區
+      this.aiMX=0; this.aiMY=0;
+      if(this.sCD<=0) this.useSkill();
+      if(this.ultE>=100) this.useUlt();
+      this.tryAutoAtk();
+      return;
+    }
+    const es=units.filter(u=>u.alive&&u.team!==this.team&&this.canSee(u));
+    if(!es.length){
+      // Requirement 5: AI wanders around randomly instead of standing still when no enemies visible
+      if (this.aiMX === 0 && this.aiMY === 0 || Math.random() < 0.15) {
+        const angle = Math.random() * Math.PI * 2;
+        this.aiMX = Math.cos(angle);
+        this.aiMY = Math.sin(angle);
+      }
+      return; 
+    }
+
+    const tgt=es.reduce((a,b)=>a.hp<b.hp?a:b);
+    const dx=tgt.gx-this.gx, dy=tgt.gy-this.gy;
+    const d=Math.hypot(dx,dy);
+    const retreat=(this.hp/this.maxHp < 0.22) && this.invT<=0;
+
+    if(retreat){
+      this.aiMX=-(dx/d); this.aiMY=-(dy/d);
+    }else{
+      if(d > this.rng()*0.75){ this.aiMX=dx/d; this.aiMY=dy/d; }
+      else{ this.aiMX=0; this.aiMY=0; }
+      if(this.sCD<=0 && d<this.rng()*1.5) this.useSkill();
+      if(this.ultE>=100) this.useUlt();
+      this.tryAutoAtk();
+    }
+  }
+
+  update(dt){
+    if(!this.alive) return;
+    this.stunT=Math.max(0,this.stunT-dt);
+    this.rootT=Math.max(0,this.rootT-dt);
+    this.slowT=Math.max(0,this.slowT-dt);
+    if(this.slowT <= 0) this.slowV = 0;
+    this.boostT=Math.max(0,this.boostT-dt);
+    this.atkT=Math.max(0,this.atkT-dt);
+    this.squidLockT=Math.max(0,this.squidLockT-dt);
+    this.sCD=Math.max(0,this.sCD-dt);
+    this.invT=Math.max(0,this.invT-dt);
+    this.invisT=Math.max(0,this.invisT-dt);
+    
+    if(this.wallT > 0){
+      this.wallT = Math.max(0, this.wallT - dt);
+      if(this.wallT <= 0 && this.hid === 2){
+        this.ejectFromWall();
+      }
+    }
+
+    // 神器：每 5 秒無敵 1 秒（週期前 1 秒保持無敵）
+    if(this.eqInvCycle){ this.eqInvCycleT=(this.eqInvCycleT+dt)%5; if(this.eqInvCycleT<1) this.invT=Math.max(this.invT,0.15); }
+    // 免傷護盾：每 30 秒生成 1 個（最多持有 1 個）
+    if(this.eqShieldCycle){ this.eqShieldT+=dt; if(this.eqShieldT>=30){ this.eqShieldT=0; if(this.eqShield<1) this.eqShield=1; } }
+    if(this.eqSlowImmune){ this.slowT=0; this.slowV=0; }
+    this.hitFT=Math.max(0,this.hitFT-dt);
+    this.sqUltT=Math.max(0,this.sqUltT-dt);
+
+    this.ammoT-=dt;
+    if(this.ammoT<=0){
+      if(this.ammo < this.maxAmmo) this.ammo++;
+      this.ammoT = this.eqAmmoFast ? 1.4 : 2.0;
+    }
+
+    this.ultE=Math.min(100,this.ultE+1.0*dt);
+    // 能量海藻：每 5 秒額外自動 +2% 大招能量（不靠造成/承受傷害觸發）
+    if(this.eqUltRegen > 0 && this.ultE < 100){
+      this.ultRegenT += dt;
+      while(this.ultRegenT >= 5){ this.ultRegenT -= 5; this.ultE = Math.min(100, this.ultE + this.eqUltRegen); }
+    }
+
+    if(!this.isBoss&&!this.isMinion&&elapsed-this.lastDL>=3.0 && elapsed-this.lastTK>=3.0)
+      this.heal(this.maxHp*0.15*(this.eqHealMul||1)*dt);
+
+    if(!this.isPlayer&&!this.isBoss) this.updateAI(dt);
+  }
+
+  draw(){
+    if(!this.alive) return;
+    // 珊瑚隱藏（MOBA 草叢）：敵方躲在珊瑚裡，且玩家不在同一叢 → 完全不繪製身影
+    if(pUnit && this.team!==pUnit.team && coralId(this.gx,this.gy)>=0 && !inSameCoral(this,pUnit)) return;
+    // 自己 / 隊友躲在珊瑚裡：半透明 + 🙈，表示正處於隱藏狀態
+    if(coralId(this.gx,this.gy)>=0 && (this.isPlayer || (pUnit && this.team===pUnit.team))) ctx.globalAlpha=0.55;
+    const pos = worldToScreen(this.gx, this.gy);
+    const px = pos.x, py = pos.y, s = CS;
+
+    if(px < -s*2 || px > GW + s*2 || py < -s*2 || py > GH + s*2) return;
+
+    let gAlpha=1;
+    if(this.invisT>0){ if(this.team===1) return; gAlpha=0.3; }
+    ctx.globalAlpha=gAlpha;
+
+    // Base Shadow
+    ctx.beginPath();
+    ctx.ellipse(px, py+s*0.35, s*0.38, s*0.14, 0, 0, Math.PI*2);
+    ctx.fillStyle='rgba(0,0,0,0.35)'; ctx.fill();
+
+    // Hit flash
+    if(this.hitFT>0){
+      ctx.beginPath(); ctx.arc(px, py, s*0.48, 0, Math.PI*2);
+      ctx.fillStyle=`rgba(255,80,60,${Math.min(0.8,this.hitFT*3)})`; ctx.fill();
+    }
+
+    // Team base aura
+    ctx.beginPath(); ctx.arc(px, py, s*0.45, 0, Math.PI*2);
+    ctx.fillStyle = this.team===0 ? 'rgba(0,188,212,0.45)' : 'rgba(255,82,82,0.45)';
+    ctx.fill();
+
+    // Player white ring
+    if(this.isPlayer){
+      ctx.strokeStyle='#fff'; ctx.lineWidth=Math.max(2,s*0.08); ctx.stroke();
+    }
+
+    // Invincible gold ring
+    if(this.invT>0){
+      ctx.beginPath(); ctx.arc(px, py, s*0.49, 0, Math.PI*2);
+      ctx.strokeStyle='#ffd54f'; ctx.lineWidth=Math.max(3,s*0.1); ctx.stroke();
+    }
+
+    // Emoji icon
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.font=`${Math.max(16,Math.floor(s*0.62))}px Arial`;
+    ctx.fillStyle='#fff';
+    ctx.fillText(this.d.emoji, px, py);
+    // 珊瑚隱藏中標記：只有自己/隊友看得到
+    if(coralId(this.gx,this.gy)>=0 && (this.isPlayer || (pUnit && this.team===pUnit.team))){
+      ctx.font=`${Math.max(11,Math.floor(s*0.3))}px Arial`;
+      ctx.fillText('🙈', px, py - s*0.62);
+    }
+
+    // Combat UI
+    const bw = s * 0.9;
+    const ammoH = Math.max(4, s * 0.08);
+    const ammoY = py - s * 0.46;
+    const segW = bw / this.maxAmmo;
+
+    for(let i=0; i<this.maxAmmo; i++){
+      const segX = px - bw/2 + i * segW;
+      ctx.fillStyle = 'rgba(10,20,30,0.85)';
+      ctx.fillRect(segX, ammoY, segW - 1, ammoH);
+
+      if(i < this.ammo){
+        ctx.fillStyle = '#00e5ff';
+        ctx.fillRect(segX + 1, ammoY + 1, segW - 3, ammoH - 2);
+      } else if(i === this.ammo){
+        const fillP = Math.max(0, 1 - (this.ammoT / 2.0));
+        ctx.fillStyle = 'rgba(0,229,255,0.45)';
+        ctx.fillRect(segX + 1, ammoY + 1, (segW - 3) * fillP, ammoH - 2);
+      }
+      ctx.strokeStyle = 'rgba(255,255,255,0.25)';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(segX, ammoY, segW - 1, ammoH);
+    }
+
+    const hpH = Math.max(6, s * 0.12);
+    const hpY = ammoY - hpH - 3;
+    const bx = px - bw/2;
+
+    ctx.fillStyle = 'rgba(10,20,30,0.85)';
+    ctx.fillRect(bx, hpY, bw, hpH);
+
+    const hr = this.hp / this.maxHp;
+    ctx.fillStyle = hr > .5 ? '#4caf50' : hr > .25 ? '#ff9800' : '#f44336';
+    ctx.fillRect(bx, hpY, bw * hr, hpH);
+    ctx.strokeStyle = 'rgba(0,0,0,0.6)';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(bx, hpY, bw, hpH);
+
+    ctx.font = `bold ${Math.max(10, Math.floor(s * 0.24))}px Arial`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+    const hpStr = `${Math.ceil(this.hp)} / ${Math.ceil(this.maxHp)}`;
+    ctx.strokeStyle = '#000'; ctx.lineWidth = 2.5;
+    ctx.strokeText(hpStr, px, hpY - 1);
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText(hpStr, px, hpY - 1);
+
+    const sico=[
+      this.stunT>0?'😵':null,
+      this.rootT>0?'🔒':null,
+      this.invT>0?'🛡️':null,
+      this.wallT>0?'🌀':null,
+    ].filter(Boolean);
+    if(sico.length){
+      ctx.font=`${Math.max(11,Math.floor(s*0.3))}px Arial`;
+      ctx.textAlign='center'; ctx.textBaseline='bottom';
+      ctx.fillText(sico.join(''), px, hpY - Math.max(12, s * 0.26));
+    }
+
+    ctx.globalAlpha=1;
+  }
+}
+
+// ============================================================
+// ■■■ HELPER FUNCTIONS ■■■
+// ============================================================
+function dist2(a,b){ return Math.hypot(a.gx-b.gx, a.gy-b.gy); }
+function distV(a,b){ return Math.hypot(a.gx-b.gx, a.gy-b.gy); }
+function isRock(x,y){ return isObstacle(x,y); }
+// 統一障礙物判定：淘汰=中央3x3；爭霸=中央3x3變爭奪區(非障礙)+DOM_OBS的1x5/5x1
+function isObstacle(x,y){
+  const ix=Math.floor(x), iy=Math.floor(y);
+  if(gameMode==='dom'){
+    for(const o of DOM_OBS) if(ix>=o.x && ix<o.x+o.w && iy>=o.y && iy<o.y+o.h) return true;
+    return false;
+  }
+  if(gameMode==='boss'){
+    if(ix>=RLO&&ix<=RHI&&iy>=RLO&&iy<=RHI) return true; // 中央 3x3 Boss 本體，不可進入
+    return BOSS_OBS.some(o=>o.x===ix&&o.y===iy);
+  }
+  return ix>=RLO && ix<=RHI && iy>=RLO && iy<=RHI;
+}
+function inCaptureZone(x,y){ const ix=Math.floor(x), iy=Math.floor(y); return ix>=RLO && ix<=RHI && iy>=RLO && iy<=RHI; }
+function inCoral(x,y){
+  if(gameMode!=='elim') return false;
+  const ix=Math.floor(x), iy=Math.floor(y);
+  return corals.some(c=> ix>=c.x && ix<c.x+2 && iy>=c.y && iy<c.y+2);
+}
+// 珊瑚叢編號：MOBA 草叢規則 — 躲進去就完全隱形，只有「同一叢」裡的敵人看得見你
+function coralId(x,y){
+  if(gameMode!=='elim') return -1;
+  const ix=Math.floor(x), iy=Math.floor(y);
+  for(let i=0;i<corals.length;i++){ const c=corals[i]; if(ix>=c.x && ix<c.x+2 && iy>=c.y && iy<c.y+2) return i; }
+  return -1;
+}
+function inSameCoral(a,b){ const ia=coralId(a.gx,a.gy); return ia>=0 && ia===coralId(b.gx,b.gy); }
+function genCorals(){
+  corals=[]; let guard=0;
+  while(corals.length<10 && guard++<500){
+    const x=Math.floor(Math.random()*29), y=Math.floor(Math.random()*29);
+    // 不蓋住中央3x3、不重疊、不超出邊界
+    if(x+1>=RLO-1 && x<=RHI+1 && y+1>=RLO-1 && y<=RHI+1) continue;
+    if(corals.some(c=> Math.abs(c.x-x)<2 && Math.abs(c.y-y)<2)) continue;
+    corals.push({x,y});
+  }
+  coralTimer=10;
+}
+function vfxAt(unit,e,t,sc=1){
+  vfx.push({gx:unit.gx,gy:unit.gy,e,t,mt:t,sc,dx:(Math.random()-.5)*0.3,dy:-0.35});
+}
+
+function checkWin(){
+  if(gSt!=='playing') return;
+  const a=units.filter(u=>u.team===0&&u.alive);
+  const b=units.filter(u=>u.team===1&&u.alive);
+  if(a.length===0) setTimeout(()=>endGame(false),500);
+  else if(b.length===0) setTimeout(()=>endGame(true),500);
+}
+
+function endGame(win, reason){
+  if(gSt!=='playing') return;
+  gSt='result';
+  if(raf) cancelAnimationFrame(raf);
+  document.getElementById('RESPAWN').style.display='none';
+  document.getElementById('RT').textContent = win ? '🏆 戰鬥勝利！' : '💀 戰鬥失敗...';
+  document.getElementById('RT').style.color = win ? '#4dd0e1' : '#ef5350';
+  if(reason==='boss') document.getElementById('RD').textContent = win ? '恭喜！你們隊伍搶到 Boss 尾刀！' : '敵方隊伍搶到 Boss 尾刀…';
+  else if(reason==='capture') document.getElementById('RD').textContent = win ? '恭喜！你們隊伍率先集滿 100% 爭奪值！' : '敵方隊伍率先集滿 100% 爭奪值…';
+  else document.getElementById('RD').textContent = win ? '恭喜！你們隊伍成功消滅了所有敵方英雄！' : '你的隊伍不幸全軍覆沒...';
+  const a=units.filter(u=>u.team===0&&u.alive).length;
+  const b=units.filter(u=>u.team===1&&u.alive).length;
+  document.getElementById('RX').textContent = `對戰總耗時：${Math.ceil(elapsed)}秒 ｜ 友方存活：${a}/2 ｜ 敵方存活：${b}/2`;
+  document.getElementById('RS').style.display = 'flex';
+}
+
+// ============================================================
+// ■■■ SELECTION & VERSUS CONFIRMATION SYSTEM ■■■
+// ============================================================
+function openCodex(){ document.getElementById('CX').style.display='flex'; }
+function closeCodex(){ document.getElementById('CX').style.display='none'; }
+
+function selMode(m){
+  gameMode=m;
+  document.getElementById('MODE_ELIM').classList.toggle('sel', m==='elim');
+  document.getElementById('MODE_DOM').classList.toggle('sel', m==='dom');
+  document.getElementById('MODE_BOSS').classList.toggle('sel', m==='boss');
+}
+function selHero(id){
+  selId=id;
+  document.querySelectorAll('.hcard').forEach((c,i)=>c.classList.toggle('sel',i===id));
+  const sb=document.getElementById('SB');
+  sb.disabled=false;
+  sb.textContent='👉 下一步：陣容確認';
+}
+
+function showVSConfirm(){
+  if(selId<0) return;
+
+  const playerHeroId = selId;
+  const available = [0,1,2,3].filter(id => id !== playerHeroId);
+
+  for(let i = available.length - 1; i > 0; i--){
+    const j = Math.floor(Math.random() * (i + 1));
+    [available[i], available[j]] = [available[j], available[i]];
+  }
+
+  const allyHeroId  = available[0];
+  const enemy1HeroId = available[1];
+  const enemy2HeroId = available[2];
+
+  matchHeroes = [playerHeroId, allyHeroId, enemy1HeroId, enemy2HeroId];
+
+  setVSCard('P',  HD[playerHeroId]);
+  setVSCard('A',  HD[allyHeroId]);
+  setVSCard('E1', HD[enemy1HeroId]);
+  setVSCard('E2', HD[enemy2HeroId]);
+
+  document.getElementById('SS').style.display='none';
+  document.getElementById('VS').style.display='flex';
+  const vt=document.querySelector('#VS .vstitle');
+  if(vt) vt.textContent = gameMode==='boss' ? '👹 尾刀模式 · 雙方陣容確認 👹' : gameMode==='dom' ? '👑 爭霸模式 · 雙方陣容確認 👑' : '💀 淘汰模式 · 雙方陣容確認 💀';
+  gSt='vs';
+}
+
+function setVSCard(prefix, hero){
+  document.getElementById(`VSE_${prefix}`).textContent = hero.emoji;
+  document.getElementById(`VSN_${prefix}`).textContent = hero.name;
+  document.getElementById(`VST_${prefix}`).textContent = hero.type;
+}
+
+function startActualBattle(){
+  document.getElementById('VS').style.display='none';
+  document.getElementById('HUD').style.display='block';
+  document.getElementById('CT').style.display='flex';
+  document.getElementById('GOLD').style.display='block';
+  document.getElementById('TOPLEFT').style.display='block';
+  initGame();
+}
+
+function goSelect(){
+  document.getElementById('RS').style.display='none';
+  document.getElementById('VS').style.display='none';
+  document.getElementById('HUD').style.display='none';
+  document.getElementById('CT').style.display='none';
+  document.getElementById('GOLD').style.display='none';
+  document.getElementById('TOPLEFT').style.display='none';
+  document.getElementById('TOPLEFT').style.display='none';
+  document.getElementById('SHOP').style.display='none';
+  document.getElementById('STATS').style.display='none';
+  document.getElementById('RESPAWN').style.display='none';
+  document.getElementById('CAPBAR').style.display='none';
+  document.getElementById('CONTRIBBAR').style.display='none';
+  document.getElementById('SS').style.display='flex';
+  selId=-1; gSt='select';
+  document.querySelectorAll('.hcard').forEach(c=>c.classList.remove('sel'));
+  const sb=document.getElementById('SB'); sb.disabled=true; sb.textContent='🎮 請選擇英雄';
+  if(raf){ cancelAnimationFrame(raf); raf=null; }
+}
+
+// ============================================================
+// ■■■ INIT GAME & LOOP ■■■
+// ============================================================
+function initGame(){
+  gSt='playing'; elapsed=0; lavaDp=0;
+  capBlue=0; capRed=0; capAcc=0;
+  bossContrib=[0,0]; bossImmuneTeam=-1; bossSpawnT=10; bossUnit=null;
+  if(gameMode==='elim') genCorals(); else corals=[];
+  if(gameMode==='boss') genBossObs(); else BOSS_OBS=[];
+  if(gameMode==='dom') genDomObs(); else DOM_OBS=[];
+  document.getElementById('CAPBAR').style.display = gameMode==='dom' ? 'flex' : 'none';
+  document.getElementById('CONTRIBBAR').style.display = gameMode==='boss' ? 'flex' : 'none';
+  document.getElementById('RESPAWN').style.display='none';
+  units=[]; projs=[]; vfx=[]; pools=[]; atkVisuals=[]; dmgTexts=[];
+  playerGold = 100; // starting gold
+  goldTimer = 0;
+  goldDmgAcc = 0;
+  goldTakenAcc = 0;
+  ownedEquip = new Set();
+  ownedArtifacts = new Set();
+  document.getElementById('SHOP').style.display = 'none';
+  updateGoldHUD();
+
+  const [pId, aId, e1Id, e2Id] = matchHeroes;
+
+  const p = new Unit(pId, 0, true, 5.5, 15.5); pUnit=p;
+  const ally = new Unit(aId, 0, false, 5.5, 18.5);
+
+  const e1 = new Unit(e1Id, 1, false, 25.5, 12.5);
+  const e2 = new Unit(e2Id, 1, false, 25.5, 18.5);
+
+  units = [p, ally, e1, e2];
+  if(gameMode==='boss'){
+    bossUnit = new Unit(0, 2, false, 15.5, 15.5);
+    bossUnit.isHero=false; bossUnit.isBoss=true;
+    bossUnit.d={emoji:'👹',name:'深淵 Boss'}; bossUnit.maxHp=BOSS_MAX_HP; bossUnit.hp=BOSS_MAX_HP; bossUnit.bAtk=0;
+    bossUnit.ultE=0;
+    units.push(bossUnit);
+    // 開局若落在障礙物上，彈出到最近空格，避免卡死
+    units.filter(u=>isHeroUnit(u)).forEach(u=>{
+      if(isObstacle(u.gx,u.gy)) u.ejectFromWall();
+    });
+  }
+
+  camX = p.gx;
+  camY = p.gy;
+
+  setTimeout(resize, 60);
+  lastTS = performance.now();
+  raf = requestAnimationFrame(loop);
+}
+
+function loop(ts){
+  if(gSt!=='playing') return;
+  const dt = Math.min((ts - lastTS) / 1000, 0.1);
+  lastTS = ts;
+  update(dt);
+  render();
+  raf = requestAnimationFrame(loop);
+}
+
+// ============================================================
+// ■■■ UPDATE LOOP ■■■
+// ============================================================
+function update(dt){
+  elapsed += dt;
+
+  // Passive gold: 每秒每位英雄 +1~5（玩家走 gainGold；AI 英雄直接加到各自 gold）
+  goldTimer += dt;
+  if(goldTimer >= 1.0){
+    goldTimer -= 1.0;
+    units.forEach(u=>{
+      if(!u.alive||!isHeroUnit(u)) return;
+      const g=1+Math.floor(Math.random()*5);
+      if(u.isPlayer) gainGold(g); else u.gold+=g;
+      if(u.isPlayer) u.gold=playerGold;
+    });
+    // 神器「深淵主宰之心」：持有者的敵方英雄每秒 -2 金幣
+    units.forEach(u=>{
+      if(!u.alive||!isHeroUnit(u)||!u.eqGoldDrain) return;
+      units.forEach(e=>{
+        if(!e.alive||!isHeroUnit(e)||e.team===u.team) return;
+        e.gold=Math.max(0,e.gold-2);
+        if(e.isPlayer) playerGold=e.gold;
+      });
+    });
+  }
+  // AI 定期嘗試買裝 / 合成神器
+  units.forEach(u=>{
+    if(!u.alive||u.isPlayer||!isHeroUnit(u)) return;
+    u.aiShopT = (u.aiShopT||0) - dt;
+    if(u.aiShopT<=0){ u.aiShopT=2.5+Math.random()*2; aiTryBuy(u); }
+  });
+
+  updateCamera(dt);
+
+  // 熔岩：只在淘汰模式
+  lavaDp = gameMode==='elim' ? lavaInsetAt(elapsed) : 0;
+  if(lavaDp > 0){
+    units.forEach(u=>{
+      if(!u.alive) return;
+      if(inLava(u.gx, u.gy) && u.hp > 1){ u.hp = 1; u.lastTK = elapsed; }
+    });
+    document.getElementById('LW').style.display = (elapsed < LSTART + LDUR) ? 'block' : 'none';
+  } else document.getElementById('LW').style.display = 'none';
+
+  // 淘汰模式不再以 250 秒強制結束，僅靠全滅或熔岩壓血決定勝負
+  // 珊瑚：淘汰模式每 10 秒隨機轉移
+  if(gameMode==='elim'){
+    coralTimer -= dt;
+    if(coralTimer<=0) genCorals();
+  }
+  // 尾刀模式：復活 + Boss 每 10 秒召喚 3 小怪
+  if(gameMode==='boss'){
+    units.forEach(u=>{
+      if(!u.alive && u.respawnT>0 && isHeroUnit(u)){
+        u.respawnT-=dt;
+        if(u.respawnT<=0) u.revive();
+      }
+    });
+    if(bossUnit&&bossUnit.alive){
+      bossSpawnT-=dt;
+      if(bossSpawnT<=0){
+        bossSpawnT=10;
+        let spawned=0, guard=0;
+        while(spawned<3&&guard++<60){
+          const ang=Math.random()*Math.PI*2, rr=4+Math.random()*3;
+          const gx=bossUnit.gx+Math.cos(ang)*rr, gy=bossUnit.gy+Math.sin(ang)*rr;
+          if(gx<0.5||gx>GRID-0.5||gy<0.5||gy>GRID-0.5||isObstacle(gx,gy)) continue;
+          const m=new Unit(1, 2, false, gx, gy);
+          m.isHero=false; m.isMinion=true; m.d={emoji:'👾',name:'Boss 小怪'};
+          m.maxHp=MINION_HP; m.hp=MINION_HP; m.bAtk=MINION_ATK; m.ultE=0;
+          units.push(m); spawned++;
+        }
+      }
+    }
+    const rp=document.getElementById('RESPAWN');
+    if(pUnit && !pUnit.alive && pUnit.respawnT>0){
+      rp.style.display='block';
+      document.getElementById('RESPAWNT').textContent=Math.ceil(pUnit.respawnT);
+    } else rp.style.display='none';
+  }
+  // 爭霸模式：爭奪值 + 復活
+  if(gameMode==='dom'){
+    units.forEach(u=>{
+      if(!u.alive && u.respawnT>0){
+        u.respawnT-=dt;
+        if(u.respawnT<=0) u.revive();
+      }
+    });
+    const inB = units.some(u=>u.alive&&u.team===0&&inCaptureZone(u.gx,u.gy));
+    const inR = units.some(u=>u.alive&&u.team===1&&inCaptureZone(u.gx,u.gy));
+    // 雙方同時在區內 → 雙方同時累積（各算各的，先到 100% 者勝）
+    if(inB || inR){
+      capAcc+=dt;
+      if(capAcc>=2){ capAcc=0; if(inB) capBlue=Math.min(100,capBlue+1); if(inR) capRed=Math.min(100,capRed+1); }
+    } else capAcc=0;
+    if(capBlue>=100){ endGame(true,'capture'); return; }
+    if(capRed>=100){ endGame(false,'capture'); return; }
+    // 玩家復活倒數提示
+    const rp=document.getElementById('RESPAWN');
+    if(pUnit && !pUnit.alive && pUnit.respawnT>0){
+      rp.style.display='block';
+      document.getElementById('RESPAWNT').textContent=Math.ceil(pUnit.respawnT);
+    } else rp.style.display='none';
+  }
+
+  units.forEach(u => u.update(dt));
+
+  if(pUnit && pUnit.alive && joyOn) pUnit.move(jDX, jDY, dt);
+
+  units.filter(u => !u.isPlayer && u.alive).forEach(u => {
+    if(u.aiMX!==0 || u.aiMY!==0) u.move(u.aiMX, u.aiMY, dt);
+  });
+
+  // Projectiles
+  projs = projs.filter(p => {
+    const dx = p.tx - p.x, dy = p.ty - p.y;
+    const d = Math.hypot(dx, dy);
+    if(d < 0.3){
+      if(p.isSquid){
+        atkVisuals.push({ type: 'ink_splash', gx: p.tx, gy: p.ty, r: 1.2, t: 0.4, mt: 0.4 });
+        units.filter(u => u.alive && u.team !== p.own.team).forEach(e => {
+          if(Math.hypot(e.gx - p.tx, e.gy - p.ty) <= 1.2){
+            const real = p.own.dealDmg(e, p.dmg);
+            if(real >= 0){
+              e.applyCC('slow',2.0,2.0);
+              vfxAt(e, '🐌', 0.6, 1);
+              if(p.triggersRoot){
+                e.applyCC('root',2.0);
+                vfxAt(e, '🔒', 0.8, 1.1);
+              }
+            }
+            vfxAt(e, '🖤', 0.3, 0.9);
+          }
+        });
+      } else if(p.tgt && p.tgt.alive){
+        p.own.dealDmg(p.tgt, p.dmg);
+        vfxAt(p.tgt, '💥', 0.3, 0.9);
+      }
+      return false;
+    }
+    p.x += (dx/d) * p.spd * dt;
+    p.y += (dy/d) * p.spd * dt;
+    return true;
+  });
+
+  pools = pools.filter(pool => {
+    pool.t -= dt;
+    if(pool.t <= 0) return false;
+    units.forEach(u => {
+      if(!u.alive || u.team === pool.own.team) return;
+      if(Math.hypot(u.gx - pool.gx, u.gy - pool.gy) < pool.r){
+        if(!pool.hitUnits.includes(u)){
+          pool.hitUnits.push(u);
+          u.applyCC('stun',1.0);
+          vfxAt(u, '😵', 1, 1);
+        }
+      }
+    });
+    return true;
+  });
+
+  atkVisuals.forEach(v => { v.t -= dt; });
+  atkVisuals = atkVisuals.filter(v => v.t > 0);
+
+  dmgTexts.forEach(d => {
+    d.t -= dt;
+    d.gy += d.dy * dt;
+  });
+  dmgTexts = dmgTexts.filter(d => d.t > 0);
+
+  vfx.forEach(v => { v.t -= dt; v.gx += v.dx * dt; v.gy += v.dy * dt; });
+  vfx = vfx.filter(v => v.t > 0);
+
+  updateHUD();
+}
+
+// ============================================================
+// ■■■ RENDER ENGINE ■■■
+// ============================================================
+function render(){
+  ctx.clearRect(0,0,GW,GH);
+  ctx.fillStyle='#020914'; ctx.fillRect(0,0,GW,GH);
+
+  drawMap();
+  drawPools();
+  drawAtkVisuals();
+  drawProjs();
+  units.forEach(u => u.draw());
+  drawDmgTexts();
+  drawVFX();
+}
+
+function drawMap(){
+  const halfW = VIS_W_CELLS / 2;
+  const halfH = VIS_H_CELLS / 2;
+
+  const minCol = Math.max(0, Math.floor(camX - halfW - 1));
+  const maxCol = Math.min(GRID, Math.ceil(camX + halfW + 1));
+  const minRow = Math.max(0, Math.floor(camY - halfH - 1));
+  const maxRow = Math.min(GRID, Math.ceil(camY + halfH + 1));
+
+  for(let r = minRow; r < maxRow; r++){
+    for(let c = minCol; c < maxCol; c++){
+      const pos = worldToScreen(c, r);
+      ctx.fillStyle = (r + c) % 2 === 0 ? '#0b2440' : '#0d2a4a';
+      ctx.fillRect(pos.x, pos.y, CS + 0.5, CS + 0.5);
+
+      ctx.strokeStyle = 'rgba(255,255,255,0.03)';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(pos.x, pos.y, CS, CS);
+    }
+  }
+
+  // 中央：淘汰=3x3岩石障礙物；爭霸=3x3爭奪區（非障礙物，金色閃爍邊框）
+  if(gameMode==='elim'){
+    for(let r = RLO; r <= RHI; r++){
+      for(let c = RLO; c <= RHI; c++){
+        if(r >= minRow && r < maxRow && c >= minCol && c < maxCol){
+          const pos = worldToScreen(c, r);
+          ctx.fillStyle='#3e2723'; ctx.fillRect(pos.x, pos.y, CS, CS);
+          ctx.fillStyle='#4e342e'; ctx.fillRect(pos.x+2, pos.y+2, CS-4, CS-4);
+          ctx.textAlign='center'; ctx.textBaseline='middle';
+          ctx.font=`${Math.max(14,Math.floor(CS*0.55))}px Arial`;
+          ctx.fillText('🪨', pos.x + CS/2, pos.y + CS/2);
+        }
+      }
+    }
+  } else if(gameMode==='dom') {
+    // 僅爭霸模式繪製爭奪區與 DOM_OBS（尾刀模式不可再畫這些連牆，否則中央附近會看起來「沒隔開」）
+    const inB = units.some(u=>u.alive&&u.team===0&&inCaptureZone(u.gx,u.gy));
+    const inR = units.some(u=>u.alive&&u.team===1&&inCaptureZone(u.gx,u.gy));
+    for(let r = RLO; r <= RHI; r++){
+      for(let c = RLO; c <= RHI; c++){
+        if(r >= minRow && r < maxRow && c >= minCol && c < maxCol){
+          const pos = worldToScreen(c, r);
+          ctx.fillStyle = (inB&&!inR) ? 'rgba(0,188,212,0.35)' : (inR&&!inB) ? 'rgba(255,82,82,0.35)' : 'rgba(255,213,79,0.22)';
+          ctx.fillRect(pos.x, pos.y, CS, CS);
+          ctx.textAlign='center'; ctx.textBaseline='middle';
+          ctx.font=`${Math.max(14,Math.floor(CS*0.55))}px Arial`;
+          ctx.fillText('👑', pos.x + CS/2, pos.y + CS/2);
+        }
+      }
+    }
+    const zTL = worldToScreen(RLO, RLO), zBR = worldToScreen(RHI+1, RHI+1);
+    ctx.strokeStyle = (Math.floor(elapsed*2)%2===0) ? 'rgba(255,213,79,0.95)' : 'rgba(255,213,79,0.4)';
+    ctx.lineWidth = 3; ctx.strokeRect(zTL.x, zTL.y, zBR.x-zTL.x, zBR.y-zTL.y);
+    for(const o of DOM_OBS){
+      for(let r=o.y; r<o.y+o.h; r++) for(let c=o.x; c<o.x+o.w; c++){
+        if(r>=minRow&&r<maxRow&&c>=minCol&&c<maxCol){
+          const pos=worldToScreen(c,r);
+          ctx.fillStyle='#3e2723'; ctx.fillRect(pos.x,pos.y,CS,CS);
+          ctx.fillStyle='#4e342e'; ctx.fillRect(pos.x+2,pos.y+2,CS-4,CS-4);
+          ctx.textAlign='center'; ctx.textBaseline='middle';
+          ctx.font=`${Math.max(14,Math.floor(CS*0.55))}px Arial`;
+          ctx.fillText('🪨', pos.x+CS/2, pos.y+CS/2);
+        }
+      }
+    }
+  }
+  // 尾刀模式：中央 3x3 Boss 區 + 海量 1x1 障礙物（不再疊加 DOM_OBS）
+  if(gameMode==='boss'){
+    for(let r=RLO;r<=RHI;r++) for(let c=RLO;c<=RHI;c++){
+      if(r>=minRow&&r<maxRow&&c>=minCol&&c<maxCol){
+        const pos=worldToScreen(c,r);
+        ctx.fillStyle='rgba(120,0,160,0.35)'; ctx.fillRect(pos.x,pos.y,CS,CS);
+        ctx.textAlign='center'; ctx.textBaseline='middle';
+        ctx.font=`${Math.max(14,Math.floor(CS*0.55))}px Arial`;
+        ctx.fillText('👹', pos.x+CS/2, pos.y+CS/2);
+      }
+    }
+    for(const o of BOSS_OBS){
+      if(o.y>=minRow&&o.y<maxRow&&o.x>=minCol&&o.x<maxCol){
+        const pos=worldToScreen(o.x,o.y);
+        ctx.fillStyle='#3e2723'; ctx.fillRect(pos.x,pos.y,CS,CS);
+        ctx.fillStyle='#4e342e'; ctx.fillRect(pos.x+2,pos.y+2,CS-4,CS-4);
+        ctx.textAlign='center'; ctx.textBaseline='middle';
+        ctx.font=`${Math.max(14,Math.floor(CS*0.55))}px Arial`;
+        ctx.fillText('🪨', pos.x+CS/2, pos.y+CS/2);
+      }
+    }
+  }
+  // 珊瑚（淘汰模式）：2x2，非障礙物，半透明粉色可躲藏
+  if(gameMode==='elim'){
+    for(const co of corals){
+      for(let r=co.y; r<co.y+2; r++) for(let c=co.x; c<co.x+2; c++){
+        if(r>=minRow&&r<maxRow&&c>=minCol&&c<maxCol){
+          const pos=worldToScreen(c,r);
+          ctx.fillStyle='rgba(255,105,180,0.30)'; ctx.fillRect(pos.x,pos.y,CS,CS);
+          ctx.fillStyle='rgba(255,105,180,0.45)'; ctx.fillRect(pos.x+2,pos.y+2,CS-4,CS-4);
+          ctx.textAlign='center'; ctx.textBaseline='middle';
+          ctx.font=`${Math.max(14,Math.floor(CS*0.55))}px Arial`;
+          ctx.fillText('🪸', pos.x+CS/2, pos.y+CS/2);
+        }
+      }
+    }
+  }
+
+  // Lava overlay: same inLava() / same borders as damage, so what you see = what hurts, same frame.
+  if(lavaDp > 0){
+    ctx.fillStyle = 'rgba(255,80,0,0.45)';
+    for(let r = minRow; r < maxRow; r++){
+      for(let c = minCol; c < maxCol; c++){
+        if(inLava(c, r)){ const pos = worldToScreen(c, r); ctx.fillRect(pos.x, pos.y, CS, CS); }
+      }
+    }
+  }
+
+  const pTL = worldToScreen(0,0);
+  const pBR = worldToScreen(GRID, GRID);
+  ctx.strokeStyle = 'rgba(77,208,225,0.4)'; ctx.lineWidth = 3;
+  ctx.strokeRect(pTL.x, pTL.y, pBR.x - pTL.x, pBR.y - pTL.y);
+}
+
+function drawPools(){
+  pools.forEach(pool => {
+    const pos = worldToScreen(pool.gx, pool.gy);
+    const a = Math.min(1, pool.t / 2) * 0.7;
+    ctx.beginPath(); ctx.arc(pos.x, pos.y, pool.r * CS, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(100,0,160,${a})`; ctx.fill();
+    ctx.strokeStyle = `rgba(180,0,255,${a})`; ctx.lineWidth = 2; ctx.stroke();
+  });
+}
+
+function drawAtkVisuals(){
+  atkVisuals.forEach(v => {
+    const pos = worldToScreen(v.gx, v.gy);
+    const alpha = (v.t / v.mt) * 0.65;
+    const ang = Math.atan2(v.fy || 0, v.fx || 1);
+
+    ctx.save();
+    ctx.translate(pos.x, pos.y);
+    ctx.rotate(ang);
+
+    if(v.type === 'thrust'){
+      ctx.fillStyle = `rgba(77,208,225,${alpha})`;
+      ctx.fillRect(0, -CS*0.2, v.rng * CS, CS*0.4);
+      ctx.strokeStyle = `rgba(255,255,255,${alpha+0.2})`;
+      ctx.lineWidth = 2; ctx.strokeRect(0, -CS*0.2, v.rng * CS, CS*0.4);
+    }
+    else if(v.type === 'sweep'){
+      ctx.beginPath();
+      ctx.arc(0, 0, v.rng * CS, -Math.PI/2, Math.PI/2);
+      ctx.closePath();
+      ctx.fillStyle = `rgba(255,82,82,${alpha})`; ctx.fill();
+      ctx.strokeStyle = `rgba(255,255,255,${alpha+0.2})`;
+      ctx.lineWidth = 2; ctx.stroke();
+    }
+    else if(v.type === 'shark_skill'){
+      ctx.beginPath();
+      ctx.arc(0, 0, v.rng * CS, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(0,188,212,${alpha * 0.4})`; ctx.fill();
+      ctx.strokeStyle = `rgba(0,188,212,${alpha + 0.2})`;
+      ctx.lineWidth = 2; ctx.stroke();
+    }
+    else if(v.type === 'tentacles'){
+      for(let i=0; i<8; i++){
+        const ta = (i - 3.5) * 0.12; 
+        const tx = Math.cos(ta) * v.rng * CS;
+        const ty = Math.sin(ta) * v.rng * CS;
+        ctx.beginPath();
+        ctx.moveTo(0, 0); ctx.lineTo(tx, ty);
+        ctx.strokeStyle = `rgba(186,104,200,${alpha+0.2})`;
+        ctx.lineWidth = Math.max(3, CS*0.08); ctx.stroke();
+      }
+    }
+    else if(v.type === 'ink_splash'){
+      ctx.beginPath();
+      ctx.arc(0, 0, v.r * CS, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(74,20,140,${alpha * 0.7})`; ctx.fill();
+      ctx.strokeStyle = `rgba(186,104,200,${alpha + 0.2})`;
+      ctx.lineWidth = 2; ctx.stroke();
+    }
+    ctx.restore();
+  });
+}
+
+function drawProjs(){
+  projs.forEach(p => {
+    const pos = worldToScreen(p.x, p.y);
+    ctx.beginPath(); ctx.arc(pos.x, pos.y, Math.max(4, CS * 0.16), 0, Math.PI * 2);
+    ctx.fillStyle = p.t === 'ink' ? '#ab47bc' : '#fff'; ctx.fill();
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.font = `${Math.max(12, Math.floor(CS * 0.38))}px Arial`;
+    ctx.fillText(p.t === 'ink' ? '🖤' : '⚡', pos.x, pos.y);
+  });
+}
+
+function drawDmgTexts(){
+  dmgTexts.forEach(d => {
+    const pos = worldToScreen(d.gx, d.gy);
+    ctx.globalAlpha = Math.min(1, d.t / 0.5);
+    ctx.font = `bold ${Math.max(16, Math.floor(CS * 0.45))}px Arial`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = '#000';
+    ctx.strokeText(`-${d.amt}`, pos.x, pos.y - CS * 0.6);
+    ctx.fillStyle = '#ff5252';
+    ctx.fillText(`-${d.amt}`, pos.x, pos.y - CS * 0.6);
+  });
+  ctx.globalAlpha = 1;
+}
+
+function drawVFX(){
+  vfx.forEach(v => {
+    const pos = worldToScreen(v.gx, v.gy);
+    const a = v.t / v.mt;
+    ctx.globalAlpha = Math.max(0, a);
+    const fsz = Math.max(14, Math.floor(CS * 0.55 * v.sc * (1 + (1 - a) * 0.4)));
+    ctx.font = `${fsz}px Arial`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(v.e, pos.x, pos.y - (1 - a) * CS * 0.6);
+  });
+  ctx.globalAlpha = 1;
+}
+
+
+// ============================================================
+// ■■■ SHOP & GOLD ■■■
+// ============================================================
+function updateGoldHUD(){
+  const sg = document.getElementById('SHOPGOLD');
+  if(sg) sg.textContent = '持有金幣：' + Math.floor(playerGold);
+}
+
+function heroEquipText(u){
+  const eqSet = u.isPlayer ? ownedEquip : (u.ownedEquip||new Set());
+  const artSet = u.isPlayer ? ownedArtifacts : (u.ownedArtifacts||new Set());
+  const eqs=[...eqSet].map(id=>{ const e=EQUIP.find(x=>x.id===id); return e?e.emoji+' '+e.name:''; }).filter(Boolean);
+  const arts=[...artSet].map(id=>{ const a=ARTIFACTS.find(x=>x.id===id); return a?a.emoji+' '+a.name+'（神器）':''; }).filter(Boolean);
+  return [...eqs,...arts].join('、')||'—';
+}
+function openStats(){
+  if(gSt!=='playing') return;
+  const body=document.getElementById('STATSBODY');
+  const heroes=units.filter(u=>isHeroUnit(u));
+  const row=u=>`<tr><td class="${u.team===0?'team0':'team1'}">${u.d.emoji} ${u.d.name}${u.isPlayer?'（你）':''}</td><td>${u.team===0?'🔵 我方':'🔴 敵方'}</td><td>${u.alive?'✅ 存活':'💀 陣亡'}</td><td>💰 ${Math.floor(u.isPlayer?playerGold:u.gold)}</td><td>❤️ ${Math.ceil(Math.max(0,u.hp))} / ${Math.ceil(u.maxHp)}</td><td>⚔️ ${Math.round(u.atk())}</td><td>🏃 ${u.spd().toFixed(1)} · 🎯 ${u.rng().toFixed(1)}</td><td>${heroEquipText(u)}</td></tr>`;
+  const sum=t=>heroes.filter(u=>u.team===t).reduce((a,u)=>({gold:a.gold+Math.floor(u.isPlayer?playerGold:u.gold),atk:a.atk+Math.round(u.atk()),hp:a.hp+Math.max(0,u.hp)}),{gold:0,atk:0,hp:0});
+  const b=sum(0), r=sum(1);
+  let bossRow='';
+  if(bossUnit) bossRow=`<h3 style="color:#e1bee7;font-size:max(14px,1.5vw);margin-top:8px;">👹 Boss：${Math.ceil(Math.max(0,bossUnit.hp))} / ${BOSS_MAX_HP}（${bossUnit.alive?'存活':'已被搶尾刀'}）｜ 貢獻 🔵 ${Math.floor(bossContrib[0])}% · 🔴 ${Math.floor(bossContrib[1])}%</h3>`;
+  body.innerHTML = `
+    <table><tr><th>英雄</th><th>隊伍</th><th>狀態</th><th>金幣</th><th>生命值</th><th>攻擊力</th><th>移速 · 射程</th><th>裝備 / 神器</th></tr>${heroes.map(row).join('')}</table>
+    <div style="color:#fff;font-size:max(13px,1.4vw);">🔵 我方合計：💰 ${b.gold} ｜ ⚔️ ${b.atk} ｜ ❤️ ${Math.ceil(b.hp)} &nbsp;&nbsp; 🔴 敵方合計：💰 ${r.gold} ｜ ⚔️ ${r.atk} ｜ ❤️ ${Math.ceil(r.hp)}</div>
+    ${bossRow}`;
+  document.getElementById('STATS').style.display='flex';
+}
+function closeStats(){ document.getElementById('STATS').style.display='none'; }
+function openShop(){
+  if(gSt !== 'playing') return;
+  const tabs = document.getElementById('SHOPTABS');
+  tabs.innerHTML = '';
+  ['atk','def','spd','other','art'].forEach(cat => {
+    const b = document.createElement('button');
+    b.className = 'shoptab' + (shopCat === cat ? ' on' : '');
+    b.textContent = CAT_NAME[cat];
+    b.onclick = () => { shopCat = cat; openShop(); };
+    tabs.appendChild(b);
+  });
+  document.getElementById('SHOPCOUNT').textContent = `已攜帶裝備：${ownedEquip.size} / ${MAX_EQUIP} 件 ｜ 神器：${ownedArtifacts.size} / ${MAX_ARTIFACTS} 件`;
+  const grid = document.getElementById('SHOPGRID');
+  grid.innerHTML = '';
+  // 神器分頁：顯示合成條件，材料齊了點按免費合成；已擁有點按分解（不返還材料）
+  if(shopCat==='art'){
+    ARTIFACTS.forEach(art => {
+      const ownedA = ownedArtifacts.has(art.id);
+      const hasMats = art.materials.every(m=>ownedEquip.has(m));
+      const card = document.createElement('div');
+      card.className = 'eqcard' + (ownedA ? ' owned' : '');
+      card.innerHTML = `
+      <div class="eqemj">${art.emoji}</div>
+      <div class="eqinfo">
+        <div class="eqcat">${CAT_NAME_ART}</div>
+        <div class="eqname">${art.name}</div>
+        <div class="eqdesc">${art.desc}</div>
+        <div class="eqdesc">🧩 合成材料：${art.matNames.join(' + ')}（合成後材料消失，可再買）</div>
+        <div class="eqcost">${ownedA ? '✨ 已擁有 · 點擊分解（不返還材料）' : hasMats ? '✨ 材料齊全 · 點擊免費合成' : '🔒 需先擁有全部材料'}</div>
+      </div>`;
+      card.onclick = () => ownedA ? dismantleArtifact(art.id) : synthesizeArtifact(art.id);
+      grid.appendChild(card);
+    });
+    updateGoldHUD();
+    document.getElementById('SHOP').style.display = 'flex';
+    return;
+  }
+  // Only ONE category at a time, never all equipment at once
+  EQUIP.filter(e => e.cat === shopCat).forEach(eq => {
+    const owned = ownedEquip.has(eq.id);
+    const card = document.createElement('div');
+    card.className = 'eqcard' + (owned ? ' owned' : '');
+    card.innerHTML = `
+      <div class="eqemj">${eq.emoji}</div>
+      <div class="eqinfo">
+        <div class="eqcat">${CAT_NAME[eq.cat]||''}</div>
+        <div class="eqname">${eq.name}</div>
+        <div class="eqdesc">${eq.desc}</div>
+        <div class="eqcost">${owned ? '💰 點擊半價賣出 +' + Math.floor(eq.cost/2) : '💰 ' + eq.cost}</div>
+      </div>`;
+    card.onclick = () => owned ? sellEquip(eq.id) : buyEquip(eq.id);
+    grid.appendChild(card);
+  });
+  updateGoldHUD();
+  document.getElementById('SHOP').style.display = 'flex';
+}
+
+function closeShop(){
+  document.getElementById('SHOP').style.display = 'none';
+}
+
+function synthesizeArtifact(id){
+  if(!pUnit || !pUnit.alive) return;
+  const art = ARTIFACTS.find(a=>a.id===id);
+  if(!art || ownedArtifacts.has(id)) return;
+  if(ownedArtifacts.size >= MAX_ARTIFACTS){ const sg=document.getElementById('SHOPGOLD'); if(sg){ sg.textContent='⚠️ 神器已滿（最多 '+MAX_ARTIFACTS+' 件）'; sg.style.color='#ff5252'; setTimeout(()=>{updateGoldHUD(); sg.style.color='#fff';},900);} return; }
+  if(!art.materials.every(m=>ownedEquip.has(m))){ const sg=document.getElementById('SHOPGOLD'); if(sg){ sg.textContent='🔒 材料未齊：'+art.matNames.join(' + '); sg.style.color='#ff5252'; setTimeout(()=>{updateGoldHUD(); sg.style.color='#fff';},900);} return; }
+  // 合成免費：移除材料（加成同步移除），材料可再次購買
+  art.materials.forEach(m=>{
+    const eq=EQUIP.find(e=>e.id===m);
+    ownedEquip.delete(m);
+    if(pUnit.ownedEquip) pUnit.ownedEquip.delete(m);
+    if(eq&&eq.remove) eq.remove(pUnit);
+  });
+  ownedArtifacts.add(id);
+  if(pUnit.ownedArtifacts) pUnit.ownedArtifacts.add(id);
+  art.apply(pUnit);
+  vfxAt(pUnit, art.emoji, 1.0, 1.8);
+  updateGoldHUD(); openShop();
+}
+function dismantleArtifact(id){
+  if(!pUnit || !pUnit.alive) return;
+  const art = ARTIFACTS.find(a=>a.id===id);
+  if(!art || !ownedArtifacts.has(id)) return;
+  ownedArtifacts.delete(id);
+  if(pUnit.ownedArtifacts) pUnit.ownedArtifacts.delete(id);
+  if(art.remove) art.remove(pUnit); // 分解不返還材料、不退款
+  updateGoldHUD(); openShop();
+}
+function sellEquip(id){
+  if(!pUnit || !pUnit.alive) return;
+  const eq = EQUIP.find(e => e.id === id);
+  if(!eq || !ownedEquip.has(id)) return;
+  ownedEquip.delete(id);
+  if(pUnit.ownedEquip) pUnit.ownedEquip.delete(id);
+  if(eq.remove) eq.remove(pUnit);
+  const refund = Math.floor(eq.cost / 2); // 半價賣出
+  playerGold += refund;
+  vfxAt(pUnit, '💰', 0.9, 1.4);
+  const sg=document.getElementById('SHOPGOLD');
+  if(sg){ sg.textContent='💰 已賣出 +' + refund + ' 金幣'; sg.style.color='#ffd54f'; setTimeout(()=>{updateGoldHUD(); sg.style.color='#fff';},900); }
+  updateGoldHUD();
+  openShop();
+}
+// AI 買裝：優先高價裝備；材料齊了就合成神器；每單位各自擁有裝備
+function aiTryBuy(u){
+  if(!u || !u.alive || u.isPlayer || !isHeroUnit(u)) return;
+  // 1) 可合成神器優先
+  if(u.ownedArtifacts.size < MAX_ARTIFACTS){
+    const arts = ARTIFACTS.filter(a => !u.ownedArtifacts.has(a.id) && a.materials.every(m => u.ownedEquip.has(m)));
+    if(arts.length){
+      const art = arts[Math.floor(Math.random()*arts.length)];
+      art.materials.forEach(m=>{
+        const eq=EQUIP.find(e=>e.id===m);
+        u.ownedEquip.delete(m);
+        if(eq&&eq.remove) eq.remove(u);
+      });
+      u.ownedArtifacts.add(art.id);
+      art.apply(u);
+      vfxAt(u, art.emoji, 0.8, 1.5);
+      return;
+    }
+  }
+  if(u.ownedEquip.size >= MAX_EQUIP) return;
+  // 2) 買得起的裝備，優先高價；若差一點就能合成神器則優先買缺的材料
+  const missingMats = [];
+  if(u.ownedArtifacts.size < MAX_ARTIFACTS){
+    ARTIFACTS.forEach(a=>{
+      if(u.ownedArtifacts.has(a.id)) return;
+      a.materials.forEach(m=>{ if(!u.ownedEquip.has(m) && !missingMats.includes(m)) missingMats.push(m); });
+    });
+  }
+  let candidates = EQUIP.filter(e => !u.ownedEquip.has(e.id) && u.gold >= e.cost);
+  if(!candidates.length) return;
+  // 材料優先（仍依價格排序）
+  const matCands = candidates.filter(e => missingMats.includes(e.id));
+  if(matCands.length) candidates = matCands;
+  candidates.sort((a,b)=> b.cost - a.cost);
+  // 70% 買最貴，30% 在前三名裡隨機，避免全隊同裝
+  const top = candidates.slice(0, Math.min(3, candidates.length));
+  const pick = Math.random()<0.7 ? top[0] : top[Math.floor(Math.random()*top.length)];
+  u.gold -= pick.cost;
+  u.ownedEquip.add(pick.id);
+  pick.apply(u);
+  vfxAt(u, pick.emoji, 0.7, 1.3);
+}
+function buyEquip(id){
+  if(!pUnit || !pUnit.alive) return;
+  const eq = EQUIP.find(e => e.id === id);
+  if(!eq || ownedEquip.has(id)) return;
+  if(ownedEquip.size >= MAX_EQUIP){ const sg=document.getElementById('SHOPGOLD'); if(sg){ sg.textContent='⚠️ 裝備已滿（最多 '+MAX_EQUIP+' 件）'; sg.style.color='#ff5252'; setTimeout(()=>{updateGoldHUD(); sg.style.color='#fff';},900);} return; }
+  if(playerGold < eq.cost){
+    // flash insufficient
+    const sg = document.getElementById('SHOPGOLD');
+    if(sg){ sg.style.color='#ff5252'; setTimeout(()=>sg.style.color='#fff', 600); }
+    return;
+  }
+  playerGold -= eq.cost;
+  ownedEquip.add(id);
+  pUnit.ownedEquip.add(id);
+  eq.apply(pUnit);
+  vfxAt(pUnit, eq.emoji, 0.9, 1.6);
+  updateGoldHUD();
+  openShop(); // refresh list
+}
+
+// ============================================================
+// ■■■ HUD & CONTROLS ■■■
+// ============================================================
+function updateHUD(){
+  const tb = document.getElementById('TB');
+  if(gameMode==='boss'){
+    tb.textContent = '👹 尾刀模式 · 搶到尾刀獲勝';
+    tb.className = '';
+    const cb=document.getElementById('CONB'), cr=document.getElementById('CONR');
+    if(cb){ cb.style.width=Math.min(100,bossContrib[0])+'%'; cr.style.width=Math.min(100,bossContrib[1])+'%'; }
+    document.getElementById('CONBT').textContent = Math.floor(bossContrib[0])+'%';
+    document.getElementById('CONRT').textContent = Math.floor(bossContrib[1])+'%';
+    document.getElementById('CONIMMUNE').textContent = bossImmuneTeam===0 ? '🛡️ 🔵 我方已免疫 Boss 反彈！' : bossImmuneTeam===1 ? '🛡️ 🔴 敵方已免疫 Boss 反彈！' : '🛡️ 率先達 60% 貢獻的一方免疫 Boss 反彈';
+  } else if(gameMode==='dom'){
+    tb.textContent = '👑 爭霸模式';
+    tb.className = '';
+    const cb=document.getElementById('CAPB'), cr=document.getElementById('CAPR');
+    if(cb){ cb.style.width=capBlue+'%'; cr.style.width=capRed+'%'; }
+    document.getElementById('CAPBT').textContent = Math.floor(capBlue)+'%';
+    document.getElementById('CAPRT').textContent = Math.floor(capRed)+'%';
+  } else {
+    // 倒數至熔岩來襲（240 秒），熔岩後顯示縮圈中
+    if(elapsed < LSTART){
+      const rem = Math.max(0, LSTART - elapsed);
+      const m = Math.floor(rem / 60), s = Math.floor(rem % 60);
+      tb.textContent = `🌋 ${m}:${s.toString().padStart(2,'0')}`;
+      tb.className = rem <= 30 ? 'dng' : '';
+    } else {
+      tb.textContent = '🌋 熔岩縮圈中';
+      tb.className = 'dng';
+    }
+  }
+
+  updateGoldHUD();
+
+  if(!pUnit) return;
+  const p = pUnit;
+
+  const cs2 = document.getElementById('CS');
+  if(p.sCD > 0){ cs2.textContent = Math.ceil(p.sCD); cs2.classList.add('on'); }
+  else cs2.classList.remove('on');
+
+  const cu = document.getElementById('CU'), bu = document.getElementById('BU');
+  if(p.ultE < 100){ cu.textContent = Math.floor(p.ultE) + '%'; cu.classList.add('on'); bu.classList.remove('rdy'); }
+  else{ cu.classList.remove('on'); bu.classList.add('rdy'); }
+
+  const ca = document.getElementById('CA');
+  if(p.ammo <= 0){ ca.textContent = Math.ceil(p.ammoT); ca.classList.add('on'); }
+  else ca.classList.remove('on');
+
+  document.getElementById('SE').textContent = HD[p.hid].se;
+  document.getElementById('UE').textContent = HD[p.hid].ue;
+}
+
+// Joystick touch logic
+const JS = document.getElementById('JS');
+const JK = document.getElementById('JK');
+
+function setJoy(cx, cy){
+  const r = JS.getBoundingClientRect();
+  const jr = r.width / 2, jcx = r.left + jr, jcy = r.top + jr;
+  let dx = cx - jcx, dy = cy - jcy;
+  const d = Math.hypot(dx, dy), mx = jr * 0.85;
+  if(d > mx){ dx = (dx / d) * mx; dy = (dy / d) * mx; }
+  JK.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
+  const mag = Math.hypot(dx, dy);
+  if(mag > 4){ jDX = dx / mx; jDY = dy / mx; }
+  else{ jDX = 0; jDY = 0; }
+}
+function resetJoy(){ joyOn = false; jDX = 0; jDY = 0; JK.style.transform = 'translate(-50%,-50%)'; }
+
+JS.addEventListener('touchstart', e => { e.preventDefault(); joyOn = true; setJoy(e.changedTouches[0].clientX, e.changedTouches[0].clientY); }, {passive:false});
+JS.addEventListener('touchmove',  e => { e.preventDefault(); setJoy(e.changedTouches[0].clientX, e.changedTouches[0].clientY); }, {passive:false});
+JS.addEventListener('touchend',   e => { e.preventDefault(); resetJoy(); }, {passive:false});
+JS.addEventListener('mousedown',  e => { joyOn = true; setJoy(e.clientX, e.clientY); });
+window.addEventListener('mousemove', e => { if(joyOn) setJoy(e.clientX, e.clientY); });
+window.addEventListener('mouseup',   () => { if(joyOn) resetJoy(); });
+
+// Action buttons
+function doAtk(){
+  if(!pUnit || !pUnit.alive) return;
+  const es = units.filter(u => u.alive && u.team !== pUnit.team && pUnit.canSee(u));
+  let tgt = null;
+  if(es.length){
+    const candidate = es.reduce((a,b) => dist2(a,pUnit) < dist2(b,pUnit) ? a : b);
+    if(dist2(candidate, pUnit) <= pUnit.rng() + 0.5) tgt = candidate;
+  }
+  pUnit.fireAtk(tgt);
+}
+function doSkl(){ if(pUnit && pUnit.alive) pUnit.useSkill(); }
+function doUlt(){ if(pUnit && pUnit.alive) pUnit.useUlt(); }
+
+function mkBtn(id, fn){
+  const el = document.getElementById(id);
+  el.addEventListener('touchstart', e => { e.preventDefault(); fn(); }, {passive:false});
+  el.addEventListener('click', fn);
+}
+mkBtn('BA', doAtk);
+mkBtn('BS', doSkl);
+mkBtn('BU', doUlt);
+
+// Boot
+window.addEventListener('DOMContentLoaded', () => {
+  canvas = document.getElementById('GC');
+  ctx = canvas.getContext('2d');
+  resize();
+});
+window.addEventListener('resize', resize);
+window.addEventListener('orientationchange', () => setTimeout(resize, 350));
+document.addEventListener('touchmove', e => { if(gSt === 'playing') e.preventDefault(); }, {passive:false});
+document.addEventListener('contextmenu', e => e.preventDefault());
+</script>
+</body>
+</html>
