@@ -2,7 +2,10 @@
 <html lang="zh-Hant">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no, interactive-widget=resizes-content">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#07020f">
 <title>能量抽籤 | 隨機居家運動</title>
 <style>
@@ -13,6 +16,9 @@
 
 html, body {
   height: 100%;
+  height: 100dvh;
+  height: 100svh;
+  height: calc(var(--vh, 1dvh) * 100);
   overflow: hidden;
   font-size: 16px; /* 規範：所有字體永久不低於 16px */
   background: #07020f;
@@ -20,7 +26,14 @@ html, body {
 }
 
 body {
-  --w: min(100vw, calc(100dvh * 9 / 16));
+  /* 全螢幕：--w 而家係「內容闊度」，唔係成個 app 闊度。外屏窄 = 100vw 食滿，內屏闊 = 上限 680px 居中，背景依然鋪滿 */
+  --w: min(100vw, 560px);
+  --content-max: min(100vw, 560px);
+  width: 100vw;
+  width: 100dvw;
+  height: 100dvh;
+  height: 100svh;
+  height: calc(var(--vh, 1dvh) * 100);
   font-family: 'Segoe UI', 'PingFang TC', 'Microsoft JhengHei', 'Noto Sans TC', system-ui, -apple-system, sans-serif;
   color: #eaf6ff;
   line-height: 1.5;
@@ -58,21 +71,37 @@ body {
 @keyframes gridMove { to { background-position: 0 56px, 56px 0; } }
 
 /* ============ 根容器（震動作用於此）+ 畫布 ============ */
-#root { position: fixed; left: 0; top: 0; width: 100%; height: 100dvh; z-index: 1; display: flex; justify-content: center; will-change: transform; }
+#root { position: fixed; inset: 0; width: 100vw; width: 100dvw; height: 100vh; height: 100dvh; height: 100svh; height: calc(var(--vh, 1dvh) * 100); z-index: 1; display: flex; justify-content: center; will-change: transform; }
 #fx { position: absolute; inset: 0; width: 100%; height: 100%; display: block; pointer-events: none; }
 #flash { position: absolute; inset: 0; background: radial-gradient(circle at 50% 45%, #fff, rgba(0,240,255,.6) 40%, transparent 75%); opacity: 0; pointer-events: none; z-index: 5; mix-blend-mode: screen; }
 
-/* ============ 9:16 主容器 ============ */
-#app { position: relative; height: 100%; width: var(--w); overflow: hidden; z-index: 2; }
-@media (min-aspect-ratio: 10/16) {
-  #app { border-radius: 28px; background: rgba(5,2,15,.38);
-    box-shadow: 0 0 0 1px rgba(0,240,255,.28), 0 0 70px rgba(123,44,255,.4), inset 0 0 60px rgba(255,43,214,.08); }
-  #root { align-items: center; }
-  #app { height: min(100%, calc(100vw * 16 / 9)); }
+/* ============ 全螢幕主容器：Duo 內屏 + 外屏都食滿，唔再鎖 9:16 ============ */
+#app { position: relative; width: 100%; height: 100%; max-width: none; overflow: hidden; z-index: 2;
+  border-radius: 0; background: transparent; box-shadow: none; }
+/* Duo / 摺疊機：內屏夠闊時，內容加闊少少 + 左右留返安全邊距，背景 / 粒子依然鋪滿全屏 */
+@media (min-aspect-ratio: 3/4) {
+  body { --w: min(100vw, 680px); --content-max: min(100vw, 680px); }
+  .screen { padding-left: max(32px, env(safe-area-inset-left, 0px)); padding-right: max(32px, env(safe-area-inset-right, 0px)); }
+}
+@media (min-aspect-ratio: 1/1) {
+  body { --w: min(100vw, 720px); --content-max: min(100vw, 720px); }
+  /* 內屏夠闊：圖鑑用兩欄食晒闊度，唔好得中間一條柱 */
+  .dex-list { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-content: start; }
+  .card { margin-bottom: 0; }
+  .dex-list .card { height: fit-content; }
+}
+/* Surface Duo / 雙屏 spanning：避開中間鉸鏈 */
+@media (spanning: single-fold-vertical) {
+  .screen { padding-left: max(32px, env(fold-left, 0px)); padding-right: max(32px, env(fold-right, 0px)); }
+}
+@media (spanning: single-fold-horizontal) {
+  .screen { padding-top: max(18px, env(fold-top, 0px)); padding-bottom: max(22px, env(fold-bottom, 0px)); }
 }
 
 .screen {
   position: absolute; inset: 0;
+  width: min(100%, var(--content-max));
+  margin-inline: auto;
   display: flex; flex-direction: column;
   padding:
     calc(env(safe-area-inset-top, 0px) + 18px)
@@ -83,6 +112,7 @@ body {
   transition: opacity .45s ease, transform .45s ease, visibility 0s linear .45s;
 }
 .screen.active { opacity: 1; visibility: visible; pointer-events: auto; transform: none; transition-delay: 0s; }
+.screen.dex { width: min(100%, 980px); --content-max: min(100vw, 980px); }
 
 /* ============ 毛玻璃 + 流光霓虹邊框 ============ */
 .glass {
@@ -415,6 +445,30 @@ body {
 
   var $ = function (s) { return document.querySelector(s); };
 
+  /* ================= 摺疊機全螢幕：開合 / 轉向即時同步可視高度 ================= */
+  function syncViewport() {
+    try {
+      var vh = window.innerHeight * 0.01;
+      var vw = window.innerWidth * 0.01;
+      document.documentElement.style.setProperty('--vh', vh + 'px');
+      document.documentElement.style.setProperty('--vw', vw + 'px');
+      var ratio = window.innerWidth / Math.max(1, window.innerHeight);
+      document.documentElement.classList.toggle('is-inner', ratio >= 0.75);
+      document.documentElement.classList.toggle('is-outer', ratio < 0.75);
+      /* Surface Duo spanning：visualViewport 會切成兩段 */
+      if (window.visualViewport && window.visualViewport.segments) {
+        document.documentElement.classList.toggle('is-spanning', window.visualViewport.segments.length > 1);
+      }
+    } catch (e) {}
+  }
+  syncViewport();
+  window.addEventListener('resize', syncViewport);
+  window.addEventListener('orientationchange', function () { setTimeout(syncViewport, 60); setTimeout(syncViewport, 300); });
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', syncViewport);
+    window.visualViewport.addEventListener('scroll', syncViewport);
+  }
+
   /* ================= 全螢幕（含相容性與防報錯） ================= */
   function tryFullscreen() {
     try {
@@ -511,6 +565,8 @@ body {
     window.addEventListener('pointercancel', onUp, { passive: true });
     document.addEventListener('mouseleave', function () { ptr.on = false; ptr.x = -999; });
     window.addEventListener('resize', resize);
+    window.addEventListener('orientationchange', function () { setTimeout(resize, 60); setTimeout(resize, 300); });
+    if (window.visualViewport) window.visualViewport.addEventListener('resize', resize);
 
     function frame(t) {
       requestAnimationFrame(frame);
