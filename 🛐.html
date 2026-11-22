@@ -2,7 +2,10 @@
 <html lang="zh-Hant">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no, interactive-widget=resizes-content">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover, user-scalable=no, interactive-widget=resizes-content">
+<meta name="color-scheme" content="dark">
+<meta name="format-detection" content="telephone=no, address=no, email=no">
+<meta name="apple-mobile-web-app-title" content="能量抽籤">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -16,8 +19,11 @@
 
 html, body {
   height: 100%;
+  height: -webkit-fill-available;
+  height: 100vh;
   height: 100dvh;
   height: 100svh;
+  height: calc(var(--vh, 1vh) * 100);
   height: calc(var(--vh, 1dvh) * 100);
   overflow: hidden;
   font-size: 16px; /* 規範：所有字體永久不低於 16px */
@@ -31,8 +37,12 @@ body {
   --content-max: min(100vw, 560px);
   width: 100vw;
   width: 100dvw;
+  min-height: 100vh;
+  min-height: -webkit-fill-available;
+  height: 100vh;
   height: 100dvh;
   height: 100svh;
+  height: calc(var(--vh, 1vh) * 100);
   height: calc(var(--vh, 1dvh) * 100);
   font-family: 'Segoe UI', 'PingFang TC', 'Microsoft JhengHei', 'Noto Sans TC', system-ui, -apple-system, sans-serif;
   color: #eaf6ff;
@@ -71,7 +81,7 @@ body {
 @keyframes gridMove { to { background-position: 0 56px, 56px 0; } }
 
 /* ============ 根容器（震動作用於此）+ 畫布 ============ */
-#root { position: fixed; inset: 0; width: 100vw; width: 100dvw; height: 100vh; height: 100dvh; height: 100svh; height: calc(var(--vh, 1dvh) * 100); z-index: 1; display: flex; justify-content: center; will-change: transform; }
+#root { position: fixed; inset: 0; width: 100vw; width: 100dvw; height: 100vh; height: -webkit-fill-available; height: 100dvh; height: 100svh; height: calc(var(--vh, 1vh) * 100); height: calc(var(--vh, 1dvh) * 100); z-index: 1; display: flex; justify-content: center; will-change: transform; }
 #fx { position: absolute; inset: 0; width: 100%; height: 100%; display: block; pointer-events: none; }
 #flash { position: absolute; inset: 0; background: radial-gradient(circle at 50% 45%, #fff, rgba(0,240,255,.6) 40%, transparent 75%); opacity: 0; pointer-events: none; z-index: 5; mix-blend-mode: screen; }
 
@@ -101,7 +111,8 @@ body {
 .screen {
   position: absolute; inset: 0;
   width: min(100%, var(--content-max));
-  margin-inline: auto;
+  margin-inline: auto; margin-left: auto; margin-right: auto;
+  min-width: 0; overflow-wrap: break-word;
   display: flex; flex-direction: column;
   padding:
     calc(env(safe-area-inset-top, 0px) + 18px)
@@ -116,7 +127,7 @@ body {
 
 /* ============ 毛玻璃 + 流光霓虹邊框 ============ */
 .glass {
-  position: relative; isolation: isolate;
+  position: relative; isolation: isolate; -webkit-transform: translateZ(0); transform: translateZ(0);
   background: rgba(16, 8, 38, .55);
   -webkit-backdrop-filter: blur(18px) saturate(150%);
   backdrop-filter: blur(18px) saturate(150%);
@@ -182,8 +193,8 @@ body {
 }
 @keyframes blink { 50% { box-shadow: 0 0 18px rgba(0,240,255,.45); } }
 
-.title { position: relative; align-self: center; margin-top: clamp(8px, 2.4dvh, 22px); white-space: nowrap; font-weight: 900; letter-spacing: .04em; line-height: 1.1;
-  font-size: max(16px, min(calc(var(--w) * .19), 10.5dvh)); }
+.title { position: relative; align-self: center; margin-top: clamp(8px, calc(var(--vh, 1vh) * 2.4), 22px); margin-top: clamp(8px, 2.4dvh, 22px); white-space: nowrap; font-weight: 900; letter-spacing: .04em; line-height: 1.1;
+  font-size: max(16px, min(calc(var(--w) * .19), calc(var(--vh, 1vh) * 10.5))); font-size: max(16px, min(calc(var(--w) * .19), 10.5dvh)); }
 .title span {
   display: inline-block; position: relative; z-index: 1;
   background: linear-gradient(100deg, #fff 0%, #00f0ff 30%, #ff2bd6 65%, #fff 100%); background-size: 220% 100%;
@@ -198,9 +209,9 @@ body {
 @keyframes glitchA { 0%,90%,100% { clip-path: inset(0 0 100% 0); transform: none; } 91% { clip-path: inset(10% 0 60% 0); transform: translate(-5px,0); } 94% { clip-path: inset(55% 0 20% 0); transform: translate(5px,0); } 97% { clip-path: inset(30% 0 40% 0); transform: translate(-3px,0); } }
 @keyframes glitchB { 0%,91%,100% { clip-path: inset(0 0 100% 0); transform: none; } 92% { clip-path: inset(60% 0 10% 0); transform: translate(5px,0); } 95% { clip-path: inset(15% 0 55% 0); transform: translate(-5px,0); } 98% { clip-path: inset(40% 0 30% 0); transform: translate(3px,0); } }
 
-.sub { text-align: center; font-size: 17px; color: #bfe9ff; margin-top: clamp(4px, 1.2dvh, 12px); text-shadow: 0 0 12px rgba(0,240,255,.5); }
+.sub { text-align: center; font-size: 17px; color: #bfe9ff; margin-top: clamp(4px, calc(var(--vh, 1vh) * 1.2), 12px); margin-top: clamp(4px, 1.2dvh, 12px); text-shadow: 0 0 12px rgba(0,240,255,.5); }
 
-.decor { --S: min(calc(var(--w) * .52), 30dvh); flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; }
+.decor { --S: min(calc(var(--w) * .52), calc(var(--vh, 1vh) * 30)); --S: min(calc(var(--w) * .52), 30dvh); flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; }
 .ring { position: relative; width: var(--S); height: var(--S); display: grid; place-items: center; }
 .ring .r1, .ring .r2 { position: absolute; border-radius: 50%; }
 .ring .r1 { inset: 0; background: conic-gradient(from 0deg, #ff2bd6, transparent 30%, #00f0ff 55%, transparent 80%, #ff2bd6);
@@ -223,13 +234,13 @@ body {
 .status { font-size: 17px; font-weight: 700; color: #00f0ff; text-align: right; letter-spacing: .06em; text-shadow: 0 0 12px rgba(0,240,255,.8); }
 .d-mid { flex: 1; min-height: 0; display: flex; flex-direction: column; align-items: stretch; justify-content: center; gap: 18px; }
 
-.reel { padding: clamp(20px, 5dvh, 44px) 10px; text-align: center; overflow: hidden; border-radius: 28px; transition: transform .3s; }
+.reel { padding: clamp(20px, calc(var(--vh, 1vh) * 5), 44px) 10px; padding: clamp(20px, 5dvh, 44px) 10px; text-align: center; overflow: hidden; border-radius: 28px; transition: transform .3s; }
 .reel::after { content: ''; position: absolute; inset: 0; pointer-events: none; border-radius: inherit;
   background: repeating-linear-gradient(0deg, rgba(255,255,255,.04) 0 2px, transparent 2px 5px); animation: scan 3s linear infinite; }
 @keyframes scan { to { background-position: 0 40px; } }
 .r { white-space: nowrap; min-height: 1.3em; font-weight: 800; transition: opacity .3s; }
 .r-prev, .r-next { font-size: max(16px, calc(var(--w) * .07)); color: rgba(200,230,255,.38); }
-.r-cur { font-size: max(16px, calc(var(--w) * .15)); line-height: 1.3; color: #fff; padding: clamp(6px, 1.6dvh, 16px) 0;
+.r-cur { font-size: max(16px, calc(var(--w) * .15)); line-height: 1.3; color: #fff; padding: clamp(6px, calc(var(--vh, 1vh) * 1.6), 16px) 0; padding: clamp(6px, 1.6dvh, 16px) 0;
   text-shadow: 0 0 14px rgba(0,240,255,.9), 0 0 36px rgba(255,43,214,.6); }
 .reel.charging .r-cur { font-size: max(16px, calc(var(--w) * .1)); letter-spacing: .25em; text-indent: .25em; color: #ff8cf0; animation: flicker .25s steps(2) infinite; }
 @keyframes flicker { 50% { opacity: .55; } }
@@ -300,9 +311,109 @@ body {
 .fig .near { stroke: #00f0ff; stroke-width: 5.5; }
 .fig .torso { stroke: #ffffff; stroke-width: 6.5; }
 .fig .head { stroke: #fff; stroke-width: 4; fill: rgba(255,255,255,.16); }
-.reel .pic { width: min(100%, calc(30dvh * 1.282)); margin: 0 auto clamp(6px, 1.4dvh, 14px); transition: opacity .4s, filter .4s, box-shadow .4s; }
+.reel .pic { width: min(100%, calc(var(--vh, 1vh) * 30 * 1.282)); width: min(100%, calc(30dvh * 1.282)); margin: 0 auto clamp(6px, calc(var(--vh, 1vh) * 1.4), 14px); margin: 0 auto clamp(6px, 1.4dvh, 14px); transition: opacity .4s, filter .4s, box-shadow .4s; }
 .reel.charging .pic { opacity: .2; filter: blur(3px) saturate(.4); }
 .reel.result .pic { box-shadow: 0 0 36px rgba(0,240,255,.6), inset 0 0 30px rgba(255,43,214,.25); border-color: rgba(255,255,255,.6); }
+
+/* ============ 舊 Safari：aspect-ratio / constant(safe-area) fallback ============ */
+@supports not (aspect-ratio: 1 / 1) {
+  .pic { height: 0; padding-top: 78%; }
+  .pic .fig { position: absolute; inset: 0; }
+  .reel .pic { padding-top: 0; height: 220px; }
+}
+@supports (padding: constant(safe-area-inset-top)) {
+  .screen { padding-top: calc(constant(safe-area-inset-top, 0px) + 18px); padding-bottom: calc(constant(safe-area-inset-bottom, 0px) + 22px); }
+}
+
+/* ============ 響應式：Duo + Safari + Fold 全覆蓋（mobile-first，後面覆蓋前面） ============ */
+/* --- 超窄外屏：Fold 外屏 / Duo 單屏窄版 / iPhone SE (<=360px) --- */
+@media (max-width: 360px) {
+  .screen { padding-left: 14px; padding-right: 14px; }
+  .title { font-size: max(16px, min(calc(var(--w) * .17), calc(var(--vh, 1vh) * 9))); }
+  .sub { font-size: 16px; }
+  .card { padding: 14px 14px 12px; }
+  .c-head h3 { font-size: 22px; }
+  .r-cur { font-size: max(16px, calc(var(--w) * .13)); }
+  .btn-primary { height: 60px; font-size: 20px; }
+  .btn-ghost { height: 52px; font-size: 18px; }
+  .decor { --S: min(calc(var(--w) * .5), calc(var(--vh, 1vh) * 26)); }
+}
+/* --- 標準手機：iPhone 14/15/16 (361-430px) / Duo 外屏 --- */
+@media (min-width: 361px) and (max-width: 430px) {
+  body { --w: min(100vw, 430px); --content-max: min(100vw, 430px); }
+}
+/* --- 大手機 / Duo 單屏 / Fold 內屏直向窄版 (431-700px) --- */
+@media (min-width: 431px) and (max-width: 700px) {
+  body { --w: min(100vw, 600px); --content-max: min(100vw, 600px); }
+  .screen { padding-left: max(24px, env(safe-area-inset-left, 0px)); padding-right: max(24px, env(safe-area-inset-right, 0px)); }
+  .dex-list { gap: 0; }
+}
+/* --- 平板 / Duo spanning 直向 / Fold 內屏 (701-1000px)：圖鑑兩欄 --- */
+@media (min-width: 701px) {
+  body { --w: min(100vw, 680px); --content-max: min(100vw, 680px); }
+  .screen.dex { width: min(100%, 980px); }
+  .dex-list { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-content: start; }
+  .card { margin-bottom: 0; }
+  .btns { max-width: 560px; margin-inline: auto; width: 100%; }
+  .d-act { max-width: 560px; margin-inline: auto; width: 100%; }
+}
+/* --- Duo spanning 橫向 / Fold 內屏橫向 / iPad 橫向 (>=1001px) --- */
+@media (min-width: 1001px) {
+  body { --w: min(100vw, 720px); --content-max: min(100vw, 720px); }
+  .screen.dex { width: min(100%, 1120px); }
+  .dex-list { gap: 18px; }
+  .decor { --S: min(calc(var(--w) * .52), calc(var(--vh, 1vh) * 38)); }
+}
+/* --- 橫屏矮高：Duo / Fold 擘開打橫、iPhone 橫屏 (height <= 500px) --- */
+@media (orientation: landscape) and (max-height: 500px) {
+  .screen { padding-top: calc(env(safe-area-inset-top, 0px) + 10px); padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 10px); }
+  .title { font-size: max(16px, min(calc(var(--w) * .16), calc(var(--vh, 1vh) * 9))); margin-top: 4px; }
+  .sub { margin-top: 2px; }
+  .decor { --S: min(calc(var(--w) * .4), calc(var(--vh, 1vh) * 42)); }
+  .btn-primary { height: 52px; font-size: 19px; }
+  .btn-ghost { height: 46px; font-size: 17px; }
+  .btns, .d-act { gap: 8px; }
+  .reel { padding-top: 12px; padding-bottom: 12px; }
+  .reel .pic { width: min(100%, calc(var(--vh, 1vh) * 32 * 1.282)); }
+  .d-act { min-height: 0; }
+}
+/* --- Surface Duo spanning：瀏覽器原生 viewport-segments（Edge on Duo / Chrome Duo 模擬器） --- */
+@media (horizontal-viewport-segments: 2) {
+  /* 直向雙屏：左右各一屏，鉸鏈喺中間 gap */
+  #app, .screen { width: 100%; max-width: none; }
+  .screen { --content-max: 100%; }
+  .dex-list { grid-template-columns: 1fr 1fr; gap: 16px 84px; }
+  .btns, .d-act { max-width: none; }
+}
+@media (vertical-viewport-segments: 2) {
+  /* 橫向雙屏：上下各一屏，鉸鏈喺中間 */
+  #app, .screen { width: 100%; max-width: none; }
+  .screen { --content-max: 100%; }
+  .dex-list { grid-template-columns: 1fr 1fr; gap: 16px; }
+}
+/* JS 探測到 spanning（getWindowSegments / visualViewport.segments）時嘅後備：鉸鏈唔好壓住內容 */
+html.is-spanning .screen { width: 100%; --content-max: 100%; }
+html.is-spanning .dex-list { grid-template-columns: 1fr 1fr; gap: 16px 84px; }
+html.is-spanning.is-landscape .screen { padding-top: max(14px, env(safe-area-inset-top, 0px)); }
+html.is-spanning.is-portrait .btns, html.is-spanning.is-portrait .d-act { max-width: 520px; }
+/* Duo 單屏（未 spanning）但係 Duo 機：用返 Duo 嘅闊度，唔好當一般手機 */
+html.is-duo:not(.is-spanning) body { --w: min(100vw, 560px); --content-max: min(100vw, 560px); }
+/* --- Safari / iOS 專用：-webkit-fill-available + 唔好畀網址列推走版面 --- */
+@supports (-webkit-touch-callout: none) {
+  html, body, #root { height: -webkit-fill-available; }
+  body { position: fixed; inset: 0; }
+  .dex-list { -webkit-overflow-scrolling: touch; }
+  /* iOS Safari 撳掣 300ms delay / 雙擊放大 */
+  .btn { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+}
+html.is-safari .glass { -webkit-backdrop-filter: blur(18px) saturate(150%); backdrop-filter: blur(18px) saturate(150%); }
+html.is-safari .glass::before { -webkit-mask-composite: xor; }
+html.is-safari.no-at-property .glass::before { animation: none; }
+html.is-ios .screen { padding-top: calc(max(env(safe-area-inset-top, 0px), 0px) + 18px); }
+/* --- 減少動態：Duo / Safari 低電量模式都唔會暈 --- */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+}
 
 /* ============ 矮螢幕適配 ============ */
 @media (max-height: 660px) {
@@ -445,41 +556,104 @@ body {
 
   var $ = function (s) { return document.querySelector(s); };
 
-  /* ================= 摺疊機全螢幕：開合 / 轉向即時同步可視高度 ================= */
-  function syncViewport() {
-    try {
-      var vh = window.innerHeight * 0.01;
-      var vw = window.innerWidth * 0.01;
-      document.documentElement.style.setProperty('--vh', vh + 'px');
-      document.documentElement.style.setProperty('--vw', vw + 'px');
-      var ratio = window.innerWidth / Math.max(1, window.innerHeight);
-      document.documentElement.classList.toggle('is-inner', ratio >= 0.75);
-      document.documentElement.classList.toggle('is-outer', ratio < 0.75);
-      /* Surface Duo spanning：visualViewport 會切成兩段 */
-      if (window.visualViewport && window.visualViewport.segments) {
-        document.documentElement.classList.toggle('is-spanning', window.visualViewport.segments.length > 1);
+  /* ================= 環境探測：Duo / Safari / iOS / spanning ================= */
+  var UA = navigator.userAgent || '';
+  var isSafari = /^((?!chrome|android|crios|fxios|edg).)*safari/i.test(UA) && /Apple Computer/.test(navigator.vendor || '');
+  var isIOS = /iPad|iPhone|iPod/.test(UA) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  var isDuo = /Surface Duo/i.test(UA) || /Duo/i.test(UA);
+  var htmlEl = document.documentElement;
+  htmlEl.classList.toggle('is-safari', isSafari);
+  htmlEl.classList.toggle('is-ios', isIOS);
+  htmlEl.classList.toggle('is-duo', isDuo);
+  htmlEl.classList.toggle('is-standalone', !!window.navigator.standalone || window.matchMedia('(display-mode: standalone)').matches);
+  /* 舊 Safari 唔支援 @property --a：用 JS 推動流光邊框，唔係邊框會停咗 */
+  var hasAtProperty = false;
+  try { hasAtProperty = !!(window.CSS && CSS.registerProperty) && CSS.supports('(--a: 0deg)'); } catch (e) {}
+  htmlEl.classList.toggle('no-at-property', !hasAtProperty);
+  if (!hasAtProperty) {
+    (function animateBorder() {
+      var deg = 0, lastT = 0;
+      function tick(t) {
+        if (document.hidden) { requestAnimationFrame(tick); return; }
+        if (t - lastT > 33) { deg = (deg + 2) % 360; htmlEl.style.setProperty('--a', deg + 'deg'); lastT = t; }
+        requestAnimationFrame(tick);
       }
-    } catch (e) {}
-  }
-  syncViewport();
-  window.addEventListener('resize', syncViewport);
-  window.addEventListener('orientationchange', function () { setTimeout(syncViewport, 60); setTimeout(syncViewport, 300); });
-  if (window.visualViewport) {
-    window.visualViewport.addEventListener('resize', syncViewport);
-    window.visualViewport.addEventListener('scroll', syncViewport);
+      requestAnimationFrame(tick);
+    })();
   }
 
-  /* ================= 全螢幕（含相容性與防報錯） ================= */
+  /* ================= 摺疊機 + Safari 全螢幕：開合 / 轉向 / 網址列即時同步 ================= */
+  var _syncT = null;
+  function getSegments() {
+    try {
+      if (typeof window.getWindowSegments === 'function') return window.getWindowSegments() || [];
+      if (window.visualViewport && window.visualViewport.segments) return window.visualViewport.segments;
+    } catch (e) {}
+    return [];
+  }
+  function syncViewport() {
+    try {
+      /* Safari 網址列收起 / 彈出時 innerHeight 會跳，visualViewport 先係真實可視高 */
+      var vv = window.visualViewport;
+      var w = (vv && vv.width) || window.innerWidth;
+      var h = (vv && vv.height) || window.innerHeight;
+      /* Duo spanning 時用 window 尺寸，唔好用 visualViewport 單段尺寸 */
+      var segs = getSegments();
+      if (segs.length > 1) { w = window.innerWidth; h = window.innerHeight; }
+      var vh = h * 0.01, vw = w * 0.01;
+      htmlEl.style.setProperty('--vh', vh + 'px');
+      htmlEl.style.setProperty('--vw', vw + 'px');
+      /* 鉸鏈位置畀 CSS 用：Duo spanning 時避開中間 */
+      if (segs.length > 1) {
+        var s0 = segs[0], s1 = segs[1];
+        htmlEl.style.setProperty('--seg0-w', (s0.width || w / 2) + 'px');
+        htmlEl.style.setProperty('--fold-left', ((s0.x || 0) + (s0.width || 0)) + 'px');
+        htmlEl.style.setProperty('--fold-width', Math.max(0, (s1.x || w) - ((s0.x || 0) + (s0.width || 0))) + 'px');
+      }
+      var ratio = w / Math.max(1, h);
+      htmlEl.classList.toggle('is-inner', ratio >= 0.75);
+      htmlEl.classList.toggle('is-outer', ratio < 0.75);
+      htmlEl.classList.toggle('is-landscape', w > h);
+      htmlEl.classList.toggle('is-portrait', w <= h);
+      htmlEl.classList.toggle('is-spanning', segs.length > 1);
+      if (segs.length > 1) htmlEl.classList.add('is-duo');
+      htmlEl.classList.toggle('is-narrow', w <= 430);
+      htmlEl.classList.toggle('is-wide', w >= 701);
+    } catch (e) {}
+  }
+  function debouncedSync() { clearTimeout(_syncT); _syncT = setTimeout(syncViewport, 80); }
+  syncViewport();
+  window.addEventListener('resize', debouncedSync);
+  window.addEventListener('orientationchange', function () { setTimeout(syncViewport, 60); setTimeout(syncViewport, 300); setTimeout(syncViewport, 600); });
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', debouncedSync);
+    window.visualViewport.addEventListener('scroll', debouncedSync);
+  }
+  /* Duo 摺疊開合：segments 變咗都要即刻同步，唔使 refresh */
+  try {
+    if (window.visualViewport && window.visualViewport.addEventListener) {
+      window.visualViewport.addEventListener('resize', function () { setTimeout(syncViewport, 60); });
+    }
+  } catch (e) {}
+
+  /* ================= 全螢幕：Duo / Chrome 用 Fullscreen API，iOS Safari 用收網址列 ================= */
   function tryFullscreen() {
     try {
+      /* iOS Safari 冇 document 全螢幕：收起網址列 + 捲到頂就係最接近全螢幕 */
+      if (isIOS && !isSafari) { /* in-app browser：跳過 */ }
+      if (isIOS && isSafari) {
+        window.scrollTo(0, 1);
+        setTimeout(syncViewport, 100);
+        return;
+      }
       var de = document.documentElement;
       if (document.fullscreenElement || document.webkitFullscreenElement) return;
       var req = de.requestFullscreen || de.webkitRequestFullscreen || de.mozRequestFullScreen || de.msRequestFullscreen;
       if (typeof req === 'function') {
         var p = req.call(de);
-        if (p && typeof p.catch === 'function') p.catch(function () {});
-      }
-    } catch (e) { /* 不支援或被阻擋時無縫繼續 */ }
+        if (p && typeof p.catch === 'function') p.catch(function () { window.scrollTo(0, 1); });
+      } else { window.scrollTo(0, 1); }
+    } catch (e) { try { window.scrollTo(0, 1); } catch (e2) {} }
   }
 
   /* ================= 粒子光影系統 ================= */
@@ -564,9 +738,11 @@ body {
     window.addEventListener('pointerup', onUp, { passive: true });
     window.addEventListener('pointercancel', onUp, { passive: true });
     document.addEventListener('mouseleave', function () { ptr.on = false; ptr.x = -999; });
-    window.addEventListener('resize', resize);
-    window.addEventListener('orientationchange', function () { setTimeout(resize, 60); setTimeout(resize, 300); });
-    if (window.visualViewport) window.visualViewport.addEventListener('resize', resize);
+    var _fxT = null;
+    function debouncedResize() { clearTimeout(_fxT); _fxT = setTimeout(resize, 80); }
+    window.addEventListener('resize', debouncedResize);
+    window.addEventListener('orientationchange', function () { setTimeout(resize, 60); setTimeout(resize, 300); setTimeout(resize, 600); });
+    if (window.visualViewport) { window.visualViewport.addEventListener('resize', debouncedResize); window.visualViewport.addEventListener('scroll', debouncedResize); }
 
     function frame(t) {
       requestAnimationFrame(frame);
