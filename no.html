@@ -1,0 +1,1510 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>忍者學院畢業考：E級忍術大師</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@500;700;900&display=swap" rel="stylesheet">
+  <style>
+    * {
+      box-sizing: border-box;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+      font-family: 'Noto Sans TC', sans-serif;
+    }
+
+    body {
+      margin: 0;
+      padding: 0;
+      background: radial-gradient(circle at center, #292118 0%, #120e0a 100%);
+      height: 100dvh;
+      width: 100vw;
+      overflow: hidden;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    /* 手機豎屏容器 */
+    #game-shell {
+      width: 100%;
+      max-width: 450px;
+      height: 100dvh;
+      max-height: 860px;
+      background: linear-gradient(180deg, #f3e5c8 0%, #e6d0a7 45%, #d6ba88 100%);
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 0 40px rgba(0, 0, 0, 0.85), inset 0 0 0 4px #5c3a21;
+    }
+
+    @media (min-width: 460px) {
+      #game-shell {
+        height: 96dvh;
+        border-radius: 24px;
+      }
+    }
+
+    /* 日式卷軸木紋邊框裝飾 */
+    .scroll-header {
+      background: linear-gradient(90deg, #3e2716 0%, #633f24 50%, #3e2716 100%);
+      border-bottom: 3px solid #d97706;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.4);
+    }
+
+    .wood-panel {
+      background: linear-gradient(180deg, #4a2e1b 0%, #2e1b0f 100%);
+      border-top: 3px solid #c27828;
+      box-shadow: 0 -4px 15px rgba(0,0,0,0.45);
+    }
+
+    /* 飄落樹葉背景粒子 */
+    .leaf {
+      position: absolute;
+      width: 12px;
+      height: 7px;
+      background: #4d7c0f;
+      border-radius: 10px 0 10px 0;
+      opacity: 0.45;
+      pointer-events: none;
+      animation: fall linear infinite;
+      z-index: 1;
+    }
+
+    @keyframes fall {
+      0% { transform: translateY(-20px) rotate(0deg) translateX(0px); opacity: 0; }
+      15% { opacity: 0.5; }
+      85% { opacity: 0.5; }
+      100% { transform: translateY(880px) rotate(540deg) translateX(40px); opacity: 0; }
+    }
+
+    /* 角色動畫 */
+    @keyframes idleFloat {
+      0%, 100% { transform: translateY(0px); }
+      50% { transform: translateY(-5px); }
+    }
+
+    .char-idle {
+      animation: idleFloat 2.2s ease-in-out infinite;
+    }
+
+    @keyframes hitShake {
+      0%, 100% { transform: translateX(0); filter: brightness(1); }
+      20% { transform: translateX(-10px) rotate(-4deg); filter: brightness(2) sepia(1) hue-rotate(-50deg) saturate(5); }
+      40% { transform: translateX(10px) rotate(4deg); }
+      60% { transform: translateX(-7px); }
+      80% { transform: translateX(7px); }
+    }
+
+    .char-hit {
+      animation: hitShake 0.4s ease-in-out;
+    }
+
+    @keyframes dashForwardRight {
+      0% { transform: translateX(0); }
+      45% { transform: translateX(65px) scale(1.08); }
+      100% { transform: translateX(0); }
+    }
+
+    @keyframes dashForwardLeft {
+      0% { transform: translateX(0); }
+      45% { transform: translateX(-65px) scale(1.08); }
+      100% { transform: translateX(0); }
+    }
+
+    .attack-right { animation: dashForwardRight 0.45s cubic-bezier(0.22, 1, 0.36, 1); }
+    .attack-left { animation: dashForwardLeft 0.45s cubic-bezier(0.22, 1, 0.36, 1); }
+
+    /* 傷害數字跳出 */
+    @keyframes floatDamage {
+      0% { transform: translate(-50%, 0) scale(0.6); opacity: 0; }
+      20% { transform: translate(-50%, -18px) scale(1.2); opacity: 1; }
+      80% { transform: translate(-50%, -45px) scale(1); opacity: 1; }
+      100% { transform: translate(-50%, -60px) scale(0.9); opacity: 0; }
+    }
+
+    .damage-popup {
+      position: absolute;
+      font-weight: 900;
+      pointer-events: none;
+      z-index: 40;
+      text-shadow: 0 2px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000;
+      animation: floatDamage 1.05s ease-out forwards;
+      white-space: nowrap;
+    }
+
+    /* 煙霧特效 */
+    @keyframes smokePoof {
+      0% { transform: translate(-50%, -50%) scale(0.2); opacity: 1; }
+      50% { transform: translate(-50%, -50%) scale(1.3); opacity: 0.95; }
+      100% { transform: translate(-50%, -50%) scale(1.7); opacity: 0; }
+    }
+
+    .smoke-effect {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      pointer-events: none;
+      z-index: 35;
+      animation: smokePoof 0.65s ease-out forwards;
+    }
+
+    /* 技能按鈕質感 */
+    .skill-btn {
+      transition: transform 0.1s ease, filter 0.15s ease, box-shadow 0.15s ease;
+      box-shadow: 0 3px 0 #1c1008;
+    }
+    .skill-btn:active:not(:disabled) {
+      transform: translateY(2px);
+      box-shadow: 0 1px 0 #1c1008;
+    }
+    .skill-btn:disabled {
+      opacity: 0.45;
+      filter: grayscale(0.75);
+      cursor: not-allowed;
+    }
+
+    /* 隱藏滾動條但保持滾動 */
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+    /* 手裏劍旋轉 */
+    @keyframes spinSlow {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+    .spin-shuriken { animation: spinSlow 6s linear infinite; }
+  </style>
+</head>
+<body>
+
+<div id="game-shell">
+  <!-- 背景飄落樹葉容器 -->
+  <div id="leaves-container" class="absolute inset-0 pointer-events-none overflow-hidden z-0"></div>
+
+  <!-- 頂部：關卡進度與音效開關 -->
+  <header class="scroll-header px-3 py-2 text-amber-100 z-20 shrink-0">
+    <div class="flex items-center justify-between gap-1">
+      <div class="flex items-center gap-1.5">
+        <svg class="w-5 h-5 text-amber-400 spin-shuriken shrink-0" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M12 1L14.5 9.5L23 12L14.5 14.5L12 23L9.5 14.5L1 12L9.5 9.5L12 1ZM12 10C10.9 10 10 10.9 10 12C10 13.1 10.9 14 12 14C13.1 14 14 13.1 14 12C14 10.9 13.1 10 12 10Z"/>
+        </svg>
+        <span class="font-black text-sm tracking-wide text-amber-300">忍者學院畢業考</span>
+      </div>
+
+      <!-- 關卡進度條 -->
+      <div class="flex items-center gap-1 text-[11px] font-bold">
+        <span id="stage-badge-1" class="px-1.5 py-0.5 rounded bg-amber-600 text-white">1.木樁</span>
+        <span class="text-amber-500">➔</span>
+        <span id="stage-badge-2" class="px-1.5 py-0.5 rounded bg-stone-700 text-stone-400">2.考官</span>
+        <span class="text-amber-500">➔</span>
+        <span id="stage-badge-3" class="px-1.5 py-0.5 rounded bg-stone-700 text-stone-400">3.天才</span>
+      </div>
+
+      <button id="mute-btn" onclick="toggleMute()" class="p-1.5 rounded-lg bg-amber-950/80 border border-amber-600/50 text-amber-200 text-xs active:scale-95" title="音效開關">
+        🔊
+      </button>
+    </div>
+    <div class="text-[10px] text-amber-200/80 text-center mt-0.5 truncate">
+      ※免責聲明：本遊戲絕無螺旋丸、千鳥、寫輪眼，全靠純粹E級基本功！
+    </div>
+  </header>
+
+  <!-- 雙方狀態列 (HP / CP / Buffs) -->
+  <section class="px-3 pt-2 pb-1 z-20 shrink-0 grid grid-cols-2 gap-2.5">
+    <!-- 玩家狀態卡 -->
+    <div class="bg-[#fdf8ee]/90 border-2 border-orange-700 rounded-xl p-2 shadow-md">
+      <div class="flex justify-between items-center mb-1">
+        <span class="font-black text-xs text-orange-900">🍥 見習・阿鳴</span>
+        <span id="player-talent-count" class="text-[10px] bg-orange-200 text-orange-900 px-1.5 rounded-full font-bold">天賦:0</span>
+      </div>
+      <!-- HP -->
+      <div class="mb-1">
+        <div class="flex justify-between text-[10px] font-bold text-stone-700">
+          <span>HP 體力</span>
+          <span id="player-hp-text">120/120</span>
+        </div>
+        <div class="w-full h-2.5 bg-stone-300 rounded-full overflow-hidden border border-stone-400">
+          <div id="player-hp-bar" class="h-full bg-gradient-to-r from-emerald-500 to-green-400 transition-all duration-300" style="width: 100%"></div>
+        </div>
+      </div>
+      <!-- CP -->
+      <div>
+        <div class="flex justify-between text-[10px] font-bold text-stone-700">
+          <span>CP 查克拉</span>
+          <span id="player-cp-text">60/100</span>
+        </div>
+        <div class="w-full h-2 bg-stone-300 rounded-full overflow-hidden border border-stone-400">
+          <div id="player-cp-bar" class="h-full bg-gradient-to-r from-sky-500 to-cyan-300 transition-all duration-300" style="width: 60%"></div>
+        </div>
+      </div>
+      <!-- Buffs -->
+      <div id="player-buffs" class="flex flex-wrap gap-1 mt-1.5 min-h-[18px]"></div>
+    </div>
+
+    <!-- 敵人狀態卡 -->
+    <div class="bg-[#fdf8ee]/90 border-2 border-red-800 rounded-xl p-2 shadow-md">
+      <div class="flex justify-between items-center mb-1">
+        <span id="enemy-name" class="font-black text-xs text-red-900 truncate">🪵 訓練場木樁</span>
+        <span id="enemy-intent" class="text-[10px] bg-red-100 text-red-800 px-1.5 rounded-full font-bold shrink-0">準備中</span>
+      </div>
+      <!-- HP -->
+      <div class="mb-1">
+        <div class="flex justify-between text-[10px] font-bold text-stone-700">
+          <span>HP 體力</span>
+          <span id="enemy-hp-text">110/110</span>
+        </div>
+        <div class="w-full h-2.5 bg-stone-300 rounded-full overflow-hidden border border-stone-400">
+          <div id="enemy-hp-bar" class="h-full bg-gradient-to-r from-rose-600 to-red-400 transition-all duration-300" style="width: 100%"></div>
+        </div>
+      </div>
+      <!-- CP -->
+      <div>
+        <div class="flex justify-between text-[10px] font-bold text-stone-700">
+          <span>CP 查克拉</span>
+          <span id="enemy-cp-text">50/100</span>
+        </div>
+        <div class="w-full h-2 bg-stone-300 rounded-full overflow-hidden border border-stone-400">
+          <div id="enemy-cp-bar" class="h-full bg-gradient-to-r from-indigo-500 to-purple-400 transition-all duration-300" style="width: 50%"></div>
+        </div>
+      </div>
+      <!-- Buffs -->
+      <div id="enemy-buffs" class="flex flex-wrap gap-1 mt-1.5 min-h-[18px]"></div>
+    </div>
+  </section>
+
+  <!-- 中央：動態戰鬥舞台 -->
+  <main id="battle-stage" class="relative flex-1 mx-3 my-1 rounded-2xl border-2 border-[#8c6239] overflow-hidden shadow-inner flex flex-col justify-between z-10"
+        style="background: linear-gradient(180deg, #bae6fd 0%, #e0f2fe 52%, #84a955 53%, #5d7e38 100%);">
+    
+    <!-- 遠景木葉村風格屋頂剪影與訓練場圍欄 -->
+    <div class="absolute inset-x-0 top-[36%] h-14 opacity-30 pointer-events-none flex justify-around items-end">
+      <div class="w-16 h-10 bg-stone-700 rounded-t-lg"></div>
+      <div class="w-24 h-14 bg-stone-800 rounded-t-xl"></div>
+      <div class="w-14 h-9 bg-stone-700 rounded-t-md"></div>
+    </div>
+    <!-- 訓練場木柵欄 -->
+    <div class="absolute inset-x-0 top-[50%] h-3 border-t-2 border-b-2 border-[#5c3a21] bg-[#7c4d2b]/70 pointer-events-none"></div>
+
+    <!-- 回合指示器與快速結印提示 -->
+    <div class="relative z-20 flex justify-between items-center px-3 pt-2">
+      <span id="turn-indicator" class="px-2.5 py-0.5 rounded-full bg-amber-950/80 text-amber-200 text-xs font-black border border-amber-500/50 shadow">
+        第 1 回合・你的行動
+      </span>
+      <button onclick="openGrimoire()" class="px-2 py-0.5 rounded-full bg-stone-800/80 text-amber-200 text-[11px] font-bold border border-stone-500 active:scale-95">
+        📜 忍術圖鑑
+      </button>
+    </div>
+
+    <!-- 角色站位區 -->
+    <div class="relative flex-1 flex items-end justify-between px-5 pb-5 z-20">
+      <!-- 玩家角色容器 -->
+      <div id="player-unit" class="relative w-32 h-36 flex flex-col items-center justify-end">
+        <!-- 分身幻影層 -->
+        <div id="player-clones" class="absolute inset-0 pointer-events-none"></div>
+        <!-- 主體 SVG -->
+        <div id="player-sprite" class="relative z-10 char-idle w-28 h-28 flex items-center justify-center"></div>
+        <!-- 替身木頭提示 -->
+        <div id="sub-log-badge" class="hidden absolute -top-3 bg-amber-800 text-amber-100 text-[10px] font-bold px-2 py-0.5 rounded-full border border-amber-300 shadow z-20">
+          🪵 替身預備中
+        </div>
+        <!-- 腳底陰影 -->
+        <div class="w-20 h-3 bg-black/30 rounded-full -mt-2"></div>
+      </div>
+
+      <!-- 敵人角色容器 -->
+      <div id="enemy-unit" class="relative w-32 h-36 flex flex-col items-center justify-end">
+        <div id="enemy-sprite" class="relative z-10 char-idle w-28 h-28 flex items-center justify-center"></div>
+        <div class="w-20 h-3 bg-black/30 rounded-full -mt-2"></div>
+      </div>
+    </div>
+  </main>
+
+  <!-- 戰鬥日誌滾動欄 -->
+  <div id="battle-log" class="mx-3 mb-1.5 h-16 bg-[#24170e]/90 border border-amber-700/70 rounded-xl px-2.5 py-1.5 overflow-y-auto no-scrollbar text-xs text-amber-100 space-y-1 z-20 shrink-0 shadow-inner">
+    <div class="text-amber-300 font-bold">【考官廣播】畢業考開始！只能使用E級基礎忍術，準備好了嗎？</div>
+  </div>
+
+  <!-- 底部：手遊經典技能按鈕區 -->
+  <footer class="wood-panel px-2.5 pt-2 pb-2.5 z-20 shrink-0">
+    <div class="grid grid-cols-3 gap-1.5" id="skill-grid">
+      <!-- 1. 體術・基礎拳腳 -->
+      <button id="btn-taijutsu" onclick="useSkill('taijutsu')" class="skill-btn bg-gradient-to-b from-amber-100 to-amber-300 border-2 border-amber-700 rounded-xl p-1.5 flex flex-col items-center text-center">
+        <div class="flex items-center justify-between w-full px-0.5">
+          <span class="text-sm">👊</span>
+          <span class="text-[10px] font-black text-emerald-800 bg-emerald-200 px-1 rounded">+15 CP</span>
+        </div>
+        <span class="font-black text-xs text-stone-900 mt-0.5">基礎拳腳</span>
+        <span class="text-[9px] text-stone-700 leading-tight">普攻回查克拉</span>
+      </button>
+
+      <!-- 2. 分身術 -->
+      <button id="btn-clone" onclick="useSkill('clone')" class="skill-btn bg-gradient-to-b from-sky-100 to-sky-300 border-2 border-sky-700 rounded-xl p-1.5 flex flex-col items-center text-center">
+        <div class="flex items-center justify-between w-full px-0.5">
+          <span class="text-sm">👥</span>
+          <span class="text-[10px] font-black text-sky-900 bg-sky-200 px-1 rounded">20 CP</span>
+        </div>
+        <span class="font-black text-xs text-stone-900 mt-0.5">分身術 (E)</span>
+        <span class="text-[9px] text-stone-700 leading-tight">閃避+暴擊(可疊2)</span>
+      </button>
+
+      <!-- 3. 變身術 -->
+      <button id="btn-transform" onclick="useSkill('transform')" class="skill-btn bg-gradient-to-b from-purple-100 to-purple-300 border-2 border-purple-700 rounded-xl p-1.5 flex flex-col items-center text-center">
+        <div class="flex items-center justify-between w-full px-0.5">
+          <span class="text-sm">🎭</span>
+          <span class="text-[10px] font-black text-purple-900 bg-purple-200 px-1 rounded">25 CP</span>
+        </div>
+        <span class="font-black text-xs text-stone-900 mt-0.5">變身術 (E)</span>
+        <span class="text-[9px] text-stone-700 leading-tight">隨機奇效心理戰</span>
+      </button>
+
+      <!-- 4. 替身術 -->
+      <button id="btn-substitute" onclick="useSkill('substitute')" class="skill-btn bg-gradient-to-b from-emerald-100 to-emerald-300 border-2 border-emerald-700 rounded-xl p-1.5 flex flex-col items-center text-center">
+        <div class="flex items-center justify-between w-full px-0.5">
+          <span class="text-sm">🪵</span>
+          <span class="text-[10px] font-black text-emerald-900 bg-emerald-200 px-1 rounded">30 CP</span>
+        </div>
+        <span class="font-black text-xs text-stone-900 mt-0.5">替身術 (E)</span>
+        <span class="text-[9px] text-stone-700 leading-tight">免疫下次傷害並反擊</span>
+      </button>
+
+      <!-- 5. 擺脫術 -->
+      <button id="btn-escape" onclick="useSkill('escape')" class="skill-btn bg-gradient-to-b from-teal-100 to-teal-300 border-2 border-teal-700 rounded-xl p-1.5 flex flex-col items-center text-center">
+        <div class="flex items-center justify-between w-full px-0.5">
+          <span class="text-sm">🪢</span>
+          <span class="text-[10px] font-black text-teal-900 bg-teal-200 px-1 rounded">15 CP</span>
+        </div>
+        <span class="font-black text-xs text-stone-900 mt-0.5">繩拔擺脫 (E)</span>
+        <span class="text-[9px] text-stone-700 leading-tight">解控+小幅回血</span>
+      </button>
+
+      <!-- 6. 奧義・千年殺 -->
+      <button id="btn-ultimate" onclick="useSkill('ultimate')" class="skill-btn bg-gradient-to-b from-rose-200 via-orange-300 to-red-400 border-2 border-red-800 rounded-xl p-1.5 flex flex-col items-center text-center relative overflow-hidden">
+        <div class="flex items-center justify-between w-full px-0.5">
+          <span class="text-sm">👉💥</span>
+          <span class="text-[10px] font-black text-red-950 bg-amber-200 px-1 rounded">60 CP</span>
+        </div>
+        <span class="font-black text-xs text-red-950 mt-0.5">奧義・千年殺</span>
+        <span id="ult-hint" class="text-[9px] font-bold text-red-900 leading-tight">有分身/混亂雙倍!</span>
+      </button>
+    </div>
+  </footer>
+
+  <!-- 彈窗：戰後天賦三選一 (結印卷軸) -->
+  <div id="talent-modal" class="hidden absolute inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
+    <div class="bg-[#f6e8cc] border-4 border-amber-700 rounded-2xl w-full max-w-sm p-4 shadow-2xl text-stone-900">
+      <div class="text-center mb-3">
+        <span class="inline-block bg-amber-700 text-amber-100 text-xs font-black px-3 py-1 rounded-full mb-1">📜 考場頓悟・結印卷軸</span>
+        <h2 class="text-lg font-black text-amber-950">選擇一項 E級忍術大師天賦</h2>
+        <p class="text-xs text-stone-600">把最基礎的忍術修煉到極致就是神技！</p>
+      </div>
+      <div id="talent-choices" class="space-y-2.5"></div>
+    </div>
+  </div>
+
+  <!-- 彈窗：遊戲勝利 / 失敗結算 -->
+  <div id="end-modal" class="hidden absolute inset-0 bg-black/85 z-50 flex items-center justify-center p-4">
+    <div class="bg-[#f6e8cc] border-4 border-amber-600 rounded-2xl w-full max-w-sm p-5 shadow-2xl text-center">
+      <div id="end-icon" class="text-5xl mb-2">🎓</div>
+      <h2 id="end-title" class="text-xl font-black text-amber-950 mb-1">畢業考試通過！</h2>
+      <p id="end-desc" class="text-xs text-stone-700 mb-4 leading-relaxed"></p>
+      <div id="end-talents-summary" class="bg-amber-950/10 rounded-xl p-2.5 mb-4 text-left text-xs text-stone-800"></div>
+      <button onclick="restartGame()" class="w-full py-3 rounded-xl bg-gradient-to-r from-orange-600 to-amber-600 text-white font-black text-sm shadow-lg active:scale-95">
+        🔄 再次挑戰畢業考
+      </button>
+    </div>
+  </div>
+
+  <!-- 彈窗：E級忍術說明圖鑑 -->
+  <div id="grimoire-modal" class="hidden absolute inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
+    <div class="bg-[#f6e8cc] border-4 border-stone-700 rounded-2xl w-full max-w-sm p-4 shadow-2xl text-stone-900 max-h-[82dvh] flex flex-col">
+      <div class="flex justify-between items-center border-b border-amber-800/30 pb-2 mb-2">
+        <h3 class="font-black text-base text-amber-950">📜 學院指定 E級忍術手冊</h3>
+        <button onclick="closeGrimoire()" class="px-2 py-0.5 bg-stone-700 text-white rounded-lg text-xs font-bold">✕ 關閉</button>
+      </div>
+      <div class="overflow-y-auto space-y-2 text-xs pr-1">
+        <div class="p-2 bg-white/70 rounded-lg border border-amber-900/20">
+          <b class="text-amber-900">👊 體術・基礎拳腳 (0 CP)</b>：不花哨的直拳與踢擊，造成基礎傷害並凝聚 +15 CP。
+        </div>
+        <div class="p-2 bg-white/70 rounded-lg border border-sky-900/20">
+          <b class="text-sky-900">👥 分身術 (20 CP)</b>：製造無實體殘影（非影分身！），每層提供 +25% 閃避率與 +15% 暴擊率（最高2層，持續2回合）。注意：考官的「識破」會直接吹散分身！
+        </div>
+        <div class="p-2 bg-white/70 rounded-lg border border-purple-900/20">
+          <b class="text-purple-900">🎭 變身術 (25 CP)</b>：隨機變成三種形態進行心理博弈：<br/>
+          • <b>路邊石頭</b>：獲得 60% 減傷護盾 1 回合並回復 20 HP。<br/>
+          • <b>巨大手裏劍</b>：下一次攻擊傷害提升 75%！<br/>
+          • <b>考官的樣子</b>：使敵人陷入「混亂/發愣」1 回合，高機率打空！
+        </div>
+        <div class="p-2 bg-white/70 rounded-lg border border-emerald-900/20">
+          <b class="text-emerald-900">🪵 替身術 (30 CP)</b>：進入替身預備狀態，下次受擊時用「木頭」完全免疫傷害，並從死角發動偷襲反擊！
+        </div>
+        <div class="p-2 bg-white/70 rounded-lg border border-teal-900/20">
+          <b class="text-teal-900">🪢 擺脫術 / 繩拔術 (15 CP)</b>：忍者基本功！立即解除所有負面狀態（混亂、減速、說教），並回復 18 HP。
+        </div>
+        <div class="p-2 bg-white/70 rounded-lg border border-red-900/20">
+          <b class="text-red-900">👉💥 奧義・千年殺 (60 CP)</b>：雙手結虎印的 E級體術極意！若我方有<b>分身掩護</b>或敵人處於<b>混亂狀態</b>，觸發偷襲背刺，造成 <b>200% 雙倍暴擊傷害</b>並使敵人「破防」2回合！
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // ==================== Web Audio API 音效引擎 ====================
+  const AudioEngine = {
+    ctx: null,
+    muted: false,
+    init() {
+      if (!this.ctx) {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (AudioCtx) this.ctx = new AudioCtx();
+      }
+      if (this.ctx && this.ctx.state === 'suspended') {
+        this.ctx.resume();
+      }
+    },
+    playHandSign() {
+      if (this.muted) return;
+      this.init();
+      if (!this.ctx) return;
+      const now = this.ctx.currentTime;
+      [520, 680].forEach((freq, idx) => {
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(freq, now + idx * 0.06);
+        gain.gain.setValueAtTime(0.15, now + idx * 0.06);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.06 + 0.08);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(now + idx * 0.06);
+        osc.stop(now + idx * 0.06 + 0.09);
+      });
+    },
+    playSmokePoof() {
+      if (this.muted) return;
+      this.init();
+      if (!this.ctx) return;
+      const now = this.ctx.currentTime;
+      const bufferSize = this.ctx.sampleRate * 0.25;
+      const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+      const data = buffer.getChannelData(0);
+      for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+
+      const noise = this.ctx.createBufferSource();
+      noise.buffer = buffer;
+
+      const filter = this.ctx.createBiquadFilter();
+      filter.type = 'lowpass';
+      filter.frequency.setValueAtTime(600, now);
+      filter.frequency.exponentialRampToValueAtTime(120, now + 0.25);
+
+      const gain = this.ctx.createGain();
+      gain.gain.setValueAtTime(0.28, now);
+      gain.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
+
+      noise.connect(filter);
+      filter.connect(gain);
+      gain.connect(this.ctx.destination);
+      noise.start(now);
+    },
+    playHit(heavy = false) {
+      if (this.muted) return;
+      this.init();
+      if (!this.ctx) return;
+      const now = this.ctx.currentTime;
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = heavy ? 'sawtooth' : 'square';
+      osc.frequency.setValueAtTime(heavy ? 180 : 240, now);
+      osc.frequency.exponentialRampToValueAtTime(45, now + (heavy ? 0.28 : 0.14));
+      gain.gain.setValueAtTime(heavy ? 0.25 : 0.16, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + (heavy ? 0.28 : 0.14));
+      osc.connect(gain);
+      gain.connect(this.ctx.destination);
+      osc.start(now);
+      osc.stop(now + (heavy ? 0.3 : 0.15));
+    },
+    playLevelUp() {
+      if (this.muted) return;
+      this.init();
+      if (!this.ctx) return;
+      const notes = [440, 554.37, 659.25, 880];
+      const now = this.ctx.currentTime;
+      notes.forEach((n, i) => {
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(n, now + i * 0.09);
+        gain.gain.setValueAtTime(0.16, now + i * 0.09);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.09 + 0.25);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(now + i * 0.09);
+        osc.stop(now + i * 0.09 + 0.26);
+      });
+    }
+  };
+
+  function toggleMute() {
+    AudioEngine.muted = !AudioEngine.muted;
+    document.getElementById('mute-btn').textContent = AudioEngine.muted ? '🔇' : '🔊';
+  }
+
+  // ==================== SVG 角色美術繪製 ====================
+  const Sprites = {
+    // 玩家：原創見習下忍「阿鳴」（橘黑運動服+護目鏡+陽光刺蝟頭）
+    player(transformForm = null) {
+      if (transformForm === 'rock') {
+        return `
+          <svg viewBox="0 0 120 120" class="w-full h-full drop-shadow-md">
+            <path d="M25 95 L20 65 L40 40 L75 38 L98 62 L92 95 Z" fill="#78716c" stroke="#292524" stroke-width="4"/>
+            <path d="M35 55 L55 50 L65 70" fill="none" stroke="#57534e" stroke-width="3"/>
+            <rect x="42" y="68" width="12" height="5" rx="2" fill="#1c1917"/>
+            <rect x="64" y="68" width="12" height="5" rx="2" fill="#1c1917"/>
+            <text x="60" y="30" font-size="12" font-weight="bold" fill="#44403c" text-anchor="middle">偽裝石頭</text>
+          </svg>`;
+      }
+      if (transformForm === 'shuriken') {
+        return `
+          <svg viewBox="0 0 120 120" class="w-full h-full drop-shadow-lg">
+            <g class="origin-center animate-spin" style="animation-duration: 2s;">
+              <path d="M60 8 L73 47 L112 60 L73 73 L60 112 L47 73 L8 60 L47 47 Z" fill="#cbd5e1" stroke="#1e293b" stroke-width="4"/>
+              <circle cx="60" cy="60" r="12" fill="#f8fafc" stroke="#1e293b" stroke-width="4"/>
+            </g>
+          </svg>`;
+      }
+      if (transformForm === 'examiner') {
+        return `
+          <svg viewBox="0 0 120 120" class="w-full h-full drop-shadow-md">
+            <!-- 假考官威嚴造型 -->
+            <rect x="38" y="65" width="44" height="42" rx="10" fill="#1e3a2f" stroke="#0f172a" stroke-width="3"/>
+            <circle cx="60" cy="44" r="24" fill="#fed7aa" stroke="#0f172a" stroke-width="3"/>
+            <!-- 護額 -->
+            <rect x="36" y="28" width="48" height="11" rx="3" fill="#1e293b"/>
+            <rect x="47" y="29" width="26" height="9" rx="2" fill="#cbd5e1"/>
+            <!-- 鼻樑疤痕與嚴肅臉 -->
+            <path d="M46 47 Q52 44 56 47" stroke="#0f172a" stroke-width="3" fill="none"/>
+            <path d="M64 47 Q70 44 74 47" stroke="#0f172a" stroke-width="3" fill="none"/>
+            <path d="M53 53 L67 53" stroke="#b45309" stroke-width="2.5"/>
+            <path d="M52 60 Q60 56 68 60" stroke="#0f172a" stroke-width="2.5" fill="none"/>
+          </svg>`;
+      }
+      // 預設：見習下忍阿鳴
+      return `
+        <svg viewBox="0 0 120 120" class="w-full h-full drop-shadow-md">
+          <!-- 橘色忍者外套 -->
+          <rect x="38" y="66" width="44" height="40" rx="10" fill="#f97316" stroke="#1c1917" stroke-width="3"/>
+          <path d="M48 66 L60 82 L72 66" fill="#1c1917"/>
+          <line x1="60" y1="82" x2="60" y2="106" stroke="#1c1917" stroke-width="3"/>
+          <!-- 陽光刺蝟金髮 -->
+          <path d="M32 38 L24 22 L42 26 L48 10 L60 22 L72 10 L78 26 L96 22 L88 38 Z" fill="#facc15" stroke="#1c1917" stroke-width="3" stroke-linejoin="round"/>
+          <!-- 臉部 -->
+          <circle cx="60" cy="46" r="23" fill="#fed7aa" stroke="#1c1917" stroke-width="3"/>
+          <!-- 藍色護額 -->
+          <rect x="36" y="30" width="48" height="10" rx="3" fill="#1d4ed8" stroke="#1c1917" stroke-width="2.5"/>
+          <rect x="48" y="31" width="24" height="8" rx="2" fill="#e2e8f0" stroke="#1c1917" stroke-width="1.5"/>
+          <circle cx="60" cy="35" r="2" fill="#475569"/>
+          <!-- 眼睛與臉頰印記 -->
+          <circle cx="50" cy="48" r="3.5" fill="#1c1917"/>
+          <circle cx="70" cy="48" r="3.5" fill="#1c1917"/>
+          <circle cx="51" cy="47" r="1.2" fill="#fff"/>
+          <circle cx="71" cy="47" r="1.2" fill="#fff"/>
+          <line x1="40" y1="51" x2="45" y2="51" stroke="#c2410c" stroke-width="1.8"/>
+          <line x1="40" y1="54" x2="45" y2="54" stroke="#c2410c" stroke-width="1.8"/>
+          <line x1="75" y1="51" x2="80" y2="51" stroke="#c2410c" stroke-width="1.8"/>
+          <line x1="75" y1="54" x2="80" y2="54" stroke="#c2410c" stroke-width="1.8"/>
+          <!-- 自信笑容 -->
+          <path d="M52 57 Q60 64 68 57" stroke="#1c1917" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+          <!-- 結印雙手 -->
+          <circle cx="60" cy="78" r="7" fill="#fed7aa" stroke="#1c1917" stroke-width="2.5"/>
+        </svg>`;
+    },
+
+    // 第一關：訓練場木樁
+    dummy() {
+      return `
+        <svg viewBox="0 0 120 120" class="w-full h-full drop-shadow-md">
+          <!-- 木樁主幹 -->
+          <rect x="43" y="24" width="34" height="82" rx="6" fill="#92400e" stroke="#291509" stroke-width="3.5"/>
+          <!-- 橫木手臂 -->
+          <rect x="22" y="54" width="76" height="13" rx="5" fill="#b45309" stroke="#291509" stroke-width="3"/>
+          <!-- 頂部年輪 -->
+          <ellipse cx="60" cy="24" rx="17" ry="6" fill="#fde68a" stroke="#291509" stroke-width="3"/>
+          <!-- 靶心與塗鴉臉 -->
+          <circle cx="60" cy="42" r="11" fill="#fef3c7" stroke="#dc2626" stroke-width="3"/>
+          <circle cx="60" cy="42" r="4" fill="#dc2626"/>
+          <!-- 綁繩 -->
+          <line x1="43" y1="78" x2="77" y2="82" stroke="#eab308" stroke-width="4"/>
+          <line x1="43" y1="85" x2="77" y2="81" stroke="#eab308" stroke-width="4"/>
+        </svg>`;
+    },
+
+    // 第二關：嚴厲的中忍考官（伊魯卡風）
+    examiner() {
+      return `
+        <svg viewBox="0 0 120 120" class="w-full h-full drop-shadow-md">
+          <!-- 綠色中忍馬甲 -->
+          <rect x="36" y="65" width="48" height="42" rx="10" fill="#15803d" stroke="#052e16" stroke-width="3"/>
+          <rect x="42" y="72" width="14" height="12" rx="2" fill="#166534" stroke="#052e16" stroke-width="2"/>
+          <rect x="64" y="72" width="14" height="12" rx="2" fill="#166534" stroke="#052e16" stroke-width="2"/>
+          <!-- 沖天馬尾 -->
+          <path d="M52 22 L60 6 L68 22 Z" fill="#451a03" stroke="#1c1917" stroke-width="2.5"/>
+          <!-- 臉部 -->
+          <circle cx="60" cy="44" r="23" fill="#fed7aa" stroke="#1c1917" stroke-width="3"/>
+          <!-- 護額 -->
+          <rect x="36" y="28" width="48" height="10" rx="3" fill="#1e293b" stroke="#0f172a" stroke-width="2"/>
+          <rect x="48" y="29" width="24" height="8" rx="2" fill="#cbd5e1"/>
+          <!-- 嚴肅眉毛與鼻樑疤 -->
+          <path d="M44 43 L55 46" stroke="#1c1917" stroke-width="3" stroke-linecap="round"/>
+          <path d="M76 43 L65 46" stroke="#1c1917" stroke-width="3" stroke-linecap="round"/>
+          <circle cx="50" cy="49" r="3" fill="#1c1917"/>
+          <circle cx="70" cy="49" r="3" fill="#1c1917"/>
+          <line x1="52" y1="53" x2="68" y2="53" stroke="#9a3412" stroke-width="2.5"/>
+          <!-- 怒吼說教嘴 -->
+          <ellipse cx="60" cy="60" rx="6" ry="4" fill="#991b1b" stroke="#1c1917" stroke-width="2"/>
+          <!-- 手持粉筆 -->
+          <rect x="24" y="68" width="12" height="5" rx="2" fill="#ffffff" stroke="#1c1917" stroke-width="2" transform="rotate(-25 24 68)"/>
+        </svg>`;
+    },
+
+    // 第三關：學院首席・冷酷天才「小助」
+    genius() {
+      return `
+        <svg viewBox="0 0 120 120" class="w-full h-full drop-shadow-md">
+          <!-- 高領深藍忍者服 -->
+          <path d="M36 62 L44 54 L76 54 L84 62 L84 106 L36 106 Z" fill="#1e3a8a" stroke="#0f172a" stroke-width="3"/>
+          <!-- 鴉羽黑髮 -->
+          <path d="M30 46 L26 24 L44 22 L60 14 L76 22 L94 24 L90 46 L82 36 L38 36 Z" fill="#0f172a"/>
+          <!-- 冷酷臉龐 -->
+          <circle cx="60" cy="45" r="22" fill="#ffedd5" stroke="#0f172a" stroke-width="3"/>
+          <!-- 護額 -->
+          <rect x="37" y="29" width="46" height="9" rx="2" fill="#1e293b"/>
+          <rect x="49" y="30" width="22" height="7" rx="1.5" fill="#e2e8f0"/>
+          <!-- 銳利眼神 -->
+          <path d="M44 45 L55 47 L45 49 Z" fill="#0f172a"/>
+          <path d="M76 45 L65 47 L75 49 Z" fill="#0f172a"/>
+          <!-- 酷酷的嘴角 -->
+          <path d="M54 57 L66 56" stroke="#0f172a" stroke-width="2.5" stroke-linecap="round"/>
+          <!-- 手持苦無 -->
+          <path d="M22 65 L34 55 L38 59 L26 69 Z" fill="#94a3b8" stroke="#0f172a" stroke-width="2"/>
+          <circle cx="21" cy="69" r="3.5" fill="none" stroke="#0f172a" stroke-width="2"/>
+        </svg>`;
+    }
+  };
+
+  // ==================== 關卡與天賦資料庫 ====================
+  const STAGES = [
+    {
+      id: 1,
+      name: '🪵 訓練場木樁',
+      maxHp: 110,
+      maxCp: 100,
+      cp: 40,
+      atk: 12,
+      sprite: 'dummy',
+      intro: '第一關【木樁考驗】：連木樁都打不贏的話，別想畢業了！',
+      actions: ['thorns', 'still', 'bonk']
+    },
+    {
+      id: 2,
+      name: '📋 嚴厲中忍考官',
+      maxHp: 155,
+      maxCp: 100,
+      cp: 60,
+      atk: 17,
+      sprite: 'examiner',
+      intro: '第二關【考官實戰】：拿出真本事吧！看穿你們的花招可是我的職責！',
+      actions: ['chalk', 'lecture', 'seeThrough']
+    },
+    {
+      id: 3,
+      name: '⚡ 學院首席・小助',
+      maxHp: 210,
+      maxCp: 100,
+      cp: 80,
+      atk: 22,
+      sprite: 'genius',
+      intro: '最終關【首席對決】：哼，只會E級忍術的吊車尾，就由我來親自淘汰你！',
+      actions: ['kunaiBarrage', 'bodyFlicker', 'actCool']
+    }
+  ];
+
+  const ALL_TALENTS = [
+    {
+      id: 'woodSupplier',
+      icon: '🪵',
+      name: '頂級木頭供應商',
+      desc: '替身術反擊傷害 +60%，且發動替身時額外回復 15 CP！'
+    },
+    {
+      id: 'oscarClone',
+      icon: '👥',
+      name: '影級分身演技',
+      desc: '使用「分身術」時立即回復 18 HP，且閃避率額外 +10%！'
+    },
+    {
+      id: 'masterDisguise',
+      icon: '🎭',
+      name: '奧斯卡變身王',
+      desc: '變身術效果全面強化：回血量翻倍、增傷提升至 110%、混亂必中！'
+    },
+    {
+      id: 'taijutsuProdigy',
+      icon: '👊',
+      name: '努力型體術達人',
+      desc: '「基礎拳腳」傷害 +45%，且額外回復 +10 CP（共+25 CP）！'
+    },
+    {
+      id: 'fingerOfDoom',
+      icon: '👉',
+      name: '虎印・極意傳承',
+      desc: '「奧義・千年殺」消耗降低 15 CP（只需45 CP），基礎傷害 +30%！'
+    },
+    {
+      id: 'escapeArtist',
+      icon: '🪢',
+      name: '金蟬脫殼大師',
+      desc: '每回合開始自動回復 8 CP，且「繩拔擺脫」同時獲得 1 層分身！'
+    }
+  ];
+
+  // ==================== 遊戲核心狀態 ====================
+  let state = {
+    stageIndex: 0,
+    turn: 1,
+    isPlayerTurn: true,
+    busy: false,
+    player: {
+      hp: 130,
+      maxHp: 130,
+      cp: 65,
+      maxCp: 100,
+      atk: 18,
+      clones: 0,          // 分身層數 (0~2)
+      cloneTurns: 0,      // 分身剩餘回合
+      substitute: false,  // 替身預備
+      stoneShield: 0,     // 石頭減傷回合
+      shurikenBuff: false,// 巨大手裏劍下次增傷
+      confused: 0,        // 混亂回合
+      slowed: 0,          // 減速/破防回合
+      talents: []
+    },
+    enemy: null,
+    nextEnemyAction: null
+  };
+
+  // ==================== 初始化與視覺特效 ====================
+  function spawnLeaves() {
+    const container = document.getElementById('leaves-container');
+    container.innerHTML = '';
+    for (let i = 0; i < 12; i++) {
+      const leaf = document.createElement('div');
+      leaf.className = 'leaf';
+      leaf.style.left = Math.random() * 100 + '%';
+      leaf.style.animationDuration = (5 + Math.random() * 6) + 's';
+      leaf.style.animationDelay = (-Math.random() * 8) + 's';
+      leaf.style.background = i % 2 === 0 ? '#4d7c0f' : '#65a30d';
+      container.appendChild(leaf);
+    }
+  }
+
+  function addLog(text, colorClass = 'text-amber-100') {
+    const log = document.getElementById('battle-log');
+    const div = document.createElement('div');
+    div.className = colorClass;
+    div.innerHTML = text;
+    log.appendChild(div);
+    log.scrollTop = log.scrollHeight;
+  }
+
+  function showDamagePopup(targetId, text, color = '#fde047', size = 'text-lg') {
+    const target = document.getElementById(targetId);
+    const pop = document.createElement('div');
+    pop.className = `damage-popup ${size}`;
+    pop.style.color = color;
+    pop.style.left = (40 + Math.random() * 20) + '%';
+    pop.style.top = '15%';
+    pop.innerHTML = text;
+    target.appendChild(pop);
+    setTimeout(() => pop.remove(), 1100);
+  }
+
+  function triggerSmoke(targetId) {
+    AudioEngine.playSmokePoof();
+    const target = document.getElementById(targetId);
+    const smoke = document.createElement('div');
+    smoke.className = 'smoke-effect';
+    smoke.innerHTML = `
+      <svg width="110" height="110" viewBox="0 0 100 100">
+        <circle cx="50" cy="50" r="28" fill="#ffffff" opacity="0.9"/>
+        <circle cx="32" cy="45" r="20" fill="#f1f5f9" opacity="0.9"/>
+        <circle cx="68" cy="45" r="20" fill="#f1f5f9" opacity="0.9"/>
+        <circle cx="40" cy="65" r="18" fill="#e2e8f0" opacity="0.9"/>
+        <circle cx="62" cy="65" r="18" fill="#e2e8f0" opacity="0.9"/>
+        <text x="50" y="55" font-size="18" font-weight="900" fill="#334155" text-anchor="middle">砰！</text>
+      </svg>`;
+    target.appendChild(smoke);
+    setTimeout(() => smoke.remove(), 700);
+  }
+
+  function animateAction(unitId, animClass) {
+    const el = document.getElementById(unitId);
+    el.classList.remove(animClass);
+    void el.offsetWidth;
+    el.classList.add(animClass);
+    setTimeout(() => el.classList.remove(animClass), 500);
+  }
+
+  function hasTalent(id) {
+    return state.player.talents.includes(id);
+  }
+
+  // ==================== 關卡載入與UI同步 ====================
+  function loadStage(index) {
+    state.stageIndex = index;
+    state.turn = 1;
+    state.isPlayerTurn = true;
+    state.busy = false;
+
+    const tpl = STAGES[index];
+    state.enemy = {
+      name: tpl.name,
+      hp: tpl.maxHp,
+      maxHp: tpl.maxHp,
+      cp: tpl.cp,
+      maxCp: tpl.maxCp,
+      atk: tpl.atk,
+      sprite: tpl.sprite,
+      actions: tpl.actions,
+      thorns: 0,        // 反彈傷害
+      confused: 0,      // 混亂/發愣
+      armorBreak: 0,    // 羞恥破防 (受傷+35%)
+      evadeNext: false, // 瞬身術閃避
+      critBuff: 0       // 裝酷暴擊提升
+    };
+
+    // 重置玩家部分戰鬥暫時狀態（保留HP/CP與天賦，過關小幅回血）
+    if (index > 0) {
+      const heal = 35;
+      state.player.hp = Math.min(state.player.maxHp, state.player.hp + heal);
+      state.player.cp = Math.min(state.player.maxCp, state.player.cp + 25);
+    }
+    state.player.clones = 0;
+    state.player.cloneTurns = 0;
+    state.player.substitute = false;
+    state.player.stoneShield = 0;
+    state.player.shurikenBuff = false;
+    state.player.confused = 0;
+    state.player.slowed = 0;
+
+    // 決定敵人首回合意圖
+    decideEnemyIntent();
+
+    // 更新關卡進度徽章
+    [1, 2, 3].forEach(num => {
+      const badge = document.getElementById(`stage-badge-${num}`);
+      if (num - 1 < index) {
+        badge.className = 'px-1.5 py-0.5 rounded bg-emerald-700 text-emerald-100';
+      } else if (num - 1 === index) {
+        badge.className = 'px-1.5 py-0.5 rounded bg-amber-500 text-stone-950 font-black shadow';
+      } else {
+        badge.className = 'px-1.5 py-0.5 rounded bg-stone-700 text-stone-400';
+      }
+    });
+
+    document.getElementById('enemy-sprite').innerHTML = Sprites[tpl.sprite]();
+    addLog(`━━ <b>${tpl.name}</b> 登場！ ━━`, 'text-amber-300 font-bold');
+    addLog(tpl.intro, 'text-amber-200');
+    updateUI();
+  }
+
+  function decideEnemyIntent() {
+    const e = state.enemy;
+    const pool = e.actions;
+    const pick = pool[Math.floor(Math.random() * pool.length)];
+    state.nextEnemyAction = pick;
+
+    const intentMap = {
+      thorns: '意圖: 尖刺反彈',
+      still: '意圖: 紋絲不動',
+      bonk: '意圖: 木樁重壓',
+      chalk: '意圖: 粉筆飛射',
+      lecture: '意圖: 嚴厲說教',
+      seeThrough: '意圖: 識破分身',
+      kunaiBarrage: '意圖: 苦無連射',
+      bodyFlicker: '意圖: 瞬身術',
+      actCool: '意圖: 單手插袋裝酷'
+    };
+    document.getElementById('enemy-intent').textContent = intentMap[pick] || '蓄勢待發';
+  }
+
+  function updateUI() {
+    const p = state.player;
+    const e = state.enemy;
+
+    // 玩家數值
+    document.getElementById('player-hp-text').textContent = `${Math.max(0, p.hp)}/${p.maxHp}`;
+    document.getElementById('player-hp-bar').style.width = `${Math.max(0, (p.hp / p.maxHp) * 100)}%`;
+    document.getElementById('player-cp-text').textContent = `${p.cp}/${p.maxCp}`;
+    document.getElementById('player-cp-bar').style.width = `${(p.cp / p.maxCp) * 100}%`;
+    document.getElementById('player-talent-count').textContent = `天賦:${p.talents.length}`;
+
+    // 敵人數值
+    document.getElementById('enemy-name').textContent = e.name;
+    document.getElementById('enemy-hp-text').textContent = `${Math.max(0, e.hp)}/${e.maxHp}`;
+    document.getElementById('enemy-hp-bar').style.width = `${Math.max(0, (e.hp / e.maxHp) * 100)}%`;
+    document.getElementById('enemy-cp-text').textContent = `${e.cp}/${e.maxCp}`;
+    document.getElementById('enemy-cp-bar').style.width = `${(e.cp / e.maxCp) * 100}%`;
+
+    // 玩家造型切換（變身術或本體）
+    let currentForm = null;
+    if (p.stoneShield > 0) currentForm = 'rock';
+    else if (p.shurikenBuff) currentForm = 'shuriken';
+    else if (e.confused > 0 && p.confused === 0 && state.lastTransform === 'examiner') currentForm = 'examiner';
+    document.getElementById('player-sprite').innerHTML = Sprites.player(currentForm);
+
+    // 替身木頭提示
+    const subBadge = document.getElementById('sub-log-badge');
+    if (p.substitute) subBadge.classList.remove('hidden');
+    else subBadge.classList.add('hidden');
+
+    // 渲染分身幻影
+    const cloneContainer = document.getElementById('player-clones');
+    cloneContainer.innerHTML = '';
+    if (p.clones >= 1) {
+      cloneContainer.innerHTML += `<div class="absolute -left-5 bottom-3 w-20 h-20 opacity-55 scale-90">${Sprites.player()}</div>`;
+    }
+    if (p.clones >= 2) {
+      cloneContainer.innerHTML += `<div class="absolute -right-5 bottom-4 w-20 h-20 opacity-55 scale-90">${Sprites.player()}</div>`;
+    }
+
+    // 玩家 Buff/Debuff 標籤
+    const pBuffs = [];
+    if (p.clones > 0) pBuffs.push(`<span class="px-1.5 py-0.2 bg-sky-200 text-sky-900 rounded text-[9px] font-bold">👥分身x${p.clones}(${p.cloneTurns}回)</span>`);
+    if (p.substitute) pBuffs.push(`<span class="px-1.5 py-0.2 bg-emerald-200 text-emerald-900 rounded text-[9px] font-bold">🪵替身</span>`);
+    if (p.stoneShield > 0) pBuffs.push(`<span class="px-1.5 py-0.2 bg-stone-300 text-stone-900 rounded text-[9px] font-bold">🪨石頭減傷</span>`);
+    if (p.shurikenBuff) pBuffs.push(`<span class="px-1.5 py-0.2 bg-purple-200 text-purple-900 rounded text-[9px] font-bold">✴️巨裏劍增傷</span>`);
+    if (p.confused > 0) pBuffs.push(`<span class="px-1.5 py-0.2 bg-red-200 text-red-900 rounded text-[9px] font-bold">💫混亂(${p.confused})</span>`);
+    if (p.slowed > 0) pBuffs.push(`<span class="px-1.5 py-0.2 bg-amber-200 text-amber-900 rounded text-[9px] font-bold">📉氣餒(${p.slowed})</span>`);
+    document.getElementById('player-buffs').innerHTML = pBuffs.join('');
+
+    // 敵人 Buff/Debuff 標籤
+    const eBuffs = [];
+    if (e.thorns > 0) eBuffs.push(`<span class="px-1.5 py-0.2 bg-amber-200 text-amber-950 rounded text-[9px] font-bold">🌵反彈(${e.thorns})</span>`);
+    if (e.confused > 0) eBuffs.push(`<span class="px-1.5 py-0.2 bg-purple-200 text-purple-900 rounded text-[9px] font-bold">😵發愣混亂(${e.confused})</span>`);
+    if (e.armorBreak > 0) eBuffs.push(`<span class="px-1.5 py-0.2 bg-rose-200 text-rose-900 rounded text-[9px] font-bold">💔羞恥破防(${e.armorBreak})</span>`);
+    if (e.evadeNext) eBuffs.push(`<span class="px-1.5 py-0.2 bg-cyan-200 text-cyan-900 rounded text-[9px] font-bold">💨瞬身預備</span>`);
+    if (e.critBuff > 0) eBuffs.push(`<span class="px-1.5 py-0.2 bg-indigo-200 text-indigo-900 rounded text-[9px] font-bold">✨裝酷暴擊</span>`);
+    document.getElementById('enemy-buffs').innerHTML = eBuffs.join('');
+
+    // 技能按鈕可用狀態與 CP 消耗更新
+    const ultCost = hasTalent('fingerOfDoom') ? 45 : 60;
+    document.querySelector('#btn-ultimate span:nth-child(2)').textContent = `${ultCost} CP`;
+
+    // 千年殺雙倍條件高亮提示
+    const ultDouble = (p.clones > 0 || e.confused > 0);
+    const ultHint = document.getElementById('ult-hint');
+    if (ultDouble) {
+      ultHint.textContent = '🔥 雙倍背刺就緒！';
+      ultHint.className = 'text-[9px] font-black text-yellow-200 bg-red-900 px-1 rounded animate-pulse';
+    } else {
+      ultHint.textContent = '有分身/混亂雙倍!';
+      ultHint.className = 'text-[9px] font-bold text-red-900 leading-tight';
+    }
+
+    const disableAll = !state.isPlayerTurn || state.busy;
+    document.getElementById('btn-taijutsu').disabled = disableAll;
+    document.getElementById('btn-clone').disabled = disableAll || p.cp < 20;
+    document.getElementById('btn-transform').disabled = disableAll || p.cp < 25;
+    document.getElementById('btn-substitute').disabled = disableAll || p.cp < 30 || p.substitute;
+    document.getElementById('btn-escape').disabled = disableAll || p.cp < 15;
+    document.getElementById('btn-ultimate').disabled = disableAll || p.cp < ultCost;
+
+    document.getElementById('turn-indicator').textContent = state.isPlayerTurn
+      ? `第 ${state.turn} 回合・你的行動`
+      : `第 ${state.turn} 回合・對手行動中...`;
+  }
+
+  // ==================== 玩家技能執行 ====================
+  function useSkill(skillType) {
+    if (!state.isPlayerTurn || state.busy) return;
+    const p = state.player;
+    const e = state.enemy;
+    state.busy = true;
+    state.lastTransform = null;
+
+    // 混亂判定 (35% 機率自己絆倒)
+    if (p.confused > 0 && Math.random() < 0.35) {
+      AudioEngine.playHit(false);
+      animateAction('player-sprite', 'char-hit');
+      showDamagePopup('player-unit', '💫 混亂發愣！', '#c084fc');
+      addLog('😵 阿鳴陷入混亂，結印結成「剪刀石頭布」浪費了行動！', 'text-purple-300');
+      endPlayerTurn();
+      return;
+    }
+
+    AudioEngine.playHandSign();
+
+    if (skillType === 'taijutsu') {
+      // 1. 體術・基礎拳腳
+      const cpGain = hasTalent('taijutsuProdigy') ? 25 : 15;
+      p.cp = Math.min(p.maxCp, p.cp + cpGain);
+      animateAction('player-sprite', 'attack-right');
+
+      setTimeout(() => {
+        if (e.evadeNext) {
+          e.evadeNext = false;
+          triggerSmoke('enemy-unit');
+          showDamagePopup('enemy-unit', '💨 瞬身閃避！', '#38bdf8');
+          addLog(`💨 ${e.name} 使用瞬身術躲開了基礎拳腳！`, 'text-sky-300');
+        } else {
+          let dmg = p.atk + Math.floor(Math.random() * 6);
+          if (hasTalent('taijutsuProdigy')) dmg = Math.round(dmg * 1.45);
+          if (p.shurikenBuff) {
+            dmg = Math.round(dmg * (hasTalent('masterDisguise') ? 2.1 : 1.75));
+            p.shurikenBuff = false;
+            addLog('✴️ 巨大手裏劍變身加持，威力暴增！', 'text-purple-300');
+          }
+          if (p.slowed > 0) dmg = Math.round(dmg * 0.8);
+
+          const critChance = 0.1 + p.clones * 0.15;
+          const isCrit = Math.random() < critChance;
+          if (isCrit) dmg = Math.round(dmg * 1.5);
+
+          applyDamageToEnemy(dmg, isCrit ? `💥 暴擊 -${dmg}` : `-${dmg}`, isCrit);
+          addLog(`👊 阿鳴使出【基礎拳腳】，造成 <b>${dmg}</b> 點傷害並凝聚 +${cpGain} CP！`);
+        }
+        checkBattleEndOrNext();
+      }, 250);
+
+    } else if (skillType === 'clone') {
+      // 2. 分身術 (E級)
+      p.cp -= 20;
+      triggerSmoke('player-unit');
+      p.clones = Math.min(2, p.clones + 1);
+      p.cloneTurns = 2;
+
+      let extraMsg = '';
+      if (hasTalent('oscarClone')) {
+        const heal = 18;
+        p.hp = Math.min(p.maxHp, p.hp + heal);
+        showDamagePopup('player-unit', `+${heal} HP`, '#4ade80');
+        extraMsg = `（影級演技回復 ${heal} HP！）`;
+      }
+      addLog(`👥 阿鳴結印【分身術】！製造出逼真殘影（目前 ${p.clones} 層）${extraMsg}`, 'text-sky-300');
+      setTimeout(() => checkBattleEndOrNext(), 450);
+
+    } else if (skillType === 'transform') {
+      // 3. 變身術 (E級)
+      p.cp -= 25;
+      triggerSmoke('player-unit');
+      const modes = ['rock', 'shuriken', 'examiner'];
+      const chosen = modes[Math.floor(Math.random() * modes.length)];
+      state.lastTransform = chosen;
+
+      if (chosen === 'rock') {
+        p.stoneShield = 1;
+        const heal = hasTalent('masterDisguise') ? 40 : 20;
+        p.hp = Math.min(p.maxHp, p.hp + heal);
+        showDamagePopup('player-unit', `🪨 變身石頭 +${heal}HP`, '#a8a29e');
+        addLog(`🎭 【變身術】砰！阿鳴變成「路邊的石頭」，獲得 60% 減傷並回復 ${heal} HP！`, 'text-stone-300');
+      } else if (chosen === 'shuriken') {
+        p.shurikenBuff = true;
+        showDamagePopup('player-unit', '✴️ 巨大手裏劍！', '#c084fc');
+        addLog('🎭 【變身術】砰！阿鳴變成「巨大手裏劍」，下次攻擊傷害大幅飆升！', 'text-purple-300');
+      } else {
+        e.confused = hasTalent('masterDisguise') ? 2 : 1;
+        showDamagePopup('enemy-unit', '😵 考官怎麼有兩個?!', '#f472b6');
+        addLog(`🎭 【變身術】砰！阿鳴變成「考官的樣子」大聲訓話，${e.name} 陷入混亂發愣！`, 'text-pink-300');
+      }
+      setTimeout(() => checkBattleEndOrNext(), 500);
+
+    } else if (skillType === 'substitute') {
+      // 4. 替身術 (E級)
+      p.cp -= 30;
+      triggerSmoke('player-unit');
+      p.substitute = true;
+      showDamagePopup('player-unit', '🪵 替身預備！', '#34d399');
+      addLog('🪵 阿鳴悄悄準備好了一截優質木頭，進入【替身術】反擊姿態！', 'text-emerald-300');
+      setTimeout(() => checkBattleEndOrNext(), 450);
+
+    } else if (skillType === 'escape') {
+      // 5. 擺脫術 / 繩拔術 (E級)
+      p.cp -= 15;
+      AudioEngine.playLevelUp();
+      p.confused = 0;
+      p.slowed = 0;
+      const heal = 18;
+      p.hp = Math.min(p.maxHp, p.hp + heal);
+      showDamagePopup('player-unit', `🪢 狀態淨化 +${heal}HP`, '#2dd4bf');
+
+      let extra = '';
+      if (hasTalent('escapeArtist')) {
+        p.clones = Math.min(2, p.clones + 1);
+        p.cloneTurns = 2;
+        extra = ' 並順勢分出 1 個殘影！';
+      }
+      addLog(`🪢 阿鳴施展【繩拔擺脫術】，掙脫所有負面狀態並回復 ${heal} HP${extra}`, 'text-teal-300');
+      setTimeout(() => checkBattleEndOrNext(), 450);
+
+    } else if (skillType === 'ultimate') {
+      // 6. 奧義・千年殺 (E級體術秘傳)
+      const cost = hasTalent('fingerOfDoom') ? 45 : 60;
+      p.cp -= cost;
+      animateAction('player-sprite', 'attack-right');
+
+      setTimeout(() => {
+        const hasAmbush = (p.clones > 0 || e.confused > 0);
+        if (e.evadeNext && !hasAmbush) {
+          e.evadeNext = false;
+          triggerSmoke('enemy-unit');
+          showDamagePopup('enemy-unit', '💨 瞬身閃避！', '#38bdf8');
+          addLog(`💨 正面突刺被 ${e.name} 的瞬身術躲開了！（若有分身或混亂掩護則必中！）`, 'text-sky-300');
+        } else {
+          e.evadeNext = false;
+          let dmg = 34 + Math.floor(Math.random() * 8);
+          if (hasTalent('fingerOfDoom')) dmg = Math.round(dmg * 1.3);
+          if (p.shurikenBuff) {
+            dmg = Math.round(dmg * (hasTalent('masterDisguise') ? 2.1 : 1.75));
+            p.shurikenBuff = false;
+          }
+          if (hasAmbush) {
+            dmg *= 2;
+          }
+          e.armorBreak = 2;
+          applyDamageToEnemy(
+            dmg,
+            hasAmbush ? `👉💥 雙倍千年殺 -${dmg}!!` : `👉 千年殺 -${dmg}!`,
+            true
+          );
+          addLog(
+            hasAmbush
+              ? `🔥 <b>【奧義・千年殺】</b> 趁著掩護繞到死角發動虎印突刺！暴擊造成 <b>${dmg}</b> 巨額傷害並附加「羞恥破防」！`
+              : `👉 <b>【奧義・千年殺】</b> 正面虎印突刺！造成 <b>${dmg}</b> 點傷害並附加「羞恥破防」！`,
+            'text-orange-300 font-bold'
+          );
+        }
+        checkBattleEndOrNext();
+      }, 280);
+    }
+    updateUI();
+  }
+
+  function applyDamageToEnemy(rawDmg, popupText, isHeavy = false) {
+    const e = state.enemy;
+    let finalDmg = rawDmg;
+    if (e.armorBreak > 0) {
+      finalDmg = Math.round(finalDmg * 1.35);
+    }
+    e.hp = Math.max(0, e.hp - finalDmg);
+    AudioEngine.playHit(isHeavy);
+    animateAction('enemy-sprite', 'char-hit');
+    showDamagePopup('enemy-unit', popupText, isHeavy ? '#fb7185' : '#fde047', isHeavy ? 'text-xl' : 'text-lg');
+
+    // 敵人反彈狀態（木樁尖刺）
+    if (e.thorns > 0 && e.hp > 0) {
+      const reflect = 9;
+      state.player.hp = Math.max(0, state.player.hp - reflect);
+      showDamagePopup('player-unit', `🌵 反彈 -${reflect}`, '#fb923c', 'text-sm');
+      addLog(`🌵 木樁上的苦無反彈了 <b>${reflect}</b> 點傷害！`, 'text-amber-400');
+    }
+  }
+
+  function checkBattleEndOrNext() {
+    updateUI();
+    if (state.enemy.hp <= 0) {
+      handleStageVictory();
+      return;
+    }
+    if (state.player.hp <= 0) {
+      handleDefeat();
+      return;
+    }
+    endPlayerTurn();
+  }
+
+  function endPlayerTurn() {
+    state.isPlayerTurn = false;
+    state.busy = false;
+    updateUI();
+    setTimeout(executeEnemyTurn, 750);
+  }
+
+  // ==================== 敵人回合行動 ====================
+  function executeEnemyTurn() {
+    const p = state.player;
+    const e = state.enemy;
+    const action = state.nextEnemyAction;
+
+    // 敵人混亂判定 (65% 機率發愣跳過)
+    if (e.confused > 0) {
+      e.confused--;
+      if (Math.random() < 0.75) {
+        showDamagePopup('enemy-unit', '😵 發愣中...', '#c084fc');
+        addLog(`😵 ${e.name} 還在困惑剛剛是不是有兩個考官，錯失了攻擊機會！`, 'text-purple-300');
+        finishEnemyTurn();
+        return;
+      }
+    }
+
+    if (action === 'thorns') {
+      e.thorns = 2;
+      showDamagePopup('enemy-unit', '🌵 尖刺反彈！', '#fbbf24');
+      addLog(`🪵 ${e.name} 插滿了苦無進入【尖刺反彈】狀態（2回合）！`, 'text-amber-300');
+      finishEnemyTurn();
+
+    } else if (action === 'still') {
+      const heal = 12;
+      e.hp = Math.min(e.maxHp, e.hp + heal);
+      showDamagePopup('enemy-unit', `🪵 紋絲不動 +${heal}`, '#4ade80');
+      addLog(`🪵 ${e.name} 【紋絲不動】，以木頭的堅韌回復了 ${heal} HP！`, 'text-emerald-300');
+      finishEnemyTurn();
+
+    } else if (action === 'seeThrough') {
+      if (p.clones > 0) {
+        p.clones = 0;
+        p.cloneTurns = 0;
+        triggerSmoke('player-unit');
+        showDamagePopup('player-unit', '👁️ 分身被識破！', '#f87171');
+        addLog(`📋 考官推了推護額：【識破分身】！「沒有影子的分身太嫩了！」所有分身消散！`, 'text-rose-300');
+      } else {
+        addLog(`📋 考官使用【識破分身】，但阿鳴根本沒分身，考官撲了個空！`, 'text-amber-200');
+      }
+      finishEnemyTurn();
+
+    } else if (action === 'lecture') {
+      const cpLoss = 20;
+      p.cp = Math.max(0, p.cp - cpLoss);
+      p.slowed = 2;
+      showDamagePopup('player-unit', `💢 說教 -${cpLoss}CP`, '#fb7185');
+      addLog(`📋 考官發動【嚴厲說教】：「作業寫完了嗎！」阿鳴氣餒且損失 ${cpLoss} CP！`, 'text-rose-300');
+      finishEnemyTurn();
+
+    } else if (action === 'bodyFlicker') {
+      e.evadeNext = true;
+      triggerSmoke('enemy-unit');
+      showDamagePopup('enemy-unit', '💨 瞬身術！', '#38bdf8');
+      addLog(`⚡ ${e.name} 單手結印施展【瞬身術】，下次正面攻擊將被閃避！`, 'text-sky-300');
+      finishEnemyTurn();
+
+    } else if (action === 'actCool') {
+      e.critBuff = 2;
+      const heal = 15;
+      e.hp = Math.min(e.maxHp, e.hp + heal);
+      showDamagePopup('enemy-unit', '✨ 裝酷回血 +15', '#818cf8');
+      addLog(`⚡ ${e.name} 單手插袋【裝酷】，吸引場邊尖叫並提升暴擊率！`, 'text-indigo-300');
+      finishEnemyTurn();
+
+    } else {
+      // 攻擊類技能：bonk / chalk / kunaiBarrage
+      animateAction('enemy-sprite', 'attack-left');
+      setTimeout(() => {
+        const nameMap = {
+          bonk: '木樁重壓',
+          chalk: '粉筆頭狙擊',
+          kunaiBarrage: '苦無連射'
+        };
+        const atkName = nameMap[action] || '攻擊';
+
+        // 1. 優先檢查玩家「替身術」
+        if (p.substitute) {
+          p.substitute = false;
+          triggerSmoke('player-unit');
+          let counterDmg = 26 + Math.floor(Math.random() * 6);
+          if (hasTalent('woodSupplier')) {
+            counterDmg = Math.round(counterDmg * 1.6);
+            p.cp = Math.min(p.maxCp, p.cp + 15);
+          }
+          showDamagePopup('player-unit', '🪵 替身木頭！', '#34d399');
+          addLog(`🪵 砰！【替身術】發動！一截木頭擋下了「${atkName}」，阿鳴從背後偷襲反擊 <b>${counterDmg}</b> 傷害！`, 'text-emerald-300 font-bold');
+          applyDamageToEnemy(counterDmg, `🪵 偷襲反擊 -${counterDmg}`, true);
+          if (e.hp <= 0) {
+            handleStageVictory();
+            return;
+          }
+          finishEnemyTurn();
+          return;
+        }
+
+        // 2. 檢查「分身術」閃避率
+        const baseEvade = p.clones * (hasTalent('oscarClone') ? 0.35 : 0.25);
+        if (baseEvade > 0 && Math.random() < baseEvade) {
+          triggerSmoke('player-unit');
+          showDamagePopup('player-unit', '👥 殘影閃避！', '#38bdf8');
+          addLog(`👥 ${e.name} 的「${atkName}」打穿了分身殘影，本體毫髮無傷！`, 'text-sky-300');
+          finishEnemyTurn();
+          return;
+        }
+
+        // 3. 結算傷害
+        let dmg = e.atk + Math.floor(Math.random() * 5);
+        if (action === 'kunaiBarrage') dmg = Math.round(dmg * 1.2);
+        if (e.critBuff > 0 && Math.random() < 0.45) {
+          dmg = Math.round(dmg * 1.4);
+          addLog(`⚡ ${e.name} 觸發裝酷暴擊！`, 'text-indigo-300');
+        }
+        if (p.stoneShield > 0) {
+          dmg = Math.max(2, Math.round(dmg * 0.4));
+          addLog('🪨 石頭變身硬扛了大部分衝擊！', 'text-stone-300');
+        }
+
+        p.hp = Math.max(0, p.hp - dmg);
+        AudioEngine.playHit(false);
+        animateAction('player-sprite', 'char-hit');
+        showDamagePopup('player-unit', `-${dmg}`, '#f87171');
+        addLog(`💥 ${e.name} 使出【${atkName}】，阿鳴受到 <b>${dmg}</b> 點傷害！`, 'text-rose-300');
+
+        if (p.hp <= 0) {
+          handleDefeat();
+          return;
+        }
+        finishEnemyTurn();
+      }, 280);
+    }
+  }
+
+  function finishEnemyTurn() {
+    const p = state.player;
+    const e = state.enemy;
+
+    // 回合結束狀態遞減
+    if (p.cloneTurns > 0) {
+      p.cloneTurns--;
+      if (p.cloneTurns === 0) p.clones = 0;
+    }
+    if (p.stoneShield > 0) p.stoneShield--;
+    if (p.confused > 0) p.confused--;
+    if (p.slowed > 0) p.slowed--;
+
+    if (e.thorns > 0) e.thorns--;
+    if (e.armorBreak > 0) e.armorBreak--;
+    if (e.critBuff > 0) e.critBuff--;
+
+    // 天賦：金蟬脫殼大師每回合回 CP
+    if (hasTalent('escapeArtist')) {
+      p.cp = Math.min(p.maxCp, p.cp + 8);
+    }
+
+    state.turn++;
+    state.isPlayerTurn = true;
+    decideEnemyIntent();
+    updateUI();
+  }
+
+  // ==================== 過關天賦選擇與結算 ====================
+  function handleStageVictory() {
+    AudioEngine.playLevelUp();
+    updateUI();
+    addLog(`🎉 擊敗了 <b>${state.enemy.name}</b>！`, 'text-emerald-300 font-bold');
+
+    if (state.stageIndex >= STAGES.length - 1) {
+      // 全破通關！
+      setTimeout(() => showEndModal(true), 650);
+    } else {
+      // 彈出天賦三選一
+      setTimeout(openTalentModal, 650);
+    }
+  }
+
+  function openTalentModal() {
+    const available = ALL_TALENTS.filter(t => !state.player.talents.includes(t.id));
+    const shuffled = available.sort(() => 0.5 - Math.random()).slice(0, 3);
+    const container = document.getElementById('talent-choices');
+    container.innerHTML = '';
+
+    shuffled.forEach(t => {
+      const btn = document.createElement('button');
+      btn.className = 'w-full text-left p-3 rounded-xl bg-white hover:bg-amber-50 border-2 border-amber-700 shadow flex items-start gap-2.5 active:scale-98 transition';
+      btn.innerHTML = `
+        <span class="text-2xl shrink-0">${t.icon}</span>
+        <div>
+          <div class="font-black text-sm text-amber-950">${t.name}</div>
+          <div class="text-xs text-stone-700 leading-snug mt-0.5">${t.desc}</div>
+        </div>
+      `;
+      btn.onclick = () => selectTalent(t);
+      container.appendChild(btn);
+    });
+
+    document.getElementById('talent-modal').classList.remove('hidden');
+  }
+
+  function selectTalent(talent) {
+    AudioEngine.playHandSign();
+    state.player.talents.push(talent.id);
+    document.getElementById('talent-modal').classList.add('hidden');
+    addLog(`📜 領悟天賦【${talent.name}】！`, 'text-yellow-300 font-bold');
+    loadStage(state.stageIndex + 1);
+  }
+
+  function handleDefeat() {
+    AudioEngine.playHit(true);
+    updateUI();
+    addLog('💀 阿鳴體力耗盡，畢業考不合格……明年再來吧！', 'text-red-400 font-bold');
+    setTimeout(() => showEndModal(false), 650);
+  }
+
+  function showEndModal(isWin) {
+    const modal = document.getElementById('end-modal');
+    document.getElementById('end-icon').textContent = isWin ? '🎓🍥' : '😭🪵';
+    document.getElementById('end-title').textContent = isWin ? '畢業考試・大合格！' : '畢業考不合格…';
+    document.getElementById('end-desc').textContent = isWin
+      ? '太神啦！你只靠最入門的E級忍術與基本功，就擊敗了木樁、中忍考官與學院首席天才，光榮獲得下忍護額！'
+      : '差一點點！善用「分身術」與「變身術」創造背刺機會，再發動雙倍「千年殺」試試看吧！';
+
+    const summary = document.getElementById('end-talents-summary');
+    if (state.player.talents.length === 0) {
+      summary.innerHTML = '<b>已領悟E級天賦：</b>無（純粹的基本功！）';
+    } else {
+      const names = state.player.talents.map(id => {
+        const found = ALL_TALENTS.find(t => t.id === id);
+        return found ? `${found.icon} ${found.name}` : id;
+      });
+      summary.innerHTML = `<b>已領悟E級大師天賦：</b><br/>${names.join('、')}`;
+    }
+
+    modal.classList.remove('hidden');
+  }
+
+  function restartGame() {
+    AudioEngine.playHandSign();
+    document.getElementById('end-modal').classList.add('hidden');
+    document.getElementById('battle-log').innerHTML = '';
+    state.player = {
+      hp: 130,
+      maxHp: 130,
+      cp: 65,
+      maxCp: 100,
+      atk: 18,
+      clones: 0,
+      cloneTurns: 0,
+      substitute: false,
+      stoneShield: 0,
+      shurikenBuff: false,
+      confused: 0,
+      slowed: 0,
+      talents: []
+    };
+    loadStage(0);
+  }
+
+  function openGrimoire() {
+    AudioEngine.playHandSign();
+    document.getElementById('grimoire-modal').classList.remove('hidden');
+  }
+
+  function closeGrimoire() {
+    document.getElementById('grimoire-modal').classList.add('hidden');
+  }
+
+  // ==================== 啟動遊戲 ====================
+  window.onload = function () {
+    spawnLeaves();
+    loadStage(0);
+  };
+</script>
+</body>
+</html>
