@@ -1,0 +1,2396 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#04070f">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>1945 抵抗 · 復古彈幕射擊</title>
+<style>
+/* 所有字體永久不低於 16px —— 本檔案內每一個 font-size 皆 >= 16px（使用 max(16px, …) 保證下限） */
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;margin:0;padding:0}
+html,body{height:100%;width:100%;background:#02040a;overflow:hidden;overscroll-behavior:none;touch-action:none;
+  -webkit-user-select:none;user-select:none;-webkit-touch-callout:none;
+  font-family:"Courier New","Noto Sans TC","PingFang TC","Microsoft JhengHei",ui-monospace,monospace;font-weight:700;font-size:16px;color:#e8f4ff}
+/* 外層：保留安全區，確保內容永不被底部手勢條 / 虛擬按鍵遮蓋 */
+#wrap{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;
+  padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom);
+  padding-left:env(safe-area-inset-left);padding-right:env(safe-area-inset-right);
+  background:radial-gradient(ellipse at center,#0b1428 0%,#02040a 75%)}
+/* 遊戲主畫面：嚴格 9:16，永遠置中；JS 會再精準計算，CSS 為 fallback */
+#game{position:relative;aspect-ratio:9/16;width:min(100vw,calc((100vh - env(safe-area-inset-bottom) - env(safe-area-inset-top)) * 9 / 16));
+  max-height:100%;overflow:hidden;background:#06324a;box-shadow:0 0 0 2px #1d3557,0 0 60px rgba(0,180,255,.25);--gw:360px}
+#cv{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none}
+/* 復古 CRT 掃描線 + 暈影 */
+#game::after{content:"";position:absolute;inset:0;pointer-events:none;z-index:50;
+  background:repeating-linear-gradient(0deg,rgba(0,0,0,.10) 0,rgba(0,0,0,.10) 1px,transparent 1px,transparent 3px),
+  radial-gradient(ellipse at center,transparent 60%,rgba(0,0,0,.45) 100%)}
+.hidden{display:none!important}
+button{font-family:inherit;font-weight:800;color:inherit;border:none;cursor:pointer;touch-action:manipulation}
+
+/* ===== HUD ===== */
+#hud{position:absolute;inset:0;pointer-events:none;z-index:10;padding:6px 8px}
+.row{display:flex;align-items:center;gap:6px}
+.pill{background:rgba(5,12,28,.72);border:2px solid #3a6ea5;border-radius:8px;padding:2px 8px;font-size:max(16px,calc(var(--gw)*.04));
+  text-shadow:0 0 6px #4fc3f7;white-space:nowrap}
+.iconbtn{pointer-events:auto;width:max(40px,calc(var(--gw)*.1));height:max(40px,calc(var(--gw)*.1));border-radius:10px;background:rgba(5,12,28,.8);
+  border:2px solid #3a6ea5;font-size:max(18px,calc(var(--gw)*.05));display:flex;align-items:center;justify-content:center;transition:transform .12s}
+.iconbtn:active{transform:scale(.88)}
+.hpbar{position:relative;height:max(22px,calc(var(--gw)*.062));margin-top:6px;border:2px solid #cfd8dc;border-radius:6px;background:rgba(0,0,0,.6);overflow:hidden}
+#hpFill{position:absolute;left:0;top:0;bottom:0;width:100%;background:linear-gradient(#69f0ae,#00c853);transition:width .15s,background .3s}
+#hpTxt{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:16px;text-shadow:0 1px 2px #000,0 0 4px #000}
+#bossWrap{margin-top:6px}
+#bossName{font-size:16px;color:#ff8a80;text-shadow:0 0 8px #f00;display:block}
+.bossbar{height:14px;border:2px solid #ff5252;border-radius:6px;background:rgba(0,0,0,.6);overflow:hidden}
+#bossFill{height:100%;width:100%;background:linear-gradient(90deg,#ff1744,#ff9100);transition:width .1s}
+#chips{position:absolute;left:6px;right:6px;bottom:6px;display:flex;flex-flow:row wrap;gap:4px;justify-content:center}
+.chip{position:relative;width:max(54px,calc(var(--gw)*.15));height:max(50px,calc(var(--gw)*.14));border-radius:9px;background:rgba(5,12,28,.75);
+  border:2px solid var(--c);overflow:hidden;display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.05}
+.chip .ci{font-size:20px}
+.chip .cl{font-size:16px;color:#fff;text-shadow:0 1px 2px #000;position:relative;z-index:2}
+.chip .cd{position:absolute;left:0;right:0;bottom:0;height:100%;background:rgba(0,0,0,.62);transform-origin:bottom;transform:scaleY(0);z-index:1}
+.chip.p3{box-shadow:0 0 8px var(--c),inset 0 0 8px var(--c)}
+.chip.p5{box-shadow:0 0 14px #fff,0 0 22px var(--c),inset 0 0 12px var(--c);animation:chipGlow 1.2s infinite alternate}
+.chip.pop{animation:chipPop .9s}
+@keyframes chipGlow{to{filter:brightness(1.5)}}
+@keyframes chipPop{0%{transform:scale(1)}20%{transform:scale(1.6);filter:brightness(2.5)}100%{transform:scale(1)}}
+
+/* ===== 橫幅 ===== */
+#banner{position:absolute;left:0;right:0;top:30%;z-index:30;text-align:center;pointer-events:none;opacity:0}
+#banner .bt{font-size:max(28px,calc(var(--gw)*.1));letter-spacing:2px;color:#fff;text-shadow:0 0 12px #4fc3f7,0 0 28px #0288d1,3px 3px 0 #01579b}
+#banner .bs{font-size:max(16px,calc(var(--gw)*.045));margin-top:6px;color:#b3e5fc;text-shadow:0 0 8px #000;padding:0 14px}
+#banner.show{animation:bnIn 1.9s forwards}
+#banner.warn .bt{color:#ff5252;text-shadow:0 0 14px #f00,0 0 30px #b71c1c,3px 3px 0 #4a0000;animation:blink .35s infinite alternate}
+#banner.warn .bs{color:#ffcdd2}
+#banner.potential .bt{color:#ffe082;text-shadow:0 0 16px #ffb300,0 0 36px #ff6f00,3px 3px 0 #5d3600}
+#banner.potential .bs{color:#fff3c4}
+@keyframes bnIn{0%{opacity:0;transform:scale(2.2)}12%{opacity:1;transform:scale(1)}80%{opacity:1}100%{opacity:0;transform:scale(.96)}}
+@keyframes blink{to{opacity:.55}}
+
+/* ===== 畫面層 ===== */
+.screen{position:absolute;inset:0;z-index:20;display:flex;flex-direction:column;align-items:center;padding:14px 16px}
+#menu{justify-content:space-between;background:linear-gradient(180deg,rgba(2,8,20,.75),rgba(2,8,20,.15) 40%,rgba(2,8,20,.85))}
+.logo{margin-top:6%;text-align:center}
+.logo h1{font-size:max(64px,calc(var(--gw)*.27));line-height:1;letter-spacing:4px;
+  background:linear-gradient(180deg,#fff9c4 0%,#ffca28 45%,#ef6c00 55%,#ffd54f 100%);-webkit-background-clip:text;background-clip:text;color:transparent;
+  filter:drop-shadow(0 4px 0 #6d2a00) drop-shadow(0 0 18px rgba(255,160,0,.7));animation:logoPulse 2.4s infinite alternate}
+.logo h2{font-size:max(20px,calc(var(--gw)*.07));margin-top:6px;color:#b3e5fc;letter-spacing:6px;text-shadow:0 0 12px #03a9f4}
+.logo p{font-size:16px;margin-top:10px;color:#90caf9;opacity:.9}
+@keyframes logoPulse{to{transform:scale(1.04);filter:drop-shadow(0 4px 0 #6d2a00) drop-shadow(0 0 30px rgba(255,200,0,.95))}}
+.menubtns{width:100%;display:flex;flex-direction:column;gap:14px;align-items:center;margin-bottom:6%}
+.btn{position:relative;overflow:hidden;width:min(86%,340px);min-height:56px;padding:12px 18px;border-radius:12px;
+  font-size:max(20px,calc(var(--gw)*.058));letter-spacing:3px;color:#fff;
+  background:linear-gradient(180deg,#42a5f5,#1565c0);border:3px solid #e3f2fd;box-shadow:0 5px 0 #0d3b7a,0 0 22px rgba(66,165,245,.6);
+  transition:transform .12s,box-shadow .12s,filter .2s;text-shadow:0 2px 0 #0d3b7a}
+.btn.red{background:linear-gradient(180deg,#ff7043,#d84315);box-shadow:0 5px 0 #7a2208,0 0 24px rgba(255,112,67,.65);text-shadow:0 2px 0 #7a2208;animation:btnBeat 1.3s infinite}
+.btn.sm{min-height:50px;font-size:max(18px,calc(var(--gw)*.05))}
+.btn::after{content:"";position:absolute;top:0;left:-70%;width:40%;height:100%;background:linear-gradient(100deg,transparent,rgba(255,255,255,.55),transparent);transform:skewX(-20deg);animation:shine 2.6s infinite}
+.btn:active{transform:translateY(4px) scale(.98);box-shadow:0 1px 0 #0d3b7a}
+@keyframes shine{0%{left:-70%}60%,100%{left:140%}}
+@keyframes btnBeat{50%{transform:scale(1.035)}}
+.panel{width:100%;flex:1;min-height:0;background:rgba(4,10,24,.94);border:3px solid #3a6ea5;border-radius:14px;display:flex;flex-direction:column;overflow:hidden;
+  box-shadow:0 0 30px rgba(0,150,255,.35);animation:panelIn .35s}
+@keyframes panelIn{from{transform:translateY(30px) scale(.94);opacity:0}}
+.panel h3{font-size:max(20px,calc(var(--gw)*.058));text-align:center;padding:10px 8px 6px;color:#ffe082;text-shadow:0 0 10px #ffa000}
+.scroll{overflow-y:auto;overflow-x:hidden;flex:1;min-height:0;padding:6px 10px 10px;touch-action:pan-y;-webkit-overflow-scrolling:touch}
+.panelfoot{padding:8px 10px;display:flex;justify-content:center;gap:10px}
+#codex,#pick,#pause,#result{justify-content:center;background:rgba(0,4,12,.7)}
+.rule{font-size:16px;line-height:1.55;color:#cfe8ff;background:rgba(30,60,100,.35);border-left:4px solid #4fc3f7;padding:8px 10px;border-radius:6px;margin-bottom:10px}
+.rule b{color:#ffe082}
+.cx-card{border:2px solid var(--c);border-radius:12px;padding:10px;margin-bottom:12px;background:linear-gradient(160deg,rgba(255,255,255,.06),rgba(0,0,0,.25));box-shadow:0 0 12px -4px var(--c)}
+.cx-head{display:flex;align-items:center;gap:10px}
+.cx-ic{font-size:34px;filter:drop-shadow(0 0 8px var(--c))}
+.cx-head b{display:block;font-size:max(18px,calc(var(--gw)*.052));color:var(--c);text-shadow:0 0 8px var(--c)}
+.cx-head span.k{font-size:16px;color:#90caf9}
+.cx-card p{font-size:16px;line-height:1.5;margin:6px 0;color:#e1f0ff}
+.lvrow{display:flex;gap:8px;font-size:16px;line-height:1.45;padding:3px 0;border-top:1px dashed rgba(255,255,255,.14);color:#d6e8fb}
+.lvrow i{font-style:normal;flex:0 0 3.2em;color:#fff;background:rgba(255,255,255,.12);border-radius:4px;text-align:center;height:fit-content}
+.pot{font-size:16px;line-height:1.5;margin-top:6px;padding:6px 8px;border-radius:8px;color:#fff3c4;background:linear-gradient(90deg,rgba(255,160,0,.28),rgba(255,160,0,.08));border:1px solid #ffb300}
+.pot.p5{background:linear-gradient(90deg,rgba(255,64,129,.32),rgba(255,160,0,.12));border-color:#ff4081;color:#ffe0ec}
+.pickprog{text-align:center;font-size:16px;color:#b3e5fc;padding-bottom:6px}
+.opt{display:flex;gap:10px;align-items:center;width:100%;text-align:left;margin-bottom:9px;padding:10px;border-radius:12px;min-height:64px;
+  background:linear-gradient(160deg,rgba(40,70,120,.8),rgba(10,20,45,.9));border:2px solid var(--c);color:#fff;
+  box-shadow:0 0 14px -4px var(--c);transition:transform .15s,filter .2s,opacity .2s;animation:optIn .4s backwards}
+.opt:active{transform:scale(.97)}
+.opt .oi{font-size:34px;flex:0 0 auto;filter:drop-shadow(0 0 8px var(--c))}
+.opt .ot{flex:1;min-width:0}
+.opt .on{font-size:max(17px,calc(var(--gw)*.048));color:var(--c);display:flex;justify-content:space-between;gap:6px;flex-wrap:wrap}
+.opt .on em{font-style:normal;font-size:16px;color:#fff;background:rgba(255,255,255,.16);padding:0 6px;border-radius:5px}
+.opt .on em.new{background:#00c853;color:#00280f}
+.opt .od{font-size:16px;line-height:1.4;color:#d6e8fb;margin-top:2px}
+.opt .op{font-size:16px;line-height:1.4;color:#ffe082;margin-top:3px}
+.opt.picked{filter:grayscale(.2) brightness(1.2);border-color:#ffe082;background:linear-gradient(160deg,rgba(120,90,0,.8),rgba(40,30,0,.9));transform:scale(.98)}
+.opt.picked::before{content:"✔";position:absolute;right:16px;font-size:26px;color:#ffe082}
+.opt.dim{opacity:.35;pointer-events:none}
+.opt{position:relative}
+.opt.potfx{animation:potfx 1s}
+@keyframes potfx{0%{box-shadow:0 0 0 #fff}30%{box-shadow:0 0 40px 10px #ffd54f;transform:scale(1.05)}100%{}}
+@keyframes optIn{from{transform:translateX(-40px);opacity:0}}
+.stat{display:flex;justify-content:space-between;font-size:max(18px,calc(var(--gw)*.05));padding:6px 4px;border-bottom:1px dashed rgba(255,255,255,.18)}
+.stat b{color:#ffe082}
+.restitle{font-size:max(30px,calc(var(--gw)*.1));text-align:center;padding:14px 6px 4px;text-shadow:0 0 14px currentColor}
+.restitle.win{color:#ffe082}.restitle.lose{color:#ff5252}
+.resskills{font-size:16px;line-height:1.7;color:#b3e5fc;text-align:center;padding:8px 0}
+#fxflash{position:absolute;inset:0;pointer-events:none;z-index:5}
+/* ===== 末日拯救 · 雙人組隊（新增，單人樣式一律不動） ===== */
+.btn.gold{background:linear-gradient(180deg,#ffd54f,#ff6f00);box-shadow:0 5px 0 #7a2208,0 0 24px rgba(255,200,0,.65);text-shadow:0 2px 0 #7a2208;animation:btnBeat 1.3s infinite}
+.coop-input{width:100%;min-height:56px;padding:12px 14px;border-radius:12px;border:3px solid #3a6ea5;background:rgba(5,12,28,.85);color:#fff;font-family:inherit;font-weight:800;font-size:22px;letter-spacing:8px;text-align:center;outline:none}
+.coop-input::placeholder{color:#90caf9;letter-spacing:2px}
+.coop-code{font-size:max(44px,calc(var(--gw)*.14));letter-spacing:10px;color:#ffe082;text-align:center;text-shadow:0 0 18px #ffb300}
+.coop-status{font-size:16px;line-height:1.6;color:#b3e5fc;text-align:center;padding:6px 8px;white-space:pre-line}
+.coop-divider{display:flex;align-items:center;gap:10px;color:#90caf9;font-size:16px;padding:2px 0}
+.coop-divider::before,.coop-divider::after{content:"";flex:1;height:2px;background:rgba(144,202,249,.4)}
+#coopPartner{margin-top:6px}
+#coopPartner .coop-p2name{font-size:16px;color:#ffcc80;text-shadow:0 0 8px #ff6f00;display:block}
+.coop-p2bar{height:14px;border:2px solid #ffcc80;border-radius:6px;background:rgba(0,0,0,.6);overflow:hidden}
+#coopP2Fill{height:100%;width:100%;background:linear-gradient(90deg,#ffcc80,#ff6f00);transition:width .15s}
+#coopResultHint{font-size:16px;color:#ffcc80;text-align:center;padding:6px 0 2px}
+</style>
+</head>
+<body>
+<div id="wrap">
+<div id="game">
+  <canvas id="cv"></canvas>
+
+  <div id="hud" class="hidden">
+    <div class="row">
+      <div class="pill" id="waveTxt">WAVE 1/15</div>
+      <button class="iconbtn" id="btnSnd" aria-label="音效">🔊</button>
+      <button class="iconbtn" id="btnPause" aria-label="暫停">⏸</button>
+    </div>
+    <div class="hpbar"><div id="hpFill"></div><div id="hpTxt">HP 1234/1234</div></div>
+    <div id="bossWrap" class="hidden"><span id="bossName">BOSS</span><div class="bossbar"><div id="bossFill"></div></div></div>
+    <div id="coopPartner" class="hidden"><span class="coop-p2name">🤝 隊友</span><div class="coop-p2bar"><div id="coopP2Fill"></div></div><span id="coopP2Txt" style="font-size:16px;color:#ffcc80"></span></div>
+    <div class="pill hidden" id="coopRoomPill">房間 ----</div>
+    <div id="chips"></div>
+  </div>
+
+  <div id="banner"></div>
+
+  <!-- 主選單 -->
+  <div id="menu" class="screen">
+    <div class="logo">
+      <h1>1945</h1>
+      <h2>抵 抗</h2>
+      <p>15 波空戰 · 11 種華麗技能 · 精英與 Boss</p>
+    </div>
+    <div class="menubtns">
+      <button class="btn red" id="btnStart">開始抵抗</button>
+      <button class="btn gold" id="btnCoop">末日拯救</button>
+      <button class="btn" id="btnCodex">技能圖鑑</button>
+      <p style="font-size:16px;color:#90caf9;text-align:center;line-height:1.5">拖曳螢幕任意處移動機體 · 自動射擊</p>
+    </div>
+  </div>
+
+    <!-- 末日拯救 · 雙人組隊大廳（新增） -->
+  <div id="coop" class="screen hidden">
+    <div class="panel">
+      <h3>🤝 末日拯救 · 雙人組隊</h3>
+      <div class="scroll" id="coopBody">
+        <div class="rule"><b>雙人規則</b><br>・共 <b>10 波</b>：第 <b>5</b> 波為「精英戰機」，第 <b>10</b> 波為「最終 Boss · 天空要塞」。<br>・<b>六選三</b>與第 5 波<b>精英獎勵 · 六選五</b>和單人相同。<br>・敵機<b>更多</b>，且血量與攻擊力皆為單人模式的 <b>7 倍</b>。兩人共享波次與敵機，隊友位置與血量即時同步。<br>・一人陣亡可由隊友繼續戰鬥，兩人皆陣亡才算失敗；撐過第 10 波即雙人勝利。</div>
+        <div id="coopSetup">
+          <button class="btn gold" id="coopCreateBtn" style="width:100%">創建房間</button>
+          <div class="coop-divider">或加入房間</div>
+          <input class="coop-input" id="coopCodeInput" inputmode="numeric" maxlength="4" placeholder="輸入 4 位房間號碼" autocomplete="off">
+          <div style="height:10px"></div>
+          <button class="btn" id="coopJoinBtn" style="width:100%">加入房間</button>
+        </div>
+        <div id="coopLobby" class="hidden">
+          <div class="coop-code" id="coopRoomCode">----</div>
+          <div class="coop-status" id="coopLobbyStatus">等待中…</div>
+          <button class="btn gold" id="coopStartBtn" style="width:100%">開始末日拯救</button>
+          <div style="height:10px"></div>
+          <button class="btn sm" id="coopLeaveBtn" style="width:100%">離開大廳</button>
+        </div>
+        <div class="coop-status" id="coopStatus"></div>
+      </div>
+      <div class="panelfoot"><button class="btn sm" id="coopBackBtn">返回主選單</button></div>
+    </div>
+  </div>
+
+  <!-- 技能圖鑑 -->
+  <div id="codex" class="screen hidden">
+    <div class="panel">
+      <h3>📖 技能圖鑑（數值全公開）</h3>
+      <div class="scroll" id="codexBody"></div>
+      <div class="panelfoot"><button class="btn sm" id="btnCodexClose">返回</button></div>
+    </div>
+  </div>
+
+  <!-- 六選三 -->
+  <div id="pick" class="screen hidden">
+    <div class="panel">
+      <h3 id="pickTitle">波次完成！六選三</h3>
+      <div class="pickprog" id="pickProg">請選擇 3 項強化（0/3）</div>
+      <div class="scroll" id="pickBody"></div>
+    </div>
+  </div>
+
+  <!-- 暫停 -->
+  <div id="pause" class="screen hidden">
+    <div class="panel" style="flex:0 0 auto;padding-bottom:14px;align-items:center">
+      <h3>⏸ 暫停</h3>
+      <div class="menubtns" style="margin:10px 0 0">
+        <button class="btn sm" id="btnResume">繼續戰鬥</button>
+        <button class="btn sm" id="btnFS">切換全螢幕</button>
+        <button class="btn sm" id="btnQuit">放棄並回主選單</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 結算 -->
+  <div id="result" class="screen hidden">
+    <div class="panel" style="flex:0 0 auto;padding-bottom:12px">
+      <div class="restitle" id="resTitle">結算</div>
+      <div class="scroll" style="flex:0 1 auto">
+        <div class="stat"><span>抵達波次</span><b id="resWave">0</b></div>
+        <div class="resskills" id="resSkills"></div>
+        <div id="coopResultHint" class="hidden"></div>
+      </div>
+      <div class="panelfoot" style="flex-direction:column;align-items:center">
+        <button class="btn red sm" id="btnRetry">重新開始</button>
+        <button class="btn sm" id="btnMenu">回主選單</button>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+
+<script>
+'use strict';
+/* =====================================================================
+   1945 抵抗 —— 單檔 HTML5 Canvas 彈幕射擊
+   邏輯解析度 540x960 (9:16)，Canvas 依螢幕縮放。
+   ===================================================================== */
+const W=540,H=960,TAU=Math.PI*2;
+const $=id=>document.getElementById(id);
+const cv=$('cv'),ctx=cv.getContext('2d'),gameEl=$('game');
+let viewScale=1;
+const rnd=(a,b)=>a+Math.random()*(b-a);
+const rndi=(a,b)=>Math.floor(rnd(a,b+1));
+const clamp=(v,a,b)=>v<a?a:v>b?b:v;
+const pickOne=a=>a[Math.floor(Math.random()*a.length)];
+const shuffle=a=>{for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a};
+const angDiff=(a,b)=>((a-b+Math.PI*3)%TAU)-Math.PI;
+const hexA=(h,a)=>{const n=parseInt(h.slice(1),16);return `rgba(${n>>16},${(n>>8)&255},${n&255},${a})`};
+
+/* ---------- RWD：精準計算 9:16 並置中（扣除安全區） ---------- */
+function resize(){
+  const wrap=$('wrap'),cs=getComputedStyle(wrap);
+  const cw=wrap.clientWidth-parseFloat(cs.paddingLeft)-parseFloat(cs.paddingRight);
+  const ch=wrap.clientHeight-parseFloat(cs.paddingTop)-parseFloat(cs.paddingBottom);
+  const w=Math.max(200,Math.min(cw,ch*9/16)),h=w*16/9;
+  gameEl.style.width=w+'px';gameEl.style.height=h+'px';gameEl.style.maxHeight='none';
+  gameEl.style.setProperty('--gw',w+'px');
+  const dpr=Math.min(window.devicePixelRatio||1,2);
+  cv.width=Math.round(w*dpr);cv.height=Math.round(h*dpr);
+  viewScale=cv.width/W;
+}
+window.addEventListener('resize',resize);
+window.addEventListener('orientationchange',()=>setTimeout(resize,200));
+document.addEventListener('fullscreenchange',()=>setTimeout(resize,100));
+document.addEventListener('webkitfullscreenchange',()=>setTimeout(resize,100));
+if(window.visualViewport)window.visualViewport.addEventListener('resize',resize);
+
+/* ---------- 全螢幕（需使用者手勢） ---------- */
+const isFS=()=>!!(document.fullscreenElement||document.webkitFullscreenElement);
+function reqFS(){
+  const el=document.documentElement;
+  const f=el.requestFullscreen||el.webkitRequestFullscreen||el.msRequestFullscreen;
+  if(f&&!isFS()){try{const p=f.call(el,{navigationUI:'hide'});if(p&&p.catch)p.catch(()=>{})}catch(e){}}
+  try{if(screen.orientation&&screen.orientation.lock)screen.orientation.lock('portrait').catch(()=>{})}catch(e){}
+}
+function toggleFS(){
+  if(isFS()){const x=document.exitFullscreen||document.webkitExitFullscreen;try{x&&x.call(document)}catch(e){}}
+  else reqFS();
+}
+
+/* ---------- 音效（極簡 WebAudio 復古音） ---------- */
+let AC=null,muted=false,noiseBuf=null;const lastSfx={};
+function audioInit(){
+  if(!AC){try{AC=new(window.AudioContext||window.webkitAudioContext)();
+    noiseBuf=AC.createBuffer(1,AC.sampleRate,AC.sampleRate);const d=noiseBuf.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1;}catch(e){}}
+  if(AC&&AC.state==='suspended')AC.resume();
+}
+function tone(f0,f1,dur,type,vol){
+  const t=AC.currentTime,o=AC.createOscillator(),g=AC.createGain();
+  o.type=type;o.frequency.setValueAtTime(f0,t);o.frequency.exponentialRampToValueAtTime(Math.max(20,f1),t+dur);
+  g.gain.setValueAtTime(vol,t);g.gain.exponentialRampToValueAtTime(.001,t+dur);o.connect(g);g.connect(AC.destination);o.start(t);o.stop(t+dur);
+}
+function noise(dur,vol,fq){
+  const t=AC.currentTime,s=AC.createBufferSource(),f=AC.createBiquadFilter(),g=AC.createGain();
+  s.buffer=noiseBuf;f.type='lowpass';f.frequency.setValueAtTime(fq,t);f.frequency.exponentialRampToValueAtTime(80,t+dur);
+  g.gain.setValueAtTime(vol,t);g.gain.exponentialRampToValueAtTime(.001,t+dur);s.connect(f);f.connect(g);g.connect(AC.destination);s.start(t);s.stop(t+dur);
+}
+function sfx(type){
+  if(muted||!AC)return;const now=AC.currentTime;if(lastSfx[type]&&now-lastSfx[type]<.06)return;lastSfx[type]=now;
+  try{
+    if(type==='boom')noise(.45,.35,1800);
+    else if(type==='zap')tone(900,200,.18,'sawtooth',.12);
+    else if(type==='power'){tone(200,1400,.6,'square',.14);noise(.5,.2,3000)}
+    else if(type==='hit'){tone(160,50,.25,'square',.25);noise(.25,.25,900)}
+    else if(type==='pick')tone(600,1200,.12,'triangle',.18);
+    else if(type==='laser')tone(300,120,.5,'sawtooth',.15);
+    else if(type==='shield')tone(1200,300,.3,'triangle',.2);
+  }catch(e){}
+}
+
+/* =====================================================================
+   Canvas 粒子系統（火花、光暈、煙霧、光環）
+   ===================================================================== */
+const glowCache={};
+function glowSprite(color){
+  if(glowCache[color])return glowCache[color];
+  const c=document.createElement('canvas');c.width=c.height=64;const g=c.getContext('2d');
+  const gr=g.createRadialGradient(32,32,0,32,32,32);
+  gr.addColorStop(0,'rgba(255,255,255,1)');gr.addColorStop(.16,color);gr.addColorStop(.5,hexA(color,.3));gr.addColorStop(1,hexA(color,0));
+  g.fillStyle=gr;g.fillRect(0,0,64,64);return glowCache[color]=c;
+}
+function drawGlow(x,y,size,color,alpha){
+  ctx.globalAlpha=alpha;ctx.drawImage(glowSprite(color),x-size,y-size,size*2,size*2);
+}
+const parts=[];const MAXP=/Mobi|Android/i.test(navigator.userAgent)?1100:1900;
+const addP=p=>{if(parts.length<MAXP)parts.push(p)};
+function spark(x,y,a,sp,life,color,size){addP({t:'s',x,y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,life,max:life,color,size:size||2,drag:2.4,g:0})}
+function gp(x,y,vx,vy,life,color,size,grow,drag){addP({t:'g',x,y,vx,vy,life,max:life,color,size,grow:grow||0,drag:drag||0,g:0})}
+function smokeP(x,y,vx,vy,life,size){addP({t:'m',x,y,vx,vy,life,max:life,size,drag:1.5,g:-20})}
+function ringP(x,y,r0,r1,life,color,lw){addP({t:'r',x,y,r0,r1,life,max:life,color,lw,vx:0,vy:0})}
+function removeAt(a,i){a[i]=a[a.length-1];a.pop()}
+function updateParts(dt){
+  for(let i=parts.length-1;i>=0;i--){
+    const p=parts[i];p.life-=dt;if(p.life<=0){removeAt(parts,i);continue}
+    if(p.t!=='r'){const d=Math.max(0,1-(p.drag||0)*dt);p.vx*=d;p.vy*=d;p.vy+=(p.g||0)*dt;p.x+=p.vx*dt;p.y+=p.vy*dt}
+  }
+}
+function drawParts(){
+  ctx.globalCompositeOperation='source-over';
+  for(const p of parts){if(p.t!=='m')continue;const k=p.life/p.max;
+    ctx.fillStyle=`rgba(45,48,60,${(k*.38).toFixed(3)})`;ctx.beginPath();ctx.arc(p.x,p.y,p.size*(1+(1-k)*1.6),0,TAU);ctx.fill();}
+  ctx.globalCompositeOperation='lighter';ctx.lineCap='round';
+  for(const p of parts){
+    const k=p.life/p.max;
+    if(p.t==='g'){const sz=p.grow?p.size*(1+(1-k)*p.grow):p.size*(.3+.7*k);drawGlow(p.x,p.y,sz,p.color,k)}
+    else if(p.t==='s'){ctx.globalAlpha=k;ctx.strokeStyle=p.color;ctx.lineWidth=p.size*(.4+.6*k);ctx.beginPath();ctx.moveTo(p.x,p.y);ctx.lineTo(p.x-p.vx*.045,p.y-p.vy*.045);ctx.stroke()}
+    else if(p.t==='r'){const e=1-k,r=p.r0+(p.r1-p.r0)*(1-(1-e)*(1-e));ctx.globalAlpha=k;ctx.strokeStyle=p.color;ctx.lineWidth=Math.max(.5,p.lw*k);ctx.beginPath();ctx.arc(p.x,p.y,r,0,TAU);ctx.stroke()}
+  }
+  ctx.globalAlpha=1;ctx.globalCompositeOperation='source-over';
+}
+/* 華麗爆炸：閃光 + 火球 + 火花 + 煙 + 衝擊環 */
+function explode(x,y,s,c1,c2){
+  c1=c1||'#ffb74d';c2=c2||'#ff5722';s=s||1;
+  gp(x,y,0,0,.28,'#ffffff',46*s,2.2);
+  for(let i=0,n=Math.round(5*s)+2;i<n;i++)gp(x+rnd(-8,8)*s,y+rnd(-8,8)*s,rnd(-110,110)*s,rnd(-110,110)*s,rnd(.35,.7),c2,rnd(22,40)*s,.6,2);
+  for(let i=0,n=Math.round(12*s)+4;i<n;i++)spark(x,y,rnd(0,TAU),rnd(120,440)*Math.sqrt(s),rnd(.3,.75),pickOne([c1,'#ffffff',c2]),rnd(1.5,3.2));
+  for(let i=0,n=Math.round(3*s);i<n;i++)smokeP(x,y,rnd(-40,40),rnd(-40,40),rnd(.6,1.1),rnd(10,20)*s);
+  ringP(x,y,6,60*s+20,.42,c1,4*Math.min(s,2.5));
+}
+let shake=0,flashA=0,flashCol='#ffffff';
+function doShake(v){shake=Math.max(shake,v)}
+function doFlash(a,c){flashA=Math.max(flashA,a);flashCol=c||'#fff'}
+
+/* =====================================================================
+   技能資料（所有數值皆由此表產生，圖鑑與實際遊戲共用，保證透明）
+   ===================================================================== */
+const SKILLS={
+ spread:{name:'星芒散彈',icon:'✴️',color:'#ffd54a',kind:'主動 · 自動施放',
+  desc:'向前方扇形射出大量星芒彈，近距離清除雜兵效率極高。',
+  cd:[1.6,1.5,1.5,1.3,1.3],n:[5,7,7,11,11],dmg:[9,10,10,14,14],ang:[36,44,44,60,60],
+  lv(l){return `冷卻 ${this.cd[l-1]}秒 · ${this.n[l-1]} 發 · 單發傷害 ${this.dmg[l-1]} · 扇角 ${this.ang[l-1]}°`},
+  p3:'【貫穿星芒】彈丸可貫穿 2 個目標，命中時迸出火花。',
+  p5:'【超新星環】每次施放額外釋放 16 發全周星環（傷害 60%），且貫穿 +1。'},
+ missile:{name:'追蹤飛彈',icon:'🚀',color:'#ff7043',kind:'主動 · 自動施放',
+  desc:'發射帶煙跡的追蹤飛彈，命中後產生範圍爆炸。',
+  cd:[2.6,2.4,2.4,2.0,2.0],n:[2,2,2,4,4],dmg:[28,34,34,46,46],rad:[55,60,60,72,72],
+  lv(l){return `冷卻 ${this.cd[l-1]}秒 · 飛彈 ${this.n[l-1]} 枚 · 爆炸傷害 ${this.dmg[l-1]} · 範圍 ${this.rad[l-1]}`},
+  p3:'【集束彈頭】飛彈爆炸後分裂出 4 枚子爆（各 50% 傷害，範圍 60%）。',
+  p5:'【飛彈風暴】每次齊射額外發射 6 枚微型追蹤飛彈（40% 傷害），主飛彈爆炸範圍 +30%。'},
+ laser:{name:'稜鏡雷射',icon:'🔆',color:'#00e5ff',kind:'主動 · 有敵機時施放',
+  desc:'朝正前方釋放貫穿全螢幕的持續光束，光束跟隨機體移動。',
+  cd:[8,7.5,7.5,6.5,6.5],dur:[1.2,1.4,1.4,1.8,1.8],dps:[90,120,120,190,190],w:[24,28,28,38,38],
+  lv(l){return `冷卻 ${this.cd[l-1]}秒 · 持續 ${this.dur[l-1]}秒 · 每秒傷害 ${this.dps[l-1]} · 寬度 ${this.w[l-1]}`},
+  p3:'【稜鏡分光】左右各分出 ±20° 光束（60% 傷害）。',
+  p5:'【終極光砲】光束寬度 ×1.6、持續 +1 秒，光束清除所經之處的敵彈，並持續震動螢幕。'},
+ shield:{name:'能量護盾',icon:'🛡️',color:'#69f0ae',kind:'被動 · 常駐',
+  desc:'護盾層數可完全吸收一次傷害，之後依回復時間逐層重生。',
+  ch:[1,1,1,2,2],rc:[14,12,12,10,10],
+  lv(l){return `最大 ${this.ch[l-1]} 層 · 每層重生 ${this.rc[l-1]}秒`},
+  p3:'【破盾衝擊】護盾被擊破時釋放衝擊波：消除半徑 200 內敵彈並造成 80 傷害。',
+  p5:'【鏡面護盾】護盾存在時，接觸的敵彈會被反射成追蹤彈；破盾衝擊範圍 ×1.5、傷害 ×2。'},
+ timeslow:{name:'時間減速',icon:'⏳',color:'#40c4ff',kind:'主動 · 彈幕密集時施放',
+  desc:'扭曲時間，讓敵機與敵彈進入慢動作，自身不受影響。',
+  cd:[16,15,15,13,13],dur:[2.5,3,3,4,4],sc:[.45,.4,.4,.3,.3],
+  lv(l){return `冷卻 ${this.cd[l-1]}秒 · 持續 ${this.dur[l-1]}秒 · 敵方速度降至 ${Math.round(this.sc[l-1]*100)}%`},
+  p3:'【時間加速】減速期間自身射速 +50%、主砲傷害 +30%。',
+  p5:'【時間領域】減速期間敵彈速度降至 8%，並每 0.5 秒對全螢幕敵機造成 40 傷害。'},
+ meteor:{name:'天火隕石',icon:'☄️',color:'#ff9800',kind:'主動 · 自動施放',
+  desc:'標記敵機位置，隕石自天而降，造成大範圍爆炸。',
+  cd:[5.5,5,5,4.2,4.2],n:[2,3,3,4,4],dmg:[60,75,75,105,105],rad:[60,64,64,76,76],
+  lv(l){return `冷卻 ${this.cd[l-1]}秒 · 隕石 ${this.n[l-1]} 顆 · 傷害 ${this.dmg[l-1]} · 範圍 ${this.rad[l-1]}`},
+  p3:'【熔岩焦土】落點留下 3 秒灼燒區（每秒 80 傷害）。',
+  p5:'【天火審判】落地 0.3 秒後再次爆炸（範圍 ×1.5、傷害 ×80%），並濺出 10 道火星彈。'},
+ pulse:{name:'脈衝新星',icon:'💥',color:'#e040fb',kind:'主動 · 敵彈或敵機逼近時施放',
+  desc:'以機體為中心釋放能量波，傷害敵機並消除範圍內的敵彈。',
+  cd:[9,8.5,8.5,7.5,7.5],rad:[260,300,300,380,380],dmg:[50,65,65,100,100],
+  lv(l){return `冷卻 ${this.cd[l-1]}秒 · 半徑 ${this.rad[l-1]} · 傷害 ${this.dmg[l-1]}`},
+  p3:'【能量回收】被脈衝消除的敵彈轉化為追蹤能量彈（最多 40 枚，每枚 8 傷害）。',
+  p5:'【三重脈衝】連續釋放 3 道脈衝（間隔 0.25 秒），並回復 8 HP。'},
+ wingman:{name:'僚機編隊',icon:'🛩️',color:'#80d8ff',kind:'被動 · 常駐',
+  desc:'召喚僚機伴隨在機體兩側，持續自動射擊。',
+  n:[1,2,2,3,3],dmg:[7,8,8,11,11],
+  lv(l){return `僚機 ${this.n[l-1]} 架 · 單發傷害 ${this.dmg[l-1]} · 射擊間隔 0.28秒`},
+  p3:'【追蹤火力】僚機改射追蹤彈，射擊間隔縮短為 0.2 秒。',
+  p5:'【電弧連線】機體與僚機間連出電弧網，持續灼傷穿過的敵機（每秒 90 傷害），僚機火力 +30%。'},
+ ricochet:{name:'反彈光球',icon:'🔮',color:'#7c4dff',kind:'主動 · 自動施放',
+  desc:'發射能反彈牆壁與敵人的能量球，在畫面中來回橫衝直撞。',
+  cd:[2.6,2.4,2.4,2.0,2.0],n:[2,2,2,3,3],b:[3,4,4,6,6],dmg:[22,26,26,34,34],
+  lv(l){return `冷卻 ${this.cd[l-1]}秒 · 光球 ${this.n[l-1]} 顆 · 反彈 ${this.b[l-1]} 次 · 傷害 ${this.dmg[l-1]}`},
+  p3:'【彈跳爆裂】每次反彈都會引發小型爆炸（範圍 50，50% 傷害）。',
+  p5:'【無盡彈跳】光球體積 ×1.5 並貫穿敵人，每次反彈額外射出 4 發火花彈。'},
+ blackhole:{name:'黑洞吸引',icon:'🌀',color:'#b388ff',kind:'主動 · 有 2 架以上敵機時施放',
+  desc:'在敵群最密集處生成黑洞，吸附敵機並持續撕裂。',
+  cd:[12,11.5,11.5,10.5,10.5],dur:[2.5,3,3,4,4],rad:[140,160,160,200,200],dps:[45,60,60,95,95],
+  lv(l){return `冷卻 ${this.cd[l-1]}秒 · 持續 ${this.dur[l-1]}秒 · 範圍 ${this.rad[l-1]} · 每秒傷害 ${this.dps[l-1]}`},
+  p3:'【事件視界】黑洞核心吞噬範圍內的敵彈。',
+  p5:'【奇點坍縮】黑洞結束時坍縮爆炸（半徑 ×1.6，傷害 300），並消除範圍內所有敵彈。'},
+ lightning:{name:'電弧連鎖',icon:'⚡',color:'#fff176',kind:'主動 · 自動施放',
+  desc:'電擊最近的敵機，並在敵機之間彈跳連鎖。',
+  cd:[2.4,2.2,2.2,1.8,1.8],j:[3,4,4,6,6],dmg:[30,36,36,48,48],
+  lv(l){return `冷卻 ${this.cd[l-1]}秒 · 連鎖 ${this.j[l-1]} 次 · 傷害 ${this.dmg[l-1]} · 連鎖距離 230`},
+  p3:'【麻痺電流】命中的敵機麻痺 1.5 秒（停止射擊、速度 −70%），連鎖距離 +40%。',
+  p5:'【雷暴天罰】同時降下天雷攻擊最多 6 個目標，各自連鎖一半次數，並觸發全螢幕閃電。'}
+};
+const SKILL_IDS=Object.keys(SKILLS);
+const FILLERS={
+ repair:{name:'緊急修復',icon:'🔧',color:'#69f0ae',txt:'立即回復 40 HP。'},
+ gun:{name:'主砲強化',icon:'🔫',color:'#fff59d'},
+ cd:{name:'冷卻縮減',icon:'⏱️',color:'#80deea',txt:'所有技能冷卻 −8%（最多疊 5 次）。'}
+};
+const GUN_N=[2,2,3,3,4];const gunDmg=l=>+(9+1.6*(l-1)).toFixed(1);
+
+/* ---------- 技能圖鑑 ---------- */
+function buildCodex(){
+  let h=`<div class="rule"><b>基本規則</b><br>・共 <b>15 波</b>：第 <b>5</b>、<b>10</b> 波為「精英戰機」，第 <b>15</b> 波為「最終 Boss」（三階段）。<br>・機體 HP 1234；敵彈 10 傷害、衝撞 18~25 傷害；被擊中後 1.2 秒無敵。<br>・主砲自動射擊：Lv1 2 發 / 傷害 9，主砲強化每級提升（Lv5：4 發 / 傷害 15.4）。<br>・每清除一波：<b>六選三</b>——從 6 個選項中選出 3 個（升級技能、獲得新技能、或 1 個補給）。<br>・技能最高 <b>5 級</b>。<b>Lv3、Lv5 只激發潛能，不提升基礎數值</b>；Lv2、Lv4 才提升基礎數值，附帶強力額外效果與全螢幕光效。<br>・<b>擊敗精英戰機</b>：獲得「<b>精英獎勵 · 六選五技能</b>」——從 6 個技能中選 5 個（升級技能或獲得新技能），之後再進行一般的六選三。<br>・最多攜帶 <b>6</b> 個技能；當 6 個技能皆滿級 Lv5 時，才可攜帶第 <b>7</b> 個技能；7 個技能皆滿級 Lv5 後無法再攜帶更多技能。<br>・所有技能皆自動施放，冷卻時間可被「冷卻縮減」降低。</div>`;
+  for(const id of SKILL_IDS){
+    const s=SKILLS[id];
+    h+=`<div class="cx-card" style="--c:${s.color}"><div class="cx-head"><span class="cx-ic">${s.icon}</span><div><b>${s.name}</b><span class="k">${s.kind}</span></div></div><p>${s.desc}</p>`;
+    for(let l=1;l<=5;l++){if(l===3){h+=`<div class="pot">★ <b>第3級潛能</b> ${s.p3}</div>`;continue}if(l===5){h+=`<div class="pot p5">★★ <b>第5級潛能</b> ${s.p5}</div>`;continue}h+=`<div class="lvrow"><i>Lv${l}</i><span>${s.lv(l)}</span></div>`}
+    h+=`</div>`;
+  }
+  h+=`<div class="cx-card" style="--c:#fff59d"><div class="cx-head"><span class="cx-ic">🧰</span><div><b>補給選項</b><span class="k">六選三中必有 1 個補給</span></div></div>
+   <div class="lvrow"><i>🔧</i><span>緊急修復：立即回復 40 HP。</span></div>
+   <div class="lvrow"><i>🔫</i><span>主砲強化（最高 Lv5）：彈數 ${GUN_N.join('/')}；傷害 ${[1,2,3,4,5].map(gunDmg).join('/')}。</span></div>
+   <div class="lvrow"><i>⏱️</i><span>冷卻縮減：所有技能冷卻 −8%，最多 5 次。</span></div></div>`;
+  $('codexBody').innerHTML=h;
+}
+
+/* =====================================================================
+   遊戲狀態
+   ===================================================================== */
+let state='menu';
+const P={x:W/2,y:H-200,tx:W/2,ty:H-200,hp:1234,maxhp:1234,inv:0,r:6,fireT:0,dead:false,dyT:0};
+let owned={},mainLv=1,cdBuys=0,cdMul=1;
+let G={wave:0,time:0};
+let enemies=[],pbul=[],ebul=[],bolts=[],meteors=[],zones=[],holes=[],pulses=[],timers=[],drones=[];
+let laser=null,slow={on:false,t:0,dur:0,scale:1,bs:1,s:null,tick:0};
+let tsE=1,tsB=1,bgY=0,eid=1,wave={n:0,ev:[],i:0,t:0,clearing:false,clearT:0};
+let pendingPot=[],menuT=0,pickState=null,gameTime=0;
+const later=(t,fn)=>timers.push({t,fn});
+const keys={};
+
+/* ---------- 背景預先繪製 ---------- */
+let bg=null;const clouds=[];
+function island(g,cx,cy,r,seed){
+  const layers=[[1.5,'rgba(120,225,225,.30)'],[1.2,'#e8d9a0'],[.98,'#4d9440'],[.62,'#2f6d2b'],[.3,'#25561f']];
+  for(const [s,c] of layers){
+    g.fillStyle=c;g.beginPath();
+    for(let a=0;a<=TAU+.01;a+=.2){const rr=r*s*(1+.18*Math.sin(a*3+seed)+.1*Math.sin(a*5+seed*2));const x=cx+Math.cos(a)*rr,y=cy+Math.sin(a)*rr*.8;a===0?g.moveTo(x,y):g.lineTo(x,y)}
+    g.closePath();g.fill();
+  }
+}
+function makeBG(){
+  bg=document.createElement('canvas');bg.width=W;bg.height=H*2;const g=bg.getContext('2d');
+  const gr=g.createLinearGradient(0,0,0,H*2);gr.addColorStop(0,'#0d5878');gr.addColorStop(.5,'#157592');gr.addColorStop(1,'#0d5878');
+  g.fillStyle=gr;g.fillRect(0,0,W,H*2);
+  g.strokeStyle='rgba(255,255,255,.14)';g.lineWidth=2;
+  for(let i=0;i<520;i++){const x=rnd(0,W),y=rnd(0,H*2-6);g.beginPath();g.moveTo(x,y);g.quadraticCurveTo(x+9,y-5,x+18,y);g.stroke()}
+  for(let k=0;k<7;k++){const cx=rnd(50,W-50),cy=rnd(0,H*2),r=rnd(40,100),sd=rnd(0,9);
+    for(const o of[-H*2,0,H*2])island(g,cx,cy+o,r,sd);}
+  for(let i=0;i<8;i++)clouds.push({x:rnd(-60,W),y:rnd(0,H),s:rnd(.8,1.7),a:rnd(.35,.6)});
+}
+function drawBG(){
+  const o=bgY%(H*2);ctx.drawImage(bg,0,o-H*2);ctx.drawImage(bg,0,o);
+  for(const c of clouds){
+    ctx.fillStyle='rgba(0,30,60,.16)';
+    for(let k=0;k<5;k++){ctx.beginPath();ctx.arc(c.x+(k-2)*28*c.s+46,c.y+(k%2?8:0)+70,30*c.s*(1-Math.abs(k-2)*.12),0,TAU);ctx.fill()}
+    ctx.fillStyle=`rgba(255,255,255,${c.a})`;
+    for(let k=0;k<5;k++){ctx.beginPath();ctx.arc(c.x+(k-2)*28*c.s,c.y+(k%2?8:0),30*c.s*(1-Math.abs(k-2)*.12),0,TAU);ctx.fill()}
+  }
+}
+
+/* =====================================================================
+   敵機定義
+   ===================================================================== */
+const ET={
+ scout:{hp:18,r:16,sp:130,col:'#ef5350',dark:'#6d1a1a',shape:0},
+ zig:{hp:26,r:17,sp:105,col:'#ffa726',dark:'#6d3600',shape:1},
+ dive:{hp:24,r:16,sp:240,col:'#ab47bc',dark:'#33084a',shape:2},
+ fighter:{hp:70,r:22,sp:150,col:'#66bb6a',dark:'#173f1b',shape:3},
+ bomber:{hp:220,r:34,sp:80,col:'#a1887f',dark:'#2f201a',shape:4},
+ gunship:{hp:150,r:28,sp:110,col:'#26c6da',dark:'#08454d',shape:5},
+ elite1:{hp:2400,r:52,col:'#ef5350',dark:'#4a0d0d',big:true,name:'精英戰機「鐵鷹」IRON HAWK'},
+ elite2:{hp:5200,r:58,col:'#ffca28',dark:'#4d3600',big:true,name:'精英戰機「雷霆」THUNDERBOLT'},
+ boss:{hp:12000,r:84,col:'#78909c',dark:'#1c262b',big:true,boss:true,name:'最終 BOSS「天空要塞」SKY FORTRESS'}
+};
+const SHAPES=[
+ [[0,-20],[5,-6],[22,6],[22,11],[5,6],[4,16],[10,20],[10,23],[-10,23],[-10,20],[-4,16],[-5,6],[-22,11],[-22,6],[-5,-6]],
+ [[0,-20],[4,-8],[26,-4],[26,4],[4,6],[3,18],[9,22],[-9,22],[-3,18],[-4,6],[-26,4],[-26,-4],[-4,-8]],
+ [[0,-22],[17,10],[9,21],[0,15],[-9,21],[-17,10]],
+ [[0,-22],[5,-10],[30,-2],[30,8],[10,6],[6,16],[14,22],[-14,22],[-6,16],[-10,6],[-30,8],[-30,-2],[-5,-10]],
+ [[0,-24],[6,-14],[34,-8],[34,2],[8,4],[6,18],[16,24],[16,28],[-16,28],[-16,24],[-6,18],[-8,4],[-34,2],[-34,-8],[-6,-14]],
+ [[0,-22],[10,-12],[26,-12],[30,0],[22,14],[10,20],[0,24],[-10,20],[-22,14],[-30,0],[-26,-12],[-10,-12]]
+];
+function spawnEnemy(type,x,extra){
+  const d=ET[type],hm=d.big?1:1+.13*(Math.max(1,wave.n)-1);
+  const e=Object.assign({id:eid++,type,x,y:-40,r:d.r,hp:d.hp*hm,maxhp:d.hp*hm,sp:d.sp,col:d.col,dark:d.dark,shape:d.shape,big:!!d.big,boss:!!d.boss,
+    t:0,hitT:0,stun:0,tm:{},ph:rnd(0,TAU),vx:0,st:0,mode:0,modeT:0,ang:0,dir:1,alt:0,bx:x,invul:false,canShoot:true},extra||{});
+  const fiBase=type==='fighter'?1.5:type==='bomber'?2.3:1;
+  e.fi=Math.max(.5,(fiBase*(type==='scout'||type==='zig'?3:1))/(1+wave.n*.045));
+  if(type==='fighter'){e.ty=rnd(110,300);e.vx=pickOne([-1,1])*rnd(40,80);e.stay=rnd(6,8)}
+  if(type==='bomber'){e.ty=rnd(120,200);e.stay=11}
+  if(type==='gunship'){e.ty=rnd(130,220);e.stay=12}
+  if(type==='dive'){e.ty=rnd(100,260)}
+  if(e.big){e.entering=true;e.invul=true;e.y=-e.r-40;e.phase=0}
+  enemies.push(e);return e;
+}
+
+/* ---------- 波次生成 ---------- */
+function buildWave(n){
+  const ev=[];
+  const add=(t,type,x,extra)=>ev.push({t,type,x,extra});
+  const row=(t,type,cnt)=>{for(let i=0;i<cnt;i++)add(t,type,cnt===1?W/2:W*.14+i*(W*.72/(cnt-1)))};
+  const stream=(t,type,cnt,x,gap,vx)=>{for(let i=0;i<cnt;i++)add(t+i*gap,type,x,{vx:vx||0})};
+  if(n===15){
+    add(1.5,'boss',W/2);
+  }else if(n===5||n===10){
+    row(1.2,'scout',5);stream(4,'zig',4,rnd(120,420),.45);
+    add(7,n===5?'elite1':'elite2',W/2);
+    if(n===10){row(16,'fighter',2)}
+    stream(20,'scout',6,rnd(100,440),.4,rnd(-40,40));
+  }else{
+    const types=['scout'];if(n>=2)types.push('zig');if(n>=3)types.push('fighter');if(n>=4)types.push('dive');if(n>=6)types.push('bomber');if(n>=8)types.push('gunship');
+    const wt={scout:3,zig:3,dive:2,fighter:2,bomber:1,gunship:1};
+    const groups=3+Math.floor(n/2.5);let t=1.4;
+    for(let g=0;g<groups;g++){
+      let ty=(g===0&&n<3)?'scout':null;
+      if(!ty){const bag=[];types.forEach(k=>{for(let i=0;i<wt[k];i++)bag.push(k)});ty=pickOne(bag)}
+      const cnt={scout:Math.min(8,4+Math.floor(n/3)),zig:3+Math.floor(n/4),dive:3+Math.floor(n/3),fighter:Math.min(4,2+Math.floor(n/5)),bomber:1+(n>=11?1:0),gunship:1+(n>=12?1:0)}[ty];
+      if(ty==='scout'&&Math.random()<.5||ty==='dive'||ty==='fighter'||ty==='bomber'||ty==='gunship')row(t,ty,ty==='dive'?Math.min(cnt,5):cnt);
+      else stream(t,ty,cnt,rnd(80,460),.38,rnd(-35,35));
+      t+=rnd(2.2,3.3)*(1-n*.018);
+    }
+  }
+  return ev;
+}
+
+/* =====================================================================
+   敵彈 / 彈幕輔助
+   ===================================================================== */
+function eShot(x,y,a,sp,r,col,dmg){
+  if(y<-5||ebul.length>750)return;
+  const m=1+Math.min(wave.n,15)*.02;
+  ebul.push({x,y,vx:Math.cos(a)*sp*m,vy:Math.sin(a)*sp*m,r:(r||6)*1.5,col:'#B71C1C',dmg:dmg||10});
+}
+const aim=e=>Math.atan2(P.y-e.y,P.x-e.x);
+function every(e,k,iv,dt,fn){
+  if(e.tm[k]===undefined)e.tm[k]=rnd(.3,Math.max(.35,iv));
+  e.tm[k]-=dt;if(e.tm[k]<=0){e.tm[k]+=iv;fn()}
+}
+function ringShot(x,y,n,sp,off,r,col){for(let i=0;i<n;i++)eShot(x,y,off+i/n*TAU,sp,r,col)}
+function fanShot(x,y,a,n,spread,sp,r,col){for(let i=0;i<n;i++)eShot(x,y,a+(n===1?0:(i/(n-1)-.5)*spread),sp,r,col)}
+function clearBullets(toSparks){
+  for(const b of ebul){if(toSparks){gp(b.x,b.y,0,0,.35,b.col,14,1.5);if(Math.random()<.4)spark(b.x,b.y,rnd(0,TAU),rnd(60,200),.4,b.col,2)}}
+  ebul.length=0;
+}
+
+/* ---------- 一般敵機 AI ---------- */
+const AI={
+ scout(e,dt){
+  e.y+=e.sp*dt;e.x+=e.vx*dt+Math.sin(e.t*2+e.ph)*22*dt;
+  if(wave.n>=3&&e.canShoot&&e.y>40&&e.y<H*.6)every(e,'f',e.fi,dt,()=>eShot(e.x,e.y+10,aim(e),190,5,'#ff5252'));
+ },
+ zig(e,dt){
+  e.y+=e.sp*dt;e.x=e.bx+Math.sin(e.t*2.2+e.ph)*90+e.vx*e.t;
+  if(e.canShoot&&e.y>30&&e.y<H*.65)every(e,'f',e.fi,dt,()=>{if(wave.n>=7)fanShot(e.x,e.y+10,Math.PI/2,3,.5,200,5,'#ffb74d');else eShot(e.x,e.y+10,Math.PI/2,200,5,'#ffb74d')});
+ },
+ dive(e,dt){
+  if(e.st===0){e.y+=e.sp*dt;if(e.y>=e.ty){e.st=1;e.w=.55}}
+  else if(e.st===1){e.w-=dt;if(e.w<=0){e.st=2;const a=aim(e);e.dvx=Math.cos(a)*430;e.dvy=Math.sin(a)*430;sfx('zap')}}
+  else{e.x+=e.dvx*dt;e.y+=e.dvy*dt;if(Math.random()<.5)gp(e.x,e.y,0,0,.25,'#e040fb',10,0)}
+ },
+ fighter(e,dt){
+  if(e.st===0){e.y+=e.sp*dt;if(e.y>=e.ty)e.st=1}
+  else if(e.st===1){
+    e.x+=e.vx*dt;if(e.x<60||e.x>W-60)e.vx*=-1;e.stay-=dt;
+    if(e.canShoot)every(e,'f',e.fi,dt,()=>fanShot(e.x,e.y+16,aim(e),wave.n>=9?5:3,.5,220,6,'#ffeb3b'));
+    if(e.stay<=0)e.st=2;
+  }else{e.y-=220*dt;e.leaving=true}
+ },
+ bomber(e,dt){
+  if(e.st===0){e.y+=e.sp*dt;if(e.y>=e.ty)e.st=1}
+  else if(e.st===1){
+    e.x+=Math.sin(e.t*.6)*30*dt;e.stay-=dt;
+    if(e.canShoot){
+      every(e,'r',2.4/(1+wave.n*.03),dt,()=>ringShot(e.x,e.y,10+Math.floor(wave.n/2),150,rnd(0,TAU),7,'#ff7043'));
+      every(e,'a',1.3,dt,()=>fanShot(e.x,e.y+20,aim(e),3,.4,210,6,'#ffd54f'));
+    }
+    if(e.stay<=0)e.st=2;
+  }else{e.y-=160*dt;e.leaving=true}
+ },
+ gunship(e,dt){
+  if(e.st===0){e.y+=e.sp*dt;if(e.y>=e.ty)e.st=1}
+  else if(e.st===1){
+    e.x=clamp(W/2+Math.sin(e.t*.8+e.ph)*200,50,W-50);e.stay-=dt;e.modeT+=dt;
+    const cyc=e.modeT%3.6;
+    if(e.canShoot&&cyc<2)every(e,'f',.1,dt,()=>{e.ang+=.45;eShot(e.x,e.y+10,e.ang,190,5,'#4dd0e1');eShot(e.x,e.y+10,e.ang+Math.PI,190,5,'#4dd0e1')});
+    if(e.stay<=0)e.st=2;
+  }else{e.y-=170*dt;e.leaving=true}
+ },
+ /* 精英 1：鐵鷹 */
+ elite1(e,dt){
+  const ph=e.hp<e.maxhp*.5?2:1,f=ph===2?1.35:1;
+  if(e.entering){e.y+=100*dt;if(e.y>=190){e.y=190;e.entering=false;e.invul=false;banner('⚠ WARNING','精英戰機「鐵鷹」來襲！','warn',2000)}return}
+  e.x=W/2+Math.sin(e.t*.6*f)*170;e.y=190+Math.sin(e.t*1.1)*18;
+  e.modeT+=dt;if(e.modeT>3.2){e.modeT=0;e.mode=(e.mode+1)%3;e.tm={}}
+  if(ph===2&&!e.sum){e.sum=true;doFlash(.5,'#ff5252');banner('⚠ 第二階段','鐵鷹進入狂暴！','warn',1500);spawnEnemy('scout',100,{vx:20});spawnEnemy('scout',440,{vx:-20})}
+  if(!e.canShoot)return;
+  if(e.mode===0)every(e,'a',.85/f,dt,()=>fanShot(e.x,e.y+30,aim(e),ph===2?7:5,.7,230,6,'#ff5252'));
+  else if(e.mode===1)every(e,'b',1/f,dt,()=>ringShot(e.x,e.y,ph===2?24:16,170,e.t,7,'#ffd54f'));
+  else every(e,'c',.075/f,dt,()=>{e.ang+=.31;const arms=ph===2?3:2;for(let a=0;a<arms;a++)eShot(e.x,e.y+20,e.ang+a/arms*TAU,200,5,'#ff80ab')});
+ },
+ /* 精英 2：雷霆 */
+ elite2(e,dt){
+  const ph=e.hp<e.maxhp*.5?2:1,f=ph===2?1.3:1;
+  if(e.entering){e.y+=100*dt;if(e.y>=180){e.y=180;e.entering=false;e.invul=false;banner('⚠ WARNING','精英戰機「雷霆」來襲！','warn',2000)}return}
+  e.x=W/2+Math.sin(e.t*.55*f)*185;e.y=180+Math.sin(e.t*1.3)*22;
+  e.modeT+=dt;if(e.modeT>3.4){e.modeT=0;e.mode=(e.mode+1)%4;e.tm={}}
+  if(ph===2&&!e.sum){e.sum=true;doFlash(.5,'#ffca28');banner('⚠ 第二階段','雷霆全力出擊！','warn',1500);spawnEnemy('fighter',130,{ty:300});spawnEnemy('fighter',410,{ty:300})}
+  if(!e.canShoot)return;
+  if(e.mode===0)every(e,'a',.08/f,dt,()=>eShot(e.x,e.y+30,Math.PI/2+Math.sin(e.t*3)*.95,210,5,'#40c4ff'));
+  else if(e.mode===1)every(e,'b',.8/f,dt,()=>{const a=aim(e);for(let k=-1;k<=1;k++)for(let j=0;j<3;j++)eShot(e.x+k*28,e.y+30,a+k*.08,200+j*45,6,'#ffee58')});
+  else if(e.mode===2)every(e,'c',.09/f,dt,()=>{e.ang+=.28;for(let a=0;a<4;a++)eShot(e.x,e.y+20,e.ang+a/4*TAU,190,5,a%2?'#e040fb':'#ff5252')});
+  else every(e,'d',.55/f,dt,()=>{e.alt^=1;ringShot(e.x,e.y+10,ph===2?30:22,e.alt?150:215,e.alt?0:Math.PI/22,7,e.alt?'#69f0ae':'#ffd740')});
+ },
+ /* 最終 Boss：三階段 */
+ boss(e,dt){
+  const hpr=e.hp/e.maxhp,ph=hpr>.66?1:hpr>.33?2:3;
+  if(e.entering){e.y+=70*dt;if(e.y>=200){e.y=200;e.entering=false;e.invul=false;e.phase=1;banner('⚠ BOSS','天空要塞 · 第一階段','warn',2200)}return}
+  if(ph!==e.phase){
+    e.phase=ph;e.invul=true;e.invT=1.8;e.tm={};e.mode=0;e.modeT=0;clearBullets(true);
+    banner('⚠ PHASE '+ph,ph===2?'旋轉彈幕解放':'天空要塞全面狂暴','warn',2000);doShake(28);doFlash(.7,'#ff5252');sfx('boom');
+  }
+  if(e.invT>0){e.invT-=dt;if(Math.random()<dt*16)explode(e.x+rnd(-70,70),e.y+rnd(-40,40),rnd(.8,1.5));if(e.invT<=0)e.invul=false;return}
+  e.x=W/2+Math.sin(e.t*(.4+ph*.08))*(ph===3?190:150);e.y=200+Math.sin(e.t*.9)*16;
+  e.modeT+=dt;if(e.modeT>4.2){e.modeT=0;e.mode^=1;e.tm={}}
+  if(!e.canShoot)return;
+  const tur=(sp,col,fixed)=>{for(const sx of[-110,110]){const a=fixed!==undefined?fixed:Math.atan2(P.y-e.y-30,P.x-e.x-sx);eShot(e.x+sx,e.y+30,a,sp,5,col)}};
+  if(ph===1){
+    if(e.mode===0){every(e,'a',.95,dt,()=>fanShot(e.x,e.y+50,aim(e),7,.8,230,6,'#ff5252'));every(e,'t',.45,dt,()=>tur(260,'#ffd54f'))}
+    else{every(e,'a',1,dt,()=>ringShot(e.x,e.y,20,180,e.t,7,'#ff9100'));every(e,'t',.2,dt,()=>tur(240,'#80d8ff',Math.PI/2+Math.sin(e.t*3)*.25))}
+  }else if(ph===2){
+    if(e.mode===0)every(e,'a',.1,dt,()=>{e.ang+=.37;for(let k=0;k<6;k++)eShot(e.x,e.y+30,e.ang+k/6*TAU,190,5,k%2?'#ff4081':'#ffd740')});
+    else{every(e,'r',.11,dt,()=>eShot(rnd(20,W-20),-4,Math.PI/2+rnd(-.08,.08),250,6,'#40c4ff'));every(e,'a',1.2,dt,()=>fanShot(e.x,e.y+50,aim(e),5,.6,240,6,'#ff5252'))}
+    every(e,'s',7,dt,()=>{spawnEnemy('scout',90,{vx:25});spawnEnemy('scout',270,{vx:0});spawnEnemy('scout',450,{vx:-25})});
+  }else{
+    if(e.mode===0){every(e,'a',.6,dt,()=>{e.alt^=1;ringShot(e.x,e.y+20,28,e.alt?150:210,e.alt?0:Math.PI/28,7,e.alt?'#ff1744':'#ffea00')});every(e,'b',1.1,dt,()=>fanShot(e.x,e.y+50,aim(e),9,1.1,250,6,'#ffffff'))}
+    else{every(e,'a',.08,dt,()=>{e.ang+=.3*e.dir;for(let k=0;k<5;k++)eShot(e.x,e.y+30,e.ang+k/5*TAU,200,5,'#e040fb');if(Math.random()<.02)e.dir*=-1});
+      every(e,'r',.2,dt,()=>eShot(rnd(20,W-20),-4,Math.PI/2,260,6,'#40c4ff'));every(e,'t',.5,dt,()=>tur(250,'#ffd54f'))}
+  }
+ }
+};
+
+/* =====================================================================
+   傷害 / 擊殺
+   ===================================================================== */
+function hurt(e,dmg){
+  if(e.dead||e.invul)return false;
+  e.hp-=dmg;e.hitT=.07;
+  if(e.hp<=0)kill(e);
+  return true;
+}
+function kill(e){
+  if(e.dead)return;e.dead=true;
+  if(e.big){
+    clearBullets(true);doShake(32);doFlash(.8,'#fff3c4');sfx('boom');
+    const n=e.boss?22:14;
+    for(let k=0;k<n;k++)later(k*.09,()=>{explode(e.x+rnd(-e.r,e.r),e.y+rnd(-e.r*.6,e.r*.6),rnd(1.2,2.6),pickOne(['#ffb74d','#fff176','#ff8a65']),'#ff3d00');sfx('boom');doShake(14)});
+    later(n*.09+.2,()=>{explode(e.x,e.y,e.boss?7:5,'#fff59d','#ff6d00');for(let r=0;r<4;r++)ringP(e.x,e.y,10,300+r*140,.8+r*.15,pickOne(['#ffe082','#ff8a65','#ffffff']),9-r*2);doShake(36);doFlash(1,'#ffffff')});
+  }else{explode(e.x,e.y,e.r/16,'#ffb74d','#ff5722');sfx('boom')}
+}
+function blast(x,y,r,dmg,col,fx){
+  for(const e of enemies){if(e.dead)continue;const d=Math.hypot(e.x-x,e.y-y);if(d<r+e.r)hurt(e,dmg*(d<r*.5?1:.75))}
+  if(fx!==false){explode(x,y,Math.max(.7,r/55),col||'#ffb74d',col||'#ff5722');sfx('boom')}
+}
+function hitPlayer(dmg){
+  if(P.dead||P.inv>0)return;
+  const sh=owned.shield;
+  if(sh&&sh.charges>0){
+    sh.charges--;sh.rt=sh.rt>0?sh.rt:SKILLS.shield.rc[sh.lv-1];P.inv=1;
+    sfx('shield');ringP(P.x,P.y,20,120,.4,'#69f0ae',6);
+    for(let i=0;i<30;i++)spark(P.x,P.y,rnd(0,TAU),rnd(150,420),.6,pickOne(['#69f0ae','#ffffff','#b9f6ca']),2.5);
+    doShake(10);
+    if(sh.p3){
+      const R=200*(sh.p5?1.5:1),D=80*(sh.p5?2:1);
+      ebul=ebul.filter(b=>{if(Math.hypot(b.x-P.x,b.y-P.y)<R){gp(b.x,b.y,0,0,.3,b.col,14,1.5);return false}return true});
+      for(const e of enemies)if(!e.dead&&Math.hypot(e.x-P.x,e.y-P.y)<R+e.r)hurt(e,D);
+      ringP(P.x,P.y,10,R,.55,'#b9f6ca',10);ringP(P.x,P.y,10,R*.8,.45,'#ffffff',6);doFlash(.3,'#69f0ae');
+    }
+    return;
+  }
+  P.hp-=dmg;P.inv=1.2;sfx('hit');doShake(16);doFlash(.35,'#ff1744');
+  for(let i=0;i<24;i++)spark(P.x,P.y,rnd(0,TAU),rnd(100,360),.5,pickOne(['#ff5252','#ffd54f','#fff']),2.5);
+  if(P.hp<=0){P.hp=0;playerDie()}
+}
+function playerDie(){
+  P.dead=true;P.dyT=1.8;state='dying';
+  for(let k=0;k<10;k++)later(k*.1,()=>explode(P.x+rnd(-30,30),P.y+rnd(-30,30),rnd(1,2.2)));
+  doShake(30);doFlash(.9,'#ffffff');sfx('boom');clearBullets(true);
+}
+
+/* =====================================================================
+   玩家子彈
+   ===================================================================== */
+function addPB(b){b.hit=[];b.lastT=0;b.pierce=b.pierce||0;pbul.push(b);return b}
+function visibleEnemies(){return enemies.filter(e=>!e.dead&&e.y>10&&e.y<H&&e.x>-10&&e.x<W+10)}
+function nearest(x,y,range,filter){
+  let best=null,bd=(range||1e9);
+  for(const e of enemies){if(e.dead||e.y<5||e.y>H||(filter&&!filter(e)))continue;const d=Math.hypot(e.x-x,e.y-y);if(d<bd){bd=d;best=e}}
+  return best;
+}
+function shootMain(){
+  const n=GUN_N[mainLv-1],dm=gunDmg(mainLv)*(slow.on&&slow.s&&slow.s.p3?1.3:1);
+  for(let i=0;i<n;i++){
+    const off=(i-(n-1)/2)*15,sp=(n>=3?(i-(n-1)/2)*.045:0);
+    addPB({x:P.x+off,y:P.y-26,vx:Math.sin(sp)*900,vy:-Math.cos(sp)*900,dmg:dm,r:5,color:'#fff59d',kind:'main',life:1.2});
+  }
+}
+function spawnMissile(a,dmg,rad,sc,tgt,cluster){
+  addPB({x:P.x+rnd(-10,10),y:P.y-10,vx:Math.cos(a)*200,vy:Math.sin(a)*200,sp:200,maxsp:720,acc:950,turn:6,homing:true,tgt,dmg,rad,r:8*sc,color:'#ff7043',kind:'missile',life:3.4,sc,cluster});
+}
+function missileBoom(b){
+  blast(b.x,b.y,b.rad,b.dmg,'#ff7043');
+  if(b.cluster&&b.sc===1)for(let k=0;k<4;k++){
+    const a=k/4*TAU+rnd(0,1),px=b.x+Math.cos(a)*b.rad*.9,py=b.y+Math.sin(a)*b.rad*.9;
+    later(.08+k*.06,()=>blast(px,py,b.rad*.6,b.dmg*.5,'#ffab40'));
+  }
+}
+function orbBounce(b){
+  const s=owned.ricochet;b.bn--;
+  for(let i=0;i<10;i++)spark(b.x,b.y,rnd(0,TAU),rnd(80,300),.4,'#b388ff',2);
+  ringP(b.x,b.y,4,34,.3,'#d1c4e9',3);
+  if(s&&s.p3)blast(b.x,b.y,50,b.dmg*.5,'#b388ff');
+  if(s&&s.p5)for(let i=0;i<4;i++){const a=rnd(0,TAU);addPB({x:b.x,y:b.y,vx:Math.cos(a)*520,vy:Math.sin(a)*520,dmg:b.dmg*.35,r:5,color:'#ea80fc',kind:'spark',life:1})}
+  if(b.bn<0)b.dead=true;
+}
+function updatePB(dt){
+  for(let i=pbul.length-1;i>=0;i--){
+    const b=pbul[i];
+    if(b.dead){removeAt(pbul,i);continue}
+    if(b.homing){
+      let t=b.tgt;if(!t||t.dead||t.y<0||t.y>H)t=b.tgt=nearest(b.x,b.y);
+      let ca=Math.atan2(b.vy,b.vx);
+      if(t){ca+=clamp(angDiff(Math.atan2(t.y-b.y,t.x-b.x),ca),-b.turn*dt,b.turn*dt)}
+      b.sp=Math.min(b.maxsp,b.sp+b.acc*dt);b.vx=Math.cos(ca)*b.sp;b.vy=Math.sin(ca)*b.sp;
+    }
+    b.x+=b.vx*dt;b.y+=b.vy*dt;b.life-=dt;if(b.lastT>0)b.lastT-=dt;
+    if(b.kind==='missile'){gp(b.x,b.y,rnd(-20,20),rnd(30,80),.38,'#ffab40',10*b.sc,0,2);if(Math.random()<.5)smokeP(b.x,b.y,rnd(-15,15),rnd(10,40),.7,6)}
+    else if(b.kind==='homing'||b.kind==='orb'||b.kind==='star'&&Math.random()<.3)gp(b.x,b.y,0,0,.25,b.color,b.r*1.6,0);
+    if(b.kind==='orb'){
+      if(b.x<b.r){b.x=b.r;b.vx=Math.abs(b.vx);orbBounce(b)}
+      else if(b.x>W-b.r){b.x=W-b.r;b.vx=-Math.abs(b.vx);orbBounce(b)}
+      if(b.y<b.r){b.y=b.r;b.vy=Math.abs(b.vy);orbBounce(b)}
+      if(b.y>H+30)b.dead=true;
+    }
+    if(b.life<=0||b.x<-40||b.x>W+40||b.y<-60||b.y>H+60){if(b.kind==='missile'&&b.life<=0)missileBoom(b);b.dead=true;continue}
+    for(const e of enemies){
+      if(e.dead||e.y<-e.r*.4||b.hit.includes(e.id)&&b.kind!=='orb')continue;
+      if(b.kind==='orb'&&b.lastE===e.id&&b.lastT>0)continue;
+      if(Math.hypot(e.x-b.x,e.y-b.y)>e.r+b.r)continue;
+      if(b.kind==='missile'){missileBoom(b);b.dead=true;break}
+      hurt(e,b.dmg);
+      for(let k=0;k<(b.kind==='main'?2:5);k++)spark(b.x,b.y,rnd(0,TAU),rnd(80,260),.3,b.color,2);
+      if(b.kind==='star'&&owned.spread&&owned.spread.p3)for(let k=0;k<6;k++)spark(b.x,b.y,rnd(0,TAU),rnd(100,320),.45,'#ffe082',2.5);
+      if(b.kind==='orb'){
+        b.lastE=e.id;b.lastT=.15;
+        if(!b.pierceAll){const a=Math.atan2(b.y-e.y,b.x-e.x),sp=Math.hypot(b.vx,b.vy);b.vx=Math.cos(a)*sp;b.vy=Math.sin(a)*sp;orbBounce(b)}
+        break;
+      }
+      b.hit.push(e.id);
+      if(b.pierce>0){b.pierce--}else{b.dead=true;break}
+    }
+  }
+}
+
+/* =====================================================================
+   技能施放
+   ===================================================================== */
+const hasTarget=()=>enemies.some(e=>!e.dead&&e.y>10&&e.y<H);
+const canCast={
+ spread:()=>hasTarget(),missile:()=>hasTarget(),laser:()=>hasTarget()&&!laser,meteor:()=>hasTarget(),ricochet:()=>hasTarget(),lightning:()=>hasTarget(),
+ timeslow:()=>!slow.on&&(ebul.length>=10||(ebul.length>=4&&enemies.some(e=>e.big&&!e.dead))),
+ pulse:s=>{const R=SKILLS.pulse.rad[s.lv-1]*.8;let c=0;for(const b of ebul)if(Math.hypot(b.x-P.x,b.y-P.y)<R)c++;let ec=0;for(const e of enemies)if(!e.dead&&Math.hypot(e.x-P.x,e.y-P.y)<R*.8)ec++;return c>=5||ec>=2},
+ blackhole:()=>enemies.filter(e=>!e.dead&&e.y>10&&e.y<H).length>=2||enemies.some(e=>e.big&&!e.dead&&e.y>10)
+};
+const cast={
+ spread(s){
+  const sk=SKILLS.spread,L=s.lv-1,n=sk.n[L],ang=sk.ang[L]*Math.PI/180,dmg=sk.dmg[L],pierce=(s.p3?2:0)+(s.p5?1:0);
+  for(let i=0;i<n;i++){const a=-Math.PI/2+(n===1?0:(i/(n-1)-.5)*ang);addPB({x:P.x,y:P.y-22,vx:Math.cos(a)*680,vy:Math.sin(a)*680,dmg,r:7,color:sk.color,kind:'star',pierce,life:1.5})}
+  if(s.p5){for(let i=0;i<16;i++){const a=i/16*TAU;addPB({x:P.x,y:P.y,vx:Math.cos(a)*430,vy:Math.sin(a)*430,dmg:dmg*.6,r:6,color:'#ffecb3',kind:'star',pierce:1,life:1.3})}
+    ringP(P.x,P.y,10,150,.5,'#fff59d',6)}
+  for(let i=0;i<16;i++)spark(P.x,P.y-22,-Math.PI/2+rnd(-ang/2,ang/2),rnd(150,500),.4,pickOne([sk.color,'#fff']),2.5);
+  ringP(P.x,P.y-20,4,56,.3,sk.color,3);sfx('zap');
+ },
+ missile(s){
+  const sk=SKILLS.missile,L=s.lv-1,n=sk.n[L],dmg=sk.dmg[L],rad=sk.rad[L]*(s.p5?1.3:1);
+  const tg=shuffle(visibleEnemies());
+  for(let i=0;i<n;i++)spawnMissile(-Math.PI/2+(i-(n-1)/2)*.6,dmg,rad,1,tg.length?tg[i%tg.length]:null,s.p3);
+  if(s.p5)for(let i=0;i<6;i++)spawnMissile(-Math.PI/2+(i-2.5)*.7,dmg*.4,rad*.55,.6,tg.length?tg[(i+n)%tg.length]:null,false);
+  for(let i=0;i<14;i++)spark(P.x,P.y,rnd(0,TAU),rnd(80,260),.4,'#ffab40',2);
+  ringP(P.x,P.y,5,50,.3,'#ff7043',3);sfx('zap');
+ },
+ laser(s){
+  const sk=SKILLS.laser,L=s.lv-1,dur=sk.dur[L]+(s.p5?1:0);
+  laser={t:dur,max:dur,tick:0};sfx('laser');doFlash(.2,'#00e5ff');
+  ringP(P.x,P.y-20,6,90,.4,'#00e5ff',6);
+ },
+ timeslow(s){
+  const sk=SKILLS.timeslow,L=s.lv-1;
+  slow={on:true,t:sk.dur[L],dur:sk.dur[L],scale:sk.sc[L],bs:s.p5?.08:sk.sc[L],s,tick:.5};
+  doFlash(.4,'#40c4ff');sfx('power');
+  for(let k=0;k<3;k++)ringP(P.x,P.y,10,420+k*160,.7+k*.2,pickOne(['#40c4ff','#ffffff','#82b1ff']),8-k*2);
+  for(let i=0;i<50;i++)spark(P.x,P.y,rnd(0,TAU),rnd(200,600),.8,pickOne(['#40c4ff','#fff']),2.5);
+ },
+ meteor(s){
+  const sk=SKILLS.meteor,L=s.lv-1,n=sk.n[L];
+  const tg=visibleEnemies().sort((a,b)=>b.hp-a.hp).slice(0,n);
+  for(let i=0;i<n;i++){
+    let tx,ty;const e=tg[i];
+    if(e){tx=e.x+(e.vx||0)*.5;ty=e.y+(e.type==='scout'||e.type==='zig'?e.sp*.8:0)}else{tx=rnd(60,W-60);ty=rnd(120,520)}
+    meteors.push({tx:clamp(tx,30,W-30),ty:clamp(ty,30,H-60),t:-i*.18,delay:.8,dmg:sk.dmg[L],rad:sk.rad[L],s});
+  }
+  sfx('zap');
+ },
+ pulse(s){
+  firePulse(s);
+  if(s.p5){later(.25,()=>firePulse(s));later(.5,()=>firePulse(s));P.hp=Math.min(P.maxhp,P.hp+8);
+    for(let i=0;i<14;i++)gp(P.x+rnd(-20,20),P.y+rnd(-10,20),rnd(-20,20),rnd(-120,-50),.8,'#69f0ae',12,0)}
+ },
+ ricochet(s){
+  const sk=SKILLS.ricochet,L=s.lv-1,n=sk.n[L];
+  for(let i=0;i<n;i++){
+    const a=-Math.PI/2+(i-(n-1)/2)*.7+rnd(-.15,.15);
+    addPB({x:P.x,y:P.y-20,vx:Math.cos(a)*540,vy:Math.sin(a)*540,dmg:sk.dmg[L],r:s.p5?16:11,color:'#7c4dff',kind:'orb',bn:sk.b[L],pierceAll:s.p5,life:9});
+  }
+  ringP(P.x,P.y,5,50,.3,'#b388ff',4);sfx('zap');
+ },
+ blackhole(s){
+  const sk=SKILLS.blackhole,L=s.lv-1;
+  const vis=visibleEnemies();let best=null,bc=-1;
+  for(const e of vis){let c=0;for(const o of vis)if(Math.hypot(o.x-e.x,o.y-e.y)<170)c+=(o.big?3:1);if(c>bc){bc=c;best=e}}
+  const x=best?clamp(best.x,80,W-80):P.x,y=best?clamp(best.y+40,120,H*.6):320;
+  holes.push({x,y,t:0,dur:sk.dur[L],r:sk.rad[L],dps:sk.dps[L],s,rot:0});
+  doFlash(.25,'#7c4dff');sfx('power');
+  for(let i=0;i<30;i++){const k=i/30;gp(P.x+(x-P.x)*k,P.y+(y-P.y)*k,rnd(-30,30),rnd(-30,30),.5,'#b388ff',14,0)}
+ },
+ lightning(s){
+  const sk=SKILLS.lightning,L=s.lv-1,j=sk.j[L],dmg=sk.dmg[L],mul=s.p3?1.4:1;
+  const vis=visibleEnemies();if(!vis.length)return;
+  if(s.p5){
+    shuffle(vis).slice(0,6).forEach((e,i)=>later(i*.07,()=>{if(!e.dead)chain({x:e.x+rnd(-60,60),y:-30},e,Math.floor(j/2),dmg,mul,s.p3)}));
+    doFlash(.55,'#fff9c4');doShake(10);
+  }else{const e=nearest(P.x,P.y);if(e)chain({x:P.x,y:P.y-20},e,j,dmg,mul,s.p3)}
+  sfx('zap');
+ }
+};
+function firePulse(s){
+  const L=s.lv-1,sk=SKILLS.pulse;
+  pulses.push({r:10,max:sk.rad[L],dmg:sk.dmg[L],hit:new Set(),s,conv:0});
+  doFlash(.25,'#e040fb');sfx('power');doShake(8);
+}
+function jag(x1,y1,x2,y2,amp){
+  const pts=[{x:x1,y:y1}],d=Math.hypot(x2-x1,y2-y1),n=Math.max(3,Math.floor(d/22)),nx=-(y2-y1)/d,ny=(x2-x1)/d;
+  for(let i=1;i<n;i++){const t=i/n,o=rnd(-amp,amp);pts.push({x:x1+(x2-x1)*t+nx*o,y:y1+(y2-y1)*t+ny*o})}
+  pts.push({x:x2,y:y2});return pts;
+}
+function chain(from,first,jumps,dmg,mul,stun){
+  const hit=new Set();let cur=first,px=from.x,py=from.y;
+  for(let j=0;j<=jumps&&cur;j++){
+    hit.add(cur);bolts.push({pts:jag(px,py,cur.x,cur.y,16),life:.3,max:.3,col:'#fff176'});
+    hurt(cur,dmg*(1-j*.04));if(stun&&!cur.big)cur.stun=1.5;
+    gp(cur.x,cur.y,0,0,.3,'#fff9c4',34,1.5);
+    for(let k=0;k<8;k++)spark(cur.x,cur.y,rnd(0,TAU),rnd(100,380),.4,pickOne(['#fff176','#fff','#80d8ff']),2);
+    px=cur.x;py=cur.y;
+    cur=nearest(px,py,230*mul,e=>!hit.has(e));
+  }
+}
+const segDist=(px,py,x1,y1,x2,y2)=>{const dx=x2-x1,dy=y2-y1,l=dx*dx+dy*dy||1;let t=((px-x1)*dx+(py-y1)*dy)/l;t=clamp(t,0,1);return Math.hypot(px-(x1+dx*t),py-(y1+dy*t))};
+
+/* 技能持續物件更新 */
+function updateSkillObjs(dt){
+  // 雷射
+  if(laser){
+    const s=owned.laser,sk=SKILLS.laser,L=s.lv-1;laser.t-=dt;laser.tick-=dt;
+    const w=sk.w[L]*(s.p5?1.6:1);laser.w=w;
+    const beams=[{a:-Math.PI/2,k:1}];if(s.p3)beams.push({a:-Math.PI/2-.35,k:.6},{a:-Math.PI/2+.35,k:.6});
+    laser.beams=beams;
+    if(s.p5)doShake(5);
+    if(laser.tick<=0){
+      laser.tick=.06;
+      for(const bm of beams){
+        const x1=P.x,y1=P.y-20,x2=x1+Math.cos(bm.a)*1400,y2=y1+Math.sin(bm.a)*1400;
+        for(const e of enemies){if(e.dead||e.y<0)continue;
+          if(segDist(e.x,e.y,x1,y1,x2,y2)<w*bm.k/2+e.r*.8){hurt(e,sk.dps[L]*.06*bm.k);if(Math.random()<.5)spark(e.x+rnd(-8,8),e.y,rnd(0,TAU),rnd(100,300),.3,'#e0ffff',2)}}
+        if(s.p5&&bm.k===1)ebul=ebul.filter(b=>{if(segDist(b.x,b.y,x1,y1,x2,y2)<w/2+b.r){gp(b.x,b.y,0,0,.3,'#00e5ff',16,1.5);return false}return true});
+      }
+    }
+    for(let i=0;i<2;i++){const bm=pickOne(beams),d=rnd(30,P.y);gp(P.x+Math.cos(bm.a)*d+rnd(-w/2,w/2)*bm.k,P.y-20+Math.sin(bm.a)*d,rnd(-30,30),rnd(-200,-80),.4,pickOne(['#00e5ff','#ffffff','#ea80fc']),10,0)}
+    if(laser.t<=0){laser=null;ringP(P.x,P.y-30,5,70,.4,'#00e5ff',5)}
+  }
+  // 時間減速
+  if(slow.on){
+    slow.t-=dt;
+    if(slow.s.p5){slow.tick-=dt;if(slow.tick<=0){slow.tick=.5;for(const e of enemies)if(!e.dead&&e.y>0&&e.y<H){hurt(e,40);gp(e.x,e.y,0,0,.4,'#80d8ff',e.r*1.6,1.2);ringP(e.x,e.y,4,e.r+14,.3,'#40c4ff',3)}}}
+    if(Math.random()<.5)gp(rnd(0,W),H+10,rnd(-10,10),rnd(-120,-60),2,pickOne(['#40c4ff','#b3e5fc']),rnd(6,12),0,0);
+    if(slow.t<=0){slow.on=false;doFlash(.25,'#ffffff');ringP(P.x,P.y,300,10,.5,'#40c4ff',8)}
+  }
+  tsE=slow.on?slow.scale:1;tsB=slow.on?slow.bs:1;
+  // 隕石
+  for(let i=meteors.length-1;i>=0;i--){
+    const m=meteors[i];m.t+=dt;
+    if(m.t>0){
+      const q=Math.min(1,m.t/m.delay),fx=m.tx+(1-q)*280,fy=m.ty-(1-q)*950;m.x=fx;m.y=fy;
+      gp(fx,fy,rnd(-30,30),rnd(-30,30),.45,pickOne(['#ff9800','#ffeb3b','#ff5722']),rnd(16,28),0,1);
+      if(Math.random()<.6)smokeP(fx,fy,rnd(-20,20),rnd(-20,20),.8,10);
+      if(m.t>=m.delay){
+        const s=m.s;blast(m.tx,m.ty,m.rad,m.dmg,'#ff9800');doShake(12);
+        for(let k=0;k<3;k++)ringP(m.tx,m.ty,6,m.rad*(1.2+k*.3),.5+k*.1,pickOne(['#ffcc80','#ff7043','#fff']),6-k*1.5);
+        if(s.p3)zones.push({x:m.tx,y:m.ty,r:m.rad*.9,t:0,dur:3,dps:80,tick:0});
+        if(s.p5){later(.3,()=>{blast(m.tx,m.ty,m.rad*1.5,m.dmg*.8,'#ffeb3b');ringP(m.tx,m.ty,10,m.rad*1.8,.5,'#fff59d',8);
+          for(let k=0;k<10;k++){const a=k/10*TAU;addPB({x:m.tx,y:m.ty,vx:Math.cos(a)*400,vy:Math.sin(a)*400,dmg:14,r:6,color:'#ffb300',kind:'spark',life:1.1})}})}
+        meteors.splice(i,1);
+      }
+    }
+  }
+  // 灼燒區
+  for(let i=zones.length-1;i>=0;i--){
+    const z=zones[i];z.t+=dt;z.tick-=dt;
+    if(z.tick<=0){z.tick=.25;for(const e of enemies)if(!e.dead&&Math.hypot(e.x-z.x,e.y-z.y)<z.r+e.r*.5)hurt(e,z.dps*.25)}
+    if(Math.random()<.7){const a=rnd(0,TAU),d=Math.sqrt(Math.random())*z.r;gp(z.x+Math.cos(a)*d,z.y+Math.sin(a)*d,rnd(-10,10),rnd(-90,-40),.6,pickOne(['#ff9800','#ff5722','#ffeb3b']),rnd(10,20),0)}
+    if(z.t>=z.dur)zones.splice(i,1);
+  }
+  // 脈衝
+  for(let i=pulses.length-1;i>=0;i--){
+    const p=pulses[i];p.x=P.x;p.y=P.y;const old=p.r;p.r+=p.max/.55*dt;
+    for(const e of enemies){if(e.dead||p.hit.has(e.id))continue;if(Math.hypot(e.x-p.x,e.y-p.y)<p.r+e.r){p.hit.add(e.id);hurt(e,p.dmg);gp(e.x,e.y,0,0,.35,'#ea80fc',e.r*2,1.2)}}
+    for(let j=ebul.length-1;j>=0;j--){const b=ebul[j];if(Math.hypot(b.x-p.x,b.y-p.y)<p.r){
+      gp(b.x,b.y,0,0,.3,'#ea80fc',16,1.5);
+      if(p.s.p3&&p.conv<40){p.conv++;addPB({x:b.x,y:b.y,vx:rnd(-80,80),vy:-150,sp:150,maxsp:640,acc:900,turn:8,homing:true,dmg:8,r:5,color:'#ea80fc',kind:'homing',life:2.2})}
+      removeAt(ebul,j)}}
+    for(let k=0;k<4;k++){const a=rnd(0,TAU);spark(p.x+Math.cos(a)*p.r,p.y+Math.sin(a)*p.r,a,rnd(40,200),.4,pickOne(['#ea80fc','#fff','#b388ff']),2.5)}
+    if(p.r>=p.max)pulses.splice(i,1);
+  }
+  // 黑洞
+  for(let i=holes.length-1;i>=0;i--){
+    const h=holes[i],s=h.s;h.t+=dt;h.rot+=dt*5;
+    const grow=Math.min(1,h.t/.4)*(h.dur-h.t<.3?Math.max(0,(h.dur-h.t)/.3):1);h.grow=grow;
+    const R=h.r*grow;
+    for(const e of enemies){if(e.dead||e.y<0)continue;const dx=h.x-e.x,dy=h.y-e.y,d=Math.hypot(dx,dy);
+      if(d<R*1.35&&d>1){const pull=(1-d/(R*1.35))*340*(e.big?.12:1);e.x+=dx/d*pull*dt;e.y+=dy/d*pull*dt}
+      if(d<R)hurt(e,h.dps*dt)}
+    for(let j=ebul.length-1;j>=0;j--){const b=ebul[j],dx=h.x-b.x,dy=h.y-b.y,d=Math.hypot(dx,dy);
+      if(d<R*1.35&&d>1){const pull=(1-d/(R*1.35))*210;b.x+=dx/d*pull*dt;b.y+=dy/d*pull*dt}
+      if(s.p3&&d<R*.55){gp(b.x,b.y,dx*3,dy*3,.3,'#b388ff',12,0);removeAt(ebul,j)}}
+    for(let k=0;k<5;k++){const a=rnd(0,TAU),d=R*rnd(.35,1.15);
+      gp(h.x+Math.cos(a)*d,h.y+Math.sin(a)*d,-Math.sin(a)*170-Math.cos(a)*d*1.1,Math.cos(a)*170-Math.sin(a)*d*1.1,.55,pickOne(['#b388ff','#ffffff','#7c4dff','#ea80fc']),rnd(6,13),0,0)}
+    if(h.t>=h.dur){
+      if(s.p5){const BR=h.r*1.6;blast(h.x,h.y,BR,300,'#b388ff');clearBullets(true);doFlash(.8,'#d1c4e9');doShake(26);
+        for(let k=0;k<4;k++)ringP(h.x,h.y,10,BR*(.8+k*.25),.6+k*.12,pickOne(['#b388ff','#fff','#ea80fc']),9-k*2);
+        for(let k=0;k<60;k++)spark(h.x,h.y,rnd(0,TAU),rnd(200,700),.8,pickOne(['#b388ff','#fff','#ea80fc']),3)}
+      else{ringP(h.x,h.y,h.r,5,.5,'#b388ff',6);for(let k=0;k<20;k++)spark(h.x,h.y,rnd(0,TAU),rnd(100,300),.5,'#b388ff',2)}
+      holes.splice(i,1);
+    }
+  }
+  // 電弧殘影
+  for(let i=bolts.length-1;i>=0;i--){bolts[i].life-=dt;if(bolts[i].life<=0)bolts.splice(i,1)}
+}
+
+/* 僚機 */
+const DRONE_OFF={1:[[62,26]],2:[[-62,26],[62,26]],3:[[-62,26],[62,26],[0,72]],4:[[-62,26],[62,26],[-106,54],[106,54]]};
+function updateWing(dt){
+  const s=owned.wingman;
+  if(!s){drones.length=0;return}
+  const sk=SKILLS.wingman,L=s.lv-1,n=sk.n[L],offs=DRONE_OFF[n];
+  while(drones.length<n)drones.push({x:P.x,y:P.y+60,fT:rnd(0,.3)});
+  drones.length=n;
+  const iv=(s.p3?.2:.28),dm=sk.dmg[L]*(s.p5?1.3:1);
+  drones.forEach((d,i)=>{
+    const tx=P.x+offs[i][0],ty=P.y+offs[i][1]+Math.sin(gameTime*3+i)*4;
+    d.x+=(tx-d.x)*Math.min(1,dt*9);d.y+=(ty-d.y)*Math.min(1,dt*9);
+    d.fT-=dt;
+    if(d.fT<=0){d.fT+=iv;
+      if(s.p3)addPB({x:d.x,y:d.y-14,vx:0,vy:-400,sp:400,maxsp:620,acc:600,turn:7,homing:true,dmg:dm,r:5,color:'#80d8ff',kind:'homing',life:1.6});
+      else addPB({x:d.x,y:d.y-14,vx:0,vy:-800,dmg:dm,r:4,color:'#b3e5fc',kind:'main',life:1.2});}
+    if(Math.random()<.5)gp(d.x,d.y+16,rnd(-10,10),rnd(60,120),.25,'#80d8ff',7,0);
+  });
+  if(s.p5){
+    s.arcT=(s.arcT||0)-dt;
+    if(s.arcT<=0){
+      s.arcT=.1;
+      for(const sg of wingSegs())for(const e of enemies){if(e.dead||e.y<0)continue;if(segDist(e.x,e.y,sg[0],sg[1],sg[2],sg[3])<e.r+8){hurt(e,9);spark(e.x,e.y,rnd(0,TAU),rnd(80,260),.3,'#80d8ff',2)}}
+    }
+  }
+}
+function wingSegs(){
+  const sg=[];drones.forEach((d,i)=>{sg.push([P.x,P.y,d.x,d.y]);if(i>0)sg.push([drones[i-1].x,drones[i-1].y,d.x,d.y])});return sg;
+}
+
+/* 技能冷卻管理 */
+function updateSkills(dt){
+  for(const id in owned){
+    const s=owned[id],sk=SKILLS[id];
+    if(id==='shield'){
+      const mx=sk.ch[s.lv-1];
+      if(s.charges<mx){s.rt-=dt;if(s.rt<=0){s.charges++;s.rt=sk.rc[s.lv-1];ringP(P.x,P.y,60,16,.4,'#69f0ae',4);sfx('shield')}}
+      continue;
+    }
+    if(id==='wingman')continue;
+    s.cd-=dt;
+    if(s.cd<=0&&canCast[id](s)){cast[id](s);s.cdMax=sk.cd[s.lv-1]*cdMul;s.cd=s.cdMax+(id==='laser'?laser?laser.max:0:0)}
+  }
+}
+
+/* =====================================================================
+   玩家
+   ===================================================================== */
+function updatePlayer(dt){
+  const sp=420;
+  if(keys.ArrowLeft||keys.a)P.tx-=sp*dt;if(keys.ArrowRight||keys.d)P.tx+=sp*dt;
+  if(keys.ArrowUp||keys.w)P.ty-=sp*dt;if(keys.ArrowDown||keys.s)P.ty+=sp*dt;
+  P.tx=clamp(P.tx,30,W-30);P.ty=clamp(P.ty,150,H-70);
+  const k=1-Math.pow(.00005,dt);P.x+=(P.tx-P.x)*k;P.y+=(P.ty-P.y)*k;
+  if(P.inv>0)P.inv-=dt;
+  const iv=.11/(slow.on&&slow.s&&slow.s.p3?1.5:1);
+  P.fireT-=dt;while(P.fireT<=0){P.fireT+=iv;shootMain()}
+  if(Math.random()<.8){gp(P.x-16,P.y+34,rnd(-8,8),rnd(120,200),.22,'#ffb74d',9,0);gp(P.x+16,P.y+34,rnd(-8,8),rnd(120,200),.22,'#ffb74d',9,0)}
+}
+
+/* =====================================================================
+   敵人 / 敵彈 更新
+   ===================================================================== */
+function updateEnemies(dtE,dt){
+  for(let i=enemies.length-1;i>=0;i--){
+    const e=enemies[i];
+    if(e.dead){enemies.splice(i,1);continue}
+    let d=dtE;e.t+=d;if(e.hitT>0)e.hitT-=dt;
+    e.canShoot=true;
+    if(e.stun>0){e.stun-=dt;d=dtE*.3;e.canShoot=false;if(Math.random()<.4)spark(e.x+rnd(-e.r,e.r),e.y+rnd(-e.r,e.r),rnd(0,TAU),rnd(60,200),.3,'#fff176',2)}
+    AI[e.type](e,d);
+    if(!e.big&&(e.y>H+70||e.x<-90||e.x>W+90||(e.leaving&&e.y<-100))){enemies.splice(i,1);continue}
+    if(!P.dead&&e.y>-10&&Math.hypot(e.x-P.x,e.y-P.y)<e.r*.75+P.r){hitPlayer(e.big?25:18);if(!e.big)kill(e)}
+  }
+}
+function updateEB(dtB){
+  for(let i=ebul.length-1;i>=0;i--){
+    const b=ebul[i];b.x+=b.vx*dtB;b.y+=b.vy*dtB;
+    if(slow.on&&Math.random()<.2)gp(b.x,b.y,0,0,.5,b.col,b.r*1.3,0);
+    if(b.x<-40||b.x>W+40||b.y<-50||b.y>H+50){removeAt(ebul,i);continue}
+    if(P.dead)continue;
+    const sh=owned.shield,dd=Math.hypot(b.x-P.x,b.y-P.y);
+    if(sh&&sh.p5&&sh.charges>0&&dd<56){
+      addPB({x:b.x,y:b.y,vx:0,vy:-300,sp:300,maxsp:700,acc:900,turn:9,homing:true,dmg:14,r:6,color:'#b9f6ca',kind:'homing',life:2.5});
+      for(let k=0;k<4;k++)spark(b.x,b.y,rnd(0,TAU),rnd(80,240),.3,'#b9f6ca',2);
+      removeAt(ebul,i);continue;
+    }
+    if(dd<b.r*.8+P.r){const dm=b.dmg;removeAt(ebul,i);hitPlayer(dm)}
+  }
+}
+
+/* =====================================================================
+   波次流程 / 選擇 / 結算
+   ===================================================================== */
+function banner(t,sub,cls,ms){
+  const b=$('banner');b.className='';void b.offsetWidth;
+  b.innerHTML=`<div class="bt">${t}</div><div class="bs">${sub||''}</div>`;b.className='show '+(cls||'');
+  clearTimeout(banner.tm);banner.tm=setTimeout(()=>{b.className=''},ms||1900);
+}
+function startWave(n,delay){
+  wave={n,ev:buildWave(n),i:0,t:-(delay||0),clearing:false,clearT:0};G.wave=n;
+  const sub=n===15?'最終 Boss 戰':(n===5||n===10)?'精英戰機出現':'擊落所有敵機';
+  later(delay||0,()=>{if(n!==15)banner('WAVE '+n,sub,'',1700);else banner('⚠ WARNING','最終 Boss 接近中…','warn',2200)});
+}
+function waveUpdate(dt){
+  wave.t+=dt;
+  while(wave.i<wave.ev.length&&wave.t>=wave.ev[wave.i].t){const v=wave.ev[wave.i++];spawnEnemy(v.type,v.x,v.extra)}
+  if(!wave.clearing&&wave.t>0&&wave.i>=wave.ev.length&&enemies.length===0){
+    wave.clearing=true;wave.clearT=wave.n===15?3:(wave.n===5||wave.n===10)?2.4:1;clearBullets(true);
+  }
+  if(wave.clearing){wave.clearT-=dt;if(wave.clearT<=0&&!wave.done){wave.done=true;finishWave()}}
+}
+function finishWave(){
+  if(wave.n>=15){win();return}
+  banner('WAVE '+wave.n+' CLEAR','','',1600);
+  if(wave.n===5||wave.n===10){
+    later(1.5,()=>{openElitePick()});
+  }else later(1.2,openPick);
+}
+/* 精英獎勵 · 六選五技能：從 6 個技能中選 5 個，之後再進行一般六選三 */
+function openElitePick(){
+  // 雙人模式：陣亡玩家不可選技能
+  if (typeof coop !== 'undefined' && coop.enabled && (P.dead || coop.deadSpectator)) {
+    try { if (typeof coopWritePickDone === 'function') coopWritePickDone(wave.n || coop.finishedWave); } catch(e) {}
+    try { hide('pick'); } catch(e) {}
+    return;
+  }
+  const maxNew=allowedNewCount();
+  const newIds=shuffle(SKILL_IDS.filter(id=>!owned[id])).slice(0,maxNew);
+  const upIds=shuffle(SKILL_IDS.filter(id=>owned[id]&&owned[id].lv<5));
+  const pool=shuffle([...newIds,...upIds].map(id=>({k:'skill',id})));
+  const opts=pool.slice(0,6);
+  if(!opts.length){P.hp=P.maxhp;openPick();return}
+  state='pick';
+  pickState={opts,picked:0,need:Math.min(5,opts.length),isElite:true};
+  $('pickTitle').textContent=`WAVE ${wave.n} 完成 · 精英獎勵 · 六選五技能`;
+  let h='';
+  opts.forEach((o,i)=>{
+    const sk=SKILLS[o.id],cur=owned[o.id]?owned[o.id].lv:0,nx=cur+1;
+    const ic=sk.icon,nm=sk.name,col=sk.color,tag=cur?`<em>Lv${cur} → Lv${nx}</em>`:`<em class="new">NEW 新技能</em>`;
+    let desc=sk.lv(nx);let pot='';
+    if(nx===3&&!(owned[o.id]&&owned[o.id].p3))pot=`★ 潛能：${sk.p3}`;
+    if(nx===5)pot=`★★ 潛能：${sk.p5}`;
+    if(pot&&(nx===3||nx===5))desc='';
+    h+=`<button class="opt" data-i="${i}" style="--c:${col};animation-delay:${i*.05}s"><span class="oi">${ic}</span><span class="ot"><span class="on"><span>${nm}</span>${tag}</span><span class="od">${desc}</span>${pot?`<span class="op">${pot}</span>`:''}</span></button>`;
+  });
+  $('pickBody').innerHTML=h;$('pickBody').scrollTop=0;
+  updatePickProg();show('pick');
+}
+function gainSkill(id){
+  const sk=SKILLS[id];
+  owned[id]={lv:1,p3:false,p5:false,cd:sk.cd?sk.cd[0]*.3:0,cdMax:sk.cd?sk.cd[0]:1};
+  if(id==='shield'){owned[id].charges=sk.ch[0];owned[id].rt=sk.rc[0]}
+}
+function levelUp(id){
+  const s=owned[id],sk=SKILLS[id];s.lv++;
+  if(id==='shield'){const d=sk.ch[s.lv-1]-sk.ch[s.lv-2];s.charges=Math.min(sk.ch[s.lv-1],s.charges+d)}
+  if(s.lv>=3&&!s.p3){s.p3=true;pendingPot.push({id,tier:3})}
+  if(s.lv>=5&&!s.p5){s.p5=true;pendingPot.push({id,tier:5})}
+}
+/* 潛能激發：強烈視覺回饋 */
+function potentialFx(id,tier,elite){
+  const sk=SKILLS[id],txt=tier===3?sk.p3:sk.p5,m=/【(.*?)】/.exec(txt);
+  sfx('power');doFlash(.7,sk.color);doShake(22);flashChip(id);
+  banner(sk.icon+' 潛能激發！',`${sk.name} · ${elite?'精英賜福 · ':''}${m?m[1]:''}`,'potential',2300);
+  for(let k=0;k<4;k++)ringP(P.x,P.y,8,320+k*130,.7+k*.15,pickOne([sk.color,'#ffffff','#ffe082']),9-k*2);
+  for(let i=0;i<90;i++){const a=i/90*TAU*3,d=i*1.4;spark(P.x+Math.cos(a)*d*.3,P.y+Math.sin(a)*d*.3,a,rnd(150,650),rnd(.6,1.1),pickOne([sk.color,'#fff','#ffe082']),rnd(2,4))}
+  for(let i=0;i<20;i++)gp(P.x+rnd(-30,30),P.y+rnd(-20,30),rnd(-40,40),rnd(-300,-100),rnd(.7,1.2),sk.color,rnd(14,26),0,1);
+  gp(P.x,P.y,0,0,.6,'#ffffff',90,3);
+}
+function flashChip(id){const el=chipEls[id]&&chipEls[id].el;if(el){el.classList.remove('pop');void el.offsetWidth;el.classList.add('pop')}}
+
+/* ---------- 攜帶上限：最多 6 個技能；6 個皆 Lv5 才可帶第 7 個；7 個皆 Lv5 後不再帶新技能 ---------- */
+function canGainNewSkill(){
+  const n=Object.keys(owned).length;
+  if(n<6)return true;
+  if(n===6)return Object.values(owned).every(s=>s.lv>=5);
+  return false;
+}
+/* 本次選取還能拿幾個新技能：6 個未滿時補到 6，6 個全 Lv5 時只能再拿 1 個（第 7 個），否則 0 個 */
+function allowedNewCount(){
+  const n=Object.keys(owned).length;
+  if(n<6)return 6-n;
+  if(n===6&&Object.values(owned).every(s=>s.lv>=5))return 1;
+  return 0;
+}
+/* ---------- 六選三 ---------- */
+function buildOptions(){
+  const maxNew=allowedNewCount();
+  const newIds=shuffle(SKILL_IDS.filter(id=>!owned[id])).slice(0,maxNew);
+  const upIds=shuffle(SKILL_IDS.filter(id=>owned[id]&&owned[id].lv<5));
+  const pool=shuffle([...newIds,...upIds].map(id=>({k:'skill',id})));
+  const fl=[{k:'repair'}];if(mainLv<5)fl.push({k:'gun'});if(cdBuys<5)fl.push({k:'cd'});
+  const opts=pool.slice(0,5);
+  const f=shuffle(fl.slice());let fi=0;
+  while(opts.length<6&&fi<f.length)opts.push(f[fi++]);
+  // 補給選項至少 1 個
+  return shuffle(opts);
+}
+function openPick(){
+  // 雙人模式：陣亡玩家不可選技能
+  if (typeof coop !== 'undefined' && coop.enabled && (P.dead || coop.deadSpectator)) {
+    try { if (typeof coopWritePickDone === 'function') coopWritePickDone(wave.n || coop.finishedWave); } catch(e) {}
+    try { hide('pick'); } catch(e) {}
+    // 若是從精英獎勵轉來的，直接視為本波選完
+    return;
+  }
+  state='pick';
+  const opts=buildOptions();pickState={opts,picked:0,need:Math.min(3,opts.length),isElite:false};
+  $('pickTitle').textContent=`WAVE ${wave.n} 完成 · 六選三`;
+  let h='';
+  opts.forEach((o,i)=>{
+    let ic,nm,col,tag,desc,pot='';
+    if(o.k==='skill'){
+      const sk=SKILLS[o.id],cur=owned[o.id]?owned[o.id].lv:0,nx=cur+1;
+      ic=sk.icon;nm=sk.name;col=sk.color;tag=cur?`<em>Lv${cur} → Lv${nx}</em>`:`<em class="new">NEW 新技能</em>`;
+      desc=sk.lv(nx);
+      if(nx===3&&!(owned[o.id]&&owned[o.id].p3))pot=`★ 潛能：${sk.p3}`;
+      if(nx===5)pot=`★★ 潛能：${sk.p5}`;
+      if(pot&&(nx===3||nx===5))desc='';
+    }else if(o.k==='repair'){const f=FILLERS.repair;ic=f.icon;nm=f.name;col=f.color;tag='<em>補給</em>';desc=f.txt}
+    else if(o.k==='gun'){const f=FILLERS.gun;ic=f.icon;nm=f.name;col=f.color;tag=`<em>Lv${mainLv} → Lv${mainLv+1}</em>`;desc=`主砲 ${GUN_N[mainLv]} 發 · 傷害 ${gunDmg(mainLv+1)}（目前 ${GUN_N[mainLv-1]} 發 / ${gunDmg(mainLv)}）`}
+    else{const f=FILLERS.cd;ic=f.icon;nm=f.name;col=f.color;tag=`<em>${cdBuys}/5</em>`;desc=f.txt}
+    h+=`<button class="opt" data-i="${i}" style="--c:${col};animation-delay:${i*.05}s"><span class="oi">${ic}</span><span class="ot"><span class="on"><span>${nm}</span>${tag}</span><span class="od">${desc}</span>${pot?`<span class="op">${pot}</span>`:''}</span></button>`;
+  });
+  $('pickBody').innerHTML=h;$('pickBody').scrollTop=0;
+  updatePickProg();show('pick');
+}
+function updatePickProg(){$('pickProg').textContent=pickState.isElite?`請選擇 ${pickState.need} 項技能（${pickState.picked}/${pickState.need}）`:`請選擇 ${pickState.need} 項強化（${pickState.picked}/${pickState.need}）`}
+function applyOption(o){
+  if(o.k==='skill'){if(!owned[o.id]){if(!canGainNewSkill())return false;gainSkill(o.id)}else levelUp(o.id)}
+  else if(o.k==='repair')P.hp=Math.min(P.maxhp,P.hp+40);
+  else if(o.k==='gun')mainLv=Math.min(5,mainLv+1);
+  else if(o.k==='cd'){cdBuys++;cdMul=Math.pow(.92,cdBuys)}
+  rebuildChips();
+}
+$('pickBody').addEventListener('click',ev=>{
+  const btn=ev.target.closest('.opt');if(!btn||state!=='pick'||btn.classList.contains('picked')||btn.classList.contains('dim'))return;
+  // 陣亡玩家不可再選技能
+  if (typeof coop !== 'undefined' && coop.enabled && (P.dead || coop.deadSpectator)) return;
+  audioInit();
+  const o=pickState.opts[+btn.dataset.i];const before=pendingPot.length;
+  if(applyOption(o)===false){btn.classList.add('dim');return}
+  sfx('pick');
+  btn.classList.add('picked');if(pendingPot.length>before){btn.classList.add('potfx');sfx('power')}
+  pickState.picked++;updatePickProg();
+  if(!canGainNewSkill()){
+    pickState.opts.forEach((oo,idx)=>{
+      if(oo.k==='skill'&&!owned[oo.id]){
+        const b=$('pickBody').querySelector(`.opt[data-i="${idx}"]`);
+        if(b&&!b.classList.contains('picked'))b.classList.add('dim');
+      }
+    });
+    const remain=[...$('pickBody').querySelectorAll('.opt')].some(b=>!b.classList.contains('picked')&&!b.classList.contains('dim'));
+    if(!remain)pickState.picked=pickState.need;
+  }
+  if(pickState.picked>=pickState.need){
+    $('pickBody').querySelectorAll('.opt:not(.picked)').forEach(b=>b.classList.add('dim'));
+    if(pickState.isElite){
+      setTimeout(()=>{hide('pick');openPick();},520);
+    }else{
+      setTimeout(()=>{
+        hide('pick');state='play';
+        const d=pendingPot.length?pendingPot.length*2.1+.2:0.2;
+        pendingPot.forEach((p,i)=>later(.3+i*2.1,()=>potentialFx(p.id,p.tier)));
+        pendingPot=[];updateHUD(true);
+        startWave(wave.n+1,d);
+      },520);
+    }
+  }
+});
+
+/* ---------- 結算 ---------- */
+function showResult(isWin){
+  state='over';hide('hud');
+  $('resTitle').className='restitle '+(isWin?'win':'lose');
+  $('resTitle').textContent=isWin?'🏆 勝利 · 天空重回寧靜':'💀 機體墜毀';
+  $('resWave').textContent=`${G.wave} / 15`;
+  const sk=Object.keys(owned).map(id=>`${SKILLS[id].icon}${SKILLS[id].name} Lv${owned[id].lv}${owned[id].p5?'★★':owned[id].p3?'★':''}`);
+  $('resSkills').innerHTML=sk.length?sk.join('<br>'):'未獲得任何技能';
+  show('result');
+}
+function win(){
+  state='dying';P.dyT=1.2;P.dead=false;P.winning=true;
+  banner('MISSION COMPLETE','天空要塞已被擊落！','potential',2600);
+}
+
+/* =====================================================================
+   HUD / 技能列
+   ===================================================================== */
+const chipEls={},hudC={};
+function rebuildChips(){
+  const c=$('chips');c.innerHTML='';for(const k in chipEls)delete chipEls[k];
+  for(const id in owned){
+    const s=owned[id],sk=SKILLS[id];
+    const el=document.createElement('div');el.className='chip'+(s.p5?' p5':s.p3?' p3':'');el.style.setProperty('--c',sk.color);
+    el.innerHTML=`<span class="ci">${sk.icon}</span><span class="cl">Lv${s.lv}${s.p5?'★★':s.p3?'★':''}</span><i class="cd"></i>`;
+    c.appendChild(el);chipEls[id]={el,cd:el.querySelector('.cd'),last:-1};
+  }
+}
+function updateHUD(force){
+  const hp=Math.ceil(P.hp);
+  if(force||hudC.hp!==hp){hudC.hp=hp;$('hpFill').style.width=(P.hp/P.maxhp*100)+'%';$('hpTxt').textContent=`HP ${hp}/${P.maxhp}`;
+    $('hpFill').style.background=P.hp/P.maxhp>.5?'linear-gradient(#69f0ae,#00c853)':P.hp/P.maxhp>.25?'linear-gradient(#ffee58,#f9a825)':'linear-gradient(#ff8a80,#d50000)'}
+  if(force||hudC.w!==G.wave){hudC.w=G.wave;$('waveTxt').textContent=`WAVE ${G.wave}/15`}
+  const boss=enemies.find(e=>e.big&&!e.dead);
+  if(boss){if($('bossWrap').classList.contains('hidden'))$('bossWrap').classList.remove('hidden');$('bossName').textContent=ET[boss.type].name;$('bossFill').style.width=Math.max(0,boss.hp/boss.maxhp*100)+'%'}
+  else if(!$('bossWrap').classList.contains('hidden'))$('bossWrap').classList.add('hidden');
+  for(const id in chipEls){
+    const s=owned[id],c=chipEls[id];let r=0;
+    if(id==='shield'){const mx=SKILLS.shield.ch[s.lv-1];r=s.charges>=mx?0:s.rt/SKILLS.shield.rc[s.lv-1];c.el.querySelector('.cl').textContent=`Lv${s.lv}${s.p5?'★★':s.p3?'★':''}·${s.charges}`}
+    else if(id==='wingman')r=0;
+    else r=clamp(s.cd/(s.cdMax||1),0,1);
+    if(Math.abs(r-c.last)>.01){c.last=r;c.cd.style.transform=`scaleY(${r})`}
+  }
+}
+
+/* =====================================================================
+   繪圖
+   ===================================================================== */
+function drawAlly(x,y,s,body,wing,t){
+  ctx.save();ctx.translate(x,y);ctx.scale(s,s);
+  ctx.fillStyle='rgba(0,20,40,.25)';ctx.beginPath();ctx.ellipse(18,40,30,10,0,0,TAU);ctx.fill();
+  ctx.fillStyle=wing;ctx.strokeStyle='#0b2545';ctx.lineWidth=2;ctx.beginPath();
+  [[0,-26],[7,-10],[38,4],[38,12],[8,8],[6,22],[16,28],[16,32],[-16,32],[-16,28],[-6,22],[-8,8],[-38,12],[-38,4],[-7,-10]].forEach((p,i)=>i?ctx.lineTo(p[0],p[1]):ctx.moveTo(p[0],p[1]));
+  ctx.closePath();ctx.fill();ctx.stroke();
+  ctx.fillStyle=body;ctx.beginPath();ctx.ellipse(0,2,7,24,0,0,TAU);ctx.fill();ctx.stroke();
+  ctx.fillStyle='#b3e5fc';ctx.beginPath();ctx.ellipse(0,-4,4,7,0,0,TAU);ctx.fill();
+  for(const sx of[-1,1]){ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(sx*25,8,4,0,TAU);ctx.fill();ctx.fillStyle='#e53935';ctx.beginPath();ctx.arc(sx*25,8,2,0,TAU);ctx.fill()}
+  ctx.strokeStyle='rgba(255,255,255,.7)';ctx.lineWidth=2.5;const pr=Math.cos(t*45)*11;ctx.beginPath();ctx.moveTo(-pr,-27);ctx.lineTo(pr,-27);ctx.stroke();
+  ctx.restore();
+}
+function drawEnemy(e){
+  ctx.save();ctx.translate(e.x,e.y);
+  if(e.big){drawBig(e);ctx.restore();return}
+  let rot=Math.PI;if(e.type==='dive'&&e.st===2)rot=Math.atan2(e.dvy,e.dvx)+Math.PI/2;
+  ctx.rotate(rot);const s=e.r/20;ctx.scale(s,s);
+  const fl=e.hitT>0;
+  ctx.fillStyle='rgba(0,20,40,.22)';
+  const pts=SHAPES[e.shape];
+  ctx.fillStyle=fl?'#fff':e.col;ctx.strokeStyle=e.dark;ctx.lineWidth=2;
+  ctx.beginPath();pts.forEach((p,i)=>i?ctx.lineTo(p[0],p[1]):ctx.moveTo(p[0],p[1]));ctx.closePath();ctx.fill();ctx.stroke();
+  if(!fl){
+    ctx.fillStyle='#b3e5fc';ctx.beginPath();ctx.ellipse(0,-6,3.2,6,0,0,TAU);ctx.fill();
+    if(e.shape===1||e.shape===3){for(const sx of[-1,1]){ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(sx*20,0,3.5,0,TAU);ctx.fill();ctx.fillStyle='#d32f2f';ctx.beginPath();ctx.arc(sx*20,0,1.8,0,TAU);ctx.fill()}}
+    if(e.shape===4){ctx.fillStyle='rgba(255,255,255,.35)';for(const px of[-26,-14,14,26]){ctx.beginPath();ctx.arc(px,-8,5,0,TAU);ctx.fill()}}
+    if(e.shape===5){ctx.strokeStyle='#e0f7fa';ctx.lineWidth=2;ctx.beginPath();ctx.arc(0,0,11,0,TAU);ctx.stroke();ctx.fillStyle='#006064';ctx.beginPath();ctx.arc(0,0,6,0,TAU);ctx.fill()}
+    ctx.strokeStyle='rgba(255,255,255,.6)';ctx.lineWidth=2;const pr=Math.cos(e.t*40+e.id)*9;ctx.beginPath();ctx.moveTo(-pr,-e.shape===4?-24:-22);ctx.lineTo(pr,-e.shape===4?-24:-22);ctx.stroke();
+  }
+  ctx.restore();
+  if(e.type==='dive'&&e.st===1){ctx.globalCompositeOperation='lighter';drawGlow(e.x,e.y,40,'#ff1744',.6+.4*Math.sin(e.t*40));ctx.globalCompositeOperation='source-over'}
+  if(e.stun>0){ctx.globalCompositeOperation='lighter';drawGlow(e.x,e.y,e.r*2,'#fff176',.5);ctx.globalCompositeOperation='source-over'}
+}
+function drawBig(e){
+  const s=e.r/50,fl=e.hitT>0,t=e.t;
+  ctx.rotate(Math.PI);
+  ctx.scale(s,s);
+  const body=fl?'#ffffff':e.col,dark=e.dark;
+  ctx.strokeStyle=dark;ctx.lineWidth=3/s*Math.min(s,1.2);
+  if(e.boss){
+    // 要塞：多層船體
+    const ph=e.phase||1,hull=fl?'#fff':(ph===3?'#8d4a4a':ph===2?'#78909c':'#607d8b');
+    ctx.fillStyle=hull;ctx.beginPath();
+    [[0,-70],[30,-50],[100,-30],[150,-10],[160,20],[100,34],[60,60],[40,90],[-40,90],[-60,60],[-100,34],[-160,20],[-150,-10],[-100,-30],[-30,-50]].forEach((p,i)=>i?ctx.lineTo(p[0],p[1]):ctx.moveTo(p[0],p[1]));
+    ctx.closePath();ctx.fill();ctx.stroke();
+    ctx.fillStyle=fl?'#fff':'#455a64';ctx.beginPath();
+    [[0,-50],[22,-34],[70,-14],[70,22],[40,44],[0,60],[-40,44],[-70,22],[-70,-14],[-22,-34]].forEach((p,i)=>i?ctx.lineTo(p[0],p[1]):ctx.moveTo(p[0],p[1]));
+    ctx.closePath();ctx.fill();ctx.stroke();
+    ctx.strokeStyle='rgba(255,255,255,.2)';ctx.lineWidth=2;for(let i=-2;i<=2;i++){ctx.beginPath();ctx.moveTo(i*30,-40);ctx.lineTo(i*34,50);ctx.stroke()}
+    for(const sx of[-110,110]){ctx.fillStyle='#263238';ctx.beginPath();ctx.arc(sx,-30,16,0,TAU);ctx.fill();ctx.strokeStyle='#ffd54f';ctx.lineWidth=3;ctx.stroke();ctx.fillStyle='#ffd54f';ctx.fillRect(sx-3,-30,6,24)}
+    for(const sx of[-130,-60,60,130]){ctx.fillStyle='rgba(255,255,255,.3)';ctx.beginPath();ctx.arc(sx,30,12,0,TAU);ctx.fill()}
+    ctx.restore();ctx.save();ctx.translate(e.x,e.y);
+    ctx.globalCompositeOperation='lighter';
+    const cc=ph===3?'#ff1744':ph===2?'#ff9100':'#40c4ff',pulse=.7+.3*Math.sin(t*6);
+    drawGlow(0,0,64*pulse,cc,.9);
+    ctx.strokeStyle=cc;ctx.lineWidth=4;ctx.globalAlpha=.9;
+    for(let k=0;k<3;k++){ctx.beginPath();ctx.arc(0,0,34+k*8,t*2*(k%2?-1:1),t*2*(k%2?-1:1)+Math.PI*1.2);ctx.stroke()}
+    for(const sx of[-130,-60,60,130])drawGlow(sx,-30,22,'#ff7043',.5+.4*Math.sin(t*20+sx));
+    ctx.globalAlpha=1;ctx.globalCompositeOperation='source-over';
+    if(e.invul&&!e.entering){ctx.strokeStyle='rgba(255,255,255,.7)';ctx.lineWidth=4;ctx.beginPath();ctx.arc(0,0,130+Math.sin(t*30)*6,0,TAU);ctx.stroke()}
+    return;
+  }
+  // 精英：大型戰機
+  const w2=e.type==='elite2'?1.1:1;
+  ctx.fillStyle=body;ctx.beginPath();
+  [[0,-52],[10,-34],[96*w2,-12],[100*w2,10],[44,14],[22,40],[36,58],[-36,58],[-22,40],[-44,14],[-100*w2,10],[-96*w2,-12],[-10,-34]].forEach((p,i)=>i?ctx.lineTo(p[0],p[1]):ctx.moveTo(p[0],p[1]));
+  ctx.closePath();ctx.fill();ctx.stroke();
+  if(!fl){
+    ctx.fillStyle=e.type==='elite2'?'#1565c0':'#8e0000';ctx.beginPath();ctx.ellipse(0,0,12,38,0,0,TAU);ctx.fill();ctx.stroke();
+    ctx.fillStyle='#b3e5fc';ctx.beginPath();ctx.ellipse(0,-14,6,12,0,0,TAU);ctx.fill();
+    for(const sx of[-1,1]){ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(sx*70*w2,0,6,0,TAU);ctx.fill();ctx.fillStyle='#d32f2f';ctx.beginPath();ctx.arc(sx*70*w2,0,3,0,TAU);ctx.fill();
+      ctx.fillStyle='#37474f';ctx.fillRect(sx*46-6,-24,12,26);ctx.fillRect(sx*76*w2-5,-14,10,22)}
+    ctx.strokeStyle='rgba(255,255,255,.6)';ctx.lineWidth=3;for(const px of[-46,46,-76*w2,76*w2]){const pr=Math.cos(t*45+px)*13;ctx.beginPath();ctx.moveTo(px-pr,-26);ctx.lineTo(px+pr,-26);ctx.stroke()}
+  }
+  ctx.restore();ctx.save();ctx.translate(e.x,e.y);
+  if(e.invul){ctx.strokeStyle='rgba(255,255,255,.6)';ctx.lineWidth=3;ctx.beginPath();ctx.arc(0,0,e.r*1.4,0,TAU);ctx.stroke()}
+  ctx.globalCompositeOperation='lighter';drawGlow(0,0,26+4*Math.sin(t*8),e.type==='elite2'?'#40c4ff':'#ff5252',.7);ctx.globalCompositeOperation='source-over';
+}
+function drawPlayerSide(){
+  // 殘影與機體
+  const blink=P.inv>0&&Math.floor(P.inv*14)%2===0;
+  ctx.globalCompositeOperation='lighter';
+  drawGlow(P.x-16,P.y+36,18,'#ff9800',.6);drawGlow(P.x+16,P.y+36,18,'#ff9800',.6);
+  ctx.globalCompositeOperation='source-over';
+  if(!blink)drawAlly(P.x,P.y,1,'#eceff1','#3f8fd6',gameTime);
+  for(const d of drones){drawAlly(d.x,d.y,.46,'#cfd8dc','#80cbc4',gameTime+d.fT)}
+  // 判定點
+  ctx.fillStyle='#ffffff';ctx.strokeStyle='#ff1744';ctx.lineWidth=2;ctx.beginPath();ctx.arc(P.x,P.y,5,0,TAU);ctx.fill();ctx.stroke();
+  // 護盾
+  const sh=owned.shield;
+  if(sh&&sh.charges>0){
+    ctx.globalCompositeOperation='lighter';
+    for(let k=0;k<sh.charges;k++){
+      const rr=48+k*10,a=gameTime*(2+k);
+      drawGlow(P.x,P.y,rr+14,'#69f0ae',.18+.05*Math.sin(gameTime*5));
+      ctx.strokeStyle=k%2?'#b9f6ca':'#69f0ae';ctx.lineWidth=3;ctx.globalAlpha=.85;
+      for(let q=0;q<3;q++){ctx.beginPath();ctx.arc(P.x,P.y,rr,a+q*TAU/3,a+q*TAU/3+1.4);ctx.stroke()}
+      ctx.globalAlpha=.35;ctx.beginPath();ctx.arc(P.x,P.y,rr,0,TAU);ctx.stroke();
+    }
+    ctx.globalAlpha=1;ctx.globalCompositeOperation='source-over';
+  }
+  // 時間減速鐘面
+  if(slow.on){
+    ctx.globalCompositeOperation='lighter';ctx.strokeStyle='#40c4ff';ctx.lineWidth=2;ctx.setLineDash([6,8]);
+    ctx.beginPath();ctx.arc(P.x,P.y,78,gameTime*-1.2,gameTime*-1.2+TAU);ctx.stroke();ctx.setLineDash([]);
+    const a=gameTime*1.5;ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(P.x,P.y);ctx.lineTo(P.x+Math.cos(a)*70,P.y+Math.sin(a)*70);ctx.stroke();
+    ctx.globalCompositeOperation='source-over';
+  }
+}
+function drawPB(){
+  for(const b of pbul){
+    ctx.globalCompositeOperation='lighter';
+    if(b.kind==='main'){
+      drawGlow(b.x,b.y,13,b.color,.85);ctx.globalCompositeOperation='source-over';
+      ctx.fillStyle='#fff';ctx.fillRect(b.x-1.6,b.y-11,3.2,22);
+    }else if(b.kind==='missile'){
+      drawGlow(b.x,b.y,b.r*3,'#ff7043',.8);ctx.globalCompositeOperation='source-over';
+      ctx.save();ctx.translate(b.x,b.y);ctx.rotate(Math.atan2(b.vy,b.vx)+Math.PI/2);const s=b.sc;
+      ctx.fillStyle='#eceff1';ctx.strokeStyle='#37474f';ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(0,-12*s);ctx.lineTo(5*s,6*s);ctx.lineTo(0,3*s);ctx.lineTo(-5*s,6*s);ctx.closePath();ctx.fill();ctx.stroke();
+      ctx.fillStyle='#e53935';ctx.fillRect(-2*s,-8*s,4*s,4*s);ctx.restore();
+    }else if(b.kind==='orb'){
+      drawGlow(b.x,b.y,b.r*3.2,b.color,.9);drawGlow(b.x,b.y,b.r*1.6,'#ffffff',.9);ctx.globalCompositeOperation='source-over';
+    }else{
+      drawGlow(b.x,b.y,b.r*2.6,b.color,.9);ctx.globalCompositeOperation='source-over';
+      ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(b.x,b.y,b.r*.42,0,TAU);ctx.fill();
+    }
+  }
+  ctx.globalAlpha=1;ctx.globalCompositeOperation='source-over';
+}
+function drawEB(){
+  for(const b of ebul){
+    ctx.fillStyle='rgba(0,0,0,.4)';ctx.beginPath();ctx.arc(b.x,b.y,b.r+2,0,TAU);ctx.fill();
+    ctx.globalAlpha=.9;ctx.drawImage(glowSprite(b.col),b.x-b.r*2.1,b.y-b.r*2.1,b.r*4.2,b.r*4.2);ctx.globalAlpha=1;
+    ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(b.x,b.y,b.r*.55,0,TAU);ctx.fill();
+  }
+}
+function drawFx(){
+  // 灼燒區
+  for(const z of zones){const k=1-z.t/z.dur;ctx.globalCompositeOperation='lighter';drawGlow(z.x,z.y,z.r*1.4,'#ff6d00',.4*Math.min(1,k*3));ctx.globalCompositeOperation='source-over'}
+  // 黑洞本體
+  for(const h of holes){
+    const R=h.r*(h.grow||0);if(R<2)continue;
+    ctx.fillStyle='rgba(8,0,20,.55)';ctx.beginPath();ctx.arc(h.x,h.y,R*.5,0,TAU);ctx.fill();
+    const gr=ctx.createRadialGradient(h.x,h.y,0,h.x,h.y,R*.4);gr.addColorStop(0,'#000');gr.addColorStop(.8,'#12002b');gr.addColorStop(1,'rgba(40,0,90,0)');
+    ctx.fillStyle=gr;ctx.beginPath();ctx.arc(h.x,h.y,R*.42,0,TAU);ctx.fill();
+  }
+  // 隕石預警
+  for(const m of meteors){
+    const q=clamp((m.t+.2)/(m.delay+.2),0,1);const r=m.rad*(1.5-.5*q);
+    ctx.strokeStyle=`rgba(255,${80+Math.round(120*q)},40,${.4+.4*Math.sin(gameTime*30)})`;ctx.lineWidth=3;
+    ctx.beginPath();ctx.arc(m.tx,m.ty,r,0,TAU);ctx.stroke();ctx.beginPath();ctx.arc(m.tx,m.ty,m.rad*.4,0,TAU);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(m.tx-r-8,m.ty);ctx.lineTo(m.tx+r+8,m.ty);ctx.moveTo(m.tx,m.ty-r-8);ctx.lineTo(m.tx,m.ty+r+8);ctx.stroke();
+  }
+}
+function drawTopFx(){
+  ctx.globalCompositeOperation='lighter';ctx.lineCap='round';ctx.lineJoin='round';
+  // 黑洞吸積盤
+  for(const h of holes){const R=h.r*(h.grow||0);if(R<2)continue;
+    drawGlow(h.x,h.y,R*.95,'#7c4dff',.45);
+    for(let k=0;k<3;k++){ctx.save();ctx.translate(h.x,h.y);ctx.rotate(h.rot*(k%2?-1:1)*.4+k*1.05);
+      ctx.strokeStyle=k===1?'#ffffff':k===0?'#b388ff':'#ea80fc';ctx.lineWidth=3-k*.6;ctx.globalAlpha=.8;
+      ctx.beginPath();ctx.ellipse(0,0,R*.72,R*.2,0,0,TAU);ctx.stroke();ctx.restore()}
+    ctx.globalAlpha=1;
+  }
+  // 脈衝
+  for(const p of pulses){const k=1-p.r/p.max;
+    drawGlow(p.x,p.y,p.r*1.05,'#e040fb',.22*k);
+    ctx.strokeStyle='#e040fb';ctx.globalAlpha=.4+.5*k;ctx.lineWidth=22*k+4;ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,TAU);ctx.stroke();
+    ctx.strokeStyle='#fff';ctx.lineWidth=6*k+1.5;ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,TAU);ctx.stroke();ctx.globalAlpha=1}
+  // 雷射
+  if(laser){
+    const grow=Math.min(1,(laser.max-laser.t)/.15,laser.t/.2),w=laser.w*grow*(.9+.1*Math.sin(gameTime*70));
+    if(laser.beams)for(const bm of laser.beams){
+      const x1=P.x,y1=P.y-20,x2=x1+Math.cos(bm.a)*1400,y2=y1+Math.sin(bm.a)*1400,ww=w*bm.k;
+      ctx.globalAlpha=.22;ctx.strokeStyle='#7c4dff';ctx.lineWidth=ww*2.4;ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();
+      ctx.globalAlpha=.55;ctx.strokeStyle='#00e5ff';ctx.lineWidth=ww*1.2;ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();
+      ctx.globalAlpha=1;ctx.strokeStyle='#ffffff';ctx.lineWidth=ww*.42;ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();
+      drawGlow(x1,y1,ww*2.2,'#00e5ff',.9);
+    }
+  }
+  // 僚機電弧
+  const ws=owned.wingman;
+  if(ws&&ws.p5&&drones.length){
+    for(const sg of wingSegs()){const pts=jag(sg[0],sg[1],sg[2],sg[3],9);
+      ctx.strokeStyle='#80d8ff';ctx.globalAlpha=.55;ctx.lineWidth=6;ctx.beginPath();pts.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));ctx.stroke();
+      ctx.strokeStyle='#fff';ctx.globalAlpha=1;ctx.lineWidth=1.8;ctx.beginPath();pts.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));ctx.stroke()}
+  }
+  // 閃電
+  for(const b of bolts){const k=b.life/b.max;
+    ctx.strokeStyle='#fff176';ctx.globalAlpha=.6*k;ctx.lineWidth=12*k+2;ctx.beginPath();b.pts.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));ctx.stroke();
+    ctx.strokeStyle='#ffffff';ctx.globalAlpha=k;ctx.lineWidth=3.5*k+.8;ctx.beginPath();b.pts.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));ctx.stroke();}
+  ctx.globalAlpha=1;ctx.globalCompositeOperation='source-over';
+}
+function render(){
+  ctx.setTransform(viewScale,0,0,viewScale,0,0);
+  let sx=0,sy=0;if(shake>.3){sx=rnd(-shake,shake);sy=rnd(-shake,shake)}
+  ctx.save();ctx.translate(sx,sy);
+  drawBG();drawFx();
+  for(const e of enemies)if(!e.dead)drawEnemy(e);
+  drawPB();drawEB();
+  if(state!=='menu'&&state!=='over'&&!P.dead&&!P.winning)drawPlayerSide();
+  drawTopFx();drawParts();
+  // 時間減速色調
+  if(slow.on){
+    const gr=ctx.createRadialGradient(W/2,H/2,H*.2,W/2,H/2,H*.7);gr.addColorStop(0,'rgba(30,80,200,.08)');gr.addColorStop(1,'rgba(10,30,120,.45)');
+    ctx.fillStyle=gr;ctx.fillRect(-20,-20,W+40,H+40);
+  }
+  ctx.restore();
+  if(flashA>.01){ctx.globalAlpha=Math.min(1,flashA);ctx.fillStyle=flashCol;ctx.fillRect(0,0,W,H);ctx.globalAlpha=1}
+}
+
+/* =====================================================================
+   主更新迴圈
+   ===================================================================== */
+function update(dt){
+  gameTime+=dt;G.time+=dt;
+  // 全域計時器
+  for(let i=timers.length-1;i>=0;i--){const t=timers[i];t.t-=dt;if(t.t<=0){timers.splice(i,1);t.fn()}}
+  updateSkillObjs(dt);  // 同時更新 tsE / tsB
+  const dtE=dt*tsE,dtB=dt*tsB;
+  bgY+=55*dt*(.4+.6*tsE);for(const c of clouds){c.y+=90*dt*(.4+.6*tsE);if(c.y>H+120){c.y=-120;c.x=rnd(-40,W)}}
+  if(!P.dead&&!P.winning){updatePlayer(dt);updateSkills(dt);updateWing(dt)}
+  if(state==='play')waveUpdate(dt);
+  updateEnemies(dtE,dt);updatePB(dt);updateEB(dtB);
+  if(state==='dying'){P.dyT-=dt;if(P.dyT<=0){state='dead';showResult(!!P.winning)}}
+  updateHUD();
+}
+let lastTs=0;
+function frame(ts){
+  requestAnimationFrame(frame);
+  let dt=Math.min(.05,(ts-lastTs)/1000||0);lastTs=ts;
+  if(state==='play'||state==='dying')update(dt);
+  else{
+    gameTime+=dt;bgY+=40*dt;for(const c of clouds){c.y+=60*dt;if(c.y>H+120){c.y=-120;c.x=rnd(-40,W)}}
+    if(state==='menu'||state==='over'){
+      menuT-=dt;if(menuT<=0){menuT=rnd(.35,.8);const x=rnd(60,W-60),y=rnd(120,H-200),c=pickOne([['#ffd54a','#ff7043'],['#00e5ff','#7c4dff'],['#e040fb','#ff4081'],['#69f0ae','#00b0ff']]);
+        explode(x,y,rnd(.8,1.8),c[0],c[1]);if(Math.random()<.4)ringP(x,y,10,rnd(100,200),.7,c[0],5)}
+    }
+    if(state==='pick'||state==='paused'){/* 暫停期間不更新遊戲，僅粒子持續 */}
+    timers.length&&state==='pick'&&0;
+  }
+  updateParts(state==='paused'?0:dt);
+  shake*=Math.pow(.002,dt);flashA=Math.max(0,flashA-dt*2.4);
+  render();
+}
+
+/* =====================================================================
+   UI 與輸入
+   ===================================================================== */
+function show(id){$(id).classList.remove('hidden')}
+function hide(id){$(id).classList.add('hidden')}
+function resetGame(){
+  enemies=[];pbul=[];ebul=[];bolts=[];meteors=[];zones=[];holes=[];pulses=[];timers=[];drones=[];parts.length=0;
+  owned={};mainLv=1;cdBuys=0;cdMul=1;laser=null;slow={on:false,t:0,dur:0,scale:1,bs:1,s:null,tick:0};tsE=tsB=1;
+  Object.assign(P,{x:W/2,y:H-200,tx:W/2,ty:H-200,hp:1234,maxhp:1234,inv:1.5,dead:false,winning:false,fireT:0,dyT:0});
+  G={wave:0,time:0};pendingPot=[];wave={n:0,ev:[],i:0,t:0,clearing:false,clearT:0};
+  rebuildChips();updateHUD(true);
+}
+function startGame(){
+  audioInit();reqFS();
+  hide('menu');hide('result');hide('pause');hide('pick');show('hud');
+  resetGame();state='play';setTimeout(resize,150);
+  startWave(1,.3);
+}
+function toMenu(){
+  state='menu';hide('hud');hide('result');hide('pause');hide('pick');show('menu');
+  enemies=[];pbul=[];ebul=[];timers=[];holes=[];meteors=[];zones=[];pulses=[];bolts=[];laser=null;slow.on=false;tsE=tsB=1;P.dead=true;
+}
+function pauseGame(){if(state!=='play')return;state='paused';show('pause')}
+function resumeGame(){if(state!=='paused')return;hide('pause');state='play'}
+
+$('btnStart').addEventListener('click',startGame);
+$('btnCodex').addEventListener('click',()=>{audioInit();hide('menu');show('codex');$('codexBody').scrollTop=0});
+$('btnCodexClose').addEventListener('click',()=>{hide('codex');show('menu')});
+$('btnRetry').addEventListener('click',startGame);
+$('btnMenu').addEventListener('click',toMenu);
+$('btnPause').addEventListener('click',pauseGame);
+$('btnResume').addEventListener('click',resumeGame);
+$('btnFS').addEventListener('click',toggleFS);
+$('btnQuit').addEventListener('click',toMenu);
+$('btnSnd').addEventListener('click',()=>{muted=!muted;$('btnSnd').textContent=muted?'🔇':'🔊'});
+document.addEventListener('visibilitychange',()=>{if(document.hidden)pauseGame()});
+window.addEventListener('keydown',e=>{keys[e.key]=true;keys[e.key.toLowerCase()]=true;if(e.key==='Escape'||e.key==='p'){state==='play'?pauseGame():resumeGame()}if(e.key.startsWith('Arrow'))e.preventDefault()});
+window.addEventListener('keyup',e=>{keys[e.key]=false;keys[e.key.toLowerCase()]=false});
+gameEl.addEventListener('contextmenu',e=>e.preventDefault());
+
+/* 觸控：全螢幕拖曳移動（相對位移，單手操作、手指不遮擋機體） */
+let ptr=null;
+gameEl.addEventListener('pointerdown',e=>{
+  if(state!=='play'||e.target.closest('button'))return;
+  audioInit();
+  if(!isFS())reqFS();   // 全螢幕被退出時，於下一次使用者手勢再次請求
+  ptr={id:e.pointerId,sx:e.clientX,sy:e.clientY,px:P.tx,py:P.ty};
+  try{gameEl.setPointerCapture(e.pointerId)}catch(_){}
+  e.preventDefault();
+});
+gameEl.addEventListener('pointermove',e=>{
+  if(!ptr||e.pointerId!==ptr.id||state!=='play')return;
+  const sc=W/gameEl.clientWidth;
+  P.tx=clamp(ptr.px+(e.clientX-ptr.sx)*sc*1.2,30,W-30);P.ty=clamp(ptr.py+(e.clientY-ptr.sy)*sc*1.2,150,H-70);
+  e.preventDefault();
+});
+const endPtr=e=>{if(ptr&&e.pointerId===ptr.id)ptr=null};
+gameEl.addEventListener('pointerup',endPtr);gameEl.addEventListener('pointercancel',endPtr);
+
+/* ---------- 啟動 ---------- */
+resize();makeBG();buildCodex();
+P.dead=true;
+requestAnimationFrame(frame);
+</script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script>
+'use strict';
+/* =====================================================================
+   末日拯救 · 雙人組隊（新增區塊，與上方單人邏輯分離）
+   做法：不改上方任何一行單人程式，只在這裡「包住」原本的函式。
+   單人按「開始抵抗」時，coop.enabled 仍為 false，所有包住的函式
+   都會直接走原本邏輯，玩法、數值、波次完全不變。
+   ---------------------------------------------------------------------
+   Firebase 結構（key 固定為 rooms）：
+     rooms/{4位號碼}/
+       meta / wave{n,phase} / start{at} / pause{paused} / gameOver{win}
+       players/host|guest {x,tx,y,ty,hp,maxhp,dead,pickDoneWave,joined}
+       spawns/{pushId} {id,type,x,hp,maxhp,ty,vx,stay,ph,bx}（房主→隊友）
+       dmg/guest {seq,list:[{id,dmg}]}（隊友→房主，彙整傷害）
+       world/enemies [{id,type,hp,maxhp,x,y}]（房主→隊友，權威來源：出現、血量、位置）
+   同步範圍：波次、敵機生成、敵機血量、隊友位置/血量/存活、
+             選技能等待、勝負、暫停。
+   各自判定：敵彈、自身子彈、自身技能（避免延遲造成重複扣血）。
+             隊友子彈僅為視覺示意，不造成傷害。
+   雙人規則：共 10 波，第 5 波精英、第 10 波最終 Boss；六選三與精英六選五不變；
+             敵機血量與攻擊力 = 單人 ×7，且約一半敵機額外增援。
+             一人陣亡可由隊友繼續，兩人皆陣亡才失敗；撐過第 10 波勝利。
+   ===================================================================== */
+const firebaseConfig = {
+    apiKey: "AIzaSyACjxWEkXkPUBv6xiWtVWZdsFvxeKURJ1Q",
+    authDomain: "time-f681a.firebaseapp.com",
+    databaseURL: "https://time-f681a-default-rtdb.firebaseio.com",
+    projectId: "time-f681a",
+    storageBucket: "time-f681a.firebasestorage.app",
+    messagingSenderId: "486171948384",
+    appId: "1:486171948384:web:715043928d3a0a0cd39a05"
+};
+let coopDb = null;
+try {
+  if (window.firebase) {
+    if (!firebase.apps || !firebase.apps.length) firebase.initializeApp(firebaseConfig);
+    coopDb = firebase.database();
+  }
+} catch (e) { coopDb = null; }
+
+const COOP_MAX_WAVE = 10;
+const COOP_SCALE = 7; // 末日拯救：敵機 HP 與攻擊力 = 單人的 7 倍
+const coop = { enabled:false, isHost:false, slot:'', other:'', code:'', inGame:false, waitingPick:false, finishedWave:0, pendingWave:null, applyingRemote:false, deadSpectator:false, guestJoined:false, myPickDoneWave:-1, otherPickDoneWave:-1, lastGameOverAt:0 };
+const P2 = { x:270, y:760, tx:270, ty:760, hp:1234, maxhp:1234, dead:true };
+let coopTimers = { player:null, world:null, dmg:null, poll:null };
+let coopListeners = [];
+let coopDmgBuf = {};
+let coopDmgSeq = 0;
+let coopLastDmgSeq = -1;
+let coopMissing = {};
+let coopLastPause = 'play';
+let coopSeenSpawnIds = {};
+let coopEnemyLastSeen = {}; // id -> Date.now() for soft despawn on guest
+
+/* ---------- 保存原本函式（之後包住，不改原函式本體） ---------- */
+const coopOrigSpawnEnemy = spawnEnemy;
+const coopOrigBuildWave = buildWave;
+const coopOrigStartWave = startWave;
+const coopOrigWaveUpdate = waveUpdate;
+const coopOrigFinishWave = finishWave;
+const coopOrigWin = win;
+const coopOrigShowResult = showResult;
+const coopOrigUpdateHUD = updateHUD;
+const coopOrigHurt = hurt;
+const coopOrigDrawPlayerSide = drawPlayerSide;
+const coopOrigPlayerDie = playerDie;
+const coopOrigEShot = eShot;
+
+/* ---------- 小工具 ---------- */
+function coopRef(path) { try { if (!coopDb || !coop.code) return null; return coopDb.ref('rooms/' + coop.code + '/' + path); } catch (e) { return null; } }
+function coopRoomRef() { try { if (!coopDb || !coop.code) return null; return coopDb.ref('rooms/' + coop.code); } catch (e) { return null; } }
+function coopSetStatus(t) { try { const el = $('coopStatus'); if (el) el.textContent = t || ''; } catch (e) {} }
+function coopSetLobbyStatus(t) { try { const el = $('coopLobbyStatus'); if (el) el.textContent = t || ''; } catch (e) {} }
+function coopAddListener(ref, cb) { if (!ref) return; try { ref.on('value', cb); coopListeners.push({ ref:ref, cb:cb }); } catch (e) {} }
+function coopBroadcastWave(n, phase, isElite) { try { const r = coopRoomRef(); if (r) r.child('wave').set({ n:n, phase:phase, isElite:!!isElite, at:Date.now() }); } catch (e) {} }
+function coopWritePickDone(finishedWave) {
+  coop.myPickDoneWave = finishedWave;
+  try { const r = coopRef('players/' + coop.slot); if (r) r.update({ pickDoneWave: finishedWave }); } catch (e) {}
+}
+function coopStartPendingWave() {
+  if (!coop.pendingWave) return;
+  const pw = coop.pendingWave; coop.pendingWave = null;
+  try {
+    const rs = coopRef('spawns'); if (rs) rs.remove();
+    const rw = coopRef('world/enemies'); if (rw) rw.set([]);
+  } catch (e) {}
+  coopOrigStartWave(pw.n, pw.delay);
+  if (pw.n === 10) banner('⚠ WARNING', '最終 Boss「天空要塞」來襲！', 'warn', 2200);
+  coopBroadcastWave(pw.n, 'playing', false);
+}
+
+/* ---------- 大廳 ---------- */
+function coopOpenLobby() {
+  try { audioInit(); } catch (e) {}
+  try { coopCleanupSilent(); } catch (e) {}
+  coop.enabled = false; coop.inGame = false; coop.code = ''; coop.slot = ''; coop.other = ''; coop.isHost = false;
+  hide('menu'); show('coop');
+  try { $('coopSetup').classList.remove('hidden'); $('coopLobby').classList.add('hidden'); } catch (e) {}
+  coopSetStatus(''); coopSetLobbyStatus('');
+}
+function coopShowLobbyUI() {
+  try { $('coopSetup').classList.add('hidden'); $('coopLobby').classList.remove('hidden'); } catch (e) {}
+  try { $('coopRoomCode').textContent = coop.code || '----'; } catch (e) {}
+  coopRefreshLobbyUI();
+}
+function coopRefreshLobbyUI() {
+  const btn = $('coopStartBtn'); if (!btn) return;
+  if (coop.isHost) {
+    btn.disabled = !coop.guestJoined;
+    btn.textContent = coop.guestJoined ? '開始末日拯救' : '等待隊友加入…';
+    coopSetLobbyStatus(coop.guestJoined ? '隊友已加入，可以開始了！' : '你是房主 · 把 4 位號碼告訴隊友');
+  } else {
+    btn.disabled = true;
+    btn.textContent = '等待房主開始…';
+    coopSetLobbyStatus('你是隊友 · 等待房主開始');
+  }
+}
+function coopLeaveLobby() {
+  coopCleanup();
+  hide('coop'); show('menu');
+}
+function coopCleanupSilent() {
+  for (const k in coopTimers) { if (coopTimers[k]) { try { clearInterval(coopTimers[k]); } catch (e) {} coopTimers[k] = null; } }
+  for (const l of coopListeners) { try { l.ref.off('value', l.cb); } catch (e) {} }
+  coopListeners = [];
+}
+function coopCleanup() {
+  coopCleanupSilent();
+  try {
+    if (coopDb && coop.code) {
+      if (coop.isHost) coopDb.ref('rooms/' + coop.code).remove().catch(function(){});
+      else if (coop.slot) coopDb.ref('rooms/' + coop.code + '/players/' + coop.slot).remove().catch(function(){});
+    }
+  } catch (e) {}
+  try {
+    hide('coop');
+    const cp = $('coopPartner'); if (cp) cp.classList.add('hidden');
+    const rp = $('coopRoomPill'); if (rp) rp.classList.add('hidden');
+    const hint = $('coopResultHint'); if (hint) hint.classList.add('hidden');
+  } catch (e) {}
+  coop.enabled = false; coop.inGame = false; coop.waitingPick = false; coop.pendingWave = null;
+  coop.applyingRemote = false; coop.deadSpectator = false; coop.finishedWave = 0;
+  coop.guestJoined = false; coop.myPickDoneWave = -1; coop.otherPickDoneWave = -1; coop.lastGameOverAt = 0;
+  P2.dead = true; P2.hp = 0; coopDmgBuf = {}; coopMissing = {}; coopLastPause = 'play';
+  coopSeenSpawnIds = {}; coopEnemyLastSeen = {};
+}
+async function coopCreateRoom() {
+  if (!coopDb) { coopSetStatus('連線失敗：無法載入 Firebase，請檢查網路後重試。'); return; }
+  try { audioInit(); reqFS(); } catch (e) {}
+  coopSetStatus('正在創建房間…');
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const code = String(Math.floor(1000 + Math.random() * 9000));
+    try {
+      const snap = await coopDb.ref('rooms/' + code).once('value');
+      if (snap.exists()) continue;
+      coop.code = code; coop.slot = 'host'; coop.other = 'guest'; coop.isHost = true;
+      coop.enabled = true; coop.inGame = false; coop.guestJoined = false;
+      await coopDb.ref('rooms/' + code).set({ meta:{ createdAt:Date.now(), maxWave:COOP_MAX_WAVE }, players:{ host:{ joined:true, ready:true, x:W/2-40, tx:W/2-40, y:H-200, ty:H-200, hp:1234, maxhp:1234, dead:false, pickDoneWave:-1 } }, wave:{ n:0, phase:'lobby' }, world:{ enemies:[] }, spawns:{}, dmg:{} });
+      coopShowLobbyUI(); coopAttachLobbyListeners();
+      return;
+    } catch (e) { coopSetStatus('創建失敗：' + (e && e.message || e)); return; }
+  }
+  coopSetStatus('創建失敗，請再試一次。');
+}
+async function coopJoinRoom() {
+  if (!coopDb) { coopSetStatus('連線失敗：無法載入 Firebase，請檢查網路後重試。'); return; }
+  const code = (($('coopCodeInput').value || '') + '').trim();
+  if (!/^\d{4}$/.test(code)) { coopSetStatus('請輸入 4 位數字房間號碼。'); return; }
+  try { audioInit(); reqFS(); } catch (e) {}
+  coopSetStatus('正在加入房間…');
+  try {
+    const snap = await coopDb.ref('rooms/' + code).once('value');
+    if (!snap.exists()) { coopSetStatus('找不到房間 ' + code + '，請確認號碼。'); return; }
+    const data = snap.val() || {};
+    if (data.players && data.players.guest && data.players.guest.joined) { coopSetStatus('房間已滿。'); return; }
+    coop.code = code; coop.slot = 'guest'; coop.other = 'host'; coop.isHost = false;
+    coop.enabled = true; coop.inGame = false;
+    await coopDb.ref('rooms/' + code + '/players/guest').set({ joined:true, ready:true, x:W/2+40, tx:W/2+40, y:H-200, ty:H-200, hp:1234, maxhp:1234, dead:false, pickDoneWave:-1 });
+    coopShowLobbyUI(); coopAttachLobbyListeners();
+  } catch (e) { coopSetStatus('加入失敗：' + (e && e.message || e)); }
+}
+function coopAttachLobbyListeners() {
+  if (coop.isHost) {
+    const r = coopRef('players/guest');
+    coopAddListener(r, function(snap) {
+      const v = snap ? snap.val() : null;
+      coop.guestJoined = !!(v && v.joined);
+      if (coop.enabled && !coop.inGame) coopRefreshLobbyUI();
+    });
+  } else {
+    const r1 = coopRef('players/host');
+    coopAddListener(r1, function(snap) {
+      const v = snap ? snap.val() : null;
+      if (!v && coop.enabled && !coop.inGame) coopSetLobbyStatus('房主已離開大廳');
+    });
+    const r2 = coopRef('start');
+    coopAddListener(r2, function(snap) {
+      const v = snap ? snap.val() : null;
+      if (v && v.at) coopGuestOnStart();
+    });
+  }
+}
+
+/* ---------- 開始遊戲 ---------- */
+function coopHostStart() {
+  if (!coop.enabled || !coop.isHost) return;
+  if (!coop.guestJoined) { coopSetLobbyStatus('等待隊友加入…'); return; }
+  try { audioInit(); reqFS(); } catch (e) {}
+  coop.inGame = true; coop.waitingPick = false; coop.finishedWave = 0; coop.deadSpectator = false; coopLastPause = 'play';
+  hide('coop'); hide('menu'); hide('result'); hide('pause'); hide('pick'); show('hud');
+  try { const rr = coopRoomRef(); if (rr) { rr.child('start').set({ at:Date.now() }); rr.child('spawns').remove(); rr.child('gameOver').remove(); rr.child('pause').remove(); } } catch (e) {}
+  coopAttachGameListeners(); coopStartLoops();
+  startGame();
+  try { P.x = W/2-40; P.tx = W/2-40; P2.x = W/2+40; P2.tx = W/2+40; P2.y = H-200; P2.ty = H-200; P2.hp = 1234; P2.maxhp = 1234; P2.dead = false; } catch (e) {}
+}
+function coopGuestOnStart() {
+  if (!coop.enabled || coop.isHost || coop.inGame) return;
+  coop.inGame = true; coop.waitingPick = false; coop.finishedWave = 0; coop.deadSpectator = false; coopLastPause = 'play';
+  hide('coop'); hide('menu'); hide('result'); hide('pause'); hide('pick'); show('hud');
+  coopAttachGameListeners(); coopStartLoops();
+  try { resetGame(); } catch (e) {}
+  state = 'play';
+  try { setTimeout(resize, 150); } catch (e) {}
+  try { P.x = W/2+40; P.tx = W/2+40; P2.x = W/2-40; P2.tx = W/2-40; P2.y = H-200; P2.ty = H-200; P2.hp = 1234; P2.maxhp = 1234; P2.dead = false; } catch (e) {}
+  banner('末日拯救', '等待房主開始第 1 波…', '', 2000);
+}
+
+/* ---------- 遊戲中監聽 ---------- */
+function coopAttachGameListeners() {
+  const rp = coopRef('players/' + coop.other);
+  coopAddListener(rp, function(snap) {
+    const v = snap ? snap.val() : null;
+    if (!v) { if (coop.enabled && coop.inGame) coopOnPartnerLeft(); return; }
+    if (typeof v.x === 'number') { P2.tx = v.x; }
+    if (typeof v.y === 'number') { P2.ty = v.y; }
+    if (typeof v.hp === 'number') { P2.hp = v.hp; }
+    if (typeof v.maxhp === 'number') { P2.maxhp = v.maxhp; }
+    if (typeof v.dead === 'boolean') { P2.dead = v.dead; }
+    if (typeof v.pickDoneWave === 'number') {
+      coop.otherPickDoneWave = v.pickDoneWave;
+      if (coop.isHost && coop.pendingWave && coop.otherPickDoneWave === coop.finishedWave) coopStartPendingWave();
+    }
+  });
+  const rPause = coopRef('pause');
+  coopAddListener(rPause, function(snap) {
+    const v = snap ? snap.val() : null;
+    if (!v || typeof v.paused !== 'boolean') return;
+    if (v.paused && state === 'play') { coopLastPause = 'paused'; try { pauseGame(); } catch (e) {} }
+    else if (!v.paused && state === 'paused') { coopLastPause = 'play'; try { resumeGame(); } catch (e) {} }
+  });
+  if (!coop.isHost) {
+    const rWave = coopRef('wave');
+    coopAddListener(rWave, function(snap) {
+      const v = snap ? snap.val() : null;
+      if (!v || typeof v.n !== 'number') return;
+      if (v.phase === 'playing') coopGuestRemoteWave(v.n);
+      else if (v.phase === 'pick') coopGuestPickPhase(v.n, !!v.isElite);
+    });
+    const rWorld = coopRef('world/enemies');
+    coopAddListener(rWorld, function(snap) {
+      const list = snap ? snap.val() : null;
+      coopGuestApplyWorld(list);
+    });
+    const rOver = coopRef('gameOver');
+    coopAddListener(rOver, function(snap) {
+      const v = snap ? snap.val() : null;
+      if (!v || !v.at || v.at === coop.lastGameOverAt) return;
+      coop.lastGameOverAt = v.at;
+      if (v.win) {
+        if (state === 'over') return;
+        coopOrigWin();
+        banner('MISSION COMPLETE', '天空要塞已被擊落！末日拯救成功！', 'potential', 2600);
+      } else {
+        if (state !== 'over') { try { showResult(false); } catch (e) {} }
+      }
+    });
+    const rSpawns = coopRef('spawns');
+    coopAddListener(rSpawns, function(snap) {
+      const v = snap ? snap.val() : null;
+      if (!v) return;
+      const keys = Object.keys(v);
+      for (const k of keys) {
+        const s = v[k];
+        if (!s || typeof s.id !== 'number') continue;
+        if (coopSeenSpawnIds[s.id]) continue;
+        coopSeenSpawnIds[s.id] = true;
+        coopGuestApplySpawn(s);
+      }
+    });
+  } else {
+    const rDmg = coopRef('dmg/guest');
+    coopAddListener(rDmg, function(snap) {
+      const v = snap ? snap.val() : null;
+      if (!v || typeof v.seq !== 'number' || v.seq === coopLastDmgSeq) return;
+      coopLastDmgSeq = v.seq;
+      const list = v.list || [];
+      for (const it of list) {
+        if (!it || typeof it.id !== 'number') continue;
+        const e = enemies.find(function(x) { return x.id === it.id; });
+        if (e && !e.dead) { try { coopOrigHurt(e, it.dmg); } catch (err) {} }
+      }
+    });
+  }
+}
+function coopGuestApplySpawn(s) {
+  if (!coop.enabled || coop.isHost) return;
+  // already have this enemy?
+  if (enemies.some(function(x) { return x.id === s.id && !x.dead; })) {
+    coopEnemyLastSeen[s.id] = Date.now();
+    return;
+  }
+  coop.applyingRemote = true;
+  let e = null;
+  try {
+    const extra = {};
+    if (typeof s.vx === 'number') extra.vx = s.vx;
+    if (typeof s.ty === 'number') extra.ty = s.ty;
+    if (typeof s.stay === 'number') extra.stay = s.stay;
+    if (typeof s.ph === 'number') extra.ph = s.ph;
+    if (typeof s.bx === 'number') extra.bx = s.bx;
+    e = coopOrigSpawnEnemy(s.type, s.x, extra);
+  } catch (err) { e = null; }
+  coop.applyingRemote = false;
+  if (!e) return;
+  try {
+    e.id = s.id;
+    if (typeof s.hp === 'number') { e.hp = s.hp; e.maxhp = (typeof s.maxhp === 'number' ? s.maxhp : s.hp); }
+    if (typeof s.ty === 'number') e.ty = s.ty;
+    if (typeof s.vx === 'number') e.vx = s.vx;
+    if (typeof s.stay === 'number') e.stay = s.stay;
+    if (typeof s.ph === 'number') e.ph = s.ph;
+    if (typeof s.bx === 'number') e.bx = s.bx;
+    coopEnemyLastSeen[s.id] = Date.now();
+    delete coopMissing[s.id];
+  } catch (err) {}
+}
+function coopGuestRemoteWave(n) {
+  if (!coop.enabled || coop.isHost) return;
+  if (state === 'over' || state === 'menu') {
+    hide('result'); hide('menu'); hide('coop'); hide('pause'); hide('pick'); show('hud');
+    coop.inGame = true;
+    try { resetGame(); } catch (e) {}
+    state = 'play';
+    try { P.x = W/2+40; P.tx = W/2+40; P2.x = W/2-40; P2.tx = W/2-40; P2.hp = 1234; P2.maxhp = 1234; P2.dead = false; } catch (e) {}
+    coop.deadSpectator = false;
+  }
+  if (G.wave === n && state === 'play' && wave && wave.n === n) return;
+  // Clear leftover normal enemies from previous wave so guest starts clean
+  try {
+    for (let i = enemies.length - 1; i >= 0; i--) {
+      const e = enemies[i];
+      if (!e.big) { enemies.splice(i, 1); }
+    }
+    ebul.length = 0;
+  } catch (err) {}
+  coopMissing = {};
+  // keep seen ids so we don't re-apply old push keys; new spawns have new ids
+  coop.applyingRemote = true;
+  try { coopOrigStartWave(n, 0.3); } catch (e) {}
+  coop.applyingRemote = false;
+  if (n === 10) banner('⚠ WARNING', '最終 Boss「天空要塞」來襲！', 'warn', 2200);
+}
+function coopGuestPickPhase(n, isElite) {
+  if (!coop.enabled || coop.isHost) return;
+  coop.finishedWave = n; coop.waitingPick = true;
+  try { clearBullets(true); } catch (e) {}
+  // 陣亡玩家不可選技能，直接標記完成
+  if (P.dead || coop.deadSpectator) {
+    coopWritePickDone(n);
+    coop.waitingPick = false;
+    banner('你已陣亡', '無法選擇技能 · 等待隊友繼續', 'warn', 2000);
+    return;
+  }
+  try { later(isElite ? 1.5 : 1.2, function() { if (isElite) openElitePick(); else openPick(); }); } catch (e) {}
+}
+function coopGuestApplyWorld(list) {
+  if (!coop.enabled || coop.isHost) return;
+  const now = Date.now();
+  if (!list) {
+    // empty list from host: soft-clear after grace
+    for (const e of enemies) {
+      if (e.dead) continue;
+      const last = coopEnemyLastSeen[e.id] || 0;
+      if (now - last > 1500) { try { kill(e); } catch (err) {} delete coopEnemyLastSeen[e.id]; }
+    }
+    return;
+  }
+  const arr = Array.isArray(list) ? list : Object.keys(list).map(function(k) { return list[k]; });
+  const hostIds = {};
+  for (const h of arr) {
+    if (!h || typeof h.id !== 'number') continue;
+    hostIds[h.id] = true;
+    coopEnemyLastSeen[h.id] = now;
+    let e = enemies.find(function(x) { return x.id === h.id && !x.dead; });
+    if (!e) {
+      // Host has an enemy we missed from the spawn stream — create it from world data
+      if (typeof h.type === 'string' && typeof h.x === 'number') {
+        coop.applyingRemote = true;
+        try {
+          e = coopOrigSpawnEnemy(h.type, h.x, {});
+        } catch (err) { e = null; }
+        coop.applyingRemote = false;
+        if (e) {
+          e.id = h.id;
+          if (typeof h.hp === 'number') e.hp = h.hp;
+          if (typeof h.maxhp === 'number') e.maxhp = h.maxhp;
+          else if (typeof h.hp === 'number') e.maxhp = h.hp;
+          if (typeof h.y === 'number') e.y = h.y;
+          // big enemies may need invul/entering cleared if already on screen
+          if (e.big && e.y > 50) { e.entering = false; e.invul = false; }
+          coopSeenSpawnIds[h.id] = true;
+        }
+      }
+      if (!e) continue;
+    }
+    // HP: host is authoritative; take lower value, kill if <=0
+    if (typeof h.hp === 'number') {
+      if (h.hp < e.hp) e.hp = h.hp;
+      if (h.hp <= 0 && !e.dead) { try { kill(e); } catch (err) {} continue; }
+    }
+    // Position: strong lerp / snap so guest always sees enemies where host has them
+    if (typeof h.x === 'number' && typeof h.y === 'number') {
+      const dx = h.x - e.x, dy = h.y - e.y;
+      if (Math.hypot(dx, dy) > 80) { e.x = h.x; e.y = h.y; }
+      else { e.x += dx * 0.65; e.y += dy * 0.65; }
+    }
+  }
+  // Soft despawn: only kill after missing for ~1.4s
+  for (const e of enemies) {
+    if (e.dead) continue;
+    if (hostIds[e.id]) continue;
+    const last = coopEnemyLastSeen[e.id] || 0;
+    if (now - last > 1400) {
+      try { kill(e); } catch (err) {}
+      delete coopEnemyLastSeen[e.id];
+      delete coopMissing[e.id];
+    }
+  }
+}
+function coopOnPartnerLeft() {
+  if (!coop.enabled || !coop.inGame) return;
+  banner('隊友已離開', '返回主選單…', 'warn', 2000);
+  setTimeout(function() {
+    if (!coop.enabled) return;
+    coopCleanup();
+    try { toMenu(); } catch (e) {}
+  }, 2000);
+}
+
+/* ---------- 遊戲中定時同步 ---------- */
+function coopStartLoops() {
+  if (coopTimers.player) return;
+  coopTimers.player = setInterval(function() {
+    if (!coop.enabled || !coop.inGame) return;
+    if (state === 'menu' || state === 'over') return;
+    try { const r = coopRef('players/' + coop.slot); if (r) r.update({ x:Math.round(P.x), tx:Math.round(P.tx), y:Math.round(P.y), ty:Math.round(P.ty), hp:Math.max(0, Math.ceil(P.hp)), maxhp:P.maxhp, dead:!!P.dead }); } catch (e) {}
+  }, 100);
+  coopTimers.world = setInterval(function() {
+    if (!coop.enabled || !coop.inGame || !coop.isHost) return;
+    if (state !== 'play' && state !== 'dying') return;
+    try {
+      const r = coopRef('world/enemies');
+      if (r) r.set(enemies.filter(function(e) { return !e.dead; }).slice(0, 80).map(function(e) {
+        return {
+          id: e.id,
+          type: e.type,
+          hp: Math.ceil(e.hp),
+          maxhp: Math.ceil(e.maxhp),
+          x: Math.round(e.x),
+          y: Math.round(e.y)
+        };
+      }));
+    } catch (e) {}
+  }, 120);
+  coopTimers.dmg = setInterval(function() {
+    if (!coop.enabled || !coop.inGame || coop.isHost) return;
+    const keys = Object.keys(coopDmgBuf);
+    if (!keys.length) return;
+    const list = keys.map(function(k) { return { id:Number(k), dmg:coopDmgBuf[k] }; });
+    coopDmgBuf = {};
+    coopDmgSeq++;
+    try { const r = coopRef('dmg/' + coop.slot); if (r) r.set({ seq:coopDmgSeq, list:list }); } catch (e) {}
+  }, 120);
+  coopTimers.poll = setInterval(function() {
+    if (!coop.enabled || !coop.inGame) return;
+    if (state === 'menu') { coopCleanup(); return; }
+    if (state === 'paused' && coopLastPause !== 'paused') {
+      coopLastPause = 'paused';
+      try { const r = coopRef('pause'); if (r) r.set({ paused:true, at:Date.now() }); } catch (e) {}
+    } else if (state === 'play' && coopLastPause === 'paused') {
+      coopLastPause = 'play';
+      try { const r = coopRef('pause'); if (r) r.set({ paused:false, at:Date.now() }); } catch (e) {}
+    }
+    if (P.dead && P2.dead && state !== 'over' && state !== 'dying' && state !== 'dead') {
+      if (coop.isHost) { try { const r = coopRoomRef(); if (r) r.child('gameOver').set({ win:false, at:Date.now() }); } catch (e) {} }
+      try { showResult(false); } catch (e) {}
+    }
+  }, 200);
+}
+
+/* ---------- 隊友繪圖 ---------- */
+function coopDrawPartner() {
+  if (P2.dead) return;
+  P2.x += (P2.tx - P2.x) * 0.35;
+  P2.y += (P2.ty - P2.y) * 0.35;
+  P2.x = clamp(P2.x, 30, W-30); P2.y = clamp(P2.y, 150, H-70);
+  drawAlly(P2.x, P2.y, 1, '#ffe0b2', '#ff7043', gameTime + 1);
+  try {
+    ctx.fillStyle = '#ffcc80'; ctx.font = '16px "Courier New", monospace'; ctx.textAlign = 'center';
+    ctx.fillText('隊友', P2.x, P2.y - 38);
+    ctx.fillStyle = '#ffffff'; ctx.beginPath(); ctx.arc(P2.x, P2.y, 5, 0, TAU); ctx.fill();
+    ctx.strokeStyle = '#ff7043'; ctx.lineWidth = 2; ctx.stroke();
+    // Visual-only partner main-gun trails (longer travel so they don't look cut off mid-screen)
+    ctx.globalCompositeOperation = 'lighter';
+    const gunOffs = [-14, 14];
+    for (let g = 0; g < gunOffs.length; g++) {
+      for (let i = 0; i < 5; i++) {
+        const phase = (gameTime * 780 + i * 95 + g * 40) % 520;
+        const yy = P2.y - 22 - phase;
+        if (yy < -20) continue;
+        const alpha = 0.85 * (1 - phase / 520);
+        const sz = 11 + (1 - phase / 520) * 4;
+        drawGlow(P2.x + gunOffs[g], yy, sz, '#fff59d', alpha);
+        // thin core
+        ctx.globalAlpha = alpha * 0.9;
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(P2.x + gunOffs[g] - 1.4, yy - 9, 2.8, 18);
+        ctx.globalAlpha = 1;
+      }
+    }
+    // occasional side sparkles for richer look
+    if (Math.sin(gameTime * 12) > 0.7) {
+      drawGlow(P2.x + rnd(-20, 20), P2.y - 30 - rnd(0, 40), 8, '#ffcc80', 0.5);
+    }
+    ctx.globalCompositeOperation = 'source-over';
+  } catch (e) {}
+}
+
+/* =====================================================================
+   包住原本函式（以下皆為新增的包裝，原函式本體一律不動）
+   ===================================================================== */
+spawnEnemy = function(type, x, extra) {
+  if (!coop.enabled) return coopOrigSpawnEnemy(type, x, extra);
+  if (coop.applyingRemote) return coopOrigSpawnEnemy(type, x, extra);
+  if (!coop.isHost) return { id:-1, dead:true, type:type, x:x, y:-999, r:10 };
+  const e = coopOrigSpawnEnemy(type, x, extra);
+  if (e) {
+    // 末日拯救：敵機血量 = 單人 × 7
+    e.hp *= COOP_SCALE;
+    e.maxhp *= COOP_SCALE;
+    try {
+      const r = coopRef('spawns');
+      if (r) r.child(String(e.id)).set({
+        id: e.id, type: type, x: e.x,
+        hp: Math.ceil(e.hp), maxhp: Math.ceil(e.maxhp),
+        ty: e.ty, vx: e.vx, stay: e.stay, ph: e.ph, bx: e.bx
+      });
+    } catch (err) {}
+  }
+  return e;
+};
+buildWave = function(n) {
+  if (coop.enabled && n === 10) return [{ t:1.5, type:'boss', x:W/2 }];
+  const ev = coopOrigBuildWave(n);
+  if (!coop.enabled) return ev;
+  const extraEv = [];
+  for (const v of ev) {
+    if (v.type === 'elite1' || v.type === 'elite2' || v.type === 'boss') continue;
+    if (Math.random() < 0.5) extraEv.push({ t:v.t + 0.7, type:v.type, x:clamp(v.x + (Math.random() < 0.5 ? -50 : 50), 30, W-30), extra: v.extra ? Object.assign({}, v.extra) : undefined });
+  }
+  const all = ev.concat(extraEv);
+  all.sort(function(a, b) { return a.t - b.t; });
+  return all;
+};
+startWave = function(n, delay) {
+  if (!coop.enabled) return coopOrigStartWave(n, delay);
+  if (coop.applyingRemote) return coopOrigStartWave(n, delay);
+  if (!coop.isHost) {
+    if (coop.waitingPick) {
+      coop.waitingPick = false;
+      coopWritePickDone(coop.finishedWave);
+      banner('等待隊友', '隊友仍在選擇技能…', '', 2000);
+    }
+    return;
+  }
+  if (coop.waitingPick) {
+    coop.waitingPick = false;
+    coopWritePickDone(coop.finishedWave);
+    // 隊友已陣亡則不需等待其選技能
+    if (coop.otherPickDoneWave !== coop.finishedWave && !P2.dead) {
+      coop.pendingWave = { n:n, delay:delay };
+      banner('等待隊友', '隊友仍在選擇技能…', '', 2000);
+      return;
+    }
+  }
+  coop.pendingWave = null;
+  try {
+    const rs = coopRef('spawns'); if (rs) rs.remove();
+    const rw = coopRef('world/enemies'); if (rw) rw.set([]);
+  } catch (e) {}
+  const r = coopOrigStartWave(n, delay);
+  if (n === 10) banner('⚠ WARNING', '最終 Boss「天空要塞」來襲！', 'warn', 2200);
+  coopBroadcastWave(n, 'playing', false);
+  return r;
+};
+waveUpdate = function(dt) {
+  if (!coop.enabled) return coopOrigWaveUpdate(dt);
+  if (!coop.isHost) return;
+  return coopOrigWaveUpdate(dt);
+};
+finishWave = function() {
+  if (!coop.enabled) return coopOrigFinishWave();
+  if (!coop.isHost) return;
+  if (wave.n >= COOP_MAX_WAVE) {
+    coopOrigWin();
+    banner('MISSION COMPLETE', '天空要塞已被擊落！末日拯救成功！', 'potential', 2600);
+    try { const r = coopRoomRef(); if (r) r.child('gameOver').set({ win:true, at:Date.now() }); } catch (e) {}
+    return;
+  }
+  coop.finishedWave = wave.n;
+  coop.waitingPick = true;
+  // 若房主已陣亡，預先準備下一波，等隊友選完（或隊友也陣亡）再開始
+  if (P.dead || coop.deadSpectator) {
+    coopWritePickDone(wave.n);
+    const nextN = wave.n + 1;
+    const delay = 0.4;
+    if (P2.dead) {
+      // 雙方都陣亡不應到這裡（會進結算），保險起見直接開下一波
+      coop.pendingWave = null;
+      later(0.5, function() { coopOrigStartWave(nextN, delay); coopBroadcastWave(nextN, 'playing', false); });
+    } else {
+      coop.pendingWave = { n: nextN, delay: delay };
+      // 若隊友已標記完成則立刻開始
+      if (coop.otherPickDoneWave === wave.n) {
+        later(0.3, function() { coopStartPendingWave(); });
+      }
+    }
+    const isElite = (wave.n === 5);
+    coopBroadcastWave(wave.n, 'pick', isElite);
+    return;
+  }
+  const r = coopOrigFinishWave();
+  const isElite = (wave.n === 5);
+  coopBroadcastWave(wave.n, 'pick', isElite);
+  return r;
+};
+win = function() {
+  if (!coop.enabled) return coopOrigWin();
+  if (!coop.isHost) return;
+  coopOrigWin();
+  banner('MISSION COMPLETE', '天空要塞已被擊落！末日拯救成功！', 'potential', 2600);
+  try { const r = coopRoomRef(); if (r) r.child('gameOver').set({ win:true, at:Date.now() }); } catch (e) {}
+};
+showResult = function(isWin) {
+  const r = coopOrigShowResult(isWin);
+  try {
+    const hint = $('coopResultHint');
+    if (coop.enabled) {
+      $('resWave').textContent = G.wave + ' / ' + COOP_MAX_WAVE;
+      const rb = $('btnRetry'); if (rb) rb.style.display = coop.isHost ? '' : 'none';
+      if (hint) { hint.classList.remove('hidden'); hint.textContent = coop.isHost ? '你是房主，可按「重新開始」與隊友再戰一局。' : '等待房主按「重新開始」…'; }
+    } else if (hint) hint.classList.add('hidden');
+  } catch (e) {}
+  return r;
+};
+updateHUD = function(force) {
+  const r = coopOrigUpdateHUD(force);
+  try {
+    if (coop.enabled && coop.inGame) {
+      $('waveTxt').textContent = 'WAVE ' + G.wave + '/' + COOP_MAX_WAVE;
+      const cp = $('coopPartner');
+      if (cp) {
+        cp.classList.remove('hidden');
+        const f = $('coopP2Fill'); if (f) f.style.width = Math.max(0, Math.min(100, P2.hp / P2.maxhp * 100)) + '%';
+        const tx = $('coopP2Txt'); if (tx) tx.textContent = '隊友 HP ' + Math.max(0, Math.ceil(P2.hp)) + '/' + P2.maxhp + (P2.dead ? ' · 已陣亡' : '');
+      }
+      const rp = $('coopRoomPill'); if (rp) { rp.classList.remove('hidden'); rp.textContent = '房間 ' + coop.code; }
+    } else {
+      const cp = $('coopPartner'); if (cp) cp.classList.add('hidden');
+      const rp = $('coopRoomPill'); if (rp) rp.classList.add('hidden');
+    }
+  } catch (e) {}
+  return r;
+};
+hurt = function(e, dmg) {
+  if (!coop.enabled) return coopOrigHurt(e, dmg);
+  const ok = coopOrigHurt(e, dmg);
+  if (ok && !coop.isHost && coop.inGame) coopDmgBuf[e.id] = (coopDmgBuf[e.id] || 0) + dmg;
+  return ok;
+};
+// 末日拯救：敵彈與衝撞傷害 = 單人 × 7
+eShot = function(x, y, a, sp, r, col, dmg) {
+  if (coop.enabled) {
+    dmg = (dmg == null ? 10 : dmg) * COOP_SCALE;
+  }
+  return coopOrigEShot(x, y, a, sp, r, col, dmg);
+};
+const coopOrigHitPlayer = hitPlayer;
+hitPlayer = function(dmg) {
+  if (coop.enabled && coop.inGame) dmg = dmg * COOP_SCALE;
+  return coopOrigHitPlayer(dmg);
+};
+drawPlayerSide = function() {
+  coopOrigDrawPlayerSide();
+  if (coop.enabled && coop.inGame) coopDrawPartner();
+};
+playerDie = function() {
+  if (!coop.enabled) return coopOrigPlayerDie();
+  const r = coopOrigPlayerDie();
+  if (P2.dead) return r;
+  coop.deadSpectator = true;
+  state = 'play';
+  P.dyT = 0;
+  // 若正在選技能，強制關閉並標記完成
+  try {
+    if (typeof pickState !== 'undefined' && pickState) {
+      hide('pick');
+      if (coop.finishedWave >= 0) coopWritePickDone(coop.finishedWave);
+    }
+  } catch (e) {}
+  banner('你已陣亡', '隊友仍在戰鬥 · 無法再選擇技能', 'warn', 2600);
+  return r;
+};
+
+/* ---------- 末日拯救按鈕 ---------- */
+try {
+  $('btnCoop').addEventListener('click', coopOpenLobby);
+  $('coopCreateBtn').addEventListener('click', coopCreateRoom);
+  $('coopJoinBtn').addEventListener('click', coopJoinRoom);
+  $('coopStartBtn').addEventListener('click', coopHostStart);
+  $('coopBackBtn').addEventListener('click', coopLeaveLobby);
+  $('coopLeaveBtn').addEventListener('click', coopLeaveLobby);
+  $('coopCodeInput').addEventListener('keydown', function(e) { if (e.key === 'Enter') coopJoinRoom(); });
+} catch (e) {}
+
+</script>
+</body>
+</html>
