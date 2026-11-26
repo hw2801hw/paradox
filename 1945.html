@@ -146,6 +146,16 @@ button{font-family:inherit;font-weight:800;color:inherit;border:none;cursor:poin
 .coop-p2bar{height:14px;border:2px solid #ffcc80;border-radius:6px;background:rgba(0,0,0,.6);overflow:hidden}
 #coopP2Fill{height:100%;width:100%;background:linear-gradient(90deg,#ffcc80,#ff6f00);transition:width .15s}
 #coopResultHint{font-size:16px;color:#ffcc80;text-align:center;padding:6px 0 2px}
+.coop-dmg-box{margin:10px 4px 4px;padding:10px 10px 8px;border:2px solid rgba(255,204,128,.45);border-radius:10px;background:rgba(0,0,0,.35)}
+.coop-dmg-title{font-size:16px;color:#ffe082;text-align:center;letter-spacing:2px;margin-bottom:8px}
+.coop-dmg-bar{display:flex;height:26px;border:2px solid #cfd8dc;border-radius:7px;overflow:hidden;background:rgba(0,0,0,.6)}
+.coop-dmg-me-fill{background:linear-gradient(90deg,#29b6f6,#4fc3f7);transition:width .3s}
+.coop-dmg-partner-fill{background:linear-gradient(90deg,#ff7043,#ffcc80);transition:width .3s}
+.coop-dmg-labels{display:flex;align-items:center;justify-content:space-between;gap:6px;margin-top:8px;font-size:16px;line-height:1.4}
+.coop-dmg-me{color:#81d4fa;text-align:left;flex:1}
+.coop-dmg-partner{color:#ffcc80;text-align:right;flex:1}
+.coop-dmg-sep{color:#fff;opacity:.6;padding:0 2px}
+.coop-dmg-total{font-size:16px;color:#b3e5fc;text-align:center;margin-top:4px}
 </style>
 </head>
 <body>
@@ -245,6 +255,12 @@ button{font-family:inherit;font-weight:800;color:inherit;border:none;cursor:poin
       <div class="restitle" id="resTitle">結算</div>
       <div class="scroll" style="flex:0 1 auto">
         <div class="stat"><span>抵達波次</span><b id="resWave">0</b></div>
+        <div id="coopDmgBox" class="coop-dmg-box hidden">
+          <div class="coop-dmg-title">⚔️ 傷害佔比</div>
+          <div class="coop-dmg-bar"><div id="coopDmgMeFill" class="coop-dmg-me-fill" style="width:50%"></div><div id="coopDmgPartnerFill" class="coop-dmg-partner-fill" style="width:50%"></div></div>
+          <div class="coop-dmg-labels"><span id="coopDmgMe" class="coop-dmg-me">我方 0 · 0%</span><span class="coop-dmg-sep">|</span><span id="coopDmgPartner" class="coop-dmg-partner">0% · 隊友 0</span></div>
+          <div id="coopDmgTotal" class="coop-dmg-total"></div>
+        </div>
         <div class="resskills" id="resSkills"></div>
         <div id="coopResultHint" class="hidden"></div>
       </div>
@@ -1669,7 +1685,8 @@ requestAnimationFrame(frame);
        meta / wave{n,phase} / start{at} / pause{paused} / gameOver{win}
        players/host|guest {x,tx,y,ty,hp,maxhp,dead,pickDoneWave,joined}
        spawns/{pushId} {id,type,x,hp,maxhp,ty,vx,stay,ph,bx}（房主→隊友）
-       dmg/guest {seq,list:[{id,dmg}]}（隊友→房主，彙整傷害）
+       dmg/guest/{pushId} {seq,list:[{id,dmg}]}（隊友→房主，彙整傷害，每包 push 不覆蓋，不丟包）
+       totals {host,guest,final,at}（房主→隊友，唯一權威傷害總計，累積值，丟一包也能靠下一包補回）
        world/enemies [{id,type,hp,maxhp,x,y}]（房主→隊友，權威來源：出現、血量、位置）
    同步範圍：波次、敵機生成、敵機血量、隊友位置/血量/存活、
              選技能等待、勝負、暫停。
@@ -1700,11 +1717,19 @@ const COOP_MAX_WAVE = 10;
 const COOP_SCALE = 7; // 末日拯救：敵機 HP 與攻擊力 = 單人的 7 倍
 const coop = { enabled:false, isHost:false, slot:'', other:'', code:'', inGame:false, waitingPick:false, finishedWave:0, pendingWave:null, applyingRemote:false, deadSpectator:false, guestJoined:false, myPickDoneWave:-1, otherPickDoneWave:-1, lastGameOverAt:0 };
 const P2 = { x:270, y:760, tx:270, ty:760, hp:1234, maxhp:1234, dead:true };
-let coopTimers = { player:null, world:null, dmg:null, poll:null };
+let coopTimers = { player:null, world:null, dmg:null, poll:null, totals:null, final:null };
 let coopListeners = [];
 let coopDmgBuf = {};
 let coopDmgSeq = 0;
 let coopLastDmgSeq = -1;
+let coopDmgMe = 0;
+let coopDmgPartner = 0;
+let coopAuthHost = 0;
+let coopAuthGuest = 0;
+let coopAuthReceived = false;
+let coopAuthFinal = false;
+let coopAuthAt = 0;
+let coopSeenDmgPush = {};
 let coopMissing = {};
 let coopLastPause = 'play';
 let coopSeenSpawnIds = {};
@@ -1722,6 +1747,7 @@ const coopOrigUpdateHUD = updateHUD;
 const coopOrigHurt = hurt;
 const coopOrigDrawPlayerSide = drawPlayerSide;
 const coopOrigPlayerDie = playerDie;
+const coopOrigResetGame = resetGame;
 const coopOrigEShot = eShot;
 
 /* ---------- 小工具 ---------- */
@@ -1734,6 +1760,101 @@ function coopBroadcastWave(n, phase, isElite) { try { const r = coopRoomRef(); i
 function coopWritePickDone(finishedWave) {
   coop.myPickDoneWave = finishedWave;
   try { const r = coopRef('players/' + coop.slot); if (r) r.update({ pickDoneWave: finishedWave }); } catch (e) {}
+}
+/* ---------- 末日拯救 · 傷害統計（雙方佔比） ----------
+   之前不一致的根本原因有三個，全部在這裡修掉：
+   1) 各算各的：隊友用自己本機的敵人血量算有效傷害，房主收到後又用權威血量再扣一次溢出，
+      所以房主看到的隊友傷害 < 隊友自己看到的傷害。改成只有房主算，隊友不算最終數。
+   2) dmg 用 .set() 整包覆蓋：120ms 內連續兩次 flush，後一次會蓋掉前一次，
+      對方 value 監聽只看到最新一包，中間那包永久遺失。
+      改成每包 push() 獨立 key，房主逐包處理、處理完才刪除，絕不覆蓋。
+   3) 結算時各自快照：兩邊 showResult 時間不同（房主 poll、隊友等 gameOver），
+      各自用當下本機數字渲染，之後只補刷 0.8 / 1.6 秒，晚到的最後一包傷害就永遠對不上。
+      改成房主廣播唯一權威累積總計 totals，兩邊結算都顯示同一份 totals，
+      結算後仍持續同步，直到 final 旗標到達；晚到的傷害會再廣播一次 final 修正。
+   ------------------------------------------------------------------ */
+function coopResetDmg() {
+  coopDmgMe = 0; coopDmgPartner = 0; coopDmgBuf = {}; coopDmgSeq = 0; coopLastDmgSeq = -1;
+  coopAuthHost = 0; coopAuthGuest = 0; coopAuthReceived = false; coopAuthFinal = false; coopAuthAt = 0;
+  coopSeenDmgPush = {};
+  try { if (coopTimers.final) { clearTimeout(coopTimers.final); coopTimers.final = null; } } catch (e) {}
+}
+function coopFlushDmg() {
+  if (!coop.enabled || !coop.inGame) return;
+  if (coop.isHost) return;
+  const keys = Object.keys(coopDmgBuf);
+  if (!keys.length) return;
+  const list = keys.map(function(k) { return { id:Number(k), dmg:coopDmgBuf[k] }; });
+  coopDmgBuf = {};
+  coopDmgSeq++;
+  try { const r = coopRef('dmg/guest'); if (r) r.push().set({ seq:coopDmgSeq, list:list, at:Date.now() }); } catch (e) {}
+}
+function coopBroadcastTotals(isFinal) {
+  if (!coop.enabled || !coop.isHost) return;
+  coopAuthHost = Math.round(coopDmgMe);
+  coopAuthGuest = Math.round(coopDmgPartner);
+  coopAuthReceived = true; coopAuthAt = Date.now();
+  if (isFinal) coopAuthFinal = true;
+  try { const r = coopRef('totals'); if (r) r.set({ host:coopAuthHost, guest:coopAuthGuest, final:!!coopAuthFinal, at:coopAuthAt }); } catch (e) {}
+}
+function coopApplyAuthTotals(v) {
+  if (!v || typeof v.host !== 'number' || typeof v.guest !== 'number') return;
+  coopAuthHost = v.host; coopAuthGuest = v.guest; coopAuthReceived = true; coopAuthAt = Date.now(); coopAuthFinal = !!v.final;
+  try { if (coop.enabled && state === 'over') coopRenderDmg(); } catch (e) {}
+}
+function coopFinalizeTotals() {
+  if (!coop.enabled || !coop.isHost) return;
+  if (coopAuthFinal) return;
+  if (coopTimers.final) return;
+  coopTimers.final = setTimeout(function() {
+    coopTimers.final = null;
+    try { coopBroadcastTotals(true); } catch (e) {}
+    try { coopRenderDmg(); } catch (e) {}
+  }, 1200);
+}
+function coopProcessGuestDmgPush(pushKey, packet) {
+  if (!packet || coopSeenDmgPush[pushKey]) return;
+  coopSeenDmgPush[pushKey] = true;
+  const list = packet.list || [];
+  for (const it of list) {
+    if (!it || typeof it.id !== 'number' || typeof it.dmg !== 'number') continue;
+    const e = enemies.find(function(x) { return x.id === it.id; });
+    if (e && !e.dead) {
+      const hpBefore = e.hp;
+      try { coopOrigHurt(e, it.dmg); } catch (err) {}
+      coopDmgPartner += Math.max(0, Math.min(it.dmg, Math.max(0, hpBefore)));
+    }
+  }
+  try { const r = coopRef('dmg/guest/' + pushKey); if (r) r.remove(); } catch (e) {}
+  if (coopAuthFinal) { try { coopBroadcastTotals(true); } catch (e) {} }
+  else { try { coopBroadcastTotals(false); } catch (e) {} }
+  try { if (coop.enabled && state === 'over') coopRenderDmg(); } catch (e) {}
+}
+function coopRenderDmg() {
+  try {
+    const box = $('coopDmgBox'); if (!box) return;
+    if (!coop.enabled) { box.classList.add('hidden'); return; }
+    box.classList.remove('hidden');
+    let my, partner, isFinal;
+    if (coop.isHost) {
+      my = coopDmgMe; partner = coopDmgPartner; isFinal = coopAuthFinal;
+    } else {
+      if (coopAuthReceived) {
+        my = coopAuthGuest; partner = coopAuthHost; isFinal = coopAuthFinal;
+        if (!isFinal && coopAuthAt && Date.now() - coopAuthAt > 3000) isFinal = true;
+      } else {
+        my = coopDmgMe; partner = coopDmgPartner; isFinal = false;
+      }
+    }
+    const total = my + partner;
+    const pctMe = total > 0 ? Math.round(my / total * 100) : 0;
+    const pctPartner = total > 0 ? 100 - pctMe : 0;
+    const meEl = $('coopDmgMe'); if (meEl) meEl.textContent = '我方 ' + Math.round(my).toLocaleString() + ' · ' + pctMe + '%' + (total > 0 && my > partner ? ' 👑' : '');
+    const ptEl = $('coopDmgPartner'); if (ptEl) ptEl.textContent = pctPartner + '% · 隊友 ' + Math.round(partner).toLocaleString() + (total > 0 && partner > my ? ' 👑' : '');
+    const fMe = $('coopDmgMeFill'); if (fMe) fMe.style.width = (total > 0 ? pctMe : 50) + '%';
+    const fPt = $('coopDmgPartnerFill'); if (fPt) fPt.style.width = (total > 0 ? pctPartner : 50) + '%';
+    const totEl = $('coopDmgTotal'); if (totEl) totEl.textContent = (total > 0 ? '總傷害 ' + Math.round(total).toLocaleString() : '本局尚無傷害') + (isFinal ? '' : ' · 同步中…');
+  } catch (e) {}
 }
 function coopStartPendingWave() {
   if (!coop.pendingWave) return;
@@ -1799,7 +1920,7 @@ function coopCleanup() {
   coop.enabled = false; coop.inGame = false; coop.waitingPick = false; coop.pendingWave = null;
   coop.applyingRemote = false; coop.deadSpectator = false; coop.finishedWave = 0;
   coop.guestJoined = false; coop.myPickDoneWave = -1; coop.otherPickDoneWave = -1; coop.lastGameOverAt = 0;
-  P2.dead = true; P2.hp = 0; coopDmgBuf = {}; coopMissing = {}; coopLastPause = 'play';
+  P2.dead = true; P2.hp = 0; coopDmgBuf = {}; coopMissing = {}; coopLastPause = 'play'; coopResetDmg();
   coopSeenSpawnIds = {}; coopEnemyLastSeen = {};
 }
 async function coopCreateRoom() {
@@ -1866,7 +1987,7 @@ function coopHostStart() {
   try { audioInit(); reqFS(); } catch (e) {}
   coop.inGame = true; coop.waitingPick = false; coop.finishedWave = 0; coop.deadSpectator = false; coopLastPause = 'play';
   hide('coop'); hide('menu'); hide('result'); hide('pause'); hide('pick'); show('hud');
-  try { const rr = coopRoomRef(); if (rr) { rr.child('start').set({ at:Date.now() }); rr.child('spawns').remove(); rr.child('gameOver').remove(); rr.child('pause').remove(); } } catch (e) {}
+  try { const rr = coopRoomRef(); if (rr) { rr.child('start').set({ at:Date.now() }); rr.child('spawns').remove(); rr.child('gameOver').remove(); rr.child('pause').remove(); rr.child('totals').remove(); rr.child('dmg').remove(); } } catch (e) {}
   coopAttachGameListeners(); coopStartLoops();
   startGame();
   try { P.x = W/2-40; P.tx = W/2-40; P2.x = W/2+40; P2.tx = W/2+40; P2.y = H-200; P2.ty = H-200; P2.hp = 1234; P2.maxhp = 1234; P2.dead = false; } catch (e) {}
@@ -1946,17 +2067,27 @@ function coopAttachGameListeners() {
       }
     });
   } else {
+    // 房主：逐包處理隊友傷害（push key 絕不覆蓋），扣權威血量 + 只在房主這裡算隊友傷害
     const rDmg = coopRef('dmg/guest');
     coopAddListener(rDmg, function(snap) {
       const v = snap ? snap.val() : null;
-      if (!v || typeof v.seq !== 'number' || v.seq === coopLastDmgSeq) return;
-      coopLastDmgSeq = v.seq;
-      const list = v.list || [];
-      for (const it of list) {
-        if (!it || typeof it.id !== 'number') continue;
-        const e = enemies.find(function(x) { return x.id === it.id; });
-        if (e && !e.dead) { try { coopOrigHurt(e, it.dmg); } catch (err) {} }
+      if (!v) return;
+      if (typeof v.seq === 'number' && Array.isArray(v.list)) {
+        if (v.seq === coopLastDmgSeq) return;
+        coopLastDmgSeq = v.seq;
+        coopProcessGuestDmgPush('legacy_' + v.seq, v);
+        return;
       }
+      const keys = Object.keys(v);
+      for (const k of keys) coopProcessGuestDmgPush(k, v[k]);
+    });
+  }
+  if (!coop.isHost) {
+    // 隊友：只看房主廣播的唯一權威 totals，不再自己算最終數
+    const rTotals = coopRef('totals');
+    coopAddListener(rTotals, function(snap) {
+      const v = snap ? snap.val() : null;
+      coopApplyAuthTotals(v);
     });
   }
 }
@@ -2131,14 +2262,15 @@ function coopStartLoops() {
     } catch (e) {}
   }, 120);
   coopTimers.dmg = setInterval(function() {
-    if (!coop.enabled || !coop.inGame || coop.isHost) return;
-    const keys = Object.keys(coopDmgBuf);
-    if (!keys.length) return;
-    const list = keys.map(function(k) { return { id:Number(k), dmg:coopDmgBuf[k] }; });
-    coopDmgBuf = {};
-    coopDmgSeq++;
-    try { const r = coopRef('dmg/' + coop.slot); if (r) r.set({ seq:coopDmgSeq, list:list }); } catch (e) {}
+    if (!coop.enabled || !coop.inGame) return;
+    coopFlushDmg();
   }, 120);
+  coopTimers.totals = setInterval(function() {
+    if (!coop.enabled || !coop.inGame || !coop.isHost) return;
+    if (state === 'menu') return;
+    if (coopAuthFinal) return;
+    coopBroadcastTotals(false);
+  }, 300);
   coopTimers.poll = setInterval(function() {
     if (!coop.enabled || !coop.inGame) return;
     if (state === 'menu') { coopCleanup(); return; }
@@ -2310,6 +2442,7 @@ win = function() {
   try { const r = coopRoomRef(); if (r) r.child('gameOver').set({ win:true, at:Date.now() }); } catch (e) {}
 };
 showResult = function(isWin) {
+  try { coopFlushDmg(); } catch (e) {}
   const r = coopOrigShowResult(isWin);
   try {
     const hint = $('coopResultHint');
@@ -2317,8 +2450,23 @@ showResult = function(isWin) {
       $('resWave').textContent = G.wave + ' / ' + COOP_MAX_WAVE;
       const rb = $('btnRetry'); if (rb) rb.style.display = coop.isHost ? '' : 'none';
       if (hint) { hint.classList.remove('hidden'); hint.textContent = coop.isHost ? '你是房主，可按「重新開始」與隊友再戰一局。' : '等待房主按「重新開始」…'; }
-    } else if (hint) hint.classList.add('hidden');
+      if (coop.isHost) {
+        coopFinalizeTotals();
+        coopRenderDmg();
+      } else {
+        coopRenderDmg();
+        setTimeout(function() { try { if (coop.enabled && state === 'over') coopRenderDmg(); } catch (e) {} }, 3000);
+      }
+    } else {
+      const box = $('coopDmgBox'); if (box) box.classList.add('hidden');
+      if (hint) hint.classList.add('hidden');
+    }
   } catch (e) {}
+  return r;
+};
+resetGame = function() {
+  const r = coopOrigResetGame();
+  try { if (coop.enabled) coopResetDmg(); } catch (e) {}
   return r;
 };
 updateHUD = function(force) {
@@ -2342,8 +2490,21 @@ updateHUD = function(force) {
 };
 hurt = function(e, dmg) {
   if (!coop.enabled) return coopOrigHurt(e, dmg);
+  if (!e || typeof dmg !== 'number') return coopOrigHurt(e, dmg);
+  const hpBefore = e.hp;
   const ok = coopOrigHurt(e, dmg);
-  if (ok && !coop.isHost && coop.inGame) coopDmgBuf[e.id] = (coopDmgBuf[e.id] || 0) + dmg;
+  if (ok && coop.inGame) {
+    // 只計有效傷害：超過剩餘血量的溢出不算，避免尾刀刷高佔比
+    const eff = Math.max(0, Math.min(dmg, Math.max(0, hpBefore)));
+    if (eff > 0) {
+      if (coop.isHost) {
+        coopDmgMe += eff;
+      } else {
+        coopDmgMe += eff;
+        coopDmgBuf[e.id] = (coopDmgBuf[e.id] || 0) + eff;
+      }
+    }
+  }
   return ok;
 };
 // 末日拯救：敵彈與衝撞傷害 = 單人 × 7
